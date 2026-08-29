@@ -1,0 +1,20 @@
+node_modules
+dist
+.env
+.vscode
+
+# Next.js build output
+.next
+.vercel
+
+# Vite build output
+dist
+
+# Environment
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*

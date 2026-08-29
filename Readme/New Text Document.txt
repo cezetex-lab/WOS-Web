@@ -1,0 +1,4 @@
+Langkah 3 — Buka https://insightwos.vercel.app → Login:
+
+Pekerja: NRP = NRP001, Password = Password123
+Admin: Password = Admin123
