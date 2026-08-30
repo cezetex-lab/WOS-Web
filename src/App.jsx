@@ -25,6 +25,11 @@ import PerformanceTrend from './pages/worker/PerformanceTrend';
 import CompensationIntel from './pages/worker/CompensationIntel';
 import ContinuousPerf from './pages/worker/ContinuousPerf';
 import TrainingForm from './pages/worker/TrainingForm';
+// Wave 4 — Self-Service & Approval
+import MultiStepRequest from './worker/MultiStepRequest';
+import TaskBoard from './worker/TaskBoard';
+import ShiftSchedule from './admin/ShiftSchedule';
+import ApprovalCenter from './admin/ApprovalCenter';
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -64,6 +69,8 @@ function AppContent() {
         <Route path="/worker/compensation" element={withNav(CompensationIntel)} />
         <Route path="/worker/continuous-perf" element={withNav(ContinuousPerf)} />
         <Route path="/worker/training" element={withNav(TrainingForm)} />
+        <Route path="/worker/request" element={withNav(MultiStepRequest)} />
+        <Route path="/worker/task-board" element={withNav(TaskBoard)} />
 
         {/* ADMIN — KELOLA DATA */}
         <Route path="/admin" element={withNav(Admin)} />
@@ -80,7 +87,8 @@ function AppContent() {
         <Route path="/admin/overtime" element={adminPage('overtime')} />
         <Route path="/admin/payroll" element={withNav(Payroll)} />
         <Route path="/admin/timesheet" element={adminPage('timesheet')} />
-        <Route path="/admin/shift-swap" element={adminPage('shift-swap')} />
+        <Route path="/admin/shift-swap" element={withNav(ShiftSchedule)} />
+        <Route path="/admin/approvals" element={withNav(ApprovalCenter)} />
 
         {/* ADMIN — TALENT & PERFORMANCE */}
         <Route path="/admin/kpi" element={withNav(Kpi)} />
