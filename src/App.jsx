@@ -40,6 +40,9 @@ import PerformanceNotes from './pages/worker/PerformanceNotes';
 import IncentiveCalc from './pages/admin/IncentiveCalc';
 // Wave 8 — Integrations
 import Integrations from './pages/admin/Integrations';
+// Wave 9 — AI & Analytics
+import WorkforceSimulation from './pages/admin/WorkforceSimulation';
+import TurnoverPrediction from './pages/admin/TurnoverPrediction';
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -130,6 +133,8 @@ function AppContent() {
         <Route path="/admin/settings" element={withNav(Settings)} />
         <Route path="/admin/analytics" element={withNav(Analytics)} />
         <Route path="/admin/integrations" element={withNav(Integrations)} />
+        <Route path="/admin/simulation" element={withNav(WorkforceSimulation)} />
+        <Route path="/admin/turnover" element={withNav(TurnoverPrediction)} />
         <Route path="/admin/chain" element={adminPage('chain')} />
 
         {/* ADMIN — PERENCANAAN */}
