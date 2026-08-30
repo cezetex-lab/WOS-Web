@@ -164,7 +164,7 @@ RETURNS JSONB AS $$
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ──────────────────────────────────────────────────────────
--- 8. get_anomaly_sentinel — FIX column names (hr_ai_tasks schema)
+-- 8. get_anomaly_sentinel — FIX column names (hr_ai_tasks has NO nrp column)
 -- ──────────────────────────────────────────────────────────
 DROP FUNCTION IF EXISTS get_anomaly_sentinel() CASCADE;
 CREATE OR REPLACE FUNCTION get_anomaly_sentinel()
@@ -172,11 +172,12 @@ RETURNS JSONB AS $$
   SELECT COALESCE(jsonb_build_object('ok', true, 'data', jsonb_agg(sub.*)), jsonb_build_object('ok', true, 'data', '[]'::jsonb))
   FROM (
     SELECT
-      a.nrp,
-      COALESCE((SELECT nama FROM employees_master WHERE nrp = a.nrp), 'System') AS nama,
+      a.id,
+      COALESCE(a.agent_name, 'System') AS agent_name,
       a.task_type AS type,
       COALESCE(a.title, a.details_json, 'No detail') AS detail,
       a.priority AS severity,
+      a.status,
       a.created_at
     FROM hr_ai_tasks a
     WHERE a.status = 'PENDING'
