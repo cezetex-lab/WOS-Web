@@ -218,34 +218,12 @@ ON CONFLICT DO NOTHING;
 
 -- 15. SHIFT SWAPS — 5 (using real NRPs from same BU)
 INSERT INTO hr_shift_swaps (requester_nrp, target_nrp, request_date, target_date, status)
-SELECT
-  r.nrp,
-  t.nrp,
-  CURRENT_DATE + 1,
-  CURRENT_DATE + 3,
-  'approved'
-FROM (SELECT nrp FROM employees_master WHERE business_unit='MINING' LIMIT 1) r,
-     (SELECT nrp FROM employees_master WHERE business_unit='MINING' AND nrp != r.nrp LIMIT 1) t
-UNION ALL
-SELECT
-  r2.nrp, t2.nrp, CURRENT_DATE + 2, CURRENT_DATE + 4, 'pending'
-FROM (SELECT nrp FROM employees_master WHERE business_unit='ESTATE' LIMIT 1) r2,
-     (SELECT nrp FROM employees_master WHERE business_unit='ESTATE' AND nrp != r2.nrp LIMIT 1) t2
-UNION ALL
-SELECT
-  r3.nrp, t3.nrp, CURRENT_DATE + 5, CURRENT_DATE + 7, 'pending'
-FROM (SELECT nrp FROM employees_master WHERE business_unit='MILL' LIMIT 1) r3,
-     (SELECT nrp FROM employees_master WHERE business_unit='MILL' AND nrp != r3.nrp LIMIT 1) t3
-UNION ALL
-SELECT
-  r4.nrp, t4.nrp, CURRENT_DATE + 3, CURRENT_DATE + 6, 'rejected'
-FROM (SELECT nrp FROM employees_master WHERE business_unit='HQ' LIMIT 1) r4,
-     (SELECT nrp FROM employees_master WHERE business_unit='HQ' AND nrp != r4.nrp LIMIT 1) t4
-UNION ALL
-SELECT
-  r5.nrp, t5.nrp, CURRENT_DATE + 8, CURRENT_DATE + 10, 'approved'
-FROM (SELECT nrp FROM employees_master WHERE business_unit='MINING' OFFSET 5 LIMIT 1) r5,
-     (SELECT nrp FROM employees_master WHERE business_unit='MINING' AND nrp != r5.nrp OFFSET 10 LIMIT 1) t5
+VALUES
+  ('MNG0001', 'MNG0002', CURRENT_DATE + 1, CURRENT_DATE + 3, 'approved'),
+  ('EST0001', 'EST0002', CURRENT_DATE + 2, CURRENT_DATE + 4, 'pending'),
+  ('MLL0001', 'MLL0002', CURRENT_DATE + 5, CURRENT_DATE + 7, 'pending'),
+  ('HQ0001', 'HQ0002', CURRENT_DATE + 3, CURRENT_DATE + 6, 'rejected'),
+  ('MNG0006', 'MNG0007', CURRENT_DATE + 8, CURRENT_DATE + 10, 'approved')
 ON CONFLICT DO NOTHING;
 
 -- 16. CERTIFICATIONS — 200
