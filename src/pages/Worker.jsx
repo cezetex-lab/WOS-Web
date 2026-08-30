@@ -67,6 +67,8 @@ export default function Worker() {
         <QuickTile icon="📚" label="Learning" color="blue" onClick={() => navigate('/worker/learning')} />
         <QuickTile icon="🚀" label="Karir" color="purple" onClick={() => navigate('/worker/career')} />
         <QuickTile icon="✅" label="Tasks" color="slate" onClick={() => navigate('/worker/tasks')} />
+        <QuickTile icon="📈" label="Trend" color="green" onClick={() => navigate('/worker/perf-trend')} />
+        <QuickTile icon="💰" label="Kompetensi" color="purple" onClick={() => navigate('/worker/compensation')} />
       </div>
 
       {/* 3. INSIGHT (NARRATIVE ENGINE) - CORE DARI HARI INI */}

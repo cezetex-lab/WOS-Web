@@ -13,7 +13,15 @@ import Employees from './pages/admin/Employees';
 import Payroll from './pages/admin/Payroll';
 import Kpi from './pages/admin/Kpi';
 import Settings from './pages/admin/Settings';
+import OrgSubtree from './pages/admin/OrgSubtree';
 import DetailPageFactory from './pages/admin/DetailPageFactory';
+// Wave 2 — Worker Pages
+import WorkerProfile from './pages/worker/WorkerProfile';
+import WorkerOvertime from './pages/worker/WorkerOvertime';
+import PerformanceTrend from './pages/worker/PerformanceTrend';
+import CompensationIntel from './pages/worker/CompensationIntel';
+import ContinuousPerf from './pages/worker/ContinuousPerf';
+import TrainingForm from './pages/worker/TrainingForm';
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -41,19 +49,24 @@ function AppContent() {
         <Route path="/worker" element={withNav(Worker)} />
         <Route path="/worker/attendance" element={workerPage('attendance')} />
         <Route path="/worker/leave" element={workerPage('leave')} />
-        <Route path="/worker/overtime" element={workerPage('overtime')} />
+        <Route path="/worker/overtime" element={withNav(WorkerOvertime)} />
         <Route path="/worker/kpi" element={workerPage('kpi')} />
         <Route path="/worker/payroll" element={workerPage('payroll')} />
         <Route path="/worker/learning" element={workerPage('learning')} />
         <Route path="/worker/career" element={workerPage('career')} />
         <Route path="/worker/tasks" element={workerPage('tasks')} />
-        <Route path="/worker/profile" element={workerPage('profile')} />
+        <Route path="/worker/profile" element={withNav(WorkerProfile)} />
         <Route path="/worker/activities" element={workerPage('activities')} />
+        <Route path="/worker/perf-trend" element={withNav(PerformanceTrend)} />
+        <Route path="/worker/compensation" element={withNav(CompensationIntel)} />
+        <Route path="/worker/continuous-perf" element={withNav(ContinuousPerf)} />
+        <Route path="/worker/training" element={withNav(TrainingForm)} />
 
         {/* ADMIN — KELOLA DATA */}
         <Route path="/admin" element={withNav(Admin)} />
         <Route path="/admin/employees" element={withNav(Employees)} />
         <Route path="/admin/org" element={adminPage('org')} />
+        <Route path="/admin/org-subtree" element={withNav(OrgSubtree)} />
         <Route path="/admin/divisions" element={adminPage('divisions')} />
         <Route path="/admin/master" element={adminPage('master')} />
         <Route path="/admin/roles" element={adminPage('roles')} />
