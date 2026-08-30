@@ -5,31 +5,33 @@
 -- ============================================================
 
 -- 1. PAYROLL — 2 months only
-INSERT INTO hr_payroll (nrp, period, basic_salary, allowance, deduction, overtime_pay, bonus, net_salary)
+INSERT INTO hr_payroll (nrp, periode, base_salary, allowance, deduction, overtime_pay, net_salary)
 SELECT 
   e.nrp,
-  (ARRAY['2026-05', '2026-06'])[m] as period,
+  (ARRAY['2026-05', '2026-06'])[m] as periode,
   CASE e.business_unit 
     WHEN 'MINING' THEN 7500000 + (random()*5000000)::int
     WHEN 'ESTATE' THEN 5000000 + (random()*3000000)::int
     WHEN 'MILL' THEN 6000000 + (random()*4000000)::int
     ELSE 8000000 + (random()*7000000)::int
-  END as basic_salary,
+  END as base_salary,
   (random()*2000000)::int as allowance,
   (random()*500000)::int as deduction,
   (random()*1500000)::int as overtime_pay,
-  CASE WHEN random() > 0.7 THEN (random()*3000000)::int ELSE 0 END as bonus,
   0 as net_salary
 FROM employees_master e
 CROSS JOIN generate_series(1, 2) m
 WHERE e.status_kerja = 'PKWTT'
-  AND random() > 0.3  -- 70% have payroll
+  AND random() > 0.3
 ON CONFLICT DO NOTHING;
 
-UPDATE hr_payroll SET net_salary = basic_salary + allowance + overtime_pay + bonus - deduction;
+UPDATE hr_payroll SET net_salary = base_salary + allowance + overtime_pay - deduction;
 
 -- 2. ATTENDANCE — 7 days only (weekdays)
-INSERT INTO hr_attendance (nrp, date, check_in, check_out, status_hadir)
+-- hr_attendance: verify columns match
+-- INSERT INTO hr_attendance (nrp, date, check_in, check_out, status_hadir)
+-- Using DO block for safe insert
+INSERT INTO hr_attendance (nrp, date, jam_masuk, jam_keluar, status_hadir)
 SELECT 
   e.nrp,
   d::date,
@@ -49,6 +51,8 @@ WHERE EXTRACT(DOW FROM d) NOT IN (0, 6)
 ON CONFLICT DO NOTHING;
 
 -- 3. PERFORMANCE — 2 months only
+-- Check hr_performance columns
+-- Table uses: nrp, period, kpi_score, etc.
 INSERT INTO hr_performance (nrp, period, kpi_score, attendance_score, productivity_score, attitude_score, initiative_score, overall_score)
 SELECT 
   e.nrp,
@@ -80,28 +84,28 @@ WHERE random() > 0.5
 ON CONFLICT DO NOTHING;
 
 -- 5. LEARNING — 1 per employee
-INSERT INTO hr_learning (nrp, course_name, status, score, completed_at)
+INSERT INTO hr_learning (nrp, type, title, status, score, start_date)
 SELECT 
   e.nrp,
-  (ARRAY['Safety Induction', 'K3 Umum', 'First Aid', 'Fire Safety', 'ISO 9001', 'Leadership Development', 'Communication Skills', 'Time Management', 'MS Excel Advanced', 'SQL Basics'])[1 + (random()*9)::int],
+  (ARRAY['safety', 'technical', 'leadership', 'compliance'])[1 + (random()*3)::int],
+  (ARRAY['Safety Induction', 'K3 Umum', 'First Aid', 'Fire Safety', 'ISO 9001', 'Leadership Dev', 'Communication', 'Time Management', 'MS Excel Advanced', 'SQL Basics'])[1 + (random()*9)::int],
   (ARRAY['completed', 'in_progress', 'completed', 'completed'])[1 + (random()*3)::int],
   CASE WHEN random() > 0.2 THEN (60 + random()*40)::int ELSE NULL END,
-  CASE WHEN random() > 0.3 THEN CURRENT_DATE - (random()*90)::int ELSE NULL END
+  CURRENT_DATE - (random()*90)::int
 FROM employees_master e
 WHERE random() > 0.7
 ON CONFLICT DO NOTHING;
 
 -- 6. TASKS — 200 active
-INSERT INTO hr_tasks (title, description, assignee_nrp, creator_nrp, status, priority, due_date)
+INSERT INTO hr_tasks (id, title, assignee_nrp, status, due_date)
 SELECT 
+  'TASK' || LPAD(s::text, 4, '0'),
   (ARRAY['Audit laporan bulanan', 'Review KPI Q2', 'Training safety', 'Persiapan audit ISO', 'Update SOP', 'Meeting koordinasi', 'Serah terima aset', 'Perbaikan mesin', 'Pengajuan anggaran', 'Evaluasi kinerja'])[1 + (random()*9)::int],
-  'Deskripsi tugas',
   e.nrp,
-  (SELECT nrp FROM hr_org WHERE atasan_nrp = e.nrp LIMIT 1),
   (ARRAY['TODO', 'DOING', 'DONE'])[1 + (random()*2)::int],
-  (ARRAY['high', 'medium', 'low'])[1 + (random()*2)::int],
   CURRENT_DATE + (random()*30 - 15)::int
 FROM employees_master e
+CROSS JOIN generate_series(1, 200) s
 WHERE random() > 0.9
   AND e.status_kerja = 'PKWTT'
 ON CONFLICT DO NOTHING;
@@ -118,18 +122,18 @@ WHERE random() > 0.6
 ON CONFLICT DO NOTHING;
 
 -- 8. VOICE/IDEAS — 10 ideas
-INSERT INTO hr_voice (nrp, title, description, votes, status)
+INSERT INTO hr_voice (id, type, nrp, title, description, votes, status)
 VALUES
-  ('NRP001', 'Sistem Absensi Digital', 'Gunakan fingerprint untuk presensi', 15, 'approved'),
-  ('NRP005', 'Portal Training Online', 'Sediakan e-learning untuk training wajib', 23, 'approved'),
-  ('NRP012', 'Garden Area Kantor', 'Taman di area parkir untuk relaksasi', 8, 'pending'),
-  ('NRP025', 'Perpustakaan Digital', 'Akses ebook dan jurnal gratis', 31, 'approved'),
-  ('NRP010', 'Shuttle Bus', 'Antar jemput karyawan dari kota', 42, 'pending'),
-  ('NRP003', 'Cafeteria Baru', 'Makanan lebih variatif dan sehat', 19, 'rejected'),
-  ('NRP015', 'Gym Gratis', 'Fasilitas olahraga di area kantor', 27, 'pending'),
-  ('NRP008', 'Wifi Gratis', 'Internet cepat di seluruh area', 35, 'approved'),
-  ('NRP020', 'Mentoring Program', 'Senior membimbing junior', 12, 'pending'),
-  ('NRP030', 'Flexible Working', 'WFH 2 hari per minggu', 45, 'pending')
+  ('VO001', 'idea', 'NRP001', 'Sistem Absensi Digital', 'Gunakan fingerprint untuk presensi', 15, 'APPROVED'),
+  ('VO002', 'idea', 'NRP005', 'Portal Training Online', 'Sediakan e-learning', 23, 'APPROVED'),
+  ('VO003', 'idea', 'NRP012', 'Garden Area Kantor', 'Taman di area parkir', 8, 'PENDING'),
+  ('VO004', 'idea', 'NRP025', 'Perpustakaan Digital', 'Akses ebook gratis', 31, 'APPROVED'),
+  ('VO005', 'idea', 'NRP010', 'Shuttle Bus', 'Antar jemput karyawan', 42, 'PENDING'),
+  ('VO006', 'idea', 'NRP003', 'Cafeteria Baru', 'Makanan lebih variatif', 19, 'REJECTED'),
+  ('VO007', 'idea', 'NRP015', 'Gym Gratis', 'Fasilitas olahraga', 27, 'PENDING'),
+  ('VO008', 'idea', 'NRP008', 'Wifi Gratis', 'Internet cepat', 35, 'APPROVED'),
+  ('VO009', 'idea', 'NRP020', 'Mentoring Program', 'Senior membimbing junior', 12, 'PENDING'),
+  ('VO010', 'idea', 'NRP030', 'Flexible Working', 'WFH 2 hari per minggu', 45, 'PENDING')
 ON CONFLICT DO NOTHING;
 
 -- 9. SAFETY — 8 incidents
@@ -146,27 +150,32 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- 10. COMPLIANCE — 500 records
-INSERT INTO hr_compliance (nrp, compliance_type, status, expiry_date)
+INSERT INTO hr_compliance (id, kategori, status, due_date, penanggung_nrp)
 SELECT 
-  e.nrp,
+  'CMP' || LPAD(s::text, 4, '0'),
   (ARRAY['SIMPER', 'SIO Operator', 'K3 Umum', 'First Aid', 'Fire Safety'])[1 + (random()*4)::int],
-  (ARRAY['valid', 'expiring', 'expired', 'valid'])[1 + (random()*3)::int],
-  CURRENT_DATE + (random()*365 - 90)::int
+  (ARRAY['VALID', 'EXPIRING', 'OVERDUE', 'VALID'])[1 + (random()*3)::int],
+  CURRENT_DATE + (random()*365 - 90)::int,
+  e.nrp
 FROM employees_master e
+CROSS JOIN generate_series(1, 500) s
 WHERE random() > 0.75
 ON CONFLICT DO NOTHING;
 
 -- 11. BENEFITS — 1 per employee
-INSERT INTO hr_benefits (nrp, benefit_type, amount, status)
+INSERT INTO hr_benefits (id, nrp, jenis_benefit, nilai, berlaku_mulai, berlaku_sampai)
 SELECT 
+  'BEN' || LPAD(s::text, 4, '0'),
   e.nrp,
   (ARRAY['BPJS Kesehatan', 'BPJS Ketenagakerjaan', 'Tunjangan Makan', 'Tunjangan Transport', 'Asuransi Jiwa'])[1 + (random()*4)::int],
   CASE 
     WHEN random() > 0.5 THEN 500000 + (random()*2000000)::int
     ELSE 200000 + (random()*500000)::int
   END,
-  'active'
+  CURRENT_DATE - 180,
+  CURRENT_DATE + 180
 FROM employees_master e
+CROSS JOIN generate_series(1, 1200) s
 WHERE random() > 0.6
   AND e.status_kerja = 'PKWTT'
 ON CONFLICT DO NOTHING;
@@ -191,25 +200,26 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- 13. AI TASKS — 8 tasks
-INSERT INTO hr_ai_tasks (task_type, title, status, agent_name, priority, details)
+INSERT INTO hr_ai_tasks (id, task_type, title, status, agent_name, priority, details_json)
 VALUES
-  ('anomaly', 'KPI Anomaly — NRP150', 'open', 'AnomalySentinel', 'high', 'KPI turun 30%'),
-  ('anomaly', 'Attendance Pattern — NRP200', 'open', 'AnomalySentinel', 'medium', 'Alpha 5x berturut'),
-  ('prediction', 'Flight Risk — NRP300', 'open', 'FlightRiskPredictor', 'high', 'Risk score 78%'),
-  ('recommendation', 'Training Rec — NRP400', 'pending', 'RecommendationEngine', 'low', 'Butuh Safety K3'),
-  ('auto_heal', 'Auto-Reject Overtime', 'completed', 'AutoHealer', 'medium', 'Budget 95%'),
-  ('alert', 'PKWT Expiry — 15 emp', 'open', 'ContractMonitor', 'high', 'Habis 30 hari'),
-  ('anomaly', 'Payroll Spike — Mill', 'open', 'AnomalySentinel', 'medium', 'Lembur +200%'),
-  ('recommendation', 'Succession — Director', 'pending', 'RecommendationEngine', 'low', 'Pensiun 6 bulan')
+  ('AIT001', 'anomaly', 'KPI Anomaly — NRP150', 'PENDING', 'AnomalySentinel', 'HIGH', '{"reason":"KPI turun 30%"}'),
+  ('AIT002', 'anomaly', 'Attendance Pattern — NRP200', 'PENDING', 'AnomalySentinel', 'NORMAL', '{"reason":"Alpha 5x"}'),
+  ('AIT003', 'prediction', 'Flight Risk — NRP300', 'PENDING', 'FlightRiskPredictor', 'HIGH', '{"risk":78}'),
+  ('AIT004', 'recommendation', 'Training Rec — NRP400', 'PENDING', 'RecommendationEngine', 'LOW', '{"course":"Safety K3"}'),
+  ('AIT005', 'auto_heal', 'Auto-Reject Overtime', 'COMPLETED', 'AutoHealer', 'NORMAL', '{"budget":"95%"}'),
+  ('AIT006', 'alert', 'PKWT Expiry — 15 emp', 'PENDING', 'ContractMonitor', 'HIGH', '{"count":15}'),
+  ('AIT007', 'anomaly', 'Payroll Spike — Mill', 'PENDING', 'AnomalySentinel', 'NORMAL', '{"spike":"200%"}'),
+  ('AIT008', 'recommendation', 'Succession — Director', 'PENDING', 'RecommendationEngine', 'LOW', '{"timeline":"6 months"}')
 ON CONFLICT DO NOTHING;
 
 -- 14. KPI CALC LOG — 500 records
-INSERT INTO hr_kpi_calc_log (nrp, period, kpi_score, calculation_detail, calculated_at)
+-- hr_kpi_calc_log: check columns
+-- Table uses: nrp, period, kpi_score, calculated_at
+INSERT INTO hr_kpi_calc_log (nrp, period, kpi_score, calculated_at)
 SELECT 
   e.nrp,
   '2026-06',
   (50 + random()*50)::int,
-  'Auto: KPI=' || (50 + random()*50)::int,
   NOW() - (random()*30 || ' days')::interval
 FROM employees_master e
 WHERE random() > 0.75
@@ -226,113 +236,114 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- 16. CERTIFICATIONS — 200
-INSERT INTO certifications (nrp, cert_name, issued_date, expiry_date, status)
+INSERT INTO certifications (id, nrp, cert_name, issuer, issue_date, expiry_date, status)
 SELECT 
+  'CRT' || LPAD(s::text, 4, '0'),
   e.nrp,
   (ARRAY['SIMPER A', 'SIO Boiler', 'SIO Crane', 'K3 Umum', 'First Aid'])[1 + (random()*4)::int],
+  (ARRAY['Dinas K3', 'BNSP', 'Kementerian', 'Internal'])[1 + (random()*3)::int],
   CURRENT_DATE - (random()*730)::int,
   CURRENT_DATE + (random()*730 - 365)::int,
-  (ARRAY['active', 'expiring', 'expired'])[1 + (random()*2)::int]
+  (ARRAY['ACTIVE', 'EXPIRING', 'EXPIRED'])[1 + (random()*2)::int]
 FROM employees_master e
+CROSS JOIN generate_series(1, 200) s
 WHERE random() > 0.9
 ON CONFLICT DO NOTHING;
 
 -- 17. ASSETS — 20 items
-INSERT INTO assets (name, category, location, condition_status, status)
+INSERT INTO assets (id, asset_name, category, serial_number, location, status)
 VALUES
-  ('Excavator CAT 320D', 'equipment', 'Site A Mining', 'good', 'available'),
-  ('Bulldozer D6T', 'equipment', 'Site B Mining', 'fair', 'in_use'),
-  ('Crane 50 Ton', 'equipment', 'Workshop Mill', 'good', 'available'),
-  ('Forklift Toyota 3T', 'vehicle', 'Warehouse Estate', 'good', 'in_use'),
-  ('Truck Sawit 10W', 'vehicle', 'Estate Block A', 'fair', 'maintenance'),
-  ('Truck Sawit 10W', 'vehicle', 'Estate Block B', 'good', 'available'),
-  ('Laptop Dell Latitude', 'it', 'HQ Office', 'good', 'in_use'),
-  ('Laptop ThinkPad X1', 'it', 'HQ Office', 'good', 'available'),
-  ('Server Dell R740', 'it', 'Server Room HQ', 'good', 'in_use'),
-  ('Printer HP M428', 'it', 'HR Office', 'good', 'available'),
-  ('Boiler PKS', 'equipment', 'Mill Section A', 'fair', 'in_use'),
-  ('Palm Oil Press', 'equipment', 'Mill Section B', 'good', 'available'),
-  ('First Aid Kit', 'safety', 'All Sites', 'good', 'available'),
-  ('Fire Extinguisher', 'safety', 'All Buildings', 'good', 'available'),
-  ('Gas Detector', 'safety', 'Mining Site', 'good', 'in_use'),
-  ('Meja Kerja Ergonomis', 'office', 'HQ Open Plan', 'good', 'in_use'),
-  ('Kursi Ergonomis', 'office', 'HQ Open Plan', 'good', 'available'),
-  ('Whiteboard 120cm', 'office', 'Meeting Room', 'good', 'in_use'),
-  ('AC Daikin 2PK', 'office', 'Director Room', 'good', 'in_use'),
-  ('CCTV 8 Camera', 'safety', 'Gate + Parking', 'good', 'in_use')
+  ('AST001', 'Excavator CAT 320D', 'equipment', 'SN-EXC-001', 'Site A Mining', 'AVAILABLE'),
+  ('AST002', 'Bulldozer D6T', 'equipment', 'SN-BLD-001', 'Site B Mining', 'IN_USE'),
+  ('AST003', 'Crane 50 Ton', 'equipment', 'SN-CRN-001', 'Workshop Mill', 'AVAILABLE'),
+  ('AST004', 'Forklift Toyota 3T', 'vehicle', 'SN-FRK-001', 'Warehouse Estate', 'IN_USE'),
+  ('AST005', 'Truck Sawit 10W', 'vehicle', 'SN-TRK-001', 'Estate Block A', 'MAINTENANCE'),
+  ('AST006', 'Truck Sawit 10W', 'vehicle', 'SN-TRK-002', 'Estate Block B', 'AVAILABLE'),
+  ('AST007', 'Laptop Dell Latitude', 'it', 'SN-LPT-001', 'HQ Office', 'IN_USE'),
+  ('AST008', 'Laptop ThinkPad X1', 'it', 'SN-LPT-002', 'HQ Office', 'AVAILABLE'),
+  ('AST009', 'Server Dell R740', 'it', 'SN-SRV-001', 'Server Room HQ', 'IN_USE'),
+  ('AST010', 'Printer HP M428', 'it', 'SN-PRN-001', 'HR Office', 'AVAILABLE'),
+  ('AST011', 'Boiler PKS', 'equipment', 'SN-BLR-001', 'Mill Section A', 'IN_USE'),
+  ('AST012', 'Palm Oil Press', 'equipment', 'SN-PRS-001', 'Mill Section B', 'AVAILABLE'),
+  ('AST013', 'First Aid Kit', 'safety', 'SN-FAK-001', 'All Sites', 'AVAILABLE'),
+  ('AST014', 'Fire Extinguisher', 'safety', 'SN-FEX-001', 'All Buildings', 'AVAILABLE'),
+  ('AST015', 'Gas Detector', 'safety', 'SN-GDT-001', 'Mining Site', 'IN_USE'),
+  ('AST016', 'Meja Kerja Ergonomis', 'office', 'SN-MJK-001', 'HQ Open Plan', 'IN_USE'),
+  ('AST017', 'Kursi Ergonomis', 'office', 'SN-KRS-001', 'HQ Open Plan', 'AVAILABLE'),
+  ('AST018', 'Whiteboard 120cm', 'office', 'SN-WBD-001', 'Meeting Room', 'IN_USE'),
+  ('AST019', 'AC Daikin 2PK', 'office', 'SN-ACD-001', 'Director Room', 'IN_USE'),
+  ('AST020', 'CCTV 8 Camera', 'safety', 'SN-CTV-001', 'Gate + Parking', 'IN_USE')
 ON CONFLICT DO NOTHING;
 
 -- 18. ASSET ASSIGNMENTS — 15
-INSERT INTO asset_assignments (asset_id, nrp, checkout_date, returned_date, condition_returned)
+INSERT INTO asset_assignments (asset_id, nrp, checkout_date, checkin_date, condition_out, condition_in)
 SELECT 
   a.id,
   e.nrp,
   CURRENT_DATE - (random()*30)::int,
   CASE WHEN random() > 0.3 THEN CURRENT_DATE - (random()*10)::int ELSE NULL END,
-  (ARRAY['good', 'fair', 'good'])[1 + (random()*2)::int]
+  'GOOD',
+  (ARRAY['GOOD', 'FAIR', 'GOOD'])[1 + (random()*2)::int]
 FROM assets a
 CROSS JOIN employees_master e
 WHERE random() > 0.9
-  AND a.status = 'in_use'
+  AND a.status = 'IN_USE'
 LIMIT 15
 ON CONFLICT DO NOTHING;
 
 -- 19. EXIT INTERVIEWS — 5
-INSERT INTO exit_interviews (nrp, reason, feedback, interview_date)
+INSERT INTO exit_interviews (id, nrp, satisfaction_score, reason, feedback)
 VALUES
-  ('NRP900', 'Career Growth', 'Tidak ada jalur karir yang jelas', CURRENT_DATE - 60),
-  ('NRP901', 'Compensation', 'Gaji tidak sesuai beban kerja', CURRENT_DATE - 45),
-  ('NRP902', 'Relocation', 'Pindah domisili', CURRENT_DATE - 30),
-  ('NRP903', 'Work Environment', 'Terlalu banyak lembur', CURRENT_DATE - 20),
-  ('NRP904', 'Health', 'Masalah kesehatan', CURRENT_DATE - 10)
+  ('EI001', 'NRP900', 3, 'Career Growth', 'Tidak ada jalur karir yang jelas'),
+  ('EI002', 'NRP901', 4, 'Compensation', 'Gaji tidak sesuai beban kerja'),
+  ('EI003', 'NRP902', 5, 'Relocation', 'Pindah domisili'),
+  ('EI004', 'NRP903', 2, 'Work Environment', 'Terlalu banyak lembur'),
+  ('EI005', 'NRP904', 3, 'Health', 'Masalah kesehatan')
 ON CONFLICT DO NOTHING;
 
 -- 20. FINAL SETTLEMENTS — 5
-INSERT INTO final_settlements (nrp, basic_salary, severance, leave_pay, total_settlement, status)
+INSERT INTO final_settlements (id, nrp, sisa_cuti_paid, thr_prorata, pesangon, total_settlement, status)
 VALUES
-  ('NRP900', 8500000, 25500000, 12000000, 46000000, 'completed'),
-  ('NRP901', 6000000, 12000000, 8000000, 26000000, 'completed'),
-  ('NRP902', 7000000, 14000000, 9500000, 30500000, 'pending'),
-  ('NRP903', 5500000, 11000000, 6000000, 22500000, 'pending'),
-  ('NRP904', 9000000, 27000000, 15000000, 51000000, 'completed')
+  ('FS001', 'NRP900', 12000000, 8500000, 25500000, 46000000, 'COMPLETED'),
+  ('FS002', 'NRP901', 8000000, 6000000, 12000000, 26000000, 'COMPLETED'),
+  ('FS003', 'NRP902', 9500000, 7000000, 14000000, 30500000, 'PENDING'),
+  ('FS004', 'NRP903', 6000000, 5500000, 11000000, 22500000, 'PENDING'),
+  ('FS005', 'NRP904', 15000000, 9000000, 27000000, 51000000, 'COMPLETED')
 ON CONFLICT DO NOTHING;
 
 -- 21. TEAM BUDGETS — 8
-INSERT INTO team_budgets (divisi, period, allocated, spent, category)
+INSERT INTO team_budgets (manager_nrp, year, training_budget, operational_budget, training_used, operational_used)
 VALUES
-  ('Mining Operations', '2026-Q2', 500000000, 380000000, 'operational'),
-  ('Estate Management', '2026-Q2', 350000000, 290000000, 'operational'),
-  ('Mill Production', '2026-Q2', 400000000, 350000000, 'operational'),
-  ('HR & GA', '2026-Q2', 200000000, 165000000, 'operational'),
-  ('Finance', '2026-Q2', 150000000, 140000000, 'operational'),
-  ('IT Department', '2026-Q2', 250000000, 220000000, 'capital'),
-  ('Safety & Compliance', '2026-Q2', 100000000, 85000000, 'operational'),
-  ('Mining Operations', '2026-Q1', 500000000, 420000000, 'operational')
+  ('NRP010', 2026, 50000000, 200000000, 35000000, 150000000),
+  ('NRP020', 2026, 40000000, 150000000, 30000000, 120000000),
+  ('NRP030', 2026, 30000000, 180000000, 25000000, 140000000),
+  ('NRP040', 2026, 20000000, 100000000, 15000000, 80000000),
+  ('NRP050', 2026, 15000000, 80000000, 10000000, 65000000)
 ON CONFLICT DO NOTHING;
 
 -- 22. HEADCOUNT PLANS — 7
-INSERT INTO headcount_plans (divisi, position, planned_count, approved_count, period, status)
+INSERT INTO headcount_plans (divisi, year, quarter, planned_hc, actual_hc, notes)
 VALUES
-  ('Mining Operations', 'Operator Heavy Equipment', 10, 8, '2026-Q3', 'approved'),
-  ('Mining Operations', 'Safety Officer', 3, 3, '2026-Q3', 'approved'),
-  ('Estate Management', 'Pemanen Sawit', 20, 15, '2026-Q3', 'pending'),
-  ('Mill Production', 'Operator Mesin', 8, 6, '2026-Q3', 'approved'),
-  ('HR & GA', 'Staff HRD', 2, 2, '2026-Q3', 'approved'),
-  ('IT Department', 'Software Developer', 3, 2, '2026-Q3', 'pending'),
-  ('Finance', 'Accountant', 2, 1, '2026-Q3', 'pending')
+  ('Mining Operations', 2026, 3, 10, 8, 'Operator Heavy Equipment'),
+  ('Mining Operations', 2026, 3, 3, 3, 'Safety Officer'),
+  ('Estate Management', 2026, 3, 20, 15, 'Pemanen Sawit'),
+  ('Mill Production', 2026, 3, 8, 6, 'Operator Mesin'),
+  ('HR & GA', 2026, 3, 2, 2, 'Staff HRD'),
+  ('IT Department', 2026, 3, 3, 2, 'Software Developer'),
+  ('Finance', 2026, 3, 2, 1, 'Accountant')
 ON CONFLICT DO NOTHING;
 
 -- 23. BUDGET ALLOCATION — 8
-INSERT INTO budget_allocation (divisi, category, amount, period, status)
+INSERT INTO budget_allocation (divisi, year, gaji_budget, training_budget, operational_budget, actual_gaji, actual_training)
 VALUES
-  ('Mining Operations', 'Salary', 3000000000, '2026', 'active'),
-  ('Mining Operations', 'Equipment', 500000000, '2026', 'active'),
-  ('Estate Management', 'Salary', 2500000000, '2026', 'active'),
-  ('Mill Production', 'Salary', 2000000000, '2026', 'active'),
-  ('Mill Production', 'Maintenance', 400000000, '2026', 'active'),
-  ('HQ', 'Salary', 1500000000, '2026', 'active'),
-  ('HQ', 'Technology', 200000000, '2026', 'active'),
-  ('HQ', 'Office Supplies', 50000000, '2026', 'active')
+  ('Mining Operations', 2026, 3000000000, 100000000, 500000000, 2800000000, 85000000),
+  ('Estate Management', 2026, 2500000000, 80000000, 400000000, 2300000000, 70000000),
+  ('Mill Production', 2026, 2000000000, 60000000, 350000000, 1850000000, 55000000),
+  ('HQ', 2026, 1500000000, 50000000, 250000000, 1400000000, 45000000),
+  ('IT Department', 2026, 800000000, 40000000, 200000000, 750000000, 35000000),
+  ('HR & GA', 2026, 600000000, 30000000, 100000000, 550000000, 28000000),
+  ('Finance', 2026, 500000000, 20000000, 80000000, 470000000, 18000000),
+  ('Safety & Compliance', 2026, 300000000, 25000000, 100000000, 280000000, 22000000)
 ON CONFLICT DO NOTHING;
 
 -- 24. SIMULATIONS — 4
@@ -345,12 +356,13 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- 25. REVIEW 360 — 100
-INSERT INTO review_360 (nrp, reviewer_nrp, period, score, feedback)
+INSERT INTO review_360 (reviewee_nrp, reviewer_nrp, period, category, score, feedback)
 SELECT 
   e.nrp,
   (SELECT nrp FROM hr_org WHERE atasan_nrp = e.nrp LIMIT 1),
   '2026-Q1',
-  (50 + random()*50)::int,
+  (ARRAY['leadership', 'technical', 'communication', 'teamwork'])[1 + (random()*3)::int],
+  (50 + random()*50)::numeric(3,1),
   (ARRAY['Good performance', 'Needs improvement', 'Excellent leadership', 'Very productive', 'Good team player'])[1 + (random()*4)::int]
 FROM employees_master e
 WHERE random() > 0.95
@@ -358,13 +370,13 @@ WHERE random() > 0.95
 ON CONFLICT DO NOTHING;
 
 -- 26. DISCIPLINARY — 5
-INSERT INTO disciplinary_records (nrp, violation_type, severity, action_taken, incident_date)
+INSERT INTO disciplinary_records (id, nrp, sp_level, reason, issued_date, issued_by)
 VALUES
-  ('NRP500', 'Terlambat', 'warning', 'Teguran lisan', CURRENT_DATE - 60),
-  ('NRP501', 'Alpha', 'written_warning', 'Teguran tertulis', CURRENT_DATE - 45),
-  ('NRP502', 'Safety Violation', 'suspension', 'Skorsing 3 hari', CURRENT_DATE - 30),
-  ('NRP503', 'Terlambat', 'warning', 'Teguran lisan', CURRENT_DATE - 20),
-  ('NRP504', 'Data Fraud', 'termination', 'PHK', CURRENT_DATE - 10)
+  ('DR001', 'NRP500', 'SP1', 'Terlambat 5 kali', CURRENT_DATE - 60, 'NRP010'),
+  ('DR002', 'NRP501', 'SP2', 'Alpha 3 hari berturut', CURRENT_DATE - 45, 'NRP010'),
+  ('DR003', 'NRP502', 'SP3', 'Safety violation berat', CURRENT_DATE - 30, 'NRP010'),
+  ('DR004', 'NRP503', 'SP1', 'Terlambat 3 kali', CURRENT_DATE - 20, 'NRP010'),
+  ('DR005', 'NRP504', 'PHK', 'Data fraud terbukti', CURRENT_DATE - 10, 'NRP010')
 ON CONFLICT DO NOTHING;
 
 -- 27. WEBHOOK LOGS — 5
