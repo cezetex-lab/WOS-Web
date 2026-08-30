@@ -15,60 +15,37 @@ ADD COLUMN IF NOT EXISTS business_unit TEXT DEFAULT 'HQ';
 CREATE INDEX IF NOT EXISTS idx_employees_business_unit 
 ON employees_master (business_unit);
 
--- ── 2. TABEL business_units ──
-CREATE TABLE IF NOT EXISTS business_units (
-  id SERIAL PRIMARY KEY,
-  code TEXT UNIQUE NOT NULL,        -- MINING, ESTATE, MILL, HQ
-  name TEXT NOT NULL,               -- Tambang, Perkebunan, Pabrik PKS, Korporat
-  description TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- ── 2. TABEL business_units (sudah ada dari 018, seed saja) ──
+-- Kolom: id TEXT, unit_code TEXT, unit_name TEXT, description, is_active
+INSERT INTO business_units (id, unit_code, unit_name, description) VALUES
+  ('BU-01', 'MINING', 'Tambang', 'Operasi pertambangan — alat berat, tambang terbuka, bawah tanah'),
+  ('BU-02', 'ESTATE', 'Perkebunan Sawit', 'Perkebunan kelapa sawit — blok kebun, pemanen, TBS'),
+  ('BU-03', 'MILL', 'Pabrik PKS', 'Pabrik kelapa sawit — 3 shift, mesin, boiler, crane'),
+  ('BU-04', 'HQ', 'Korporat HQ', 'Kantor pusat — HR, Finance, IT, Legal, Directors')
+ON CONFLICT (id) DO NOTHING;
 
--- Seed business units
-INSERT INTO business_units (code, name, description) VALUES
-  ('MINING', 'Tambang', 'Operasi pertambangan — alat berat, tambang terbuka, bawah tanah'),
-  ('ESTATE', 'Perkebunan Sawit', 'Perkebunan kelapa sawit — blok kebun, pemanen, TBS'),
-  ('MILL', 'Pabrik PKS', 'Pabrik kelapa sawit — 3 shift, mesin, boiler, crane'),
-  ('HQ', 'Korporat HQ', 'Kantor pusat — HR, Finance, IT, Legal, Directors')
-ON CONFLICT (code) DO NOTHING;
-
--- ── 3. TABEL sites (lokasi operasional) ──
-CREATE TABLE IF NOT EXISTS sites (
-  id SERIAL PRIMARY KEY,
-  code TEXT UNIQUE NOT NULL,
-  name TEXT NOT NULL,
-  business_unit TEXT NOT NULL REFERENCES business_units(code),
-  province TEXT,
-  city TEXT,
-  address TEXT,
-  latitude DECIMAL(10, 7),
-  longitude DECIMAL(10, 7),
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Seed sites per business unit
-INSERT INTO sites (code, name, business_unit, province, city) VALUES
+-- ── 3. TABEL sites (sudah ada dari 018, seed saja) ──
+-- Kolom: id TEXT, site_name TEXT, location TEXT, business_unit TEXT, latitude, longitude
+INSERT INTO sites (id, site_name, business_unit, location, latitude, longitude) VALUES
   -- MINING
-  ('MNG-01', 'Tambang Batubara Kalimantan', 'MINING', 'Kalimantan Selatan', 'Banjar'),
-  ('MNG-02', 'Tambang Emas Papua', 'MINING', 'Papua', 'Timika'),
-  ('MNG-03', 'Tambang Nikel Sulawesi', 'MINING', 'Sulawesi Tengah', 'Morowali'),
+  ('SITE-MNG-01', 'Tambang Batubara Kalimantan', 'MINING', 'Kalimantan Selatan, Banjar', -3.3186, 114.5944),
+  ('SITE-MNG-02', 'Tambang Emas Papua', 'MINING', 'Papua, Timika', -4.5436, 136.8884),
+  ('SITE-MNG-03', 'Tambang Nikel Sulawesi', 'MINING', 'Sulawesi Tengah, Morowali', -2.5167, 121.5000),
   -- ESTATE
-  ('EST-01', 'Kebun Riau Block A-E', 'ESTATE', 'Riau', 'Kampar'),
-  ('EST-02', 'Kebun Kalimantan Timur', 'ESTATE', 'Kalimantan Timur', 'Kutai'),
-  ('EST-03', 'Kebun Sumatera Utara', 'ESTATE', 'Sumatera Utara', 'Labuhanbatu'),
+  ('SITE-EST-01', 'Kebun Riau Block A-E', 'ESTATE', 'Riau, Kampar', 0.3569, 101.2347),
+  ('SITE-EST-02', 'Kebun Kalimantan Timur', 'ESTATE', 'Kalimantan Timur, Kutai', 0.5071, 116.4194),
+  ('SITE-EST-03', 'Kebun Sumatera Utara', 'ESTATE', 'Sumatera Utara, Labuhanbatu', 2.3333, 99.5000),
   -- MILL
-  ('MLL-01', 'PKS Riau Main', 'MILL', 'Riau', 'Dumai'),
-  ('MLL-02', 'PKS Kalimantan Barat', 'MILL', 'Kalimantan Barat', 'Pontianak'),
+  ('SITE-MLL-01', 'PKS Riau Main', 'MILL', 'Riau, Dumai', 1.6000, 101.4500),
+  ('SITE-MLL-02', 'PKS Kalimantan Barat', 'MILL', 'Kalimantan Barat, Pontianak', -0.0263, 109.3425),
   -- HQ
-  ('HQ-01', 'Kantor Pusat Jakarta', 'HQ', 'DKI Jakarta', 'Jakarta Selatan'),
-  ('HQ-02', 'Kantor Regional Medan', 'HQ', 'Sumatera Utara', 'Medan')
-ON CONFLICT (code) DO NOTHING;
+  ('SITE-HQ-01', 'Kantor Pusat Jakarta', 'HQ', 'DKI Jakarta, Jakarta Selatan', -6.2615, 106.8106),
+  ('SITE-HQ-02', 'Kantor Regional Medan', 'HQ', 'Sumatera Utara, Medan', 3.5952, 98.6722)
+ON CONFLICT (id) DO NOTHING;
 
--- Tambah site_id ke employees_master
+-- Tambah site_id ke employees_master (TEXT, bukan INTEGER)
 ALTER TABLE employees_master 
-ADD COLUMN IF NOT EXISTS site_id INTEGER REFERENCES sites(id);
+ADD COLUMN IF NOT EXISTS site_id TEXT REFERENCES sites(id);
 
 CREATE INDEX IF NOT EXISTS idx_employees_site_id 
 ON employees_master (site_id);
@@ -149,8 +126,8 @@ BEGIN
     'role_level', COALESCE(v_role.role_level, 1),
     'scope_divisi', v_role.scope_divisi,
     'business_unit', COALESCE(v_emp.business_unit, 'HQ'),
-    'site_code', v_site.code,
-    'site_name', v_site.name,
+    'site_code', v_site.site_name,
+    'site_name', v_site.site_name,
     'token', encode(gen_random_bytes(32), 'hex'),
     'expires_at', (NOW() + INTERVAL '24 hours')::text
   );
@@ -199,7 +176,7 @@ SELECT
   CASE WHEN s.id % 3 = 0 THEN 'Perempuan' ELSE 'Laki-laki' END,
   ('2018-01-01'::date + (s.id * 12)::int)::date,
   'MINING',
-  (1 + (s.id % 3))  -- site_id 1-3
+  CASE (s.id % 3) WHEN 0 THEN 'SITE-MNG-01' WHEN 1 THEN 'SITE-MNG-02' ELSE 'SITE-MNG-03' END
 FROM generate_series(1, 500) AS s(id)
 ON CONFLICT (nrp) DO NOTHING;
 
@@ -236,7 +213,7 @@ SELECT
   CASE WHEN s.id % 4 = 0 THEN 'Perempuan' ELSE 'Laki-laki' END,
   ('2019-01-01'::date + (s.id * 10)::int)::date,
   'ESTATE',
-  (4 + (s.id % 3))  -- site_id 4-6
+  CASE (s.id % 3) WHEN 0 THEN 'SITE-EST-01' WHEN 1 THEN 'SITE-EST-02' ELSE 'SITE-EST-03' END
 FROM generate_series(1, 700) AS s(id)
 ON CONFLICT (nrp) DO NOTHING;
 
@@ -273,7 +250,7 @@ SELECT
   CASE WHEN s.id % 3 = 0 THEN 'Perempuan' ELSE 'Laki-laki' END,
   ('2019-06-01'::date + (s.id * 8)::int)::date,
   'MILL',
-  (7 + (s.id % 2))  -- site_id 7-8
+  CASE (s.id % 2) WHEN 0 THEN 'SITE-MLL-01' ELSE 'SITE-MLL-02' END
 FROM generate_series(1, 500) AS s(id)
 ON CONFLICT (nrp) DO NOTHING;
 
@@ -310,7 +287,7 @@ SELECT
   CASE WHEN s.id % 2 = 0 THEN 'Perempuan' ELSE 'Laki-laki' END,
   ('2020-01-01'::date + (s.id * 6)::int)::date,
   'HQ',
-  (9 + (s.id % 2))  -- site_id 9-10
+  CASE (s.id % 2) WHEN 0 THEN 'SITE-HQ-01' ELSE 'SITE-HQ-02' END
 FROM generate_series(1, 300) AS s(id)
 ON CONFLICT (nrp) DO NOTHING;
 

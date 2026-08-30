@@ -59,19 +59,20 @@ GROUP BY e.business_unit, p.periode;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_payroll_monthly ON mv_payroll_monthly (business_unit, periode);
 
 -- MV 4: Attendance Daily
+-- hr_attendance kolom: date, status_hadir, jam_masuk, menit_terlambat
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_attendance_daily AS
 SELECT 
   e.business_unit,
-  a.tanggal,
+  a.date as tanggal,
   count(*) as total_workers,
-  count(*) FILTER (WHERE a.status = 'Hadir') as hadir,
-  count(*) FILTER (WHERE a.status = 'Alpha') as alpha,
-  count(*) FILTER (WHERE a.status = 'Izin') as izin,
-  count(*) FILTER (WHERE a.status = 'Sakit') as sakit,
-  round(count(*) FILTER (WHERE a.status = 'Hadir')::decimal / count(*) * 100, 1) as attendance_rate
+  count(*) FILTER (WHERE a.status_hadir = 'Hadir') as hadir,
+  count(*) FILTER (WHERE a.status_hadir = 'Alpha') as alpha,
+  count(*) FILTER (WHERE a.status_hadir = 'Izin') as izin,
+  count(*) FILTER (WHERE a.status_hadir = 'Sakit') as sakit,
+  round(count(*) FILTER (WHERE a.status_hadir = 'Hadir')::decimal / count(*) * 100, 1) as attendance_rate
 FROM hr_attendance a
 JOIN employees_master e ON e.nrp = a.nrp
-GROUP BY e.business_unit, a.tanggal;
+GROUP BY e.business_unit, a.date;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_attendance_daily ON mv_attendance_daily (business_unit, tanggal);
 
