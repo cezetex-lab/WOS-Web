@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AppDrawer } from './components/AppDrawer';
 import { BottomNav } from './components/BottomNav';
+import OfflineIndicator from './components/OfflineIndicator';
 // Pages
 import Home from './pages/Home';
 import Worker from './pages/Worker';
@@ -56,6 +57,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white font-sans antialiased">
+      <OfflineIndicator />
       <Routes>
         {/* LOGIN */}
         <Route path="/" element={<Home />} />

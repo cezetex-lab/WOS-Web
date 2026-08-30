@@ -123,6 +123,51 @@ async function networkFirstWithFallback(request, cacheName) {
   }
 }
 
+// Background Sync — replay offline writes
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-queue') {
+    event.waitUntil(syncOfflineQueue());
+  }
+});
+
+async function syncOfflineQueue() {
+  // Notify client to process queue
+  const clients = await self.clients.matchAll();
+  clients.forEach((client) => {
+    client.postMessage({ type: 'SYNC_QUEUE' });
+  });
+}
+
+// Push notifications
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'insightWOS';
+  const options = {
+    body: data.body || 'You have a new notification',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-96.png',
+    vibrate: [200, 100, 200],
+    data: data.url || '/',
+    tag: data.tag || 'insightwos-push',
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clients) => {
+      const url = event.notification.data || '/';
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});
+
 // Listen for messages from app
 self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') {
