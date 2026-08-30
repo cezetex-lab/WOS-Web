@@ -73,13 +73,7 @@ export default function Payroll() {
       } else if (payrollResult?.data && Array.isArray(payrollResult.data)) {
         setPayroll(payrollResult.data);
       } else {
-        // Fallback: direct query
-        const { data } = await supabase
-          .from('hr_payroll')
-          .select('*, employees_master(nama, divisi)')
-          .eq('periode', period)
-          .order('nrp', { ascending: true });
-        setPayroll(data || []);
+        setPayroll([]);
       }
 
       // Summary

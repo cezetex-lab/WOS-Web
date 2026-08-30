@@ -30,8 +30,8 @@ export default function TrainingForm() {
       const result = await rpc('get_worker_learning', { p_nrp: nrp });
       setTrainings(result?.data || result || []);
     } catch (err) {
-      const { data } = await supabase.from('hr_learning').select('*').eq('nrp', nrp);
-      setTrainings(data || []);
+      console.error('Learning RPC failed:', err);
+      setTrainings([]);
     }
     setLoading(false);
   }, [nrp]);

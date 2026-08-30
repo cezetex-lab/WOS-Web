@@ -120,11 +120,7 @@ export default function Kpi() {
       } else if (divisionResult?.data && Array.isArray(divisionResult.data)) {
         setByDivision(divisionResult.data);
       } else {
-        // Fallback: use hr_performance directly
-        const { data } = await supabase
-          .from('hr_performance')
-          .select('nrp, kpi_score, periode');
-        setByDivision(data || []);
+        setByDivision([]);
       }
 
       // Trend

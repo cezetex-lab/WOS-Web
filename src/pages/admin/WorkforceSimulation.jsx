@@ -51,7 +51,7 @@ export default function WorkforceSimulation() {
     setLoading(true);
     try {
       // Try to get past simulations
-      const { data } = await supabase.from('simulations').select('*').order('created_at', { ascending: false }).limit(10);
+      const { data } = await supabase.rpc('get_simulations');
       if (data) setSimulations(data);
     } catch (e) { console.warn('Sim fetch error:', e); }
     setLoading(false);

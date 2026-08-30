@@ -37,21 +37,6 @@ export default function WorkerProfile() {
       });
     } catch (err) {
       console.error('Failed to load profile:', err);
-      // Fallback: direct query
-      const { data } = await supabase
-        .from('employees_master')
-        .select('*')
-        .eq('nrp', nrp)
-        .single();
-      if (data) {
-        setProfile(data);
-        setForm({
-          no_hp: data.no_hp || '',
-          alamat: data.alamat || '',
-          email: data.email || '',
-          tanggal_lahir: data.tanggal_lahir || '',
-        });
-      }
     }
     setLoading(false);
   }, [nrp]);
@@ -62,18 +47,11 @@ export default function WorkerProfile() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const result = await rpc('update_worker_profile', {
+      await rpc('worker_update_profile', {
         p_nrp: nrp,
         p_no_hp: form.no_hp,
         p_alamat: form.alamat,
       });
-      if (result?.ok === false && !result?.data) {
-        // Fallback: direct update
-        await supabase
-          .from('employees_master')
-          .update({ no_hp: form.no_hp, alamat: form.alamat })
-          .eq('nrp', nrp);
-      }
       toast.success('Profil berhasil diperbarui!');
       setEditing(false);
       fetchProfile();
@@ -210,20 +188,12 @@ function SupervisorInfo({ nrp }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data: org } = await supabase
-          .from('hr_org')
-          .select('atasan_nrp')
-          .eq('nrp', nrp)
-          .single();
-        if (org?.atasan_nrp) {
-          const { data: sup } = await supabase
-            .from('employees_master')
-            .select('nrp, nama, posisi, divisi')
-            .eq('nrp', org.atasan_nrp)
-            .single();
-          setSupervisor(sup);
+        const result = await rpc('get_worker_profile', { p_nrp: nrp });
+        if (result?.atasan_nrp) {
+          const supResult = await rpc('get_worker_profile', { p_nrp: result.atasan_nrp });
+          setSupervisor(supResult);
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) { console.warn('Supervisor load failed:', e); }
     };
     load();
   }, [nrp]);

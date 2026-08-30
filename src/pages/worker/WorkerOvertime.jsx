@@ -50,12 +50,8 @@ export default function WorkerOvertime() {
       const items = result?.data || result || [];
       setOvertime(Array.isArray(items) ? items : []);
     } catch (err) {
-      const { data } = await supabase
-        .from('hr_overtime')
-        .select('*')
-        .eq('nrp', nrp)
-        .order('created_at', { ascending: false });
-      setOvertime(data || []);
+      console.error('Overtime RPC failed:', err);
+      setOvertime([]);
     }
     setLoading(false);
   }, [nrp]);

@@ -118,14 +118,8 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
         setData(result);
       } else if (result?.data && Array.isArray(result.data)) {
         setData(result.data);
-      } else if (config.fallbackTable) {
-        // Fallback: direct query
-        let query = supabase.from(config.fallbackTable).select('*');
-        if (config.paramField && nrp) {
-          query = query.eq('nrp', nrp);
-        }
-        const { data: fallback } = await query.order('created_at', { ascending: false }).limit(100);
-        setData(fallback || []);
+      } else {
+        setData([]);
       }
     } catch (err) {
       console.error(`Failed to load ${pageKey}:`, err);

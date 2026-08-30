@@ -50,12 +50,7 @@ export default function Employees() {
       } else if (empResult?.data && Array.isArray(empResult.data)) {
         setEmployees(empResult.data);
       } else {
-        // Fallback: direct query
-        const { data } = await supabase
-          .from('employees_master')
-          .select('*')
-          .order('nama', { ascending: true });
-        setEmployees(data || []);
+        setEmployees([]);
       }
 
       // Stats

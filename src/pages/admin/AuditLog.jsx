@@ -22,12 +22,8 @@ export default function AuditLog() {
       const items = result?.data || result || [];
       setLogs(Array.isArray(items) ? items : []);
     } catch (err) {
-      const { data } = await supabase
-        .from('audit_log')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(500);
-      setLogs(data || []);
+      console.error('Audit log RPC failed:', err);
+      setLogs([]);
     }
     setLoading(false);
   }, []);
