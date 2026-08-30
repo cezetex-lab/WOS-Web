@@ -30,6 +30,13 @@ import MultiStepRequest from './worker/MultiStepRequest';
 import TaskBoard from './worker/TaskBoard';
 import ShiftSchedule from './admin/ShiftSchedule';
 import ApprovalCenter from './admin/ApprovalCenter';
+// Wave 5 — Advanced Features
+import Okrs from './pages/admin/Okrs';
+import SurveyPage from './pages/admin/SurveyPage';
+import AssetManagement from './pages/admin/AssetManagement';
+import Offboarding from './pages/admin/Offboarding';
+import PerformanceNotes from './pages/worker/PerformanceNotes';
+import IncentiveCalc from './pages/admin/IncentiveCalc';
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -71,6 +78,7 @@ function AppContent() {
         <Route path="/worker/training" element={withNav(TrainingForm)} />
         <Route path="/worker/request" element={withNav(MultiStepRequest)} />
         <Route path="/worker/task-board" element={withNav(TaskBoard)} />
+        <Route path="/worker/performance-notes" element={withNav(PerformanceNotes)} />
 
         {/* ADMIN — KELOLA DATA */}
         <Route path="/admin" element={withNav(Admin)} />
@@ -92,7 +100,8 @@ function AppContent() {
 
         {/* ADMIN — TALENT & PERFORMANCE */}
         <Route path="/admin/kpi" element={withNav(Kpi)} />
-        <Route path="/admin/okr" element={adminPage('okr')} />
+        <Route path="/admin/incentive" element={withNav(IncentiveCalc)} />
+        <Route path="/admin/okr" element={withNav(Okrs)} />
         <Route path="/admin/learning" element={adminPage('learning')} />
         <Route path="/admin/certifications" element={adminPage('certifications')} />
         <Route path="/admin/badges" element={adminPage('badges')} />
@@ -100,20 +109,15 @@ function AppContent() {
         <Route path="/admin/career" element={adminPage('career')} />
 
         {/* ADMIN — ASET & FASILITAS */}
-        <Route path="/admin/assets" element={adminPage('assets')} />
-        <Route path="/admin/asset-assign" element={adminPage('asset-assign')} />
-        <Route path="/admin/estate" element={adminPage('estate')} />
-        <Route path="/admin/facility" element={adminPage('facility')} />
+        <Route path="/admin/assets" element={withNav(AssetManagement)} />
 
         {/* ADMIN — ENGAGEMENT & BUDAYA */}
-        <Route path="/admin/surveys" element={adminPage('surveys')} />
+        <Route path="/admin/surveys" element={withNav(SurveyPage)} />
         <Route path="/admin/voice" element={adminPage('voice')} />
         <Route path="/admin/whistleblower" element={adminPage('whistleblower')} />
 
         {/* ADMIN — OFFBOARDING */}
-        <Route path="/admin/exit" element={adminPage('exit')} />
-        <Route path="/admin/settlement" element={adminPage('settlement')} />
-        <Route path="/admin/clearance" element={adminPage('clearance')} />
+        <Route path="/admin/exit" element={withNav(Offboarding)} />
 
         {/* ADMIN — SISTEM & KEAMANAN */}
         <Route path="/admin/audit" element={withNav(AuditLog)} />
