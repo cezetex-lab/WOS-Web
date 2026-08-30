@@ -126,12 +126,9 @@ DROP FUNCTION IF EXISTS get_task_board(p_nrp TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION get_task_board(p_nrp TEXT DEFAULT NULL)
 RETURNS JSONB AS $$
   SELECT jsonb_build_object(
-    'todo', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', id, 'title', title, 'assignee', assignee_nrp, 'due', due_date))
-      FROM hr_tasks WHERE (p_nrp IS NULL OR assignee_nrp = p_nrp) AND status = 'TODO' ORDER BY due_date), '[]'::jsonb),
-    'doing', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', id, 'title', title, 'assignee', assignee_nrp, 'due', due_date))
-      FROM hr_tasks WHERE (p_nrp IS NULL OR assignee_nrp = p_nrp) AND status = 'DOING' ORDER BY due_date), '[]'::jsonb),
-    'done', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', id, 'title', title, 'assignee', assignee_nrp, 'due', due_date))
-      FROM hr_tasks WHERE (p_nrp IS NULL OR assignee_nrp = p_nrp) AND status = 'DONE' ORDER BY due_date), '[]'::jsonb)
+    'todo', (SELECT COALESCE(jsonb_agg(sub.*), '[]'::jsonb) FROM (SELECT id, title, assignee_nrp, due_date FROM hr_tasks WHERE (p_nrp IS NULL OR assignee_nrp = p_nrp) AND status = 'TODO' ORDER BY due_date) sub),
+    'doing', (SELECT COALESCE(jsonb_agg(sub.*), '[]'::jsonb) FROM (SELECT id, title, assignee_nrp, due_date FROM hr_tasks WHERE (p_nrp IS NULL OR assignee_nrp = p_nrp) AND status = 'DOING' ORDER BY due_date) sub),
+    'done', (SELECT COALESCE(jsonb_agg(sub.*), '[]'::jsonb) FROM (SELECT id, title, assignee_nrp, due_date FROM hr_tasks WHERE (p_nrp IS NULL OR assignee_nrp = p_nrp) AND status = 'DONE' ORDER BY due_date) sub)
   );
 $$ LANGUAGE sql SECURITY DEFINER;
 
