@@ -410,13 +410,13 @@ WHERE e1.nrp LIKE 'MNG05%' AND m.atasan_nrp IS NOT NULL LIMIT 1
 ON CONFLICT DO NOTHING;
 
 -- 27. WEBHOOK LOGS — 5
-INSERT INTO webhook_logs (webhook_id, event, payload, response_status, success)
+INSERT INTO webhook_logs (event_type, payload, target_url, status, response_code)
 VALUES
-  (1, 'leave_approved', '{"nrp":"MNG0001","days":3}', 200, true),
-  (1, 'kpi_alert', '{"nrp":"MNG0150","kpi":45}', 200, true),
-  (2, 'turnover_warning', '{"divisi":"Mining","count":5}', 200, true),
-  (1, 'new_registration', '{"nrp":"EST0050"}', 200, true),
-  (2, 'safety_incident', '{"type":"kecelakaan","severity":"high"}', 500, false)
+  ('leave_approved', '{"nrp":"MNG0001","days":3}', 'https://hooks.slack.com/xxx', 'SUCCESS', 200),
+  ('kpi_alert', '{"nrp":"MNG0150","kpi":45}', 'https://hooks.slack.com/xxx', 'SUCCESS', 200),
+  ('turnover_warning', '{"divisi":"Mining","count":5}', 'https://hooks.teams.com/xxx', 'SUCCESS', 200),
+  ('new_registration', '{"nrp":"EST0050"}', 'https://hooks.slack.com/xxx', 'SUCCESS', 200),
+  ('safety_incident', '{"type":"kecelakaan","severity":"high"}', 'https://hooks.teams.com/xxx', 'FAILED', 500)
 ON CONFLICT DO NOTHING;
 
 -- 28. EXTERNAL NOTIFICATION LOGS — 4
