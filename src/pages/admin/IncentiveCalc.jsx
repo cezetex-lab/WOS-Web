@@ -43,7 +43,7 @@ export default function IncentiveCalc() {
     } catch (e) {
       // Fallback: try direct query
       try {
-        const { data } = await supabase.from('hr_incentives').select('*').eq('nrp', nrp).order('created_at', { ascending: false }).limit(20);
+        const { data } = await supabase.from('incentives').select('*').eq('nrp', nrp).order('created_at', { ascending: false }).limit(20);
         if (data) setIncentives(data);
       } catch (e2) { console.warn('Incentive fetch error:', e2); }
     }
