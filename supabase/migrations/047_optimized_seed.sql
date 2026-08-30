@@ -51,35 +51,28 @@ WHERE EXTRACT(DOW FROM d) NOT IN (0, 6)
 ON CONFLICT DO NOTHING;
 
 -- 3. PERFORMANCE — 2 months only
--- Check hr_performance columns
--- Table uses: nrp, period, kpi_score, etc.
-INSERT INTO hr_performance (nrp, period, kpi_score, attendance_score, productivity_score, attitude_score, initiative_score, overall_score)
+INSERT INTO hr_performance (nrp, periode, kpi_score, feedback_json)
 SELECT 
   e.nrp,
-  (ARRAY['2026-05', '2026-06'])[m] as period,
-  (50 + random()*50)::int,
-  (60 + random()*40)::int,
-  (40 + random()*60)::int,
-  (50 + random()*50)::int,
-  (30 + random()*70)::int,
-  0
+  (ARRAY['2026-05', '2026-06'])[m] as periode,
+  ROUND((50 + random()*50)::numeric, 1),
+  CASE WHEN random() > 0.5 THEN '{"feedback":"Kinerja baik"}' ELSE NULL END
 FROM employees_master e
 CROSS JOIN generate_series(1, 2) m
 WHERE e.status_kerja = 'PKWTT'
-  AND random() > 0.2  -- 80% have performance data
+  AND random() > 0.2
 ON CONFLICT DO NOTHING;
 
-UPDATE hr_performance SET overall_score = ROUND((kpi_score*0.4 + attendance_score*0.3 + productivity_score*0.2 + attitude_score*0.05 + initiative_score*0.05)::numeric, 1);
-
 -- 4. SKILLS — 3 per employee
-INSERT INTO hr_skills (nrp, skill_name, level, target_level)
+INSERT INTO hr_skills (id, nrp, skill_name, level, target_level)
 SELECT 
+  'SK-' || e.nrp || '-' || LPAD(gs::text, 2, '0'),
   e.nrp,
   (ARRAY['Microsoft Office', 'Python', 'SQL', 'Leadership', 'Communication', 'Safety K3', 'Machinery Operation', 'Quality Control', 'Project Management', 'Financial Analysis'])[1 + (random()*9)::int],
   1 + (random()*5)::int,
   2 + (random()*4)::int
 FROM employees_master e
-CROSS JOIN generate_series(1, 3) s
+CROSS JOIN generate_series(1, 3) gs
 WHERE random() > 0.5
 ON CONFLICT DO NOTHING;
 
@@ -213,14 +206,15 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- 14. KPI CALC LOG — 500 records
--- hr_kpi_calc_log: check columns
--- Table uses: nrp, period, kpi_score, calculated_at
-INSERT INTO hr_kpi_calc_log (nrp, period, kpi_score, calculated_at)
+INSERT INTO hr_kpi_calc_log (nrp, periode, indicator, realisasi, target, raw_score, final_score)
 SELECT 
   e.nrp,
   '2026-06',
-  (50 + random()*50)::int,
-  NOW() - (random()*30 || ' days')::interval
+  'KPI Score',
+  (50 + random()*50)::numeric(10,2),
+  100.00,
+  (50 + random()*50)::numeric(5,2),
+  (50 + random()*50)::numeric(5,2)
 FROM employees_master e
 WHERE random() > 0.75
 ON CONFLICT DO NOTHING;
