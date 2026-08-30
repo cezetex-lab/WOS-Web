@@ -1,6 +1,6 @@
 -- ============================================================
 -- 047_optimized_seed.sql — FULL REWRITE
--- All NRPs match employees_master: MNG0001-MNG0500, EST0001-EST0700, MIL0001-MIL0300, HQ0001-HQ0500
+-- All NRPs match employees_master: MNG0001-MNG0500, EST0001-EST0700, MLL0001-MLL0500, HQ0001-HQ0500
 -- ~9MB total, fits Supabase Free Tier (500MB)
 -- ============================================================
 
@@ -116,11 +116,11 @@ INSERT INTO hr_voice (id, type, nrp, title, description, votes, status)
 VALUES
   ('VO001', 'idea', 'MNG0001', 'Sistem Absensi Digital', 'Gunakan fingerprint untuk presensi', 15, 'APPROVED'),
   ('VO002', 'idea', 'EST0005', 'Portal Training Online', 'Sediakan e-learning', 23, 'APPROVED'),
-  ('VO003', 'idea', 'MIL0012', 'Garden Area Kantor', 'Taman di area parkir', 8, 'PENDING'),
+  ('VO003', 'idea', 'MLL0012', 'Garden Area Kantor', 'Taman di area parkir', 8, 'PENDING'),
   ('VO004', 'idea', 'HQ0003', 'Perpustakaan Digital', 'Akses ebook gratis', 31, 'APPROVED'),
   ('VO005', 'idea', 'MNG0020', 'Shuttle Bus', 'Antar jemput karyawan', 42, 'PENDING'),
   ('VO006', 'idea', 'EST0003', 'Cafeteria Baru', 'Makanan lebih variatif', 19, 'REJECTED'),
-  ('VO007', 'idea', 'MIL0015', 'Gym Gratis', 'Fasilitas olahraga', 27, 'PENDING'),
+  ('VO007', 'idea', 'MLL0015', 'Gym Gratis', 'Fasilitas olahraga', 27, 'PENDING'),
   ('VO008', 'idea', 'HQ0008', 'Wifi Gratis', 'Internet cepat', 35, 'APPROVED'),
   ('VO009', 'idea', 'MNG0010', 'Mentoring Program', 'Senior membimbing junior', 12, 'PENDING'),
   ('VO010', 'idea', 'EST0025', 'Flexible Working', 'WFH 2 hari per minggu', 45, 'PENDING')
@@ -132,9 +132,9 @@ VALUES
   ('MNG0050', 'Kecelakaan Kerja', 'medium', 'Tangan tergiling mesin giling', CURRENT_DATE - 45),
   ('MNG0100', 'Hampir Celaka', 'low', 'Hampir tertimpa beam crane', CURRENT_DATE - 30),
   ('EST0150', 'Kebakaran', 'high', 'Kebakaran kecil di area gudang', CURRENT_DATE - 20),
-  ('MIL0200', 'Paparan Kimia', 'medium', 'Tumpahan pestisida di kebun', CURRENT_DATE - 15),
+  ('MLL0200', 'Paparan Kimia', 'medium', 'Tumpahan pestisida di kebun', CURRENT_DATE - 15),
   ('EST0250', 'Terpeleset', 'low', 'Lantai licin di area produksi', CURRENT_DATE - 10),
-  ('MIL0300', 'Kecelakaan Kendaraan', 'high', 'Tabrakan truck sawit', CURRENT_DATE - 5),
+  ('MLL0300', 'Kecelakaan Kendaraan', 'high', 'Tabrakan truck sawit', CURRENT_DATE - 5),
   ('MNG0350', 'Hampir Celaka', 'low', 'Wire rope hampir putus', CURRENT_DATE - 3),
   ('HQ0020', 'Jatuh dari Ketinggian', 'high', 'Jatuh dari tower 5m', CURRENT_DATE - 1)
 ON CONFLICT DO NOTHING;
@@ -194,7 +194,7 @@ INSERT INTO hr_ai_tasks (id, task_type, title, status, agent_name, priority, det
 VALUES
   ('AIT001', 'anomaly', 'KPI Anomaly — MNG0150', 'PENDING', 'AnomalySentinel', 'HIGH', '{"reason":"KPI turun 30%"}'),
   ('AIT002', 'anomaly', 'Attendance Pattern — EST0200', 'PENDING', 'AnomalySentinel', 'NORMAL', '{"reason":"Alpha 5x"}'),
-  ('AIT003', 'prediction', 'Flight Risk — MIL0300', 'PENDING', 'FlightRiskPredictor', 'HIGH', '{"risk":78}'),
+  ('AIT003', 'prediction', 'Flight Risk — MLL0300', 'PENDING', 'FlightRiskPredictor', 'HIGH', '{"risk":78}'),
   ('AIT004', 'recommendation', 'Training Rec — HQ0005', 'PENDING', 'RecommendationEngine', 'LOW', '{"course":"Safety K3"}'),
   ('AIT005', 'auto_heal', 'Auto-Reject Overtime', 'COMPLETED', 'AutoHealer', 'NORMAL', '{"budget":"95%"}'),
   ('AIT006', 'alert', 'PKWT Expiry — 15 emp', 'PENDING', 'ContractMonitor', 'HIGH', '{"count":15}'),
@@ -306,12 +306,12 @@ ON CONFLICT DO NOTHING;
 
 -- 19. EXIT INTERVIEWS — 5 (using real NRPs, employees who have left)
 -- First ensure these NRPs exist with status 'Resign' or 'PHK'
-UPDATE employees_master SET status_kerja = 'Resign' WHERE nrp IN ('MNG0495','EST0695','MIL0295','HQ0045','EST0690');
+UPDATE employees_master SET status_kerja = 'Resign' WHERE nrp IN ('MNG0495','EST0695','MLL0295','HQ0045','EST0690');
 INSERT INTO exit_interviews (id, nrp, satisfaction_score, reason, feedback)
 VALUES
   ('EI001', 'MNG0495', 3, 'Career Growth', 'Tidak ada jalur karir yang jelas'),
   ('EI002', 'EST0695', 4, 'Compensation', 'Gaji tidak sesuai beban kerja'),
-  ('EI003', 'MIL0295', 5, 'Relocation', 'Pindah domisili'),
+  ('EI003', 'MLL0295', 5, 'Relocation', 'Pindah domisili'),
   ('EI004', 'HQ0045', 2, 'Work Environment', 'Terlalu banyak lembur'),
   ('EI005', 'EST0690', 3, 'Health', 'Masalah kesehatan')
 ON CONFLICT DO NOTHING;
@@ -321,7 +321,7 @@ INSERT INTO final_settlements (id, nrp, sisa_cuti_paid, thr_prorata, pesangon, t
 VALUES
   ('FS001', 'MNG0495', 12000000, 8500000, 25500000, 46000000, 'COMPLETED'),
   ('FS002', 'EST0695', 8000000, 6000000, 12000000, 26000000, 'COMPLETED'),
-  ('FS003', 'MIL0295', 9500000, 7000000, 14000000, 30500000, 'PENDING'),
+  ('FS003', 'MLL0295', 9500000, 7000000, 14000000, 30500000, 'PENDING'),
   ('FS004', 'HQ0045', 6000000, 5500000, 11000000, 22500000, 'PENDING'),
   ('FS005', 'EST0690', 15000000, 9000000, 27000000, 51000000, 'COMPLETED')
 ON CONFLICT DO NOTHING;
@@ -412,7 +412,7 @@ SELECT
   'DR003', e1.nrp, 'SP3', 'Safety violation berat', CURRENT_DATE - 30, m.atasan_nrp
 FROM employees_master e1
 JOIN hr_org m ON m.nrp = e1.nrp
-WHERE e1.nrp LIKE 'MIL0%' AND m.atasan_nrp IS NOT NULL LIMIT 1
+WHERE e1.nrp LIKE 'MLL0%' AND m.atasan_nrp IS NOT NULL LIMIT 1
 ON CONFLICT DO NOTHING;
 
 INSERT INTO disciplinary_records (id, nrp, sp_level, reason, issued_date, issued_by)
