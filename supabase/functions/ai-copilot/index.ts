@@ -1,15 +1,12 @@
 // ============================================================
-// AI Copilot — RAG (Retrieval-Augmented Generation)
-// Edge Function for insightWOS
+// AI Copilot — Google Gemini (FREE, no OpenAI needed)
+// Simplified: DB query + Gemini format = response
 // ============================================================
 // 
-// Deployment:
-//   supabase functions deploy ai-copilot
-//
-// Environment Variables (set via Supabase Dashboard):
-//   OPENAI_API_KEY       — OpenAI API key for embeddings + chat
-//   SUPABASE_URL         — auto-set by Supabase
-//   SUPABASE_SERVICE_ROLE_KEY — auto-set by Supabase
+// Environment Variables (set via Supabase Dashboard → Secrets):
+//   GEMINI_API_KEY  — Google AI Studio API key (FREE)
+//   SUPABASE_URL    — auto-set
+//   SUPABASE_SERVICE_ROLE_KEY — auto-set
 // ============================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -21,7 +18,6 @@ const corsHeaders = {
 };
 
 serve(async (req: Request) => {
-  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -36,144 +32,90 @@ serve(async (req: Request) => {
       );
     }
 
-    // Create Supabase client with service role (for vector search)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const openaiKey = Deno.env.get("OPENAI_API_KEY")!;
+    const geminiKey = Deno.env.get("GEMINI_API_KEY")!;
+
+    if (!geminiKey) {
+      return new Response(
+        JSON.stringify({ error: "GEMINI_API_KEY not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ── Step 1: Generate embedding for user query ──
-    const embeddingRes = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "text-embedding-3-small",
-        input: message,
-      }),
-    });
+    // ── Step 1: Fetch relevant data from database ──
+    const dbData = await fetchDatabaseData(supabase, message, context);
 
-    if (!embeddingRes.ok) {
-      const err = await embeddingRes.text();
-      console.error("Embedding error:", err);
-      return new Response(
-        JSON.stringify({ error: "Failed to generate embedding", details: err }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // ── Step 2: Fetch relevant policy documents (simple keyword match) ──
+    const docs = await fetchRelevantDocs(supabase, message, context);
 
-    const { data: embeddingData } = await embeddingRes.json();
-    const queryEmbedding = embeddingData[0].embedding;
+    // ── Step 3: Build prompt with DB data + docs ──
+    const systemPrompt = buildSystemPrompt(dbData, docs);
 
-    // ── Step 2: Vector search — find relevant documents ──
-    const { data: matches, error: searchError } = await supabase.rpc("match_documents", {
-      query_embedding: queryEmbedding,
-      match_count: 8,
-      filter_context: context,
-    });
-
-    if (searchError) {
-      console.error("Vector search error:", searchError);
-      // Continue without context if search fails
-    }
-
-    const relevantDocs = matches || [];
-
-    // ── Step 3: Also fetch recent data for context ──
-    const contextData = await fetchRecentData(supabase, context);
-
-    // ── Step 4: Build system prompt with RAG context ──
-    let systemPrompt = `Kamu adalah AI Copilot untuk insightWOS — platform Workforce Intelligence untuk manajemen SDM.
-
-Kamu membantu admin dan manager dengan:
-- Analisis data karyawan dan KPI
-- Rekomendasi keputusan HR
-- Penjelasan kebijakan perusahaan
-- Prediksi dan early warning
-- Bantuan operasional HR harian
-
-Bahasa: Indonesia (formal tapi ramah).
-Gaya: Singkat, langsung ke poin, gunakan emoji jika sesuai.
-Batasan: Jangan mengarang data. Jika tidak yenyakin, bilang "Saya tidak memiliki data yang cukup untuk menjawab ini."`;
-
-    // Add RAG context from vector search
-    if (relevantDocs.length > 0) {
-      systemPrompt += "\n\n--- KONTEKS DARI DOKUMEN PERUSAHAAN ---\n";
-      relevantDocs.forEach((doc: any, i: number) => {
-        systemPrompt += `\n[Dokumen ${i + 1}] ${doc.title || 'Untitled'}:\n${doc.content}\n`;
-      });
-      systemPrompt += "\n--- AKHIR KONTEKS ---\n";
-    }
-
-    // Add live data context
-    if (contextData) {
-      systemPrompt += `\n\n--- DATA REAL-TIME ---\n${contextData}\n--- AKHIR DATA ---\n`;
-    }
-
-    // ── Step 5: Generate response via OpenAI Chat ──
+    // ── Step 4: Call Google Gemini ──
     const messages = [
-      { role: "system", content: systemPrompt },
-      ...conversationHistory.slice(-10), // Last 10 messages for context
-      { role: "user", content: message },
+      { role: "user", parts: [{ text: systemPrompt + "\n\nPertanyaan: " + message }] },
     ];
 
-    const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages,
-        max_tokens: 1024,
-        temperature: 0.7,
-        stream: false,
-      }),
-    });
+    // Add conversation history
+    if (conversationHistory.length > 0) {
+      const historyParts = conversationHistory.slice(-6).map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+      messages.unshift(...historyParts);
+    }
 
-    if (!chatRes.ok) {
-      const err = await chatRes.text();
-      console.error("Chat error:", err);
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: messages,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+          },
+        }),
+      }
+    );
+
+    if (!geminiRes.ok) {
+      const err = await geminiRes.text();
+      console.error("Gemini error:", err);
       return new Response(
-        JSON.stringify({ error: "Failed to generate response", details: err }),
+        JSON.stringify({ error: "AI service error", details: err }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const chatData = await chatRes.json();
-    const assistantMessage = chatData.choices[0].message.content;
+    const geminiData = await geminiRes.json();
+    const assistantMessage = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, tidak bisa memproses pertanyaan.";
 
-    // ── Step 6: Save to conversation log ──
+    // ── Step 5: Log conversation ──
     try {
       await supabase.from("ai_conversations").insert({
         user_message: message,
         assistant_message: assistantMessage,
         context,
-        tokens_used: chatData.usage?.total_tokens || 0,
-        documents_used: relevantDocs.length,
+        tokens_used: geminiData.usageMetadata?.totalTokenCount || 0,
+        documents_used: docs.length,
       });
     } catch (e) {
-      console.warn("Failed to log conversation:", e);
+      console.warn("Failed to log:", e);
     }
 
-    // ── Step 7: Return response ──
+    // ── Step 6: Return response ──
     return new Response(
       JSON.stringify({
         message: assistantMessage,
-        sources: relevantDocs.map((d: any) => ({
-          title: d.title,
-          similarity: d.similarity,
-        })),
-        usage: chatData.usage,
+        sources: docs.map((d: any) => ({ title: d.title, similarity: 1.0 })),
+        usage: geminiData.usageMetadata,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
     console.error("AI Copilot error:", error);
@@ -184,42 +126,131 @@ Batasan: Jangan mengarang data. Jika tidak yenyakin, bilang "Saya tidak memiliki
   }
 });
 
-// ── Helper: Fetch recent data based on context ──
-async function fetchRecentData(supabase: any, context: string): Promise<string> {
+// ── Helper: Fetch data from database based on context ──
+async function fetchDatabaseData(supabase: any, message: string, context: string): Promise<string> {
   const parts: string[] = [];
+  const msg = message.toLowerCase();
 
   try {
-    // Always fetch summary stats
+    // Always fetch summary
     const { data: summary } = await supabase.rpc("admin_get_summary");
     if (summary) {
-      parts.push(`Summary: ${JSON.stringify(summary)}`);
+      parts.push(`SUMMARY:\n- Total karyawan: ${summary.total_employees || 0}\n- Mining: ${summary.mining_count || 0}\n- Estate: ${summary.estate_count || 0}\n- Mill: ${summary.mill_count || 0}\n- HQ: ${summary.hq_count || 0}\n- High performers: ${summary.high_performers || 0}\n- Low performers: ${summary.low_performers || 0}\n- Pending requests: ${summary.pending_requests || 0}`);
     }
 
     // Context-specific data
-    if (context === "kpi" || context === "general") {
-      const { data: topPerformers } = await supabase.rpc("admin_get_top_performers");
-      if (topPerformers?.length) {
-        parts.push(`Top Performers: ${topPerformers.slice(0, 5).map((p: any) => `${p.nama} (${p.kpi_score})`).join(", ")}`);
+    if (msg.includes("kpi") || msg.includes("performa") || msg.includes("kinerja")) {
+      const { data: kpi } = await supabase.rpc("admin_get_kpi_by_division");
+      if (kpi?.length) {
+        parts.push("KPI BY DIVISION:\n" + kpi.map((k: any) => `- ${k.divisi}: avg ${k.avg_kpi || 0}, ${k.headcount || 0} orang`).join("\n"));
       }
     }
 
-    if (context === "payroll" || context === "general") {
+    if (msg.includes("payroll") || msg.includes("gaji") || msg.includes("salary")) {
       const { data: payroll } = await supabase.rpc("admin_get_payroll");
       if (payroll?.length) {
-        const totalGaji = payroll.reduce((s: number, p: any) => s + (p.gaji_bersih || 0), 0);
-        parts.push(`Total payroll: Rp ${totalGaji.toLocaleString("id-ID")} (${payroll.length} karyawan)`);
+        const total = payroll.reduce((s: number, p: any) => s + (p.net_salary || p.gaji_bersih || 0), 0);
+        parts.push(`PAYROLL: Total Rp ${total.toLocaleString("id-ID")} (${payroll.length} karyawan)`);
       }
     }
 
-    if (context === "attendance" || context === "general") {
-      const { data: workers } = await supabase.rpc("get_worker_status");
-      if (workers) {
-        parts.push(`Worker status: ${JSON.stringify(workers)}`);
+    if (msg.includes("kehadiran") || msg.includes("absen") || msg.includes("hadir")) {
+      const { data: att } = await supabase.rpc("get_worker_status");
+      if (att) {
+        parts.push(`ATTENDANCE: ${JSON.stringify(att)}`);
+      }
+    }
+
+    if (msg.includes("cuti") || msg.includes("leave")) {
+      const { data: leave } = await supabase.rpc("admin_get_leave");
+      if (leave?.length) {
+        const pending = leave.filter((l: any) => l.status === "Pending").length;
+        parts.push(`LEAVE: ${leave.length} total, ${pending} pending approval`);
+      }
+    }
+
+    if (msg.includes("turnover") || msg.includes("resign") || msg.includes("keluar")) {
+      const { data: turnover } = await supabase.rpc("get_turnover_data");
+      if (turnover) {
+        parts.push(`TURNOVER: ${JSON.stringify(turnover)}`);
+      }
+    }
+
+    if (msg.includes("flight risk") || msg.includes("berisiko")) {
+      const { data: risk } = await supabase.rpc("get_flight_risk_list");
+      if (risk?.length) {
+        parts.push("FLIGHT RISK:\n" + risk.slice(0, 5).map((r: any) => `- ${r.nama} (${r.nrp}): risk ${r.risk_level || 'unknown'}`).join("\n"));
+      }
+    }
+
+    if (msg.includes("warning") || msg.includes("peringatan")) {
+      const { data: warning } = await supabase.rpc("get_early_warning");
+      if (warning?.length) {
+        parts.push("EARLY WARNINGS:\n" + warning.slice(0, 5).map((w: any) => `- ${w.nrp || ''}: ${w.title || w.message || ''}`).join("\n"));
       }
     }
   } catch (e) {
-    console.warn("Failed to fetch context data:", e);
+    console.warn("DB fetch error:", e);
   }
 
-  return parts.length > 0 ? parts.join("\n") : "";
+  return parts.length > 0 ? parts.join("\n\n") : "Tidak ada data spesifik yang tersedia.";
+}
+
+// ── Helper: Fetch relevant policy documents (simple keyword match) ──
+async function fetchRelevantDocs(supabase: any, message: string, context: string): Promise<any[]> {
+  try {
+    // Simple keyword search — no embeddings needed
+    const keywords = message.toLowerCase().split(" ").filter((w: string) => w.length > 3);
+    
+    let query = supabase.from("ai_documents").select("title, content, context").limit(5);
+    
+    // Filter by context if specified
+    if (context && context !== "general") {
+      query = query.eq("context", context);
+    }
+    
+    const { data: docs } = await query;
+    
+    if (!docs?.length) return [];
+    
+    // Score documents by keyword overlap
+    const scored = docs.map((doc: any) => {
+      const text = (doc.title + " " + doc.content).toLowerCase();
+      const score = keywords.filter((kw: string) => text.includes(kw)).length;
+      return { ...doc, score };
+    }).filter((d: any) => d.score > 0).sort((a: any, b: any) => b.score - a.score);
+    
+    return scored.slice(0, 3);
+  } catch (e) {
+    return [];
+  }
+}
+
+// ── Helper: Build system prompt ──
+function buildSystemPrompt(dbData: string, docs: any[]): string {
+  let prompt = `Kamu adalah AI Assistant untuk insightWOS — platform HR untuk perusahaan pertambangan, perkebunan sawit, dan pabrik PKS.
+
+Tugasmu: Bantu admin/manager dengan pertanyaan tentang data HR.
+
+Aturan:
+- Jawab dalam Bahasa Indonesia
+- Singkat, langsung ke poin
+- Gunakan data yang diberikan, jangan mengarang
+- Jika data tidak cukup, bilang "Saya tidak memiliki data yang cukup"
+- Format angka dengan ribuan (contoh: 1.500 bukan 1500)
+- Gunakan emoji jika sesuai`;
+
+  if (dbData && dbData !== "Tidak ada data spesifik yang tersedia.") {
+    prompt += `\n\n--- DATA DARI DATABASE ---\n${dbData}\n--- AKHIR DATA ---`;
+  }
+
+  if (docs.length > 0) {
+    prompt += "\n\n--- DOKUMEN KEBIJAKAN PERUSAHAAN ---";
+    docs.forEach((doc: any, i: number) => {
+      prompt += `\n[${i + 1}] ${doc.title}:\n${doc.content?.substring(0, 500) || ""}`;
+    });
+    prompt += "\n--- AKHIR DOKUMEN ---";
+  }
+
+  return prompt;
 }

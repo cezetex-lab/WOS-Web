@@ -337,7 +337,7 @@ export default function ChatCopilot({ context = 'general' }) {
               </button>
             </div>
             <p className="text-[9px] text-slate-600 text-center mt-1.5">
-              AI Copilot menggunakan RAG — jawaban berdasarkan data & dokumen perusahaan
+              AI Copilot — jawaban berdasarkan data & kebijakan perusahaan (Gemini)
             </p>
           </div>
         </div>
