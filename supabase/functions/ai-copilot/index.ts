@@ -233,74 +233,129 @@ async function fetchDatabaseData(supabase: any, message: string, context: string
   const parts: string[] = [];
   const msg = message.toLowerCase();
 
+  // Detect target business unit
+  let targetBU = null;
+  if (msg.includes("mining") || msg.includes("tambang")) targetBU = "MINING";
+  else if (msg.includes("estate") || msg.includes("kebun") || msg.includes("sawit")) targetBU = "ESTATE";
+  else if (msg.includes("mill") || msg.includes("pabrik") || msg.includes("pks")) targetBU = "MILL";
+  else if (msg.includes("hq") || msg.includes("kantor") || msg.includes("korporat")) targetBU = "HQ";
+
+  // Detect if asking about specific people
+  const asksTop = msg.includes("tertinggi") || msg.includes("terbaik") || msg.includes("top") || msg.includes("paling tinggi");
+  const asksLow = msg.includes("terendah") || msg.includes("terburuk") || msg.includes("bottom") || msg.includes("paling rendah");
+
   try {
+    // 1. SUMMARY — always fetch
     const { data: summary } = await supabase.rpc("admin_get_summary");
     if (summary) {
-      parts.push(`SUMMARY:\n- Total karyawan: ${summary.total_employees || 0}\n- Mining: ${summary.mining_count || 0}\n- Estate: ${summary.estate_count || 0}\n- Mill: ${summary.mill_count || 0}\n- HQ: ${summary.hq_count || 0}\n- High performers: ${summary.high_performers || 0}\n- Low performers: ${summary.low_performers || 0}\n- Pending requests: ${summary.pending_requests || 0}`);
+      parts.push(`SUMMARY:\n- Total: ${summary.total_employees || 0} karyawan\n- Mining: ${summary.mining_count || 0} | Estate: ${summary.estate_count || 0} | Mill: ${summary.mill_count || 0} | HQ: ${summary.hq_count || 0}\n- High performers (KPI≥80): ${summary.high_performers || 0}\n- Low performers (KPI<60): ${summary.low_performers || 0}\n- Pending requests: ${summary.pending_requests || 0}\n- PKWT expiring soon: ${summary.retiring_soon || 0}`);
     }
 
-    if (msg.includes("kpi") || msg.includes("performa") || msg.includes("kinerja")) {
-      const { data: kpi } = await supabase.from("hr_performance").select("nrp, kpi_score, periode").order("created_at", { ascending: false }).limit(20);
-      if (kpi?.length) {
-        const avg = kpi.reduce((s: number, k: any) => s + Number(k.kpi_score || 0), 0) / kpi.length;
-        const high = kpi.filter((k: any) => Number(k.kpi_score) >= 80).length;
-        const low = kpi.filter((k: any) => Number(k.kpi_score) < 60).length;
-        parts.push(`KPI: Rata-rata ${avg.toFixed(1)} dari ${kpi.length} data. High performers: ${high}, Low performers: ${low}`);
+    // 2. KPI — always fetch top 10 + bottom 10 + per division
+    const { data: topKpi } = await supabase.from("hr_performance")
+      .select("nrp, kpi_score, periode, employees_master(nama, divisi, business_unit)")
+      .order("kpi_score", { ascending: false })
+      .limit(10);
+    const { data: lowKpi } = await supabase.from("hr_performance")
+      .select("nrp, kpi_score, periode, employees_master(nama, divisi, business_unit)")
+      .order("kpi_score", { ascending: true })
+      .limit(10);
+
+    if (topKpi?.length) {
+      const topList = topKpi.map((k: any) => {
+        const name = k.employees_master?.nama || k.nrp;
+        const div = k.employees_master?.divisi || "?";
+        const bu = k.employees_master?.business_unit || "?";
+        return `${name} (${div}/${bu}): ${k.kpi_score}`;
+      }).join(", ");
+      parts.push(`TOP 10 KPI TERTINGGI:\n${topList}`);
+    }
+    if (lowKpi?.length) {
+      const lowList = lowKpi.map((k: any) => {
+        const name = k.employees_master?.nama || k.nrp;
+        const div = k.employees_master?.divisi || "?";
+        const bu = k.employees_master?.business_unit || "?";
+        return `${name} (${div}/${bu}): ${k.kpi_score}`;
+      }).join(", ");
+      parts.push(`BOTTOM 10 KPI TERENDAH:\n${lowList}`);
+    }
+
+    // 3. KPI PER DIVISION
+    const allKpi = [...(topKpi || []), ...(lowKpi || [])];
+    if (allKpi.length) {
+      const byDiv: Record<string, number[]> = {};
+      allKpi.forEach((k: any) => {
+        const key = `${k.employees_master?.business_unit || "?"}/${k.employees_master?.divisi || "?"}`;
+        if (!byDiv[key]) byDiv[key] = [];
+        byDiv[key].push(Number(k.kpi_score));
+      });
+      const divLines = Object.entries(byDiv).map(([k, v]) => {
+        const avg = (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1);
+        return `${k}: avg ${avg} (${v.length} data)`;
+      }).join(", ");
+      parts.push(`KPI PER DIVISI: ${divLines}`);
+    }
+
+    // 4. PAYROLL — top 5 + bottom 5
+    const { data: topPay } = await supabase.from("hr_payroll")
+      .select("nrp, net_salary, base_salary, employees_master(nama, divisi, business_unit)")
+      .order("net_salary", { ascending: false })
+      .limit(5);
+    const { data: lowPay } = await supabase.from("hr_payroll")
+      .select("nrp, net_salary, base_salary, employees_master(nama, divisi, business_unit)")
+      .order("net_salary", { ascending: true })
+      .limit(5);
+    if (topPay?.length) {
+      const totalPay = topPay.concat(lowPay || []).reduce((s: number, p: any) => s + Number(p.net_salary || 0), 0);
+      const topList = topPay.map((p: any) => `${p.employees_master?.nama || p.nrp}: Rp ${Number(p.net_salary || 0).toLocaleString("id-ID")}`).join(", ");
+      const lowList = (lowPay || []).map((p: any) => `${p.employees_master?.nama || p.nrp}: Rp ${Number(p.net_salary || 0).toLocaleString("id-ID")}`).join(", ");
+      parts.push(`PAYROLL TOP 5: ${topList}\nPAYROLL BOTTOM 5: ${lowList}`);
+    }
+
+    // 5. ATTENDANCE — today
+    const today = new Date().toISOString().split("T")[0];
+    const { data: att } = await supabase.from("hr_attendance")
+      .select("nrp, status_hadir, employees_master(nama, business_unit)")
+      .eq("date", today)
+      .limit(200);
+    if (att?.length) {
+      const hadir = att.filter((a: any) => a.status_hadir === "Hadir").length;
+      const terlambat = att.filter((a: any) => a.status_hadir === "Terlambat").length;
+      const absen = att.filter((a: any) => a.status_hadir === "Alpha").length;
+      parts.push(`KEHADIRAN HARI INI (${today}): Hadir ${hadir} | Terlambat ${terlambat} | Absen ${absen} | Total ${att.length}`);
+    }
+
+    // 6. LEAVE
+    const { data: leave } = await supabase.from("hr_leave")
+      .select("nrp, annual_quota, annual_used")
+      .eq("tahun", new Date().getFullYear());
+    if (leave?.length) {
+      const totalKuota = leave.reduce((s: number, l: any) => s + Number(l.annual_quota || 0), 0);
+      const totalUsed = leave.reduce((s: number, l: any) => s + Number(l.annual_used || 0), 0);
+      parts.push(`CUTI ${new Date().getFullYear()}: ${leave.length} karyawan | Kuota: ${totalKuota} hari | Terpakai: ${totalUsed} | Sisa: ${totalKuota - totalUsed}`);
+    }
+
+    // 7. FLIGHT RISK
+    try {
+      const { data: risk } = await supabase.from("hr_performance")
+        .select("nrp, kpi_score, employees_master(nama, divisi, business_unit)")
+        .lt("kpi_score", 60)
+        .limit(10);
+      if (risk?.length) {
+        const riskList = risk.map((r: any) => `${r.employees_master?.nama || r.nrp} (${r.employees_master?.divisi || "?"}): KPI ${r.kpi_score}`).join(", ");
+        parts.push(`FLIGHT RISK (KPI<60): ${riskList}`);
       }
-    }
+    } catch (_e) {}
 
-    if (msg.includes("payroll") || msg.includes("gaji") || msg.includes("salary")) {
-      const { data: payroll } = await supabase.from("hr_payroll").select("nrp, net_salary, base_salary, periode").limit(50);
-      if (payroll?.length) {
-        const total = payroll.reduce((s: number, p: any) => s + Number(p.net_salary || 0), 0);
-        const avg = total / payroll.length;
-        parts.push(`PAYROLL: Total Rp ${total.toLocaleString("id-ID")} | Rata-rata Rp ${avg.toLocaleString("id-ID")} | ${payroll.length} karyawan`);
+    // 8. EARLY WARNING — PKWT expiring
+    try {
+      const { data: pkwt } = await supabase.rpc("get_pkwt_expiry_alert");
+      if (pkwt?.data?.length) {
+        const warningList = pkwt.data.slice(0, 5).map((w: any) => `${w.nama} (${w.divisi}): ${w.risk_level} - ${w.days_remaining} hari`).join(", ");
+        parts.push(`PKWT EXPIRING: ${warningList}`);
       }
-    }
+    } catch (_e) {}
 
-    if (msg.includes("kehadiran") || msg.includes("absen") || msg.includes("hadir")) {
-      const { data: att } = await supabase.from("hr_attendance").select("nrp, status_hadir, date").eq("date", new Date().toISOString().split("T")[0]).limit(50);
-      if (att?.length) {
-        const hadir = att.filter((a: any) => a.status_hadir === "Hadir").length;
-        const terlambat = att.filter((a: any) => a.status_hadir === "Terlambat").length;
-        const absen = att.filter((a: any) => a.status_hadir === "Alpha" || a.status_hadir === "Tidak Hadir").length;
-        parts.push(`ATTENDANCE Hari Ini: Hadir ${hadir} | Terlambat ${terlambat} | Absen ${absen} | Total ${att.length}`);
-      }
-    }
-
-    if (msg.includes("cuti") || msg.includes("leave")) {
-      const { data: leave } = await supabase.from("hr_leave").select("nrp, annual_quota, annual_used, tahun").eq("tahun", new Date().getFullYear());
-      if (leave?.length) {
-        const totalKuota = leave.reduce((s: number, l: any) => s + Number(l.annual_quota || 0), 0);
-        const totalUsed = leave.reduce((s: number, l: any) => s + Number(l.annual_used || 0), 0);
-        parts.push(`LEAVE: ${leave.length} karyawan | Kuota total: ${totalKuota} hari | Terpakai: ${totalUsed} hari | Sisa: ${totalKuota - totalUsed} hari`);
-      }
-    }
-
-    if (msg.includes("turnover") || msg.includes("resign") || msg.includes("keluar")) {
-      const { data: exit } = await supabase.from("hr_exit_clearance").select("nrp, resign_date, clearance_status").limit(20);
-      if (exit?.length) {
-        parts.push(`TURNOVER: ${exit.length} karyawan keluar | Pending clearance: ${exit.filter((e: any) => e.clearance_status === "PENDING").length}`);
-      }
-    }
-
-    if (msg.includes("flight risk") || msg.includes("berisiko")) {
-      try {
-        const { data: risk } = await supabase.rpc("get_flight_risk_list");
-        if (risk?.length) {
-          parts.push("FLIGHT RISK:\n" + risk.slice(0, 5).map((r: any) => `- ${r.nama || r.nrp}: ${r.risk_level || "unknown"}`).join("\n"));
-        }
-      } catch (_e) { /* RPC may not exist */ }
-    }
-
-    if (msg.includes("warning") || msg.includes("peringatan")) {
-      try {
-        const { data: warning } = await supabase.rpc("get_early_warning");
-        if (warning?.length) {
-          parts.push("EARLY WARNINGS:\n" + warning.slice(0, 5).map((w: any) => `- ${w.nrp || ""}: ${w.title || w.message || ""}`).join("\n"));
-        }
-      } catch (_e) { /* RPC may not exist */ }
-    }
   } catch (e) {
     console.warn("DB fetch error:", e);
   }
