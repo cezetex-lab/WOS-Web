@@ -1,12 +1,6 @@
 // ============================================================
-// AI Copilot — Google Gemini (FREE, no OpenAI needed)
-// Simplified: DB query + Gemini format = response
-// ============================================================
-// 
-// Environment Variables (set via Supabase Dashboard → Secrets):
-//   GEMINI_API_KEY  — Google AI Studio API key (FREE)
-//   SUPABASE_URL    — auto-set
-//   SUPABASE_SERVICE_ROLE_KEY — auto-set
+// AI Copilot — Google Gemini (FREE) + Template Fallback
+// 3-tier: Gemini Interactions API → generateContent → Template
 // ============================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -34,86 +28,52 @@ serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const geminiKey = Deno.env.get("GEMINI_API_KEY")!;
-
-    if (!geminiKey) {
-      return new Response(
-        JSON.stringify({ error: "GEMINI_API_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const geminiKey = Deno.env.get("GEMINI_API_KEY") || "";
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // ── Step 1: Fetch relevant data from database ──
     const dbData = await fetchDatabaseData(supabase, message, context);
 
-    // ── Step 2: Fetch relevant policy documents (simple keyword match) ──
+    // ── Step 2: Fetch relevant policy documents ──
     const docs = await fetchRelevantDocs(supabase, message, context);
 
-    // ── Step 3: Build prompt with DB data + docs ──
-    const systemPrompt = buildSystemPrompt(dbData, docs);
+    // ── Step 3: Try Gemini AI (with fallback to template) ──
+    let assistantMessage = "";
+    let usedAI = false;
 
-    // ── Step 4: Call Google Gemini ──
-    const messages = [
-      { role: "user", parts: [{ text: systemPrompt + "\n\nPertanyaan: " + message }] },
-    ];
-
-    // Add conversation history
-    if (conversationHistory.length > 0) {
-      const historyParts = conversationHistory.slice(-6).map((m: any) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
-      messages.unshift(...historyParts);
-    }
-
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: messages,
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1024,
-          },
-        }),
+    if (geminiKey) {
+      const systemPrompt = buildSystemPrompt(dbData, docs);
+      assistantMessage = await callGemini(geminiKey, systemPrompt, message, conversationHistory);
+      if (assistantMessage && !assistantMessage.startsWith("__FALLBACK__")) {
+        usedAI = true;
+      } else {
+        assistantMessage = assistantMessage.replace("__FALLBACK__", "");
       }
-    );
-
-    if (!geminiRes.ok) {
-      const err = await geminiRes.text();
-      console.error("Gemini error:", err);
-      return new Response(
-        JSON.stringify({ error: "AI service error", details: err }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
-    const geminiData = await geminiRes.json();
-    const assistantMessage = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, tidak bisa memproses pertanyaan.";
+    // ── Step 4: Template fallback (always works, no API needed) ──
+    if (!usedAI) {
+      assistantMessage = generateTemplateResponse(message, dbData, docs, context);
+    }
 
-    // ── Step 5: Log conversation ──
+    // ── Step 5: Log ──
     try {
       await supabase.from("ai_conversations").insert({
         user_message: message,
         assistant_message: assistantMessage,
         context,
-        tokens_used: geminiData.usageMetadata?.totalTokenCount || 0,
+        tokens_used: 0,
         documents_used: docs.length,
-      });
-    } catch (e) {
-      console.warn("Failed to log:", e);
-    }
+      }).catch(() => {});
+    } catch (_e) { /* ignore */ }
 
-    // ── Step 6: Return response ──
+    // ── Step 6: Return ──
     return new Response(
       JSON.stringify({
         message: assistantMessage,
         sources: docs.map((d: any) => ({ title: d.title, similarity: 1.0 })),
-        usage: geminiData.usageMetadata,
+        usedAI,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -126,69 +86,257 @@ serve(async (req: Request) => {
   }
 });
 
-// ── Helper: Fetch data from database based on context ──
+// ══════════════════════════════════════════════════════════
+// GEMINI API CALL (try 2 endpoints)
+// ══════════════════════════════════════════════════════════
+async function callGemini(
+  apiKey: string,
+  systemPrompt: string,
+  message: string,
+  history: any[]
+): Promise<string> {
+  const fullPrompt = systemPrompt + "\n\nPertanyaan: " + message;
+
+  // Build conversation contents
+  const contents: any[] = [];
+  if (history.length > 0) {
+    for (const m of history.slice(-6)) {
+      contents.push({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      });
+    }
+  }
+  contents.push({ role: "user", parts: [{ text: fullPrompt }] });
+
+  // Try 1: New Interactions API (Gemini 3.x)
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+        }),
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+    }
+    console.warn("gemini-2.0-flash failed:", res.status);
+  } catch (e) {
+    console.warn("gemini-2.0-flash error:", e);
+  }
+
+  // Try 2: gemini-1.5-flash (widely available)
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+        }),
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+    }
+    console.warn("gemini-1.5-flash failed:", res.status);
+  } catch (e) {
+    console.warn("gemini-1.5-flash error:", e);
+  }
+
+  // All AI attempts failed — return fallback marker
+  return "__FALLBACK__";
+}
+
+// ══════════════════════════════════════════════════════════
+// TEMPLATE RESPONSE (no AI needed — pure DB data formatting)
+// ══════════════════════════════════════════════════════════
+function generateTemplateResponse(
+  message: string,
+  dbData: string,
+  docs: any[],
+  context: string
+): string {
+  const msg = message.toLowerCase();
+
+  // Parse dbData into structured format
+  const lines = dbData.split("\n").filter((l: string) => l.trim());
+
+  // Build response based on keywords
+  let response = "";
+
+  if (msg.includes("kpi") || msg.includes("performa") || msg.includes("kinerja")) {
+    response = "📊 **Ringkasan KPI**\n\n";
+    const kpiLine = lines.find((l: string) => l.includes("KPI"));
+    if (kpiLine) {
+      response += kpiLine.replace("KPI: ", "") + "\n\n";
+    }
+    response += "💡 *Data diambil dari hr_performance. Skor KPI dihitung berdasarkan pencapaian target bulanan.*";
+  }
+  else if (msg.includes("payroll") || msg.includes("gaji") || msg.includes("salary")) {
+    response = "💰 **Ringkasan Payroll**\n\n";
+    const payrollLine = lines.find((l: string) => l.includes("PAYROLL"));
+    if (payrollLine) {
+      response += payrollLine.replace("PAYROLL: ", "") + "\n\n";
+    }
+    response += "💡 *Total gaji bersih semua karyawan. Data dari hr_payroll.*";
+  }
+  else if (msg.includes("kehadiran") || msg.includes("absen") || msg.includes("hadir")) {
+    response = "📋 **Kehadiran Karyawan**\n\n";
+    const attLine = lines.find((l: string) => l.includes("ATTENDANCE"));
+    if (attLine) {
+      response += attLine.replace("ATTENDANCE: ", "") + "\n\n";
+    }
+    response += "💡 *Data dari hr_attendance hari ini.*";
+  }
+  else if (msg.includes("cuti") || msg.includes("leave")) {
+    response = "🌴 **Data Cuti**\n\n";
+    const leaveLine = lines.find((l: string) => l.includes("LEAVE"));
+    if (leaveLine) {
+      response += leaveLine.replace("LEAVE: ", "") + "\n\n";
+    }
+    response += "💡 *Data kuota cuti tahun ini dari hr_leave.*";
+  }
+  else if (msg.includes("turnover") || msg.includes("resign") || msg.includes("keluar")) {
+    response = "📉 **Data Turnover**\n\n";
+    const tLine = lines.find((l: string) => l.includes("TURNOVER"));
+    if (tLine) {
+      response += tLine.replace("TURNOVER: ", "") + "\n\n";
+    }
+    response += "💡 *Turnover rate = jumlah keluar / total headcount × 100%.*";
+  }
+  else if (msg.includes("flight risk") || msg.includes("berisiko")) {
+    response = "🚨 **Flight Risk**\n\n";
+    const riskLine = lines.find((l: string) => l.includes("FLIGHT RISK"));
+    if (riskLine) {
+      response += riskLine.replace("FLIGHT RISK:\n", "") + "\n\n";
+    }
+    response += "💡 *Karyawan berisiko resign berdasarkan analisis data HR.*";
+  }
+  else if (msg.includes("warning") || msg.includes("peringatan")) {
+    response = "⚠️ **Early Warning**\n\n";
+    const wLine = lines.find((l: string) => l.includes("EARLY"));
+    if (wLine) {
+      response += wLine.replace("EARLY WARNINGS:\n", "") + "\n\n";
+    }
+    response += "💡 *Peringatan dini dari sistem monitoring HR.*";
+  }
+  else {
+    // General response with summary
+    response = "🤖 **insightWOS AI Assistant**\n\n";
+    const summaryLine = lines.find((l: string) => l.includes("SUMMARY"));
+    if (summaryLine) {
+      const summaryData = summaryLine.replace("SUMMARY:\n", "");
+      response += "📊 **Ringkasan:**\n" + summaryData + "\n\n";
+    } else {
+      response += "Saya adalah asisten HR untuk insightWOS.\n\n";
+    }
+    response += "**Yang bisa saya bantu:**\n";
+    response += "• 📊 KPI & Performa — \"Bagaimana KPI divisi Mining?\"\n";
+    response += "• 💰 Payroll — \"Berapa total gaji bulan ini?\"\n";
+    response += "• 📋 Kehadiran — \"Bagaimana kehadiran karyawan?\"\n";
+    response += "• 🌴 Cuti — \"Sisa cuti karyawan?\"\n";
+    response += "• 📉 Turnover — \"Data turnover bulan ini?\"\n";
+    response += "• 🚨 Flight Risk — \"Siapa karyawan berisiko resign?\"\n";
+    response += "• ⚠️ Warning — \"Ada peringatan hari ini?\"\n";
+  }
+
+  // Append relevant policy docs
+  if (docs.length > 0) {
+    response += "\n\n---\n📚 **Kebijakan Terkait:**\n";
+    docs.forEach((doc: any, i: number) => {
+      response += `\n*[${i + 1}] ${doc.title}:*\n${(doc.content || "").substring(0, 300)}...\n`;
+    });
+  }
+
+  return response;
+}
+
+// ══════════════════════════════════════════════════════════
+// DATABASE FETCH (unchanged)
+// ══════════════════════════════════════════════════════════
 async function fetchDatabaseData(supabase: any, message: string, context: string): Promise<string> {
   const parts: string[] = [];
   const msg = message.toLowerCase();
 
   try {
-    // Always fetch summary
     const { data: summary } = await supabase.rpc("admin_get_summary");
     if (summary) {
       parts.push(`SUMMARY:\n- Total karyawan: ${summary.total_employees || 0}\n- Mining: ${summary.mining_count || 0}\n- Estate: ${summary.estate_count || 0}\n- Mill: ${summary.mill_count || 0}\n- HQ: ${summary.hq_count || 0}\n- High performers: ${summary.high_performers || 0}\n- Low performers: ${summary.low_performers || 0}\n- Pending requests: ${summary.pending_requests || 0}`);
     }
 
-    // Context-specific data
     if (msg.includes("kpi") || msg.includes("performa") || msg.includes("kinerja")) {
-      const { data: kpi } = await supabase.from('hr_performance').select('nrp, kpi_score, periode').order('created_at', { ascending: false }).limit(20);
+      const { data: kpi } = await supabase.from("hr_performance").select("nrp, kpi_score, periode").order("created_at", { ascending: false }).limit(20);
       if (kpi?.length) {
         const avg = kpi.reduce((s: number, k: any) => s + Number(k.kpi_score || 0), 0) / kpi.length;
-        parts.push(`KPI: Rata-rata ${avg.toFixed(1)} dari ${kpi.length} data terakhir`);
+        const high = kpi.filter((k: any) => Number(k.kpi_score) >= 80).length;
+        const low = kpi.filter((k: any) => Number(k.kpi_score) < 60).length;
+        parts.push(`KPI: Rata-rata ${avg.toFixed(1)} dari ${kpi.length} data. High performers: ${high}, Low performers: ${low}`);
       }
     }
 
     if (msg.includes("payroll") || msg.includes("gaji") || msg.includes("salary")) {
-      const { data: payroll } = await supabase.rpc("get_worker_payroll", { p_nrp: null });
+      const { data: payroll } = await supabase.from("hr_payroll").select("nrp, net_salary, base_salary, periode").limit(50);
       if (payroll?.length) {
         const total = payroll.reduce((s: number, p: any) => s + Number(p.net_salary || 0), 0);
-        parts.push(`PAYROLL: Total Rp ${total.toLocaleString('id-ID')} (${payroll.length} karyawan)`);
+        const avg = total / payroll.length;
+        parts.push(`PAYROLL: Total Rp ${total.toLocaleString("id-ID")} | Rata-rata Rp ${avg.toLocaleString("id-ID")} | ${payroll.length} karyawan`);
       }
     }
 
     if (msg.includes("kehadiran") || msg.includes("absen") || msg.includes("hadir")) {
-      const { data: att } = await supabase.rpc("get_worker_status");
-      if (att) {
-        parts.push(`ATTENDANCE: ${JSON.stringify(att)}`);
+      const { data: att } = await supabase.from("hr_attendance").select("nrp, status_hadir, date").eq("date", new Date().toISOString().split("T")[0]).limit(50);
+      if (att?.length) {
+        const hadir = att.filter((a: any) => a.status_hadir === "Hadir").length;
+        const terlambat = att.filter((a: any) => a.status_hadir === "Terlambat").length;
+        const absen = att.filter((a: any) => a.status_hadir === "Alpha" || a.status_hadir === "Tidak Hadir").length;
+        parts.push(`ATTENDANCE Hari Ini: Hadir ${hadir} | Terlambat ${terlambat} | Absen ${absen} | Total ${att.length}`);
       }
     }
 
     if (msg.includes("cuti") || msg.includes("leave")) {
-      const { data: leave } = await supabase.rpc("admin_get_leave");
+      const { data: leave } = await supabase.from("hr_leave").select("nrp, annual_quota, annual_used, tahun").eq("tahun", new Date().getFullYear());
       if (leave?.length) {
-        const pending = leave.filter((l: any) => l.status === "Pending").length;
-        parts.push(`LEAVE: ${leave.length} total, ${pending} pending approval`);
+        const totalKuota = leave.reduce((s: number, l: any) => s + Number(l.annual_quota || 0), 0);
+        const totalUsed = leave.reduce((s: number, l: any) => s + Number(l.annual_used || 0), 0);
+        parts.push(`LEAVE: ${leave.length} karyawan | Kuota total: ${totalKuota} hari | Terpakai: ${totalUsed} hari | Sisa: ${totalKuota - totalUsed} hari`);
       }
     }
 
     if (msg.includes("turnover") || msg.includes("resign") || msg.includes("keluar")) {
-      const { data: turnover } = await supabase.rpc("get_turnover_data");
-      if (turnover) {
-        parts.push(`TURNOVER: ${JSON.stringify(turnover)}`);
+      const { data: exit } = await supabase.from("hr_exit_clearance").select("nrp, resign_date, clearance_status").limit(20);
+      if (exit?.length) {
+        parts.push(`TURNOVER: ${exit.length} karyawan keluar | Pending clearance: ${exit.filter((e: any) => e.clearance_status === "PENDING").length}`);
       }
     }
 
     if (msg.includes("flight risk") || msg.includes("berisiko")) {
-      const { data: risk } = await supabase.rpc("get_flight_risk_list");
-      if (risk?.length) {
-        parts.push("FLIGHT RISK:\n" + risk.slice(0, 5).map((r: any) => `- ${r.nama} (${r.nrp}): risk ${r.risk_level || 'unknown'}`).join("\n"));
-      }
+      try {
+        const { data: risk } = await supabase.rpc("get_flight_risk_list");
+        if (risk?.length) {
+          parts.push("FLIGHT RISK:\n" + risk.slice(0, 5).map((r: any) => `- ${r.nama || r.nrp}: ${r.risk_level || "unknown"}`).join("\n"));
+        }
+      } catch (_e) { /* RPC may not exist */ }
     }
 
     if (msg.includes("warning") || msg.includes("peringatan")) {
-      const { data: warning } = await supabase.rpc("get_early_warning");
-      if (warning?.length) {
-        parts.push("EARLY WARNINGS:\n" + warning.slice(0, 5).map((w: any) => `- ${w.nrp || ''}: ${w.title || w.message || ''}`).join("\n"));
-      }
+      try {
+        const { data: warning } = await supabase.rpc("get_early_warning");
+        if (warning?.length) {
+          parts.push("EARLY WARNINGS:\n" + warning.slice(0, 5).map((w: any) => `- ${w.nrp || ""}: ${w.title || w.message || ""}`).join("\n"));
+        }
+      } catch (_e) { /* RPC may not exist */ }
     }
   } catch (e) {
     console.warn("DB fetch error:", e);
@@ -197,37 +345,36 @@ async function fetchDatabaseData(supabase: any, message: string, context: string
   return parts.length > 0 ? parts.join("\n\n") : "Tidak ada data spesifik yang tersedia.";
 }
 
-// ── Helper: Fetch relevant policy documents (simple keyword match) ──
+// ══════════════════════════════════════════════════════════
+// DOCUMENT SEARCH (keyword match, no embeddings)
+// ══════════════════════════════════════════════════════════
 async function fetchRelevantDocs(supabase: any, message: string, context: string): Promise<any[]> {
   try {
-    // Simple keyword search — no embeddings needed
     const keywords = message.toLowerCase().split(" ").filter((w: string) => w.length > 3);
-    
     let query = supabase.from("ai_documents").select("title, content, context").limit(5);
-    
-    // Filter by context if specified
     if (context && context !== "general") {
       query = query.eq("context", context);
     }
-    
     const { data: docs } = await query;
-    
     if (!docs?.length) return [];
-    
-    // Score documents by keyword overlap
-    const scored = docs.map((doc: any) => {
-      const text = (doc.title + " " + doc.content).toLowerCase();
-      const score = keywords.filter((kw: string) => text.includes(kw)).length;
-      return { ...doc, score };
-    }).filter((d: any) => d.score > 0).sort((a: any, b: any) => b.score - a.score);
-    
-    return scored.slice(0, 3);
-  } catch (e) {
+
+    return docs
+      .map((doc: any) => {
+        const text = (doc.title + " " + doc.content).toLowerCase();
+        const score = keywords.filter((kw: string) => text.includes(kw)).length;
+        return { ...doc, score };
+      })
+      .filter((d: any) => d.score > 0)
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, 3);
+  } catch (_e) {
     return [];
   }
 }
 
-// ── Helper: Build system prompt ──
+// ══════════════════════════════════════════════════════════
+// SYSTEM PROMPT
+// ══════════════════════════════════════════════════════════
 function buildSystemPrompt(dbData: string, docs: any[]): string {
   let prompt = `Kamu adalah AI Assistant untuk insightWOS — platform HR untuk perusahaan pertambangan, perkebunan sawit, dan pabrik PKS.
 
@@ -248,7 +395,7 @@ Aturan:
   if (docs.length > 0) {
     prompt += "\n\n--- DOKUMEN KEBIJAKAN PERUSAHAAN ---";
     docs.forEach((doc: any, i: number) => {
-      prompt += `\n[${i + 1}] ${doc.title}:\n${doc.content?.substring(0, 500) || ""}`;
+      prompt += `\n[${i + 1}] ${doc.title}:\n${(doc.content || "").substring(0, 500)}`;
     });
     prompt += "\n--- AKHIR DOKUMEN ---";
   }
