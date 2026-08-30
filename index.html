@@ -22,6 +22,15 @@
     <meta property="og:url" content="https://insightwos.vercel.app" />
 
     <title>insightWOS — Workforce Intelligence</title>
+    <!-- Suppress harmless Vite internal warnings -->
+    <script>
+      window.addEventListener('error', function(e) {
+        // Suppress web-vitals startTime TypeError (browser API issue)
+        if (e.message && e.message.includes('startTime')) { e.preventDefault(); return true; }
+        // Suppress rolldown preload unused warnings
+        if (e.message && e.message.includes('preloaded using link preload')) { e.preventDefault(); return true; }
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
