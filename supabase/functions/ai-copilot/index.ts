@@ -105,41 +105,43 @@ async function callGemini(
     fullInput = historyText + "\n\n" + fullInput;
   }
 
-  // Try Interactions API — cycle through available models
-  const models = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"];
+  // generateContent is confirmed working (tested 2026-08-30)
+  // Use gemini-3.6-flash (stable) → gemini-3.5-flash (fallback)
+  const models = ["gemini-3.6-flash", "gemini-3.5-flash"];
 
   for (const model of models) {
     try {
       const res = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/interactions",
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: model,
-            input: fullInput,
+            contents: [{ role: "user", parts: [{ text: fullInput }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
           }),
         }
       );
 
       if (res.ok) {
         const data = await res.json();
-        const text = data.interaction?.outputText || data.outputText || data.text;
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
           console.log(`Gemini ${model} OK`);
           return text;
         }
       } else {
-        const err = await res.text();
-        console.warn(`${model} (${res.status}):`, err.substring(0, 150));
+        const err = await res.json().catch(() => ({}));
+        console.warn(`${model} ${res.status}:`, (err as any).error?.message || res.status);
       }
     } catch (e) {
       console.warn(`${model} error:`, e);
     }
   }
+
+  // All models failed
+  return "__FALLBACK__";
+}
 
 // ══════════════════════════════════════════════════════════
 // TEMPLATE RESPONSE (no AI needed — pure DB data formatting)
