@@ -48,9 +48,9 @@ SELECT
   e.business_unit,
   p.periode,
   count(*) as employee_count,
-  sum(p.basic_salary) as total_gaji_pokok,
-  sum(p.allowances) as total_tunjangan,
-  sum(p.deductions) as total_potongan,
+  sum(p.base_salary) as total_gaji_pokok,
+  sum(p.allowance) as total_tunjangan,
+  sum(p.deduction) as total_potongan,
   sum(p.net_salary) as total_bersih
 FROM hr_payroll p
 JOIN employees_master e ON e.nrp = p.nrp

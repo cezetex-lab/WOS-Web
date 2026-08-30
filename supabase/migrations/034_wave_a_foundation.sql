@@ -217,7 +217,7 @@ SELECT
     WHEN 16 THEN 'Rina' WHEN 17 THEN 'Siti' WHEN 18 THEN 'Taufik' WHEN 19 THEN 'Uci'
   END || ' ' ||
   CASE (s.id % 10)
-    WHEN 0 THEN 'Santoso' WHEN  THEN 'Nugroho' WHEN 2 THEN 'Permata' WHEN 3 THEN 'Sari'
+    WHEN 0 THEN 'Santoso' WHEN 1 THEN 'Nugroho' WHEN 2 THEN 'Permata' WHEN 3 THEN 'Sari'
     WHEN 4 THEN 'Lestari' WHEN 5 THEN 'Pratama' WHEN 6 THEN 'Wibowo' WHEN 7 THEN 'Oktaviani'
     WHEN 8 THEN 'Firmansyah' WHEN 9 THEN 'Handayani'
   END,
