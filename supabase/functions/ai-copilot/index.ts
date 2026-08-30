@@ -1,6 +1,6 @@
 // ============================================================
-// AI Copilot — Google Gemini (FREE) + Template Fallback
-// 3-tier: Gemini Interactions API → generateContent → Template
+// AI Copilot — Google Gemini (Interactions API) + Template Fallback
+// New endpoint: /v1beta/interactions (not generateContent)
 // ============================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -87,7 +87,7 @@ serve(async (req: Request) => {
 });
 
 // ══════════════════════════════════════════════════════════
-// GEMINI API CALL (try 2 endpoints)
+// GEMINI — New Interactions API (not generateContent)
 // ══════════════════════════════════════════════════════════
 async function callGemini(
   apiKey: string,
@@ -95,45 +95,50 @@ async function callGemini(
   message: string,
   history: any[]
 ): Promise<string> {
-  const fullPrompt = systemPrompt + "\n\nPertanyaan: " + message;
+  // Build full prompt with history
+  let fullInput = systemPrompt + "\n\nPertanyaan: " + message;
 
-  // Build conversation contents
-  const contents: any[] = [];
   if (history.length > 0) {
-    for (const m of history.slice(-6)) {
-      contents.push({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      });
-    }
+    const historyText = history.slice(-6).map((m: any) =>
+      `${m.role === "assistant" ? "Assistant" : "User"}: ${m.content}`
+    ).join("\n");
+    fullInput = historyText + "\n\n" + fullInput;
   }
-  contents.push({ role: "user", parts: [{ text: fullPrompt }] });
 
-  // Try 1: New Interactions API (Gemini 3.x)
+  // Try Interactions API with gemini-2.0-flash
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      "https://generativelanguage.googleapis.com/v1beta/interactions",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
         body: JSON.stringify({
-          contents,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+          model: "gemini-2.0-flash",
+          input: fullInput,
         }),
       }
     );
+
     if (res.ok) {
       const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      // Interactions API returns: { interaction: { outputText: "..." } }
+      const text = data.interaction?.outputText || data.outputText || data.text;
       if (text) return text;
+      console.warn("Gemini response missing text:", JSON.stringify(data).substring(0, 200));
+    } else {
+      const err = await res.text();
+      console.warn("Gemini 2.0-flash Interactions API failed:", res.status, err.substring(0, 200));
     }
-    console.warn("gemini-2.0-flash failed:", res.status);
   } catch (e) {
-    console.warn("gemini-2.0-flash error:", e);
+    console.warn("Gemini 2.0-flash error:", e);
   }
 
-  // Try 2: gemini-1.5-flash (widely available)
+  // Try gemini-1.5-flash via generateContent (legacy endpoint)
   try {
+    const contents = [{ role: "user", parts: [{ text: fullInput }] }];
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
@@ -150,7 +155,7 @@ async function callGemini(
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) return text;
     }
-    console.warn("gemini-1.5-flash failed:", res.status);
+    console.warn("gemini-1.5-flash generateContent failed:", res.status);
   } catch (e) {
     console.warn("gemini-1.5-flash error:", e);
   }
@@ -169,76 +174,56 @@ function generateTemplateResponse(
   context: string
 ): string {
   const msg = message.toLowerCase();
-
-  // Parse dbData into structured format
   const lines = dbData.split("\n").filter((l: string) => l.trim());
-
-  // Build response based on keywords
   let response = "";
 
   if (msg.includes("kpi") || msg.includes("performa") || msg.includes("kinerja")) {
     response = "📊 **Ringkasan KPI**\n\n";
     const kpiLine = lines.find((l: string) => l.includes("KPI"));
-    if (kpiLine) {
-      response += kpiLine.replace("KPI: ", "") + "\n\n";
-    }
-    response += "💡 *Data diambil dari hr_performance. Skor KPI dihitung berdasarkan pencapaian target bulanan.*";
+    if (kpiLine) response += kpiLine.replace("KPI: ", "") + "\n\n";
+    response += "💡 *Data dari hr_performance. Skor KPI dihitung berdasarkan pencapaian target bulanan.*";
   }
   else if (msg.includes("payroll") || msg.includes("gaji") || msg.includes("salary")) {
     response = "💰 **Ringkasan Payroll**\n\n";
     const payrollLine = lines.find((l: string) => l.includes("PAYROLL"));
-    if (payrollLine) {
-      response += payrollLine.replace("PAYROLL: ", "") + "\n\n";
-    }
+    if (payrollLine) response += payrollLine.replace("PAYROLL: ", "") + "\n\n";
     response += "💡 *Total gaji bersih semua karyawan. Data dari hr_payroll.*";
   }
   else if (msg.includes("kehadiran") || msg.includes("absen") || msg.includes("hadir")) {
     response = "📋 **Kehadiran Karyawan**\n\n";
     const attLine = lines.find((l: string) => l.includes("ATTENDANCE"));
-    if (attLine) {
-      response += attLine.replace("ATTENDANCE: ", "") + "\n\n";
-    }
+    if (attLine) response += attLine.replace("ATTENDANCE: ", "") + "\n\n";
     response += "💡 *Data dari hr_attendance hari ini.*";
   }
   else if (msg.includes("cuti") || msg.includes("leave")) {
     response = "🌴 **Data Cuti**\n\n";
     const leaveLine = lines.find((l: string) => l.includes("LEAVE"));
-    if (leaveLine) {
-      response += leaveLine.replace("LEAVE: ", "") + "\n\n";
-    }
-    response += "💡 *Data kuota cuti tahun ini dari hr_leave.*";
+    if (leaveLine) response += leaveLine.replace("LEAVE: ", "") + "\n\n";
+    response += "💡 *Kuota cuti tahun ini dari hr_leave.*";
   }
   else if (msg.includes("turnover") || msg.includes("resign") || msg.includes("keluar")) {
     response = "📉 **Data Turnover**\n\n";
     const tLine = lines.find((l: string) => l.includes("TURNOVER"));
-    if (tLine) {
-      response += tLine.replace("TURNOVER: ", "") + "\n\n";
-    }
+    if (tLine) response += tLine.replace("TURNOVER: ", "") + "\n\n";
     response += "💡 *Turnover rate = jumlah keluar / total headcount × 100%.*";
   }
   else if (msg.includes("flight risk") || msg.includes("berisiko")) {
     response = "🚨 **Flight Risk**\n\n";
     const riskLine = lines.find((l: string) => l.includes("FLIGHT RISK"));
-    if (riskLine) {
-      response += riskLine.replace("FLIGHT RISK:\n", "") + "\n\n";
-    }
+    if (riskLine) response += riskLine.replace("FLIGHT RISK:\n", "") + "\n\n";
     response += "💡 *Karyawan berisiko resign berdasarkan analisis data HR.*";
   }
   else if (msg.includes("warning") || msg.includes("peringatan")) {
     response = "⚠️ **Early Warning**\n\n";
     const wLine = lines.find((l: string) => l.includes("EARLY"));
-    if (wLine) {
-      response += wLine.replace("EARLY WARNINGS:\n", "") + "\n\n";
-    }
+    if (wLine) response += wLine.replace("EARLY WARNINGS:\n", "") + "\n\n";
     response += "💡 *Peringatan dini dari sistem monitoring HR.*";
   }
   else {
-    // General response with summary
     response = "🤖 **insightWOS AI Assistant**\n\n";
     const summaryLine = lines.find((l: string) => l.includes("SUMMARY"));
     if (summaryLine) {
-      const summaryData = summaryLine.replace("SUMMARY:\n", "");
-      response += "📊 **Ringkasan:**\n" + summaryData + "\n\n";
+      response += "📊 **Ringkasan:**\n" + summaryLine.replace("SUMMARY:\n", "") + "\n\n";
     } else {
       response += "Saya adalah asisten HR untuk insightWOS.\n\n";
     }
@@ -252,7 +237,6 @@ function generateTemplateResponse(
     response += "• ⚠️ Warning — \"Ada peringatan hari ini?\"\n";
   }
 
-  // Append relevant policy docs
   if (docs.length > 0) {
     response += "\n\n---\n📚 **Kebijakan Terkait:**\n";
     docs.forEach((doc: any, i: number) => {
@@ -264,7 +248,7 @@ function generateTemplateResponse(
 }
 
 // ══════════════════════════════════════════════════════════
-// DATABASE FETCH (unchanged)
+// DATABASE FETCH
 // ══════════════════════════════════════════════════════════
 async function fetchDatabaseData(supabase: any, message: string, context: string): Promise<string> {
   const parts: string[] = [];
