@@ -20,6 +20,7 @@ export default function Home() {
     const user = getSession();
     if (user) {
       if (user.role === 'admin') window.location.href = '/admin';
+      else if (user.role === 'manager') window.location.href = '/dashboard';
       else window.location.href = '/worker';
     }
   }, []);
@@ -98,7 +99,8 @@ export default function Home() {
     try {
       const d = await rpc('verify_worker_otp', { p_nrp: validatedNrp, p_code: otp });
       if (d.ok) {
-        setSession({ ...d, role: 'worker' });
+        const loginRole = tab === 'dashboard' ? 'manager' : 'worker';
+        setSession({ ...d, role: loginRole });
         window.location.href = tab === 'dashboard' ? '/dashboard' : '/worker';
       } else {
         setError(d.msg || 'OTP salah');
