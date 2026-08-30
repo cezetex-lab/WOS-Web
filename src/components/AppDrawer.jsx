@@ -2,6 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { getSession } from '@/lib/supabase-browser';
+import { BU_MODULES } from '@/lib/business-units';
 
 const ADMIN_GROUPS = [
   {
@@ -131,13 +132,20 @@ const MANAGER_GROUPS = [
   },
 ];
 
-const ROLE_MAP = { admin: ADMIN_GROUPS, manager: MANAGER_GROUPS, worker: WORKER_GROUPS };
+const ROLE_MAP = { admin: ADMIN_GROUPS, manager: MANAGER_GROUPS };
+
+// Convert BU modules sidebarGroups to AppDrawer format
+function getWorkerGroups(bu) {
+  const modules = BU_MODULES[bu] || BU_MODULES.HQ;
+  return modules.sidebarGroups || WORKER_GROUPS;
+}
 
 export function AppDrawer({ isOpen, onClose }) {
   if (!isOpen) return null;
   const session = getSession();
   const role = session?.role || 'worker';
-  const groups = ROLE_MAP[role] || WORKER_GROUPS;
+  const bu = session?.business_unit || 'HQ';
+  const groups = role === 'worker' ? getWorkerGroups(bu) : (ROLE_MAP[role] || WORKER_GROUPS);
   return (
     <>
       {/* Overlay */}

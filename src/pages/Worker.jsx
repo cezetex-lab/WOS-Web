@@ -2,11 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, clearSession, getSession } from '../lib/supabase-browser';
-import { MetricCard, QuickTile, GlassCard, LoadingSpinner, SectionHeader } from '../lib/design-system';
+import { MetricCard, QuickTile, GlassCard, LoadingSpinner, SectionHeader, Badge } from '../lib/design-system';
+import { getUserModules, getBusinessUnit } from '../lib/business-units';
 
 export default function Worker() {
   const navigate = useNavigate();
   const [nrp] = useState(() => getSession()?.nrp || 'NRP001');
+  const modules = getUserModules();
+  const bu = getBusinessUnit();
   const [loading, setLoading] = useState(true);
 
   function logout() { clearSession(); window.location.href = '/'; }
@@ -41,7 +44,10 @@ export default function Worker() {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Ringkasan Hari Ini</h1>
-          <p className="text-slate-400 text-sm">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-slate-400 text-sm">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <Badge status={`${modules.icon} ${modules.label}`} type="info" />
+          </div>
         </div>
         <button onClick={logout} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-red-500/20 border border-white/5 hover:border-red-500/30 text-slate-400 hover:text-red-400 transition-all text-sm" title="Logout">
           <span>🚪</span>
@@ -57,18 +63,11 @@ export default function Worker() {
         <MetricCard icon="🔔" value={status.unread_notifications || 2} label="Notifikasi" trend="Baru" color="purple" />
       </div>
 
-      {/* 2. QUICK ACCESS (8 Tombol) */}
+      {/* 2. QUICK ACCESS — BU-SPECIFIC */}
       <div className="grid grid-cols-4 gap-2 mb-6 bg-slate-800/30 p-4 rounded-2xl border border-white/5">
-        <QuickTile icon="📍" label="Kehadiran" color="teal" onClick={() => navigate('/worker/attendance')} />
-        <QuickTile icon="🌴" label="Cuti" color="blue" onClick={() => navigate('/worker/leave')} />
-        <QuickTile icon="💼" label="Lembur" color="orange" onClick={() => navigate('/worker/overtime')} />
-        <QuickTile icon="📊" label="KPI" color="purple" onClick={() => navigate('/worker/kpi')} />
-        <QuickTile icon="💰" label="Slip Gaji" color="teal" onClick={() => navigate('/worker/payroll')} />
-        <QuickTile icon="📚" label="Learning" color="blue" onClick={() => navigate('/worker/learning')} />
-        <QuickTile icon="🚀" label="Karir" color="purple" onClick={() => navigate('/worker/career')} />
-        <QuickTile icon="✅" label="Tasks" color="slate" onClick={() => navigate('/worker/tasks')} />
-        <QuickTile icon="📈" label="Trend" color="green" onClick={() => navigate('/worker/perf-trend')} />
-        <QuickTile icon="💰" label="Kompetensi" color="purple" onClick={() => navigate('/worker/compensation')} />
+        {modules.quickTiles.map((tile, i) => (
+          <QuickTile key={i} icon={tile.icon} label={tile.label} color={tile.color} onClick={() => navigate(tile.path)} />
+        ))}
       </div>
 
       {/* 3. INSIGHT (NARRATIVE ENGINE) - CORE DARI HARI INI */}

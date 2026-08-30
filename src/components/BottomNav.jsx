@@ -2,6 +2,35 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getSession } from '@/lib/supabase-browser';
+import { getUserModules } from '@/lib/business-units';
+
+// BU-specific worker nav items
+const WORKER_NAV = {
+  MINING: [
+    { to: '/worker', icon: '🏠', label: 'Beranda' },
+    { to: '/worker/simper', icon: '⛏️', label: 'SIMPER' },
+    { to: '/worker/tasks', icon: '📋', label: 'Tasks' },
+    { to: '/worker/profile', icon: '👤', label: 'Saya' },
+  ],
+  ESTATE: [
+    { to: '/worker', icon: '🏠', label: 'Beranda' },
+    { to: '/worker/harvest', icon: '🌾', label: 'Panen' },
+    { to: '/worker/tasks', icon: '📋', label: 'Tasks' },
+    { to: '/worker/profile', icon: '👤', label: 'Saya' },
+  ],
+  MILL: [
+    { to: '/worker', icon: '🏠', label: 'Beranda' },
+    { to: '/worker/shift', icon: '🔄', label: 'Shift' },
+    { to: '/worker/tasks', icon: '📋', label: 'Tasks' },
+    { to: '/worker/profile', icon: '👤', label: 'Saya' },
+  ],
+  HQ: [
+    { to: '/worker', icon: '🏠', label: 'Beranda' },
+    { to: '/worker/activities', icon: '📋', label: 'Aktivitas' },
+    { to: '/worker/payroll', icon: '💰', label: 'Gaji' },
+    { to: '/worker/profile', icon: '👤', label: 'Saya' },
+  ],
+};
 
 const ROLE_CONFIG = {
   admin: {
@@ -22,22 +51,15 @@ const ROLE_CONFIG = {
       { to: '/dashboard', icon: '📈', label: 'Analytics' },
     ],
   },
-  worker: {
-    home: '/worker',
-    items: [
-      { to: '/worker', icon: '🏠', label: 'Beranda' },
-      { to: '/worker/activities', icon: '📋', label: 'Aktivitas' },
-      { to: '/worker/payroll', icon: '💰', label: 'Gaji' },
-      { to: '/worker/profile', icon: '👤', label: 'Saya' },
-    ],
-  },
 };
 
 export function BottomNav({ onMenuClick }) {
   const location = useLocation();
   const session = getSession();
   const role = session?.role || 'worker';
-  const config = ROLE_CONFIG[role] || ROLE_CONFIG.worker;
+  const config = role === 'worker'
+    ? { home: '/worker', items: WORKER_NAV[session?.business_unit || 'HQ'] || WORKER_NAV.HQ }
+    : ROLE_CONFIG[role] || ROLE_CONFIG.worker;
   const isActive = (path) => location.pathname === path;
 
   return (
