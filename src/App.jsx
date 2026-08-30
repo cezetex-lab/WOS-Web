@@ -14,6 +14,9 @@ import Payroll from './pages/admin/Payroll';
 import Kpi from './pages/admin/Kpi';
 import Settings from './pages/admin/Settings';
 import OrgSubtree from './pages/admin/OrgSubtree';
+import OrgChart from './pages/admin/OrgChart';
+import Analytics from './pages/admin/Analytics';
+import AuditLog from './pages/admin/AuditLog';
 import DetailPageFactory from './pages/admin/DetailPageFactory';
 // Wave 2 — Worker Pages
 import WorkerProfile from './pages/worker/WorkerProfile';
@@ -65,7 +68,7 @@ function AppContent() {
         {/* ADMIN — KELOLA DATA */}
         <Route path="/admin" element={withNav(Admin)} />
         <Route path="/admin/employees" element={withNav(Employees)} />
-        <Route path="/admin/org" element={adminPage('org')} />
+        <Route path="/admin/org" element={withNav(OrgChart)} />
         <Route path="/admin/org-subtree" element={withNav(OrgSubtree)} />
         <Route path="/admin/divisions" element={adminPage('divisions')} />
         <Route path="/admin/master" element={adminPage('master')} />
@@ -105,10 +108,11 @@ function AppContent() {
         <Route path="/admin/clearance" element={adminPage('clearance')} />
 
         {/* ADMIN — SISTEM & KEAMANAN */}
-        <Route path="/admin/audit" element={adminPage('audit')} />
+        <Route path="/admin/audit" element={withNav(AuditLog)} />
         <Route path="/admin/export" element={adminPage('export')} />
         <Route path="/admin/features" element={adminPage('features')} />
         <Route path="/admin/settings" element={withNav(Settings)} />
+        <Route path="/admin/analytics" element={withNav(Analytics)} />
         <Route path="/admin/chain" element={adminPage('chain')} />
 
         {/* ADMIN — PERENCANAAN */}
