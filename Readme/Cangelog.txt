@@ -1,0 +1,181 @@
+📋 CHANGELOG MIGRASI: Next.js → Vite + React Router
+Project: insightWOS (WOS-Web)
+Tanggal: 29 Agustus 2026
+Branch: migrasi-vite
+Status: ✅ SELESAI – Production live di https://insightwos.vercel.app
+
+🎯 Ringkasan Migrasi
+Proyek berhasil dimigrasi dari Next.js (App Router) + Serverless Functions menjadi Vite + React Router (SPA murni). Tujuan utama: menghindari biaya serverless functions di Vercel, meningkatkan kecepatan build, dan menyederhanakan arsitektur.
+
+📦 Perubahan Dependencies
+Dihapus (Next.js)
+next
+
+eslint-config-next
+
+Semua dependency terkait Next.js (otomatis terhapus)
+
+Ditambahkan (Vite)
+vite – build tool & dev server
+
+@vitejs/plugin-react – dukungan React di Vite
+
+react-router-dom – routing SPA
+
+Dipertahankan
+react, react-dom – versi 18.2.0
+
+@supabase/supabase-js – client Supabase
+
+@upstash/redis – (hanya untuk backend, tidak dipakai frontend)
+
+🗂 Struktur Folder & File
+Perubahan Utama
+Sebelum (Next.js)	Sesudah (Vite)
+src/app/ (App Router)	src/pages/ (folder halaman)
+src/app/page.js	src/pages/Home.jsx
+src/app/dashboard/page.js	src/pages/Dashboard.jsx
+src/app/admin/page.js	src/pages/Admin.jsx
+src/app/worker/page.js	src/pages/Worker.jsx
+src/app/layout.js	src/components/Layout.jsx
+src/app/globals.css	src/globals.css
+src/app/*Client.js	src/pages/*.jsx
+.next/ (build output)	dist/ (build output)
+File Baru Dibuat
+index.html – entry point HTML Vite
+
+src/main.jsx – entry point React
+
+src/App.jsx – routing dengan React Router
+
+src/components/Layout.jsx – komponen wrapper (ThemeProvider, ToastProvider)
+
+vite.config.js – konfigurasi Vite
+
+vercel.json – konfigurasi routing SPA di Vercel
+
+File Dihapus
+Seluruh folder .next/
+
+Seluruh folder src/app/ (setelah file dipindahkan)
+
+File .env.local (diganti .env dengan prefix VITE_)
+
+File Rename (ekstensi .js → .jsx)
+src/lib/app-shell.js → src/lib/app-shell.jsx
+
+src/lib/components.js → src/lib/components.jsx
+
+src/lib/ui-components.js → src/lib/ui-components.jsx
+
+🔧 Konfigurasi
+vite.config.js
+javascript
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: { '@': path.resolve(__dirname, './src') },
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
+  },
+  server: { port: 3000, open: true },
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules') && 
+              (id.includes('react') || id.includes('react-dom') || 
+               id.includes('react-router-dom') || id.includes('scheduler'))) {
+            return 'vendor';
+          }
+        },
+      },
+    },
+  },
+});
+package.json (scripts)
+json
+"scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview"
+}
+vercel.json
+json
+{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }
+Environment Variables
+Lama (Next.js)	Baru (Vite)
+NEXT_PUBLIC_SUPABASE_URL	VITE_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY	VITE_SUPABASE_ANON_KEY
+🔄 Perubahan Kode Penting
+1. Import Path
+Semua import ../../lib/... → @/lib/... (menggunakan alias)
+
+File .jsx kini di-import tanpa ekstensi (berkat resolve.extensions)
+
+2. Environment Variables
+process.env.NEXT_PUBLIC_* → import.meta.env.VITE_*
+
+Hanya variabel dengan prefix VITE_ yang diekspos ke browser
+
+3. 'use client' Dihapus
+Vite tidak mengenali 'use client', semua komponen berjalan di client.
+
+4. Routing
+Next.js App Router (/dashboard/page.js) → React Router (<Route path="/dashboard" element={<Dashboard />} />)
+
+5. Layout
+src/app/layout.js (dengan <html>, <head>, <body>) → src/components/Layout.jsx (hanya Provider dan wrapper)
+
+6. Metadata
+export const metadata di Next.js → dipindahkan ke tag <head> di index.html
+
+⚙️ Deployment & Keamanan
+Vercel Deployment
+Framework Preset: Vite (atau Other)
+
+Build Command: npm run build
+
+Output Directory: dist
+
+Environment Variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+
+Keamanan
+service_role key tidak digunakan di frontend, hanya anon key.
+
+Anon key telah di-rotate di Supabase (karena terekspos di history Git).
+
+File .env tidak di-commit ke Git (sudah di .gitignore).
+
+🧪 Testing
+Perintah	Status
+npm run dev	✅ Berjalan di http://localhost:3000
+npm run build	✅ Build sukses, folder dist/ terbuat
+npm run preview	✅ Preview production berjalan
+Deploy ke Vercel	✅ Live di https://insightwos.vercel.app
+📊 Hasil Build
+text
+dist/index.html                             0.56 kB │ gzip: 0.32 kB
+dist/assets/index-CORKVutG.css              3.25 kB │ gzip: 1.34 kB
+dist/assets/rolldown-runtime-CbXtAM7H.js    0.58 kB │ gzip: 0.36 kB
+dist/assets/vendor-DaqWZqLM.js            156.18 kB │ gzip: 51.39 kB
+dist/assets/index-CyyRdMQt.js             260.43 kB │ gzip: 64.60 kB
+🔮 Next Steps (Pekerjaan Mendatang)
+Migrasi logika backend dari Google Apps Script (GAS) ke Supabase Edge Functions
+
+Setup cron jobs untuk otomatisasi
+
+Monitoring performa dan error di production
+
+📌 Catatan Penting
+Branch migrasi-vite berisi semua perubahan, sudah di-push ke GitHub.
+
+Project di Vercel sudah di-update ke Vite.
+
+Supabase keys sudah di-rotate dan aman.
+
+Aplikasi saat ini 100% statis (tidak ada serverless functions), sehingga GRATIS di Vercel (tidak kena biaya).

@@ -1,12 +1,15 @@
-import React from 'react';
-import { ThemeProvider, ToastProvider } from '../lib/ui-components';
+// ============================================================
+// Layout.jsx — Global layout with AI Copilot
+// ============================================================
 
-export default function Layout({ children }) {
+import ChatCopilot from '@/components/ChatCopilot';
+
+export function Layout({ children }) {
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        {children}
-      </ToastProvider>
-    </ThemeProvider>
+    <main className="min-h-screen max-w-7xl mx-auto">
+      {children}
+      {/* AI Copilot — floating on all pages */}
+      <ChatCopilot />
+    </main>
   );
 }

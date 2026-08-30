@@ -1,33 +1,16 @@
-import { Redis } from '@upstash/redis';
+// ============================================================
+// redis.js — SERVER-ONLY (NOT for browser use)
+// ============================================================
+// File ini HANYA untuk reference / Edge Functions.
+// Frontend SPA tidak bisa akses Redis langsung.
+// Gunakan cache.js untuk client-side caching.
+// ============================================================
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
+// ⚠️ SERVER-ONLY — Jangan import di frontend!
+// Untuk Edge Functions, gunakan:
+//   import { Redis } from '@upstash/redis';
+//
+// Untuk frontend, gunakan:
+//   import { cachedRpc, cacheGet, cacheSet } from './cache';
 
-export default redis;
-
-// Cache helper functions
-export async function getCached(key, ttlSeconds = 300) {
-  try {
-    const cached = await redis.get(key);
-    return cached;
-  } catch {
-    return null;
-  }
-}
-
-export async function setCached(key, value, ttlSeconds = 300) {
-  try {
-    await redis.set(key, value, { ex: ttlSeconds });
-  } catch {}
-}
-
-export async function invalidateCache(pattern) {
-  try {
-    const keys = await redis.keys(pattern);
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
-  } catch {}
-}
+console.warn('redis.js is server-only and should not be imported in browser code.');

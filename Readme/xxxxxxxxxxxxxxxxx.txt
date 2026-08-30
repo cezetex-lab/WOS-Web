@@ -1,0 +1,61 @@
+Supabase setup (sekali saja):
+Run migration 007_pgvector_ai_copilot.sql
+Set secret OPENAI_API_KEY di dashboard
+Deploy: supabase functions deploy ai-copilot
+Vercel — auto-deploy dari GitHub
+
+====================
+
+Prioritas	Task	Keterangan
+P1	Ganti placeholder icons PWA	Icons sekarang masih 1px PNG placeholder. Perlu icon asli insightWOS (SVG/PNG 192px & 512px)
+P1	Deploy AI Copilot	Run migration 007_pgvector_ai_copilot.sql di Supabase + set OPENAI_API_KEY + supabase functions deploy ai-copilot
+P1	Halaman detail prioritas	Beberapa halaman masih pakai DetailPageFactory (auto-generated). Yang perlu custom: Org Chart, Analytics, Audit, Settings
+P2	Dashboard.jsx pakai Providers	Dashboard masih import dari design-system tapi layoutnya inline — belum pakai <PageLayout>
+P2	Offline indicator	Belum ada komponen yang tampil ketika user offline
+P2	Push notifications	Firebase Cloud Messaging belum di-setup untuk PWA push
+P3	Cleanup file lama	ui-kit.jsx, ui-components.jsx, app-shell.jsx, theme.js, toast.js masih ada (backward compat) — bisa dihapus setelah semua page migrasi
+P3	Upstash Redis cache	cache.js sudah dibuat (localStorage) tapi belum terintegrasi ke semua RPC calls
+P3	Supabase Edge Functions deploy	cache-service, cron-handler, gas-migration sudah ditulis tapi belum di-deploy
+P3	pg_cron execution	SQL migration 006_cron_setup.sql + 007_pgvector_ai_copilot.sql belum di-run di Supabase
+
+==============================
+
+🧠 Isi AGENT_PROMPT.md
+🎭 Persona
+Definisikan AI sebagai senior full-stack engineer yang ahli di React, Supabase, Tailwind, PWA, dan HR domain.
+
+📐 27 Rules
+Kode Rules (10):
+
+Cek file sebelum edit
+Import wajib pakai alias @/
+Jangan hardcode credentials
+RPC pattern — selalu handle error
+Component pattern — functional + hooks
+CSS wajib pakai Tailwind
+State management — satu state per data
+Async/await — selalu try/catch
+Export pattern — named atau default
+Naming convention (PascalCase, camelCase, kebab-case)
+Architecture Rules (5): 11. File structure — jangan asal taruh 12. Design system — gunakan yang ada 13. Routing — register di App.jsx 14. RPC naming convention (get_, admin_, create_, match_) 15. Database — selalu pakai RLS
+
+Workflow Rules (5): 16. Selalu build test setelah edit 17. Jangan commit tanpa build sukses 18. Minimal changes — jangan refactor besar-besaran 19. Test coverage — minimal manual test 20. Documentation — update jika perubahan besar
+
+Quality Rules (5): 21. Performance — useCallback, useMemo 22. Accessibility — aria-label 23. Error boundaries — loading, empty, error states 24. Security — defense in depth 25. Security — minimal exposure
+
+Domain Rules (3): 26. HR terminology (PKWTT, PKWT, NRP, KPI) 27. Data sensitivity (payroll, passwords, personal data)
+
+🎯 5 Prompt Templates
+Membuat halaman baru
+Fix bug
+Tambah fitur
+Refactor code
+Deploy
+🔥 10 Master Rules (Ringkasan)
+Rules yang paling penting — di-highlight dalam box khusus.
+
+📋 Quick Reference
+Design system components
+RPC wrapper imports
+Color palette
+File paths

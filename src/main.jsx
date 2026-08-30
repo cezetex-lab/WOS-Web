@@ -1,10 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import './globals.css'; // <-- Pastikan file globals.css sudah dipindah ke sini
+import { Providers } from './lib/design-system';
+import PwaUpdater from './components/PwaUpdater';
+import './globals.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <Providers>
+      <App />
+      <PwaUpdater />
+    </Providers>
   </React.StrictMode>
 );
