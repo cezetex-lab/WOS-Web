@@ -38,6 +38,8 @@ import AssetManagement from './pages/admin/AssetManagement';
 import Offboarding from './pages/admin/Offboarding';
 import PerformanceNotes from './pages/worker/PerformanceNotes';
 import IncentiveCalc from './pages/admin/IncentiveCalc';
+// Wave 8 — Integrations
+import Integrations from './pages/admin/Integrations';
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -127,6 +129,7 @@ function AppContent() {
         <Route path="/admin/features" element={adminPage('features')} />
         <Route path="/admin/settings" element={withNav(Settings)} />
         <Route path="/admin/analytics" element={withNav(Analytics)} />
+        <Route path="/admin/integrations" element={withNav(Integrations)} />
         <Route path="/admin/chain" element={adminPage('chain')} />
 
         {/* ADMIN — PERENCANAAN */}
