@@ -119,9 +119,9 @@ ON hr_payroll (nrp, periode DESC, net_salary);
 CREATE INDEX IF NOT EXISTS idx_requests_status_type 
 ON hr_requests (status, type, nrp, created_at DESC);
 
--- Attendance by NRP + tanggal
+-- Attendance by NRP + date
 CREATE INDEX IF NOT EXISTS idx_attendance_nrp_date 
-ON hr_attendance (nrp, tanggal DESC, status);
+ON hr_attendance (nrp, date DESC, status_hadir);
 
 -- Org hierarchy
 CREATE INDEX IF NOT EXISTS idx_org_atasan 

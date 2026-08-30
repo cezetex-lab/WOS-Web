@@ -22,7 +22,7 @@ INSERT INTO business_units (id, unit_code, unit_name, description) VALUES
   ('BU-02', 'ESTATE', 'Perkebunan Sawit', 'Perkebunan kelapa sawit — blok kebun, pemanen, TBS'),
   ('BU-03', 'MILL', 'Pabrik PKS', 'Pabrik kelapa sawit — 3 shift, mesin, boiler, crane'),
   ('BU-04', 'HQ', 'Korporat HQ', 'Kantor pusat — HR, Finance, IT, Legal, Directors')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (unit_code) DO NOTHING;
 
 -- ── 3. TABEL sites (sudah ada dari 018, seed saja) ──
 -- Kolom: id TEXT, site_name TEXT, location TEXT, business_unit TEXT, latitude, longitude
@@ -41,7 +41,7 @@ INSERT INTO sites (id, site_name, business_unit, location, latitude, longitude) 
   -- HQ
   ('SITE-HQ-01', 'Kantor Pusat Jakarta', 'HQ', 'DKI Jakarta, Jakarta Selatan', -6.2615, 106.8106),
   ('SITE-HQ-02', 'Kantor Regional Medan', 'HQ', 'Sumatera Utara, Medan', 3.5952, 98.6722)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- Tambah site_id ke employees_master (TEXT, bukan INTEGER)
 ALTER TABLE employees_master 
