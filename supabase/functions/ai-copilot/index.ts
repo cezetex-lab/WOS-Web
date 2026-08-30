@@ -69,7 +69,7 @@ serve(async (req: Request) => {
     }
 
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -140,17 +140,18 @@ async function fetchDatabaseData(supabase: any, message: string, context: string
 
     // Context-specific data
     if (msg.includes("kpi") || msg.includes("performa") || msg.includes("kinerja")) {
-      const { data: kpi } = await supabase.rpc("admin_get_kpi_by_division");
+      const { data: kpi } = await supabase.from('hr_performance').select('nrp, kpi_score, periode').order('created_at', { ascending: false }).limit(20);
       if (kpi?.length) {
-        parts.push("KPI BY DIVISION:\n" + kpi.map((k: any) => `- ${k.divisi}: avg ${k.avg_kpi || 0}, ${k.headcount || 0} orang`).join("\n"));
+        const avg = kpi.reduce((s: number, k: any) => s + Number(k.kpi_score || 0), 0) / kpi.length;
+        parts.push(`KPI: Rata-rata ${avg.toFixed(1)} dari ${kpi.length} data terakhir`);
       }
     }
 
     if (msg.includes("payroll") || msg.includes("gaji") || msg.includes("salary")) {
-      const { data: payroll } = await supabase.rpc("admin_get_payroll");
+      const { data: payroll } = await supabase.rpc("get_worker_payroll", { p_nrp: null });
       if (payroll?.length) {
-        const total = payroll.reduce((s: number, p: any) => s + (p.net_salary || p.gaji_bersih || 0), 0);
-        parts.push(`PAYROLL: Total Rp ${total.toLocaleString("id-ID")} (${payroll.length} karyawan)`);
+        const total = payroll.reduce((s: number, p: any) => s + Number(p.net_salary || 0), 0);
+        parts.push(`PAYROLL: Total Rp ${total.toLocaleString('id-ID')} (${payroll.length} karyawan)`);
       }
     }
 

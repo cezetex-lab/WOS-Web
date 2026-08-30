@@ -52,7 +52,7 @@ export default function Employees() {
       } else {
         // Fallback: direct query
         const { data } = await supabase
-          .from('employees')
+          .from('employees_master')
           .select('*')
           .order('nama', { ascending: true });
         setEmployees(data || []);

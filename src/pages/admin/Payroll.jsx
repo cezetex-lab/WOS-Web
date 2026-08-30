@@ -75,10 +75,10 @@ export default function Payroll() {
       } else {
         // Fallback: direct query
         const { data } = await supabase
-          .from('payroll')
-          .select('*')
-          .eq('period', period)
-          .order('nama', { ascending: true });
+          .from('hr_payroll')
+          .select('*, employees_master(nama, divisi)')
+          .eq('periode', period)
+          .order('nrp', { ascending: true });
         setPayroll(data || []);
       }
 
