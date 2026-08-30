@@ -120,11 +120,10 @@ export default function Kpi() {
       } else if (divisionResult?.data && Array.isArray(divisionResult.data)) {
         setByDivision(divisionResult.data);
       } else {
-        // Fallback: direct query
+        // Fallback: use hr_performance directly
         const { data } = await supabase
-          .from('kpi')
-          .select('divisi, avg(score) as avg_kpi, count(*) as total')
-          .group('divisi');
+          .from('hr_performance')
+          .select('nrp, kpi_score, periode');
         setByDivision(data || []);
       }
 
