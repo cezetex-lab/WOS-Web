@@ -4,8 +4,8 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession } from '../lib/supabase-browser';
-import { PageLayout, GlassCard, Button, LoadingSpinner, Badge } from '../lib/design-system';
+import { supabase, getSession } from '../../../lib/supabase-browser';
+import { PageLayout, GlassCard, Button, LoadingSpinner, Badge } from '../../../lib/design-system';
 
 const COLUMNS = [
   { id: 'TODO', label: '📋 To Do', color: 'slate', bgColor: 'bg-slate-800/30' },

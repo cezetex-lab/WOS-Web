@@ -4,8 +4,8 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase-browser';
-import { PageLayout, GlassCard, LoadingSpinner, Badge, Button } from '../lib/design-system';
+import { supabase } from '../../../lib/supabase-browser';
+import { PageLayout, GlassCard, LoadingSpinner, Badge, Button } from '../../../lib/design-system';
 
 const SHIFT_COLORS = {
   'Pagi': { bg: 'bg-amber-500/10', border: 'border-amber-500/20', text: 'text-amber-400', icon: '🌅' },

@@ -5,8 +5,8 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, getSession } from '../lib/supabase-browser';
-import { PageLayout, GlassCard, Button, Badge, LoadingSpinner } from '../lib/design-system';
+import { supabase, getSession } from '../../../lib/supabase-browser';
+import { PageLayout, GlassCard, Button, Badge, LoadingSpinner } from '../../../lib/design-system';
 
 const REQUEST_TYPES = [
   { id: 'Cuti', icon: '✈️', label: 'Cuti', color: 'blue', fields: ['start_date', 'end_date', 'reason'] },

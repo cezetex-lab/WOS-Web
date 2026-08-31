@@ -4,8 +4,8 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession } from '../lib/supabase-browser';
-import { PageLayout, GlassCard, LoadingSpinner, Badge, Button, Tabs } from '../lib/design-system';
+import { supabase, getSession } from '../../../lib/supabase-browser';
+import { PageLayout, GlassCard, LoadingSpinner, Badge, Button, Tabs } from '../../../lib/design-system';
 
 const STATUS_COLORS = {
   Pending: 'warning',
