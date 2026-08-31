@@ -1,48 +1,53 @@
-// src/App.jsx
-import React, { useState } from 'react';
+// src/App.jsx — Lazy-loaded for code splitting
+import React, { useState, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AppDrawer } from './components/AppDrawer';
 import { BottomNav } from './components/BottomNav';
 import OfflineIndicator from './components/OfflineIndicator';
-// Pages
+import LazyLoad from './components/LazyLoad';
+import PrivacyConsent from './components/PrivacyConsent';
+
+// Core pages (keep eager — loaded on every visit)
 import Home from './pages/Home';
-import Worker from './pages/Worker';
-import Admin from './pages/Admin';
-import Dashboard from './pages/Dashboard';
-import Employees from './pages/admin/Employees';
-import Payroll from './pages/admin/Payroll';
-import Kpi from './pages/admin/Kpi';
-import Settings from './pages/admin/Settings';
-import OrgSubtree from './pages/admin/OrgSubtree';
-import OrgChart from './pages/admin/OrgChart';
-import Analytics from './pages/admin/Analytics';
-import AuditLog from './pages/admin/AuditLog';
-import DetailPageFactory from './pages/admin/DetailPageFactory';
-// Wave 2 — Worker Pages
-import WorkerProfile from './pages/worker/WorkerProfile';
-import WorkerOvertime from './pages/worker/WorkerOvertime';
-import PerformanceTrend from './pages/worker/PerformanceTrend';
-import CompensationIntel from './pages/worker/CompensationIntel';
-import ContinuousPerf from './pages/worker/ContinuousPerf';
-import TrainingForm from './pages/worker/TrainingForm';
-// Wave 4 — Self-Service & Approval
-import MultiStepRequest from './worker/MultiStepRequest';
-import TaskBoard from './worker/TaskBoard';
-import ShiftSchedule from './admin/ShiftSchedule';
-import ApprovalCenter from './admin/ApprovalCenter';
-// Wave 5 — Advanced Features
-import Okrs from './pages/admin/Okrs';
-import SurveyPage from './pages/admin/SurveyPage';
-import AssetManagement from './pages/admin/AssetManagement';
-import Offboarding from './pages/admin/Offboarding';
-import PerformanceNotes from './pages/worker/PerformanceNotes';
-import IncentiveCalc from './pages/admin/IncentiveCalc';
-// Wave 8 — Integrations
-import Integrations from './pages/admin/Integrations';
-// Wave 9 — AI & Analytics
-import WorkforceSimulation from './pages/admin/WorkforceSimulation';
-import TurnoverPrediction from './pages/admin/TurnoverPrediction';
+
+// Lazy-loaded pages — loaded only when route is visited
+const Worker = lazy(() => import('./pages/Worker'));
+const Admin = lazy(() => import('./pages/Admin'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Employees = lazy(() => import('./pages/admin/Employees'));
+const Payroll = lazy(() => import('./pages/admin/Payroll'));
+const Kpi = lazy(() => import('./pages/admin/Kpi'));
+const Settings = lazy(() => import('./pages/admin/Settings'));
+const OrgSubtree = lazy(() => import('./pages/admin/OrgSubtree'));
+const OrgChart = lazy(() => import('./pages/admin/OrgChart'));
+const Analytics = lazy(() => import('./pages/admin/Analytics'));
+const AuditLog = lazy(() => import('./pages/admin/AuditLog'));
+const DetailPageFactory = lazy(() => import('./pages/admin/DetailPageFactory'));
+// Wave 2 — Worker
+const WorkerProfile = lazy(() => import('./pages/worker/WorkerProfile'));
+const WorkerOvertime = lazy(() => import('./pages/worker/WorkerOvertime'));
+const PerformanceTrend = lazy(() => import('./pages/worker/PerformanceTrend'));
+const CompensationIntel = lazy(() => import('./pages/worker/CompensationIntel'));
+const ContinuousPerf = lazy(() => import('./pages/worker/ContinuousPerf'));
+const TrainingForm = lazy(() => import('./pages/worker/TrainingForm'));
+// Wave 4
+const MultiStepRequest = lazy(() => import('./worker/MultiStepRequest'));
+const TaskBoard = lazy(() => import('./worker/TaskBoard'));
+const ShiftSchedule = lazy(() => import('./admin/ShiftSchedule'));
+const ApprovalCenter = lazy(() => import('./admin/ApprovalCenter'));
+// Wave 5
+const Okrs = lazy(() => import('./pages/admin/Okrs'));
+const SurveyPage = lazy(() => import('./pages/admin/SurveyPage'));
+const AssetManagement = lazy(() => import('./pages/admin/AssetManagement'));
+const Offboarding = lazy(() => import('./pages/admin/Offboarding'));
+const PerformanceNotes = lazy(() => import('./pages/worker/PerformanceNotes'));
+const IncentiveCalc = lazy(() => import('./pages/admin/IncentiveCalc'));
+// Wave 8
+const Integrations = lazy(() => import('./pages/admin/Integrations'));
+// Wave 9
+const WorkforceSimulation = lazy(() => import('./pages/admin/WorkforceSimulation'));
+const TurnoverPrediction = lazy(() => import('./pages/admin/TurnoverPrediction'));
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -51,7 +56,9 @@ function AppContent() {
 
   const withNav = (Component, props) => (
     <Layout>
-      <Component {...props} />
+      <LazyLoad>
+        <Component {...props} />
+      </LazyLoad>
       <BottomNav onMenuClick={toggleDrawer} />
       <AppDrawer isOpen={isDrawerOpen} onClose={closeDrawer} />
     </Layout>
@@ -63,6 +70,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white font-sans antialiased">
       <OfflineIndicator />
+      <PrivacyConsent />
       <Routes>
         {/* LOGIN */}
         <Route path="/" element={<Home />} />
@@ -142,7 +150,7 @@ function AppContent() {
         <Route path="/admin/budget" element={adminPage('budget')} />
         <Route path="/admin/referral" element={adminPage('referral')} />
 
-        {/* DASHBOARD (Manager) — own internal tabs, no withNav */}
+        {/* DASHBOARD (Manager) */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/*" element={<Dashboard />} />
       </Routes>

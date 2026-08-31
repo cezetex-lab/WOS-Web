@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sentry/react": "^10.72.0",
     "@supabase/supabase-js": "^2.39.0",
     "@upstash/redis": "^1.28.0",
     "chart.js": "^4.5.1",

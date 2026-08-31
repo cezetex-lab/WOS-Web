@@ -63,24 +63,24 @@ export function BottomNav({ onMenuClick }) {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-t border-white/10 px-2 pb-safe">
+    <nav aria-label="Navigasi utama" className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-t border-white/10 px-2 pb-safe">
       <div className="max-w-7xl mx-auto flex items-center justify-around h-16">
         {config.items.map((item) => (
           <NavItem key={item.to} to={item.to} icon={item.icon} label={item.label} active={isActive(item.to)} />
         ))}
-        <button onClick={onMenuClick} className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-slate-400 hover:text-white transition-all active:scale-95">
-          <span className="text-2xl">📌</span>
+        <button onClick={onMenuClick} aria-label="Buka menu navigasi" className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-slate-400 hover:text-white transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-400/50">
+          <span className="text-2xl" aria-hidden="true">📌</span>
           <span className="text-[9px] font-medium">Menu</span>
         </button>
       </div>
-    </div>
+    </nav>
   );
 }
 
 function NavItem({ to, icon, label, active }) {
   return (
-    <Link to={to} className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all ${active ? 'text-teal-400 bg-teal-400/10' : 'text-slate-400 hover:text-white'}`}>
-      <span className="text-2xl">{icon}</span>
+    <Link to={to} aria-label={label} aria-current={active ? 'page' : undefined} className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-teal-400/50 ${active ? 'text-teal-400 bg-teal-400/10' : 'text-slate-400 hover:text-white'}`}>
+      <span className="text-2xl" aria-hidden="true">{icon}</span>
       <span className="text-[9px] font-medium">{label}</span>
     </Link>
   );
