@@ -44,25 +44,31 @@ serve(async (req) => {
   try {
     const { action, key, value, ttl } = await req.json();
 
-    // Verify auth
+    // Verify auth — accept API key OR JWT
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    const apikey = req.headers.get("apikey");
+    if (!authHeader && !apikey) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Verify Supabase JWT
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // If apikey header matches anon key, allow (internal service call)
+    const isApiKeyAuth = apikey && apikey.startsWith("sb_");
+    
+    if (!isApiKeyAuth) {
+      // Verify Supabase JWT for user calls
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+        global: { headers: { Authorization: authHeader || `Bearer ${apikey}` } },
       });
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     let result;
