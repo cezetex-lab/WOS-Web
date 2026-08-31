@@ -92,8 +92,8 @@ INSERT INTO performance_notes (nrp, author_nrp, note_type, content) VALUES
   ('NRP010', 'NRP001', 'PRAISE', 'Strong management skills. Team targets consistently met.'),
   ('MLL0001', 'NRP010', 'FEEDBACK', 'Boiler efficiency improved 3% this month. Good initiative.'),
   ('MLL0002', 'NRP010', 'PRAISE', 'Zero safety incidents for 90 consecutive days.'),
-  ('MIN0001', 'NRP010', 'FEEDBACK', 'Production output exceeds daily target. Keep up the good work.'),
-  ('MIN0002', 'NRP010', 'WARNING', 'Equipment maintenance overdue. Schedule PM immediately.'),
+  ('MNG0001', 'NRP010', 'FEEDBACK', 'Production output exceeds daily target. Keep up the good work.'),
+  ('MNG0002', 'NRP010', 'WARNING', 'Equipment maintenance overdue. Schedule PM immediately.'),
   ('EST0001', 'NRP011', 'PRAISE', 'Highest TBS yield in the estate this quarter.')
 ON CONFLICT DO NOTHING;
 
@@ -110,8 +110,8 @@ INSERT INTO okrs (id, nrp, period, objective, key_result, target_value, actual_v
   ('OKR-009', 'NRP008', '2026-Q3', 'Employee Satisfaction', 'Survey score 80+', 80, 82, 'ON_TRACK'),
   ('OKR-010', 'MLL0001', '2026-Q3', 'Boiler Downtime < 2%', 'Downtime hours', 2, 1.5, 'ON_TRACK'),
   ('OKR-011', 'MLL0002', '2026-Q3', 'Zero Safety Incident', 'Accident count', 0, 0, 'ON_TRACK'),
-  ('OKR-012', 'MIN0001', '2026-Q3', 'Coal Output 60K ton', 'Monthly production', 60000, 55000, 'ON_TRACK'),
-  ('OKR-013', 'MIN0002', '2026-Q3', 'Equipment Availability 90%', 'Uptime percentage', 90, 87, 'AT_RISK'),
+  ('OKR-012', 'MNG0001', '2026-Q3', 'Coal Output 60K ton', 'Monthly production', 60000, 55000, 'ON_TRACK'),
+  ('OKR-013', 'MNG0002', '2026-Q3', 'Equipment Availability 90%', 'Uptime percentage', 90, 87, 'AT_RISK'),
   ('OKR-014', 'EST0001', '2026-Q3', 'Yield per Hectare 25 ton', 'TBS production', 25, 27, 'ON_TRACK'),
   ('OKR-015', 'NRP009', '2026-Q3', 'Complete K3 Audit', 'Audit checklist 100%', 100, 75, 'ON_TRACK'),
   ('OKR-016', 'NRP010', '2026-Q3', 'Build 100+ page HRIS', 'Feature completion', 100, 85, 'ON_TRACK'),
@@ -131,7 +131,7 @@ INSERT INTO incentives (id, nrp, period, base_amount, kpi_factor, team_factor, f
   ('INC-006', 'NRP006', '2026-08', 3800000, 1.15, 1.05, 4603500, 'PAID'),
   ('INC-007', 'MLL0001', '2026-08', 3200000, 1.25, 1.1, 4400000, 'PAID'),
   ('INC-008', 'MLL0002', '2026-08', 3000000, 1.3, 1.15, 4485000, 'PAID'),
-  ('INC-009', 'MIN0001', '2026-08', 3500000, 1.2, 1.1, 4620000, 'CALCULATED'),
+  ('INC-009', 'MNG0001', '2026-08', 3500000, 1.2, 1.1, 4620000, 'CALCULATED'),
   ('INC-010', 'EST0001', '2026-08', 3300000, 1.15, 1.05, 4007250, 'PAID')
 ON CONFLICT (id) DO NOTHING;
 
@@ -147,7 +147,7 @@ INSERT INTO certifications (id, nrp, cert_name, issuer, issue_date, expiry_date,
   ('CERT-006', 'NRP006', 'PMP (Project Management Professional)', 'PMI', '2023-11-01', '2026-11-01', 'ACTIVE'),
   ('CERT-007', 'MLL0001', 'Operator Boiler Bersertifikat', 'BNSP', '2024-02-10', '2027-02-10', 'ACTIVE'),
   ('CERT-008', 'MLL0002', 'Sertifikat K3 Boiler', 'Kemnaker', '2023-08-20', '2026-08-20', 'EXPIRED'),
-  ('CERT-009', 'MIN0001', 'Blast Manager Certificate', 'BOMBA', '2024-04-01', '2027-04-01', 'ACTIVE'),
+  ('CERT-009', 'MNG0001', 'Blast Manager Certificate', 'BOMBA', '2024-04-01', '2027-04-01', 'ACTIVE'),
   ('CERT-010', 'NRP007', 'SAP HR Module Certified', 'SAP', '2024-01-01', '2027-01-01', 'ACTIVE'),
   ('CERT-011', 'NRP008', 'Financial Analyst (CFA Level 1)', 'CFA Institute', '2023-07-15', '2026-07-15', 'EXPIRED'),
   ('CERT-012', 'NRP009', 'ISO 14001 Internal Auditor', 'IRCA', '2024-06-01', '2027-06-01', 'ACTIVE'),
@@ -164,7 +164,7 @@ INSERT INTO badges (id, nrp, badge_name, badge_type, points, awarded_date) VALUE
   ('BDG-005', 'NRP005', 'Team Builder', 'LEADERSHIP', 350, '2026-07-20'),
   ('BDG-006', 'MLL0001', 'Zero Incident 90 Days', 'SAFETY', 600, '2026-08-15'),
   ('BDG-007', 'MLL0002', 'Efficiency Expert', 'PERFORMANCE', 450, '2026-08-10'),
-  ('BDG-008', 'MIN0001', 'Coal King', 'PRODUCTION', 500, '2026-08-05'),
+  ('BDG-008', 'MNG0001', 'Coal King', 'PRODUCTION', 500, '2026-08-05'),
   ('BDG-009', 'NRP006', 'Cost Saver', 'INNOVATION', 300, '2026-07-25'),
   ('BDG-010', 'NRP007', 'Quick Learner', 'DEVELOPMENT', 200, '2026-08-20'),
   ('BDG-011', 'NRP008', 'Rising Star', 'PERFORMANCE', 350, '2026-08-15'),
@@ -343,8 +343,8 @@ INSERT INTO timesheets (nrp, work_date, clock_in, clock_out, total_hours, notes)
   ('MLL0001', '2026-08-29', '14:00', '22:00', 8.0, 'Shift Sore'),
   ('MLL0002', '2026-08-28', '14:00', '22:00', 8.0, 'Shift Sore'),
   ('MLL0002', '2026-08-29', '22:00', '06:00', 8.0, 'Shift Malam'),
-  ('MIN0001', '2026-08-28', '05:30', '17:30', 12.0, 'OT blasting schedule'),
-  ('MIN0002', '2026-08-28', '06:00', '14:00', 8.0, 'Hauling shift'),
+  ('MNG0001', '2026-08-28', '05:30', '17:30', 12.0, 'OT blasting schedule'),
+  ('MNG0002', '2026-08-28', '06:00', '14:00', 8.0, 'Hauling shift'),
   ('EST0001', '2026-08-28', '05:00', '14:00', 9.0, 'Harvest shift'),
   ('EST0002', '2026-08-28', '06:00', '15:00', 9.0, 'Transport TBS'),
   ('NRP005', '2026-08-28', '07:45', '17:15', 9.5, 'Safety inspection')
@@ -369,7 +369,7 @@ INSERT INTO review_360 (reviewee_nrp, reviewer_nrp, period, category, score, fee
   ('NRP008', 'NRP010', '2026-Q3', 'ADAPTABILITY', 4.5, 'Fast learner, flexible'),
   ('NRP009', 'NRP001', '2026-Q3', 'COMPLIANCE', 4.6, 'Thorough audit work'),
   ('NRP010', 'NRP001', '2026-Q3', 'LEADERSHIP', 4.7, 'Excellent admin, keeps everything running'),
-  ('MIN0001', 'NRP010', '2026-Q3', 'PRODUCTION', 4.4, 'Exceeds coal targets consistently'),
+  ('MNG0001', 'NRP010', '2026-Q3', 'PRODUCTION', 4.4, 'Exceeds coal targets consistently'),
   ('EST0001', 'NRP011', '2026-Q3', 'AGRONOMY', 4.5, 'Best yield in estate division'),
   ('NRP011', 'NRP001', '2026-Q3', 'ATTENTION_TO_DETAIL', 4.3, 'Payroll always accurate'),
   ('NRP012', 'NRP001', '2026-Q3', 'TRAINING_DESIGN', 4.1, 'Good training materials'),
