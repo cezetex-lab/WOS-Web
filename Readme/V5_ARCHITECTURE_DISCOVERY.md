@@ -359,3 +359,49 @@ INTELLIGENCE (Analytics + AI)
 ---
 
 **END OF ARCHITECTURE DISCOVERY**
+
+---
+
+## STEP 6: RPC DOMAIN CLASSIFICATION (268 RPCs)
+
+### Distribution by Domain
+
+| Domain | RPC Count | % | Description |
+|--------|:---------:|:-:|-------------|
+| **CORE** | 126 | 47% | HR, Employee, Payroll, Performance, Talent, Learning, Engagement |
+| **PLATFORM** | 49 | 18% | Auth, Session, Rate Limit, Webhooks, SSO, Export, Workflow |
+| **ADMIN** | 60 | 22% | Admin dashboard ops — maps to CORE or PLATFORM subdomains |
+| **INTELLIGENCE** | 23 | 9% | AI Copilot, Analytics, Executive, Forecasting |
+| **GOVERNANCE** | 18 | 7% | Safety, Compliance, Audit, Offboarding, Disciplinary |
+| **INDUSTRY** | 16 | 6% | Mining, Estate, Mill, Asset/Maintenance |
+| **TOTAL** | **268+** | | (some RPCs serve dual domains) |
+
+### Admin RPCs Reclassified (60 → CORE/PLATFORM)
+
+| Admin RPC | True Domain | Subdomain |
+|-----------|:-----------:|-----------|
+| admin_get_kpi_overview | CORE | performance |
+| admin_get_payroll | CORE | payroll |
+| admin_get_employees | CORE | people |
+| admin_get_divisions | CORE | organization |
+| admin_get_leave | CORE | leave |
+| admin_get_overtime | CORE | overtime |
+| admin_get_pending | CORE | people |
+| admin_approve_pending | CORE | people |
+| admin_create_webhook | PLATFORM | integrations |
+| admin_set_feature_flag | PLATFORM | settings |
+| admin_reset_password | PLATFORM | auth |
+| admin_export_sheet | PLATFORM | exports |
+
+### Table Ownership by Domain (127 Tables)
+
+| Domain | Tables | Owner |
+|--------|:------:|-------|
+| **CORE** | ~65 | employees_master, hr_payroll, hr_performance, hr_okrs, hr_leave, hr_overtime, hr_tasks, hr_requests, etc. |
+| **PLATFORM** | ~15 | user_roles, sessions, rate_limits, webhook_configs, webhook_logs, sso_providers, feature_flags, etc. |
+| **INDUSTRY** | ~12 | hr_safety, hr_finance_kpi, mill_*, estate_*, mining_*, asset_*, hr_assets |
+| **GOVERNANCE** | ~15 | hr_exit_clearance, compliance_catalog, legal_documents, disciplinary_records, etc. |
+| **INTELLIGENCE** | ~8 | hr_surveys, reviews_360, hr_whistleblower, hr_forum, hr_conv_stats |
+| **SHARED** | ~12 | announcements, document_types, employee_documents, etc. |
+| **TOTAL** | **127** | |
+
