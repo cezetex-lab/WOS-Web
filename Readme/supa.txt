@@ -1,30 +1,20 @@
-ywYBamE6gbZbros7
-insightWOS
-verwobaejumvpagwynae
+insightWOS — Credentials Reference
+====================================
+DO NOT commit real keys. Use .env.local for local dev.
 
-anon public
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlcndvYmFlanVtdnBhZ3d5bmFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4Mjk3MDAsImV4cCI6MjEwMzQwNTcwMH0.pwub5qNxvODPK30kY7yjRxDwqx0-tCpCXMsAFD6sVOU
+Project: verwobaejumvpagwynae
+URL: https://verwobaejumvpagwynae.supabase.co
 
-Project URL
-https://verwobaejumvpagwynae.supabase.co
-
-sb_publishable_dRJey1Kh4ajuDCsjhHhHqg_tYD18LfF
-
-secret
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlcndvYmFlanVtdnBhZ3d5bmFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzgyOTcwMCwiZXhwIjoyMTAzNDA1NzAwfQ.ljPUkuRTfU60VhfA5bcbQRGJBitKzm-fFEV9Jj6bBPo
-
+anon public key: [REDACTED — see .env.local]
+service key:     [REDACTED — see Supabase Dashboard]
 
 upstash
-UPSTASH_REDIS_REST_URL="https://alive-robin-191313.upstash.io"
-UPSTASH_REDIS_REST_TOKEN="gQAAAAAAAutRAAIgcDFkYmIwMzBiMDg0NDg0OTY3YmE0MmM1NDI5ZGRkNDk0Yw"
+UPSTASH_REDIS_REST_URL=[REDACTED — see .env.local]
+UPSTASH_REDIS_REST_TOKEN=[REDACTED — see .env.local]
 
 VAPID
-Public Key:
-BEWWjcrI-1kIhjf-P74lzE2-M7r3Y-EzZFqkIldKW5NWlzrxV_Sww3hM0fsIwKs3NbDrZ54hipTX6F9-lze6sa0
-
-Private Key:
-CLO87SmFypXD19VlTg9sthy-2rlpsR3rzN-ZTSHEizI
-
+Public Key:  [REDACTED — see .env.local]
+Private Key: [REDACTED — see Supabase Dashboard > Edge Functions > Secrets]
 
 gemini ai keys
-AQ.Ab8RN6LZUEycJo2sJlL5sewG7xUbo9mHtMG-9J2_TV3c3Rq1dQ
+[REDACTED — see Supabase Dashboard > Edge Functions > Secrets]
