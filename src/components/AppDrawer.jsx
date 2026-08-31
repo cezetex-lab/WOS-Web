@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { getSession } from '@/lib/supabase-browser';
 import { BU_MODULES } from '@/lib/business-units';
 
-const ADMIN_GROUPS = [
+// Admin Pusat: ALL modules
+const ADMIN_PUSAT_GROUPS = [
   {
     title: 'KELOLA DATA',
     items: [
@@ -39,6 +40,15 @@ const ADMIN_GROUPS = [
     ]
   },
   {
+    title: 'REKRUTMEN',
+    items: [
+      { icon: '📋', label: 'Rekrutmen', path: '/admin/recruitment' },
+      { icon: '🔀', label: 'Pipeline', path: '/admin/pipeline' },
+      { icon: '🚀', label: 'Onboarding', path: '/admin/onboarding' },
+      { icon: '🔍', label: 'Screening', path: '/admin/screening' },
+    ]
+  },
+  {
     title: 'ASET & FASILITAS',
     items: [
       { icon: '🛠️', label: 'Inventaris', path: '/admin/assets' },
@@ -53,6 +63,7 @@ const ADMIN_GROUPS = [
       { icon: '📋', label: 'Survei (eNPS)', path: '/admin/surveys' },
       { icon: '💡', label: 'Ide & Voice', path: '/admin/voice' },
       { icon: '🕊️', label: 'Whistleblowing', path: '/admin/whistleblower' },
+      { icon: '💬', label: 'Forum', path: '/admin/forum' },
     ]
   },
   {
@@ -74,14 +85,148 @@ const ADMIN_GROUPS = [
     ]
   },
   {
-    title: 'PERENCANAAN',
+    title: 'PERENCANAAN & ANALITIK',
     items: [
       { icon: '📊', label: 'Headcount Plan', path: '/admin/headcount' },
       { icon: '💰', label: 'Budget Allocation', path: '/admin/budget' },
       { icon: '🤝', label: 'Referral Program', path: '/admin/referral' },
+      { icon: '🧪', label: 'Simulasi', path: '/admin/simulation' },
+      { icon: '🤖', label: 'AI Tasks', path: '/admin/ai-tasks' },
     ]
   }
 ];
+
+// Admin HRD: People + Talent + Engagement + Recruitment
+const ADMIN_HRD_GROUPS = [
+  {
+    title: 'KELOLA DATA',
+    items: [
+      { icon: '👥', label: 'Karyawan', path: '/admin/employees' },
+      { icon: '🏢', label: 'Organisasi', path: '/admin/org' },
+      { icon: '📂', label: 'Divisi', path: '/admin/divisions' },
+      { icon: '🔑', label: 'Role Matrix', path: '/admin/roles' },
+    ]
+  },
+  {
+    title: 'REKRUTMEN & ONBOARDING',
+    items: [
+      { icon: '📋', label: 'Rekrutmen', path: '/admin/recruitment' },
+      { icon: '🔀', label: 'Pipeline', path: '/admin/pipeline' },
+      { icon: '🚀', label: 'Onboarding', path: '/admin/onboarding' },
+      { icon: '🔍', label: 'Screening', path: '/admin/screening' },
+    ]
+  },
+  {
+    title: 'TALENT & PERFORMANCE',
+    items: [
+      { icon: '📊', label: 'KPI', path: '/admin/kpi' },
+      { icon: '🎯', label: 'OKR', path: '/admin/okr' },
+      { icon: '📚', label: 'Learning', path: '/admin/learning' },
+      { icon: '📜', label: 'Sertifikasi', path: '/admin/certifications' },
+      { icon: '🏅', label: 'Badge & Gamifikasi', path: '/admin/badges' },
+      { icon: '🎯', label: 'Talent Market', path: '/admin/talent' },
+      { icon: '🧭', label: 'Career Path', path: '/admin/career' },
+    ]
+  },
+  {
+    title: 'SELF-SERVICE & ENGAGEMENT',
+    items: [
+      { icon: '📝', label: 'Pengajuan', path: '/admin/requests' },
+      { icon: '🌴', label: 'Cuti', path: '/admin/leave' },
+      { icon: '📋', label: 'Survei (eNPS)', path: '/admin/surveys' },
+      { icon: '💡', label: 'Ide & Voice', path: '/admin/voice' },
+      { icon: '💬', label: 'Forum', path: '/admin/forum' },
+    ]
+  },
+  {
+    title: 'OFFBOARDING & PERENCANAAN',
+    items: [
+      { icon: '🚪', label: 'Exit Interview', path: '/admin/exit' },
+      { icon: '📊', label: 'Headcount Plan', path: '/admin/headcount' },
+      { icon: '🔐', label: 'Pengaturan', path: '/admin/settings' },
+    ]
+  }
+];
+
+// Admin Finance: Payroll + Budget + Financial
+const ADMIN_FINANCE_GROUPS = [
+  {
+    title: 'PAYROLL & KOMPENSASI',
+    items: [
+      { icon: '💰', label: 'Payroll', path: '/admin/payroll' },
+      { icon: '📊', label: 'KPI', path: '/admin/kpi' },
+      { icon: '🎁', label: 'Insentif', path: '/admin/incentive' },
+    ]
+  },
+  {
+    title: 'ANGGARAN & LAPORAN',
+    items: [
+      { icon: '💰', label: 'Budget Allocation', path: '/admin/budget' },
+      { icon: '📤', label: 'Export Data', path: '/admin/export' },
+      { icon: '⏱️', label: 'Timesheet', path: '/admin/timesheet' },
+    ]
+  },
+  {
+    title: 'OPERASIONAL',
+    items: [
+      { icon: '⏰', label: 'Lembur', path: '/admin/overtime' },
+      { icon: '📝', label: 'Pengajuan', path: '/admin/requests' },
+      { icon: '🛠️', label: 'Inventaris', path: '/admin/assets' },
+    ]
+  },
+  {
+    title: 'SISTEM',
+    items: [
+      { icon: '📋', label: 'Audit Log', path: '/admin/audit' },
+      { icon: '🔐', label: 'Pengaturan', path: '/admin/settings' },
+    ]
+  }
+];
+
+// Admin Produksi: Operations + Assets + Attendance
+const ADMIN_PRODUKSI_GROUPS = [
+  {
+    title: 'OPERASIONAL',
+    items: [
+      { icon: '⏱️', label: 'Timesheet', path: '/admin/timesheet' },
+      { icon: '🔄', label: 'Shift Swap', path: '/admin/shift-swap' },
+      { icon: '⏰', label: 'Lembur', path: '/admin/overtime' },
+      { icon: '📝', label: 'Pengajuan', path: '/admin/requests' },
+    ]
+  },
+  {
+    title: 'KINERJA & ASET',
+    items: [
+      { icon: '📊', label: 'KPI', path: '/admin/kpi' },
+      { icon: '🛠️', label: 'Inventaris', path: '/admin/assets' },
+      { icon: '📦', label: 'Check-in/out', path: '/admin/asset-assign' },
+      { icon: '🌳', label: 'Estate Blocks', path: '/admin/estate' },
+    ]
+  },
+  {
+    title: 'FASILITAS & KESELAMATAN',
+    items: [
+      { icon: '🏗️', label: 'Facility Request', path: '/admin/facility' },
+      { icon: '🌴', label: 'Cuti', path: '/admin/leave' },
+      { icon: '📜', label: 'Sertifikasi', path: '/admin/certifications' },
+    ]
+  },
+  {
+    title: 'SISTEM',
+    items: [
+      { icon: '📋', label: 'Audit Log', path: '/admin/audit' },
+      { icon: '🔐', label: 'Pengaturan', path: '/admin/settings' },
+    ]
+  }
+];
+
+// Map admin role to menu groups
+const ADMIN_ROLE_MAP = {
+  admin_pusat: ADMIN_PUSAT_GROUPS,
+  admin_hrd: ADMIN_HRD_GROUPS,
+  admin_finance: ADMIN_FINANCE_GROUPS,
+  admin_produksi: ADMIN_PRODUKSI_GROUPS,
+};
 
 const WORKER_GROUPS = [
   {
@@ -132,8 +277,6 @@ const MANAGER_GROUPS = [
   },
 ];
 
-const ROLE_MAP = { admin: ADMIN_GROUPS, manager: MANAGER_GROUPS };
-
 // Convert BU modules sidebarGroups to AppDrawer format
 function getWorkerGroups(bu) {
   const modules = BU_MODULES[bu] || BU_MODULES.HQ;
@@ -145,7 +288,15 @@ export function AppDrawer({ isOpen, onClose }) {
   const session = getSession();
   const role = session?.role || 'worker';
   const bu = session?.business_unit || 'HQ';
-  const groups = role === 'worker' ? getWorkerGroups(bu) : (ROLE_MAP[role] || WORKER_GROUPS);
+
+  let groups;
+  if (role.startsWith('admin_')) {
+    groups = ADMIN_ROLE_MAP[role] || ADMIN_PUSAT_GROUPS;
+  } else if (role === 'manager') {
+    groups = MANAGER_GROUPS;
+  } else {
+    groups = getWorkerGroups(bu);
+  }
   return (
     <>
       {/* Overlay */}

@@ -33,6 +33,47 @@ const WORKER_NAV = {
 };
 
 const ROLE_CONFIG = {
+  // Admin Pusat: full access
+  admin_pusat: {
+    home: '/admin',
+    items: [
+      { to: '/admin', icon: '🏠', label: 'Beranda' },
+      { to: '/admin/employees', icon: '👥', label: 'Karyawan' },
+      { to: '/admin/requests', icon: '📝', label: 'Pengajuan' },
+      { to: '/admin/payroll', icon: '💰', label: 'Payroll' },
+    ],
+  },
+  // Admin HRD: people + talent
+  admin_hrd: {
+    home: '/admin',
+    items: [
+      { to: '/admin', icon: '🏠', label: 'Beranda' },
+      { to: '/admin/employees', icon: '👥', label: 'Karyawan' },
+      { to: '/admin/requests', icon: '📝', label: 'Pengajuan' },
+      { to: '/admin/kpi', icon: '📊', label: 'KPI' },
+    ],
+  },
+  // Admin Finance: payroll + budget
+  admin_finance: {
+    home: '/admin',
+    items: [
+      { to: '/admin', icon: '🏠', label: 'Beranda' },
+      { to: '/admin/payroll', icon: '💰', label: 'Payroll' },
+      { to: '/admin/budget', icon: '📊', label: 'Budget' },
+      { to: '/admin/export', icon: '📤', label: 'Export' },
+    ],
+  },
+  // Admin Produksi: operations + assets
+  admin_produksi: {
+    home: '/admin',
+    items: [
+      { to: '/admin', icon: '🏠', label: 'Beranda' },
+      { to: '/admin/timesheet', icon: '⏱️', label: 'Timesheet' },
+      { to: '/admin/requests', icon: '📝', label: 'Pengajuan' },
+      { to: '/admin/assets', icon: '🛠️', label: 'Aset' },
+    ],
+  },
+  // Backward compat
   admin: {
     home: '/admin',
     items: [

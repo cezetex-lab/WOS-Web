@@ -19,8 +19,9 @@ export default function Home() {
   useEffect(() => {
     const user = getSession();
     if (user) {
-      if (user.role === 'admin') window.location.href = '/admin';
-      else if (user.role === 'manager') window.location.href = '/dashboard';
+      const r = user.role || 'worker';
+      if (r.startsWith('admin_') || r === 'admin') window.location.href = '/admin';
+      else if (r === 'manager') window.location.href = '/dashboard';
       else window.location.href = '/worker';
     }
   }, []);
@@ -99,9 +100,21 @@ export default function Home() {
     try {
       const d = await rpc('verify_worker_otp', { p_nrp: validatedNrp, p_code: otp });
       if (d.ok) {
-        const loginRole = tab === 'dashboard' ? 'manager' : 'worker';
+        // Role detection: admin_pusat/admin_hrd/admin_finance/admin_produksi → /admin, manager → /dashboard, worker → /worker
+        const userRole = d.role || 'worker';
+        let loginRole, redirectPath;
+        if (userRole.startsWith('admin_')) {
+          loginRole = userRole;
+          redirectPath = '/admin';
+        } else if (userRole === 'manager') {
+          loginRole = 'manager';
+          redirectPath = '/dashboard';
+        } else {
+          loginRole = 'worker';
+          redirectPath = '/worker';
+        }
         setSession({ ...d, role: loginRole });
-        window.location.href = tab === 'dashboard' ? '/dashboard' : '/worker';
+        window.location.href = redirectPath;
       } else {
         setError(d.msg || 'OTP salah');
       }
@@ -118,7 +131,7 @@ export default function Home() {
     try {
       const d = await rpc('verify_admin_otp', { p_code: otp });
       if (d.ok) {
-        setSession({ token: d.token, role: 'admin', nama: 'Administrator' });
+        setSession({ token: d.token, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: d.nrp || 'ADMIN' });
         window.location.href = '/admin';
       } else {
         setError(d.msg || 'OTP salah');

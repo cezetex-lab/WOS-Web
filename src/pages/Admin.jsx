@@ -1,12 +1,69 @@
 // src/pages/Admin.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, clearSession } from '../lib/supabase-browser';
+import { supabase, clearSession, getSession } from '../lib/supabase-browser';
 import { MetricCard, QuickTile, GlassCard, ActionItem, EmptyState, LoadingSpinner } from '../lib/design-system';
+
+// Role badges
+const ROLE_BADGES = {
+  admin_pusat: { label: 'Admin Pusat', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: '👑' },
+  admin_hrd: { label: 'Admin HRD', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: '👥' },
+  admin_finance: { label: 'Admin Finance', color: 'bg-green-500/20 text-green-400 border-green-500/30', icon: '💰' },
+  admin_produksi: { label: 'Admin Produksi', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: '⚙️' },
+};
+
+// Quick tiles per admin role
+const ADMIN_TILES = {
+  admin_pusat: [
+    { icon: '📝', label: 'Pengajuan', color: 'blue', path: '/admin/requests' },
+    { icon: '👥', label: 'Karyawan', color: 'slate', path: '/admin/employees' },
+    { icon: '🏢', label: 'Organisasi', color: 'slate', path: '/admin/org' },
+    { icon: '💰', label: 'Payroll', color: 'teal', path: '/admin/payroll' },
+    { icon: '📊', label: 'KPI', color: 'purple', path: '/admin/kpi' },
+    { icon: '📈', label: 'Analytics', color: 'orange', path: '/admin/analytics' },
+    { icon: '📋', label: 'Audit', color: 'slate', path: '/admin/audit' },
+    { icon: '🔑', label: 'Reset PW', color: 'red', path: '/admin/reset-password' },
+    { icon: '⚙️', label: 'Pengaturan', color: 'slate', path: '/admin/settings' },
+  ],
+  admin_hrd: [
+    { icon: '👥', label: 'Karyawan', color: 'blue', path: '/admin/employees' },
+    { icon: '📋', label: 'Rekrutmen', color: 'teal', path: '/admin/recruitment' },
+    { icon: '📝', label: 'Pengajuan', color: 'slate', path: '/admin/requests' },
+    { icon: '📊', label: 'KPI', color: 'purple', path: '/admin/kpi' },
+    { icon: '📚', label: 'Learning', color: 'orange', path: '/admin/learning' },
+    { icon: '🎯', label: 'Talent', color: 'teal', path: '/admin/talent' },
+    { icon: '🚪', label: 'Offboarding', color: 'red', path: '/admin/exit' },
+    { icon: '🔑', label: 'Reset PW', color: 'red', path: '/admin/reset-password' },
+    { icon: '⚙️', label: 'Pengaturan', color: 'slate', path: '/admin/settings' },
+  ],
+  admin_finance: [
+    { icon: '💰', label: 'Payroll', color: 'teal', path: '/admin/payroll' },
+    { icon: '💰', label: 'Budget', color: 'green', path: '/admin/budget' },
+    { icon: '📊', label: 'KPI', color: 'purple', path: '/admin/kpi' },
+    { icon: '⏱️', label: 'Timesheet', color: 'blue', path: '/admin/timesheet' },
+    { icon: '⏰', label: 'Lembur', color: 'orange', path: '/admin/overtime' },
+    { icon: '📤', label: 'Export', color: 'slate', path: '/admin/export' },
+    { icon: '📋', label: 'Audit', color: 'slate', path: '/admin/audit' },
+    { icon: '⚙️', label: 'Pengaturan', color: 'slate', path: '/admin/settings' },
+  ],
+  admin_produksi: [
+    { icon: '⏱️', label: 'Timesheet', color: 'blue', path: '/admin/timesheet' },
+    { icon: '🔄', label: 'Shift', color: 'teal', path: '/admin/shift-swap' },
+    { icon: '⏰', label: 'Lembur', color: 'orange', path: '/admin/overtime' },
+    { icon: '🛠️', label: 'Aset', color: 'slate', path: '/admin/assets' },
+    { icon: '📊', label: 'KPI', color: 'purple', path: '/admin/kpi' },
+    { icon: '📝', label: 'Pengajuan', color: 'blue', path: '/admin/requests' },
+    { icon: '🏗️', label: 'Fasilitas', color: 'slate', path: '/admin/facility' },
+    { icon: '⚙️', label: 'Pengaturan', color: 'slate', path: '/admin/settings' },
+  ],
+};
 
 export default function Admin() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const session = getSession();
+  const adminRole = session?.role || 'admin_pusat';
+  const badge = ROLE_BADGES[adminRole] || ROLE_BADGES.admin_pusat;
 
   function logout() { clearSession(); window.location.href = '/'; }
   const [stats, setStats] = useState({});
@@ -17,22 +74,25 @@ export default function Admin() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      // 1. Statistik Admin
-      const { data: statsData } = await supabase.rpc('admin_get_summary');
-      setStats(statsData || {});
-      
-      // 2. Pending Requests (dari UI Fix 022)
-      const { data: pendingData } = await supabase.rpc('admin_get_pending_requests');
-      setPending(pendingData?.data || []);
-      
-      // 3. HREngine: Auto Healing Actions
-      const { data: healingData } = await supabase.rpc('get_auto_healing_actions');
-      setAutoHealing(healingData?.data || []);
-      
-      // 4. HREngine: Anomaly Sentinel
-      const { data: anomalyData } = await supabase.rpc('get_anomaly_sentinel');
-      setAnomalies(anomalyData?.data || []);
-      
+      try {
+        // 1. Statistik Admin
+        const { data: statsData } = await supabase.rpc('admin_get_summary');
+        setStats(statsData || {});
+        
+        // 2. Pending Requests
+        const { data: pendingData } = await supabase.rpc('admin_get_pending_requests');
+        setPending(pendingData?.data || []);
+        
+        // 3. Auto Healing
+        const { data: healingData } = await supabase.rpc('get_auto_healing_actions');
+        setAutoHealing(healingData?.data || []);
+        
+        // 4. Anomaly Sentinel
+        const { data: anomalyData } = await supabase.rpc('get_anomaly_sentinel');
+        setAnomalies(anomalyData?.data || []);
+      } catch (e) {
+        console.error('Admin dashboard error:', e);
+      }
       setLoading(false);
     };
     fetchData();
@@ -40,12 +100,19 @@ export default function Admin() {
 
   if (loading) return <LoadingSpinner text="Memuat data admin..." />;
 
+  const quickTiles = ADMIN_TILES[adminRole] || ADMIN_TILES.admin_pusat;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 pb-28">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Selamat Datang, Admin</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold text-white tracking-tight">Selamat Datang, Admin</h1>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.color}`}>
+              {badge.icon} {badge.label}
+            </span>
+          </div>
           <p className="text-slate-400 text-sm">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
         <button onClick={logout} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-red-500/20 border border-white/5 hover:border-red-500/30 text-slate-400 hover:text-red-400 transition-all text-sm" title="Logout">
@@ -62,17 +129,11 @@ export default function Admin() {
         <MetricCard icon="📄" value={stats.pkwt_count || 0} label="PKWT" trend={`${stats.retiring_soon || 0} Segera Habis`} color="red" />
       </div>
 
-      {/* 2. QUICK ACCESS GRID */}
+      {/* 2. QUICK ACCESS GRID — role-aware */}
       <div className="grid grid-cols-4 gap-2 mb-6 bg-slate-800/30 p-4 rounded-2xl border border-white/5">
-        <QuickTile icon="📝" label="Pengajuan" color="blue" onClick={() => navigate('/admin/requests')} />
-        <QuickTile icon="👥" label="Karyawan" color="slate" onClick={() => navigate('/admin/employees')} />
-        <QuickTile icon="🏢" label="Organisasi" color="slate" onClick={() => navigate('/admin/org')} />
-        <QuickTile icon="💰" label="Payroll" color="teal" onClick={() => navigate('/admin/payroll')} />
-        <QuickTile icon="📊" label="KPI" color="purple" onClick={() => navigate('/admin/kpi')} />
-        <QuickTile icon="📈" label="Analytics" color="orange" onClick={() => navigate('/admin/analytics')} />
-        <QuickTile icon="📋" label="Audit" color="slate" onClick={() => navigate('/admin/audit')} />
-        <QuickTile icon="🔑" label="Reset PW" color="red" onClick={() => navigate('/admin/reset-password')} />
-        <QuickTile icon="⚙️" label="Pengaturan" color="slate" onClick={() => navigate('/admin/settings')} />
+        {quickTiles.map((tile, i) => (
+          <QuickTile key={i} icon={tile.icon} label={tile.label} color={tile.color} onClick={() => navigate(tile.path)} />
+        ))}
       </div>
 
       {/* 3. INSIGHT UTAMA + HREngine */}
