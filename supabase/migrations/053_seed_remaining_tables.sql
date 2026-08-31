@@ -199,38 +199,32 @@ INSERT INTO whistleblowers (id, category, description, status, investigator_nrp,
   ('WB-006', 'SAFETY', 'Mesin press beroperasi tanpa guard', 'RESOLVED', 'NRP009', 'Guard sudah dipasang, mesin dihentikan sementara')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO hr_exit_clearance (nrp, department_clearance, it_clearance, finance_clearance, hr_clearance, status) VALUES
-  ('NRP013', TRUE, TRUE, TRUE, TRUE, 'COMPLETED'),
-  ('NRP014', TRUE, TRUE, FALSE, FALSE, 'IN_PROGRESS'),
-  ('NRP015', FALSE, FALSE, FALSE, FALSE, 'PENDING'),
-  ('NRP016', TRUE, TRUE, TRUE, FALSE, 'IN_PROGRESS'),
-  ('NRP017', TRUE, TRUE, TRUE, TRUE, 'COMPLETED')
-ON CONFLICT (nrp) DO NOTHING;
+-- hr_exit_clearance (schema: id, nrp, resign_date, last_work_date, clearance_status)
+INSERT INTO hr_exit_clearance (nrp, resign_date, last_work_date, clearance_status) VALUES
+  ('NRP013', '2026-08-01', '2026-08-25', 'COMPLETED'),
+  ('NRP014', '2026-08-15', '2026-09-01', 'IN_PROGRESS'),
+  ('NRP015', '2026-08-20', '2026-09-10', 'PENDING'),
+  ('NRP016', '2026-07-15', '2026-08-10', 'IN_PROGRESS'),
+  ('NRP017', '2026-07-01', '2026-07-30', 'COMPLETED')
+ON CONFLICT DO NOTHING;
 
-INSERT INTO final_settlements (nrp, final_salary, unused_leave_pay, severance_pay, bonus_pro_rata, total, status) VALUES
-  ('NRP013', 8000000, 2400000, 24000000, 4000000, 38400000, 'PAID'),
-  ('NRP014', 6500000, 1300000, 19500000, 3250000, 30550000, 'CALCULATED'),
-  ('NRP015', 5000000, 0, 15000000, 2500000, 22500000, 'PENDING'),
-  ('NRP016', 7000000, 1750000, 21000000, 3500000, 33250000, 'CALCULATED'),
-  ('NRP017', 5500000, 1100000, 16500000, 2750000, 25850000, 'PAID')
-ON CONFLICT (nrp) DO NOTHING;
+-- final_settlements (schema: id, nrp, sisa_cuti_paid, thr_prorata, pesangon, total_settlement, status)
+INSERT INTO final_settlements (id, nrp, sisa_cuti_paid, thr_prorata, pesangon, total_settlement, status) VALUES
+  ('FS-001', 'NRP013', 2400000, 4000000, 24000000, 30400000, 'PAID'),
+  ('FS-002', 'NRP014', 1300000, 3250000, 19500000, 24050000, 'CALCULATED'),
+  ('FS-003', 'NRP015', 0, 2500000, 15000000, 17500000, 'PENDING'),
+  ('FS-004', 'NRP016', 1750000, 3500000, 21000000, 26250000, 'CALCULATED'),
+  ('FS-005', 'NRP017', 1100000, 2750000, 16500000, 20350000, 'PAID')
+ON CONFLICT (id) DO NOTHING;
 
 -- ════════════════════════════════════════════════════════════
 -- F. FINANCE — budget_allocation, salary_adjustments
 -- ════════════════════════════════════════════════════════════
-INSERT INTO budget_allocation (division, year, category, allocated, used) VALUES
-  ('MINING', 2026, 'Training', 500000000, 320000000),
-  ('MINING', 2026, 'Equipment', 2000000000, 1400000000),
-  ('MINING', 2026, 'Safety', 300000000, 250000000),
-  ('ESTATE', 2026, 'Fertilizer', 800000000, 600000000),
-  ('ESTATE', 2026, 'Transport', 600000000, 420000000),
-  ('ESTATE', 2026, 'Labor', 1200000000, 950000000),
-  ('MILL', 2026, 'Maintenance', 400000000, 280000000),
-  ('MILL', 2026, 'Energy', 350000000, 290000000),
-  ('MILL', 2026, 'Raw Material', 1500000000, 1100000000),
-  ('HQ', 2026, 'HR', 200000000, 150000000),
-  ('HQ', 2026, 'IT', 300000000, 180000000),
-  ('HQ', 2026, 'Marketing', 250000000, 120000000)
+INSERT INTO budget_allocation (divisi, year, gaji_budget, training_budget, operational_budget, actual_gaji, actual_training) VALUES
+  ('MINING', 2026, 3000000000, 500000000, 2000000000, 2800000000, 320000000),
+  ('ESTATE', 2026, 2500000000, 400000000, 1500000000, 2300000000, 350000000),
+  ('MILL', 2026, 2000000000, 350000000, 1800000000, 1900000000, 290000000),
+  ('HQ', 2026, 1500000000, 200000000, 300000000, 1400000000, 150000000)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO salary_adjustments (id, nrp, current_salary, recommended_salary, increase_pct, reason, status) VALUES
@@ -248,24 +242,23 @@ ON CONFLICT (id) DO NOTHING;
 -- G. INTEGRATION — webhook_configs, sso_providers, ext_notif
 -- ════════════════════════════════════════════════════════════
 INSERT INTO webhook_configs (name, url, events, active) VALUES
-  ('Slack HR Alerts', 'https://hooks.slack.com/services/T00/B00/xxx', '["LEAVE_REQUEST","OVERTIME_REQUEST","SAFETY_INCIDENT"]', TRUE),
-  ('Email Notification', 'https://api.sendgrid.com/v3/mail/send', '["NEW_REGISTRATION","APPROVAL_PENDING","EXIT_INTERVIEW"]', TRUE),
-  ('Payroll Sync', 'https://internal payroll-api.company.com/sync', '["PAYROLL_GENERATED","SALARY_ADJUSTMENT"]', FALSE),
-  ('Teams Integration', 'https://outlook.office.com/webhook/xxx', '["ANNOUNCEMENT","TASK_ASSIGNED"]', FALSE)
-ON CONFLICT (name) DO NOTHING;
+  ('Slack HR Alerts', 'https://hooks.slack.com/services/T00/B00/xxx', ARRAY['leave_approved','overtime_request','safety_incident'], TRUE),
+  ('Email Notification', 'https://api.sendgrid.com/v3/mail/send', ARRAY['new_registration','approval_pending','exit_interview'], TRUE),
+  ('Payroll Sync', 'https://internal-payroll-api.company.com/sync', ARRAY['payroll_generated','salary_adjustment'], FALSE),
+  ('Teams Integration', 'https://outlook.office.com/webhook/xxx', ARRAY['announcement','task_assigned'], FALSE)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO sso_providers (name, provider_type, client_id, enabled) VALUES
-  ('Google Workspace', 'GOOGLE', 'google-client-id-xxx', TRUE),
-  ('Microsoft Azure AD', 'AZURE_AD', 'azure-client-id-xxx', FALSE),
-  ('Okta SSO', 'OKTA', 'okta-client-id-xxx', FALSE)
-ON CONFLICT (name) DO NOTHING;
+  ('Google Workspace', 'oauth2', 'google-client-id-xxx', TRUE),
+  ('Microsoft Azure AD', 'oidc', 'azure-client-id-xxx', FALSE),
+  ('Okta SSO', 'saml', 'okta-client-id-xxx', FALSE)
+ON CONFLICT DO NOTHING;
 
-INSERT INTO external_notifications (provider, event_type, channel, active) VALUES
-  ('Slack', 'LEAVE_APPROVED', 'webhook', TRUE),
-  ('Slack', 'SAFETY_INCIDENT', 'webhook', TRUE),
-  ('Email', 'PAYROLL_READY', 'smtp', TRUE),
-  ('SMS', 'EMERGENCY_ALERT', 'api', FALSE),
-  ('Teams', 'WEEKLY_SUMMARY', 'webhook', FALSE)
+INSERT INTO external_notifications (channel, webhook_url, event_types, active) VALUES
+  ('slack', 'https://hooks.slack.com/services/T00/B00/xxx', ARRAY['leave_approved','safety_incident'], TRUE),
+  ('email', 'https://api.sendgrid.com/v3/mail/send', ARRAY['payroll_ready','exit_interview'], TRUE),
+  ('teams', 'https://outlook.office.com/webhook/xxx', ARRAY['weekly_summary','announcement'], FALSE),
+  ('whatsapp', 'https://api.whatsapp.com/send', ARRAY['emergency_alert'], FALSE)
 ON CONFLICT DO NOTHING;
 
 -- ════════════════════════════════════════════════════════════
@@ -284,19 +277,20 @@ INSERT INTO feature_flags (name, enabled, description) VALUES
   ('e_sign', FALSE, 'Electronic signature (belum deploy)')
 ON CONFLICT (name) DO NOTHING;
 
--- announcements
-INSERT INTO announcements (title, content, author_nrp, priority, target_audience, expires_at) VALUES
-  ('Selamat Hari Kemerdekaan RI ke-81', 'Seluruh karyawan mendapat tunjangan hari kemerdekaan. Upacara 17 Agustus di halaman kantor pusat.', 'NRP001', 'HIGH', 'ALL', '2026-08-31'),
-  ('Jadwal Annual Medical Checkup', 'Medical checkup akan dilaksanakan 1-15 September. Silakan daftar via aplikasi.', 'NRP004', 'MEDIUM', 'ALL', '2026-09-15'),
-  ('Peningkatan Sistem HR', 'Versi baru insightWOS v4.0 sudah live. Silakan cek fitur-fitur baru di menu Help.', 'NRP010', 'LOW', 'ALL', '2026-10-01'),
-  ('Safety Alert — Hujan Deras', 'Cuaca ekstrem diperkirakan seminggu ke depan. Patuhi protokol K3 tambang dan kebun.', 'NRP005', 'URGENT', 'MINING,ESTATE', '2026-09-07'),
-  ('Training Mandatory — K3 Ulang', 'Semua karyawan wajib mengikuti refreshment K3 bulan ini. Jadwal terlampir.', 'NRP005', 'HIGH', 'MINING,MILL', '2026-09-30')
-ON CONFLICT DO NOTHING;
+-- announcements (schema: id, title, message, priority, target_audience, expiry_date, created_by)
+INSERT INTO announcements (id, title, message, priority, target_audience, expiry_date, created_by) VALUES
+  ('ANN-001', 'Selamat Hari Kemerdekaan RI ke-81', 'Seluruh karyawan mendapat tunjangan hari kemerdekaan. Upacara 17 Agustus di halaman kantor pusat.', 'HIGH', 'ALL', '2026-08-31', 'NRP001'),
+  ('ANN-002', 'Jadwal Annual Medical Checkup', 'Medical checkup akan dilaksanakan 1-15 September. Silakan daftar via aplikasi.', 'MEDIUM', 'ALL', '2026-09-15', 'NRP004'),
+  ('ANN-003', 'Peningkatan Sistem HR', 'Versi baru insightWOS v4.0 sudah live. Silakan cek fitur-fitur baru di menu Help.', 'LOW', 'ALL', '2026-10-01', 'NRP010'),
+  ('ANN-004', 'Safety Alert — Hujan Deras', 'Cuaca ekstrem diperkirakan seminggu ke depan. Patuhi protokol K3 tambang dan kebun.', 'URGENT', 'MINING,ESTATE', '2026-09-07', 'NRP005'),
+  ('ANN-005', 'Training Mandatory — K3 Ulang', 'Semua karyawan wajib mengikuti refreshment K3 bulan ini. Jadwal terlampir.', 'HIGH', 'MINING,MILL', '2026-09-30', 'NRP005')
+ON CONFLICT (id) DO NOTHING;
 
 -- ════════════════════════════════════════════════════════════
 -- I. OFFBOARDING — offboarding_checklist
 -- ════════════════════════════════════════════════════════════
-INSERT INTO offboarding_checklist (nrp, item_name, status, completed_date) VALUES
+-- offboarding_checklist (schema: id, nrp, item_name, status, checked_by, checked_at)
+INSERT INTO offboarding_checklist (nrp, item_name, status, checked_by) VALUES
   ('NRP013', 'Return laptop & accessories', 'DONE', '2026-08-25'),
   ('NRP013', 'Transfer knowledge', 'DONE', '2026-08-24'),
   ('NRP013', 'Clear IT accounts', 'DONE', '2026-08-25'),
