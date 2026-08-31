@@ -92,6 +92,14 @@ const PerformanceNotes = lazy(() => import('./pages/worker/PerformanceNotes'));
 // ── WAVE 4 ──
 const MultiStepRequest = lazy(() => import('./worker/MultiStepRequest'));
 const TaskBoard = lazy(() => import('./worker/TaskBoard'));
+// ── WAVE FINAL — Recruitment, Approval, 360, Forum ──
+const RecruitmentDashboard = lazy(() => import('./pages/admin/RecruitmentDashboard'));
+const PipelineKanban = lazy(() => import('./pages/admin/PipelineKanban'));
+const OnboardingWorkflow = lazy(() => import('./pages/admin/OnboardingWorkflow'));
+const ScreeningPage = lazy(() => import('./pages/admin/ScreeningPage'));
+const ApprovalWorkflow = lazy(() => import('./pages/admin/ApprovalWorkflow'));
+const Review360 = lazy(() => import('./pages/admin/Review360'));
+const ForumDiskusi = lazy(() => import('./pages/worker/ForumDiskusi'));
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -136,6 +144,15 @@ function AppContent() {
         <Route path="/worker/task-board" element={withNav(TaskBoard)} />
         <Route path="/worker/performance-notes" element={withNav(PerformanceNotes)} />
         <Route path="/worker/change-password" element={withNav(WorkerChangePassword)} />
+        <Route path="/worker/forum" element={withNav(ForumDiskusi)} />
+
+        {/* ═══════════ ADMIN — REKRUTMEN ═══════════ */}
+        <Route path="/admin/recruitment" element={withNav(RecruitmentDashboard)} />
+        <Route path="/admin/pipeline" element={withNav(PipelineKanban)} />
+        <Route path="/admin/onboarding" element={withNav(OnboardingWorkflow)} />
+        <Route path="/admin/screening" element={withNav(ScreeningPage)} />
+        <Route path="/admin/approval-workflow" element={withNav(ApprovalWorkflow)} />
+        <Route path="/admin/review-360" element={withNav(Review360)} />
 
         {/* ═══════════ ADMIN — KELOLA DATA ═══════════ */}
         <Route path="/admin" element={withNav(Admin)} />
