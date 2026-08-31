@@ -75,12 +75,16 @@ RETURNS jsonb AS $$
     jsonb_build_object(
       'id', v.id, 'title', v.position, 'department', v.department,
       'quota', v.quota, 'status', v.status,
-      'applicants', (SELECT count(*)::int FROM candidate_pipeline cp WHERE cp.vacancy_id = v.id),
+      'applicants', v.app_count,
       'created_at', v.created_at
     )
   ), '[]'::jsonb)
-  FROM vacancies v
-  ORDER BY v.created_at DESC;
+  FROM (
+    SELECT v2.id, v2.position, v2.department, v2.quota, v2.status, v2.created_at,
+           (SELECT count(*)::int FROM candidate_pipeline cp WHERE cp.vacancy_id = v2.id) AS app_count
+    FROM vacancies v2
+    ORDER BY v2.created_at DESC
+  ) v;
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ── RECRUITMENT: Pipeline (use existing table: id TEXT, vacancy_id TEXT, nrp, nama, email, stage) ──
