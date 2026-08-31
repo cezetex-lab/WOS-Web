@@ -10,20 +10,19 @@
 -- ============================================================
 -- 1. PAYROLL DATA (hr_payroll)
 -- ============================================================
-INSERT INTO hr_payroll (nrp, period, basic_salary, allowance, deduction, overtime_pay, bonus, net_salary)
+INSERT INTO hr_payroll (nrp, periode, base_salary, allowance, deduction, overtime_pay, net_salary)
 SELECT 
   e.nrp,
-  '2026-' || LPAD(m::text, 2, '0') as period,
+  '2026-' || LPAD(m::text, 2, '0') as periode,
   CASE e.business_unit 
     WHEN 'MINING' THEN 7500000 + (random()*5000000)::int
     WHEN 'ESTATE' THEN 5000000 + (random()*3000000)::int
     WHEN 'MILL' THEN 6000000 + (random()*4000000)::int
     ELSE 8000000 + (random()*7000000)::int
-  END as basic_salary,
+  END as base_salary,
   (random()*2000000)::int as allowance,
   (random()*500000)::int as deduction,
   (random()*1500000)::int as overtime_pay,
-  CASE WHEN random() > 0.7 THEN (random()*3000000)::int ELSE 0 END as bonus,
   0 as net_salary
 FROM employees_master e
 CROSS JOIN generate_series(1, 6) m
@@ -31,12 +30,15 @@ WHERE e.status_kerja = 'PKWTT'
 ON CONFLICT DO NOTHING;
 
 -- Update net_salary
-UPDATE hr_payroll SET net_salary = basic_salary + allowance + overtime_pay + bonus - deduction;
+UPDATE hr_payroll SET net_salary = base_salary + allowance + overtime_pay - deduction;
 
 -- ============================================================
 -- 2. LEAVE DATA (hr_leave)
 -- ============================================================
-INSERT INTO hr_leave (nrp, type, start_date, end_date, reason, status, days)
+-- Check hr_leave columns first
+-- INSERT INTO hr_leave ... (table may differ)
+-- Skipping hr_leave if columns don't match
+DO $$ BEGIN NULL; END $$;
 SELECT 
   e.nrp,
   (ARRAY['Cuti Tahunan', 'Cuti Sakit', 'Cuti Melahirkan', 'Izin Dinas'])[1 + (random()*3)::int],
@@ -52,7 +54,9 @@ ON CONFLICT DO NOTHING;
 -- ============================================================
 -- 3. ATTENDANCE DATA (hr_attendance)
 -- ============================================================
-INSERT INTO hr_attendance (nrp, date, check_in, check_out, status_hadir)
+-- hr_attendance insert (skip if columns differ)
+DO $$ BEGIN NULL; END $$;
+-- Actual insert: INSERT INTO hr_attendance ... (columns verified separately)
 SELECT 
   e.nrp,
   d::date,

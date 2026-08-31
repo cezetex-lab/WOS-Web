@@ -1,0 +1,142 @@
+No,Kategori,Fitur,Deskripsi Singkat,Logika & Aturan Bisnis,Data Source (Supabase)
+1,A. Rekrutmen & Onboarding,Pendaftaran Pekerja,Calon karyawan daftar akun,Form {NRP, NIK, Nama, Email, Password(min8), Divisi, Posisi}. Status default PENDING. Validasi NIK unik.,pending_registrations
+2,A. Rekrutmen & Onboarding,Approval Pendaftaran,Admin setujui/tolak,"Setujui → buat employees + user_roles (Level L1). Tolak → simpan alasan + kirim notifikasi ke email.",employees, user_roles
+3,A. Rekrutmen & Onboarding,Bulk Approve/Reject,Aksi massal untuk banyak pendaftar,"Jika pilih >1, jalankan loop approval. Jika 1 gagal, sisanya tetap jalan (atomic per item).",pending_registrations
+4,A. Rekrutmen & Onboarding,Reminder Approver,Kirim pengingat ke atasan,"Cek created_at. Jika > 3 hari belum di-approve, kirim notifikasi ulang. Maks 3x reminder.",notifications
+5,A. Rekrutmen & Onboarding,Manajemen Lowongan,Buat/edit/tutup lowongan kerja,"Status OPEN → CLOSED. Jika CLOSED, tidak bisa dipilih di pendaftaran. Field: Posisi, Dept, Kuota, Kualifikasi.",vacancies
+6,A. Rekrutmen & Onboarding,Pipeline Pelamar,Tracking status kandidat,"Status flow: APPLIED → SCREENING → INTERVIEW → OFFER → HIRED / REJECTED. Wajib isi catatan saat pindah status.",candidate_pipeline
+7,A. Rekrutmen & Onboarding,Penjadwalan Interview,Integrasi kalender untuk interview,"Pilih slot waktu → kirim undangan Google Calendar/Outlook ke kandidat. Konfirmasi otomatis jika kandidat accept.",interviews, calendar_integration
+8,A. Rekrutmen & Onboarding,Onboarding Workflow,Checklist tugas karyawan baru,"Wajib checklist: 1) Buat email corp, 2) Akses sistem, 3) Serah terima aset. Status checklist oleh HR/IT.",onboarding_tasks
+9,A. Rekrutmen & Onboarding,Pre-employment Screening,Upload dokumen pra-kerja,"Wajib upload KTP, Ijazah, NPWP, KK, BPJS sebelum status HIRED. Jika incomplete, status tetap PENDING_DOCS.",employee_documents
+10,B. Data Karyawan & Struktur,Profil Karyawan,Data diri lengkap,"Akses berdasarkan RLS. L1 (Staff) hanya lihat sendiri. L2+ lihat timnya. Admin lihat semua.",employees
+11,B. Data Karyawan & Struktur,Update Profil,Edit data diri,"Perubahan NIK/Email butuh approval ulang HR. Log perubahan tersimpan di audit_logs.",employees, audit_logs
+12,B. Data Karyawan & Struktur,Manajemen Divisi,CRUD divisi perusahaan,"Jika divisi punya anggota aktif, tidak bisa dihapus (soft delete). Rename diperbolehkan.",divisions
+13,B. Data Karyawan & Struktur,Struktur Organisasi,Pohon hierarki atasan-bawahan,"Dibangun dari employees.manager_nrp. Maksimal depth 5 (Staff→Supervisor→Manager→Director→CEO).",employees (self-join)
+14,B. Data Karyawan & Struktur,Role Matrix,Atur Level L1-L5,"Level menentukan akses: L1 (Staff), L2 (Supervisor), L3 (Manager), L4 (Director), L5 (CEO). Perubahan level harus approval HRD.",user_roles
+15,B. Data Karyawan & Struktur,Subtree View,Lihat seluruh bawahan (L3+),"Rekursif dari NRP yang dipilih. Tampilkan pohon hingga level terbawah.",employees (CTE/Recursive query)
+16,B. Data Karyawan & Struktur,Visualisasi Struktur Interaktif,Org chart drag-and-drop,"Drag node untuk pindah atasan. Pindahan otomatis update manager_nrp dan kirim notifikasi ke karyawan.",employees
+17,B. Data Karyawan & Struktur,Riwayat Mutasi/Jabatan,Histori promosi, demosi, rotasi,"Catat from_position → to_position, effective_date, reason. Otomatis terekam saat update position di employee.",employee_mutations
+18,B. Data Karyawan & Struktur,Status Kerja,PKWTT / PKWT / OUTSOURCING,"PKWT memiliki contract_end_date. Notifikasi H-90, H-60, H-30 sebelum habis.",employees
+19,B. Data Karyawan & Struktur,Atasan Langsung,Mapping manager per karyawan,"Validasi tidak boleh membuat siklus (circular reference) saat update. CEO tidak punya atasan.",employees
+20,C. Self-Service & Administrasi,Pengajuan Cuti,Form cuti (Tahunan/Sakit/Izin),"Cek kuota (12 hari/tahun, prorata PKWT). Jika cuti > 3 hari, butuh approval 2 level (Atasan + HR).",leave_requests
+21,C. Self-Service & Administrasi,Pengajuan Lembur,Form lembur (OT),"Hitung otomatis jam lembur. Rate: Weekday 1.5x, Weekend 2x, Holiday 3x. Wajib upload lampiran tugas.",overtime_requests
+22,C. Self-Service & Administrasi,Pengajuan Izin,Izin pribadi/keluarga,"Maks 3 hari/bulan. Jika >3 hari, auto-convert ke cuti tahunan (jika kuota tersedia).",leave_requests
+23,C. Self-Service & Administrasi,Pengajuan Sakit,Izin sakit + surat dokter,"Jika tanpa surat dokter, dianggap izin. Surat dokter wajib diupload H+2.",leave_requests
+24,C. Self-Service & Administrasi,Pengajuan Training,Ajukan pelatihan dari katalog,"Jika biaya > Rp 2.000.000, butuh approval 2 level. Budget tim akan terblokir otomatis.",training_requests
+25,C. Self-Service & Administrasi,Riwayat Request,Histori semua pengajuan,"Filter by status (Pending/Approved/Rejected). Rejected tampilkan alasan dari approver.",leave_requests, training_requests
+26,C. Self-Service & Administrasi,Batal Training,Batalkan training yang diajukan,"Hanya bisa dibatalkan jika status masih PENDING. Budget yang terblokir otomatis dikembalikan.",training_requests
+27,C. Self-Service & Administrasi,Ganti Password,Ubah password sendiri,"Wajib input password lama. Hash lama dicocokkan (1000x SHA256 + salt). Gagal 5x → lock 15 menit.",worker_passwords
+28,C. Self-Service & Administrasi,Multi-step Request Form,Form bertahap dengan upload,"Step 1: Pilih tipe. Step 2: Isi detail. Step 3: Upload dokumen (PDF/JPG). Setiap step auto-save ke draft.",request_drafts
+29,C. Self-Service & Administrasi,Dynamic Approval Workflow,Workflow dinamis per tipe,"Config di approval_config menentukan jumlah approver dan level. Contoh: Cuti >3 hari = 2 approver, Lembur = 1 approver.",approval_config, approval_instances
+30,C. Self-Service & Administrasi,Pengajuan Perjalanan Dinas,Form tiket, hotel, transportasi,"Hitung uang saku (Per Diem) otomatis berdasarkan kota tujuan (Tier A/B/C) dan durasi. Budget travel auto-check.",travel_requests
+31,C. Self-Service & Administrasi,Kalkulasi Per Diem,Uang harian otomatis,"Kota Tier A = Rp 500.000/hari, Tier B = Rp 350.000/hari, Tier C = Rp 200.000/hari. Dihitung dari tgl berangkat-pulang.",travel_requests, city_tiers
+32,C. Self-Service & Administrasi,Reimbursement Biaya,Upload bukti pengeluaran,"Kategorisasi (Makan, Taksi, Akomodasi, Lainnya). Maks reimbursement 7 hari setelah pulang. Validasi total ≤ budget approved.",reimbursements
+33,C. Self-Service & Administrasi,Approval Multi-level untuk Biaya,Approval tambahan untuk biaya besar,"Jika total biaya > Rp 5.000.000, otomatis butuh approval Director (Level 4) selain atasan langsung.",travel_requests, approval_instances
+34,D. Manajemen Kinerja & Kompensasi,KPI Score,Skor KPI individu,"Weighted average dari semua indikator di hr_kpi_config. Bobot total harus 100%. Score = Σ (bobot × capaian).",kpi_scores
+35,D. Manajemen Kinerja & Kompensasi,KPI Config,Pengaturan indikator KPI,"Setiap posisi punya KPI unik. Indikator: Target, Weight, Unit (%, nominal, quantity).",kpi_config
+36,D. Manajemen Kinerja & Kompensasi,KPI Calc Log,History kalkulasi KPI,"Terekam otomatis saat cron runMonthlyKPI() jalan. Simpan skor, komponen, dan periode.",kpi_calc_logs
+37,D. Manajemen Kinerja & Kompensasi,Continuous Performance,Feedback & progress real-time,"Atasan bisa beri feedback kapan saja. Status: ACHIEVEMENT, FEEDBACK, DEVELOPMENT. Muncul di timeline karyawan.",continuous_performance
+38,D. Manajemen Kinerja & Kompensasi,Tambah Catatan Kinerja,Input catatan manual,"Karyawan/bawahan bisa menambahkan catatan. Wajib pilih tipe. Catatan bersifat immutable (tidak bisa dihapus, hanya di-edit dalam 24 jam).",performance_notes
+39,D. Manajemen Kinerja & Kompensasi,Performance Trend Tim,Grafic performa tim (L3+),"Aggregate KPI semua anggota tim. Tampilkan rata-rata + individu terbaik/terendah.",kpi_scores + employees
+40,D. Manajemen Kinerja & Kompensasi,Payroll Data,Data gaji per individu,"Hanya bisa diakses Level 3+ untuk timnya, Level 5 untuk semua. Tampilkan komponen: Gaji Pokok, Tunjangan, BPJS.",payroll_data
+41,D. Manajemen Kinerja & Kompensasi,Benefit Data,Data tunjangan & fasilitas,"Tampilkan total benefit per karyawan (BPJS Kesehatan, BPJS TK, Asuransi, SPP, Transport).",benefit_data
+42,D. Manajemen Kinerja & Kompensasi,Compensation Intelligence,Benchmark gaji pasar,"Bandingkan gaji karyawan dengan rata-rata pasar per posisi (data dari eksternal atau survey internal). Tampilkan percentil.",comp_benchmark
+43,D. Manajemen Kinerja & Kompensasi,Siklus Penilaian 360°,Penilaian multi-sumber,"Setiap semester, buka periode penilaian. Karyawan di-review oleh Atasan, Bawahan, Rekan, dan Self. Aggregated rata-rata berbobot.",review_360
+44,D. Manajemen Kinerja & Kompensasi,OKRs (Objectives & Key Results),Buat tujuan & lacak progres,"1 Objective bisa punya banyak KR. Progres KR = (actual / target) × 100%. Progres Objective = rata-rata progres KR.",okrs
+45,D. Manajemen Kinerja & Kompensasi,Kalkulasi Insentif Otomatis,Bonus berbasis KPI,"Formula = (Gaji Pokok × 10%) × (Score KPI / 100) × (Faktor Tim). Faktor Tim = rata-rata KPI tim.",incentives
+46,D. Manajemen Kinerja & Kompensasi,Penyesuaian Gaji Otomatis,Rekomendasi kenaikan gaji,"Jika KPI ≥ 90 untuk 2 periode berturut-turut, generate rekomendasi naik 5-10%. Butuh approval Director.",salary_adjustments
+47,E. Pengembangan Talenta & Karir,Career Path,Jalur karir 3 level ke depan,"Cek skill gap untuk posisi berikutnya. Match score = (skill_owned / skill_required) × 100%. Tampilkan readiness (SANGAT COCOK / COCOK / PERLU PERSIAPAN).",career_paths, skills
+48,E. Pengembangan Talenta & Karir,Learning Recommendations,Rekomendasi pelatihan,"Mapping gap skill → rekomendasi training di hr_training_catalog. Priority tinggi jika gap > 40%.",training_recommendations
+49,E. Pengembangan Talenta & Karir,Talent Marketplace,Posisi internal terbuka,"Tampilkan posisi yang statusnya OPEN. Match % dihitung dari skill karyawan vs JD posisi. Bisa apply langsung.",internal_marketplace
+50,E. Pengembangan Talenta & Karir,Skills Intelligence,Top 5 skill + gap,"Aggregate semua skill karyawan per divisi/posisi. Gap = skill_required - skill_owned. Visualisasi radar chart.",skills, job_descriptions
+51,E. Pengembangan Talenta & Karir,Succession Matrix,Kandidat pengganti posisi kritis,"Setiap posisi kritis minimal punya 2 kandidat pengganti (Ready Now, Ready in 1 Year, Ready in 3 Years).",succession_plans
+52,E. Pengembangan Talenta & Karir,Capability Gap,Analisis skill individu vs posisi,"Bandingkan skill di employees.skills dengan job_descriptions.skills_required. List skill yang hilang.",job_descriptions, employees
+53,E. Pengembangan Talenta & Karir,Rekomendasi Karir Personalisasi (AI),Rekomendasi karir berbasis AI,"Gunakan model prediktif (XGBoost) dengan input: KPI, tenure, skill, minat. Output: 3 posisi yang paling cocok + probabilitas sukses.",ml_predictions
+54,E. Pengembangan Talenta & Karir,Gamification (Badge & Poin),Sistem penghargaan,"Badge diberikan jika: Selesai training (1 poin), KPI ≥ 90 (2 poin), Ide diimplementasikan (3 poin). Leaderboard per divisi.",badges, points_history
+55,E. Pengembangan Talenta & Karir,Sertifikasi & Lisensi,Kelola sertifikasi profesional,"Notifikasi otomatis H-90, H-60, H-30 sebelum expiry. Status: ACTIVE, EXPIRED, RENEWAL_PENDING.",certifications
+56,E. Pengembangan Talenta & Karir,Central Competency Database,Master kompetensi perusahaan,"Hierarki kompetensi: Hard Skill (Teknis) & Soft Skill (Perilaku). Digunakan untuk semua gap analysis.",competency_master
+57,E. Pengembangan Talenta & Karir,Library Job Description (JD),Database standar deskripsi pekerjaan,"Setiap posisi punya JD baku: Tanggung Jawab, KPI, Kompetensi, Level Pendidikan. Acuan untuk penilaian dan rekrutmen.",job_descriptions
+58,F. Keterlibatan & Budaya (Engagement),Kirim Ide (Suara Karyawan),Ide untuk perusahaan,"Opsi anonim. Jika anonim, NRP tidak tersimpan di created_by (NULL). Wajib minimal 20 karakter.",ideas
+59,F. Keterlibatan & Budaya (Engagement),List Ide & Voting,Tampilkan ide + upvote,"Setiap karyawan hanya bisa vote 1x per ide. Sortir berdasarkan total vote terbanyak.",ideas, idea_votes
+60,F. Keterlibatan & Budaya (Engagement),Update Status Ide,Admin ubah status,"Status flow: SUBMITTED → REVIEW → APPROVED → IMPLEMENTED / REJECTED. Notifikasi ke pengirim saat status berubah.",ideas
+61,F. Keterlibatan & Budaya (Engagement),Survei Engagement (eNPS),Survei kepuasan karyawan,"Skala 0-10. Promoter (9-10), Passive (7-8), Detractor (0-6). Score = %Promoter - %Detractor. Dilakukan per kuartal.",surveys, survey_responses
+62,F. Keterlibatan & Budaya (Engagement),Analisis Sentimen (NLP),Deteksi sentimen dari teks,"Gunakan AI (Gemini/OpenAI) untuk analisis sentimen catatan kinerja, ide, feedback. Output: Positive, Neutral, Negative.",sentiment_analysis
+63,F. Keterlibatan & Budaya (Engagement),Forum Diskusi Internal,Tempat diskusi antar karyawan,"Thread per topik. Reply. Report post jika melanggar. Moderation oleh HR.",forum_threads, forum_replies
+64,F. Keterlibatan & Budaya (Engagement),Whistleblowing System,Saluran laporan pelanggaran,"Wajib anonim. Enkripsi end-to-end. Hanya 3 orang (HRD, Legal, Direktur) yang bisa melihat. Status follow-up: INVESTIGATING → RESOLVED.",whistleblowers
+65,G. Manajemen Tim & Operasional,Daftar Tim Saya,Anggota tim langsung,"Tampilkan semua NRP dengan manager_nrp = token punya. Tampilkan KPI badge (Hijau ≥70, Kuning 50-69, Merah <50).",employees
+66,G. Manajemen Tim & Operasional,Request Tim (Pending),Request dari bawahan,"Tampilkan semua request yang status=PENDING dan approver_nrp = token punya. Urutkan dari yang paling lama.",leave_requests, training_requests
+67,G. Manajemen Tim & Operasional,Approve/Reject Request,Keputusan atas request bawahan,"Jika approve, status jadi APPROVED. Jika reject, wajib isi alasan. Notifikasi dikirim ke pemohon.",leave_requests, approval_instances
+68,G. Manajemen Tim & Operasional,Coaching Data,Records coaching per anggota,"Atasan bisa mencatat sesi coaching. Isi: Tanggal, Topik, Action Plan, Follow-up date.",coaching_records
+69,G. Manajemen Tim & Operasional,Manager Command Data,Dashboard metric tim,"Total Anggota, Avg KPI, % Training Completion, Flight Risk Count. Bandingkan dengan rata-rata perusahaan.",manager_dashboard
+70,G. Manajemen Tim & Operasional,Manager AI Insights,Rekomendasi AI untuk manager,"AI deteksi anggota yang butuh perhatian (KPI turun drastis, absen tinggi). Beri rekomendasi tindakan.",ai_insights
+71,G. Manajemen Tim & Operasional,Task Management (To Do/Doing/Done),Manajemen tugas harian,"Atasan beri tugas ke bawahan. Deadline, Prioritas (High/Medium/Low). Status otomatis ke OVERDUE jika melewati deadline.",tasks
+72,G. Manajemen Tim & Operasional,Timesheet / Time Tracking,Catatan waktu per tugas/proyek,"Input jam mulai-selesai per hari. Total jam per minggu ≤ 40 jam (standar). Integrasi ke payroll untuk OT.",timesheets
+73,G. Manajemen Tim & Operasional,Manajemen Anggaran Tim,Anggaran training & operasional,"Setiap tim punya budget tahunan. Setiap pengajuan training mengurangi budget. Notifikasi jika budget < 20%.",team_budgets, budget_utilizations
+74,G. Manajemen Tim & Operasional,Jadwal Shift Interaktif,Kalender shift per tim,"Supervisor drag-and-drop untuk assign shift. Konflik otomatis terdeteksi (1 orang tidak bisa 2 shift di hari sama).",shift_schedules
+75,G. Manajemen Tim & Operasional,Pengajuan Swap Shift,Tukar jadwal dengan rekan,"Pengirim ajukan swap ke rekan. Rekan setujui → approval supervisor. Maks 2x swap per bulan.",shift_swaps
+76,G. Manajemen Tim & Operasional,Otomatisasi Penjadwalan Shift (AI),Rekomendasi shift berbasis beban,"AI prediksi beban kerja (data historis) → rekomendasi jumlah orang per shift. Supervisor tinggal konfirmasi.",shift_optimization
+77,H. Analytics, AI & Eksekutif,CEO Command Center,Dashboard utama CEO,"Revenue/HC, Profit/HC, HCROI, Labor Cost %. Data agregat dari seluruh modul. Update real-time (cache 5 menit).",ceo_dashboard
+78,H. Analytics, AI & Eksekutif,Organization Health,Skor kesehatan organisasi,"Composite score dari: Engagement Score, Turnover Rate, KPI Average, Compliance Rate. Bobot: 25% masing-masing.",org_health
+79,H. Analytics, AI & Eksekutif,Early Warning,Deteksi anomali workforce,"3 sinyal: Late >3 hari/bulan, KPI turun >20% dalam 1 bulan, Absen tanpa izin >2 hari. Notifikasi ke atasan.",early_warnings
+80,H. Analytics, AI & Eksekutif,Executive Summary,Ringkasan 1 halaman,"Format PDF yang di-generate oleh QStash. Berisi Headcount, Turnover, Profit, Risiko Utama, 3 Rekomendasi.",exec_summaries
+81,H. Analytics, AI & Eksekutif,Executive Brief,Critical items + rekomendasi,"List item kritis (Flight risk > 80%, KPI < 50, Compliance < 60%) dengan rekomendasi eksplisit.",exec_briefs
+82,H. Analytics, AI & Eksekutif,AI Tasks,Tugas rekomendasi AI,"AI generate task (misal: ""Review kinerja NRP0123""). Status: PENDING → DONE → DISMISSED.",ai_tasks
+83,H. Analytics, AI & Eksekutif,Financial Stats,Revenue, Cost, Profit trend,"Data dari hr_payroll + hr_production. Hitung profit = Revenue - (Gaji + Operasional). Tampilkan YoY growth.",financial_stats
+84,H. Analytics, AI & Eksekutif,Turnover Data,Rate turnover per divisi,"Turnover Rate = (Jumlah Keluar / Rata-rata HC) × 100% per periode. Bandingkan dengan target < 10%.",turnover_data
+85,H. Analytics, AI & Eksekutif,Flight Risk Data,Karyawan berisiko resign,"Model ML dengan input: Tenure, KPI, Absensi, Feedback. Skor 0-100. Jika skor >70, masuk daftar risiko tinggi.",flight_risk
+86,H. Analytics, AI & Eksekutif,Workforce Simulation,Simulasi skenario SDM,"""Jika turnover turun 5%, profit naik berapa?"" Hitung berdasarkan korelasi historis antara HC dan profit.",simulations
+87,H. Analytics, AI & Eksekutif,Narrative Intelligence,Narasi otomatis + rekomendasi,"Template narasi berbasis data. Contoh: ""KPI tim Anda turun karena absensi. Rekomendasi: lakukan coaching 1:1.""",narratives
+88,H. Analytics, AI & Eksekutif,AI Copilot (Chat),Tanya jawab bebas,"Context: Data karyawan yang diizinkan (RLS). Gunakan RAG (Retrieval Augmented Generation) dengan Supabase Vector.",copilot_chats
+89,H. Analytics, AI & Eksekutif,Prediksi Turnover per Individu,Probabilitas resign per NRP,"Output: NRP, Nama, Probabilitas (0-100%), Faktor Dominan (misal: ""Gaji di bawah pasar"").",turnover_predictions
+90,H. Analytics, AI & Eksekutif,Simulasi What-If Lanjutan,Skenario kompleks,"Input param: Kenaikan gaji (%) per divisi. Output: Prediksi turnover baru + dampak profit.",simulations
+91,H. Analytics, AI & Eksekutif,Deteksi Anomali Real-Time,Notifikasi instant,"Streaming data (via Supabase Realtime). Jika absen 3 hari tanpa kabar → trigger notifikasi Slack ke atasan.",realtime_alerts
+92,I. Integrasi & Ekosistem,Integrasi Payroll Eksternal,Sync ke aplikasi payroll,"Export data gaji per bulan via API ke Talenta/Gadjian. Validasi: Total gaji = sum semua komponen.",payroll_exports
+93,I. Integrasi & Ekosistem,Sinkronisasi Mesin Absensi,Sync data fingerprint/face,"Import CSV/API dari mesin absensi. Matching berdasarkan NIK. Tandai duplikat/konflik untuk review HR.",attendance_sync
+94,I. Integrasi & Ekosistem,Webhooks,Trigger ke sistem lain,"Event: leave.approved, employee.hired, contract.expiring. Kirim payload JSON ke URL eksternal.",webhook_logs
+95,I. Integrasi & Ekosistem,SSO (Single Sign-On),Login via Google/Entra/Okta,"OAuth2.0. Mapping email dari SSO ke NRP di employees. Jika tidak match, tolak akses.",sso_providers
+96,I. Integrasi & Ekosistem,Sinkronisasi Kalender,Tampil di Google/Outlook,"Export jadwal shift, cuti, training ke .ics. Auto-sync via API jika konek.",calendar_sync
+97,I. Integrasi & Ekosistem,Notifikasi Slack / Teams,Kirim alert ke channel,"Webhook ke Slack/Teams. Hanya untuk event prioritas tinggi (Flight Risk >70, Anomali, Kontrak habis).",external_notifications
+98,J. Keamanan, Kepatuhan & Dokumen Hukum,Audit Trail (Log Aksi),Rekam semua aktivitas,"Simpan user_id, action, table, old_value, new_value, timestamp. Immutable (tidak bisa dihapus).",audit_logs
+99,J. Keamanan, Kepatuhan & Dokumen Hukum,Rate Limiting (OTP),Batas percobaan OTP,"Maks 5 percobaan per 15 menit per NRP. Gagal 5x → lock 30 menit.",otp_attempts
+100,J. Keamanan, Kepatuhan & Dokumen Hukum,Session Token (24 jam),Sesi otomatis kadaluarsa,"Token JWT dengan expiry 24 jam. Refresh token di Upstash Redis.",sessions (Supabase) + Redis
+101,J. Keamanan, Kepatuhan & Dokumen Hukum,RLS (Row Level Security),Hierarki akses data,"Policy: L1 (own), L2 (team), L3 (dept), L4 (all), L5 (all). Diterapkan di semua tabel.",Supabase RLS Policies
+102,J. Keamanan, Kepatuhan & Dokumen Hukum,Audit Log Lengkap & Immutable,Log dengan blockchain hash,"Setiap log di-hash dengan SHA256 dari log sebelumnya (chaining). Jika diubah, hash tidak match.",audit_chain
+103,J. Keamanan, Kepatuhan & Dokumen Hukum,Manajemen Dokumen & TTE,Upload & tanda tangan digital,"Gunakan API TTE (misal: Privy, VIDA). Status: DRAFT → WAITING_SIGN → SIGNED → ARCHIVED.",legal_documents
+104,J. Keamanan, Kepatuhan & Dokumen Hukum,Kepatuhan GDPR / UU PDP,Manajemen data pribadi,"Fitur ""Hapus Data Saya"" → soft delete + anonimisasi data pribadi (NIK, Email diganti hash).",privacy_requests
+105,J. Keamanan, Kepatuhan & Dokumen Hukum,Manajemen Sertifikasi & Lisensi (Legal),Notifikasi kadaluarsa,"Sama seperti #55, tetapi untuk kepatuhan hukum perusahaan (SIUP, TDP, dll).",corporate_licenses
+106,J. Keamanan, Kepatuhan & Dokumen Hukum,Perpanjangan Kontrak Otomatis,Notifikasi kontrak PKWT,"Cron tiap hari cek contract_end_date. H-90 buat task ke HR untuk review perpanjangan.",contract_renewals
+107,J. Keamanan, Kepatuhan & Dokumen Hukum,Arsip Dokumen Hukum,Kontrak, SPK, Surat Peringatan,"Tag per kategori. Pencarian full-text (menggunakan Supabase Full-Text Search).",legal_archives
+108,J. Keamanan, Kepatuhan & Dokumen Hukum,Manajemen Peringatan & Sanksi,Riwayat SP 1,2,3,"Jika terima SP3, otomatis status FLAGGED untuk terminasi. Dashboard warning bagi HR.",disciplinary_records
+109,K. Administrasi & Pengaturan,Summary Dashboard Admin,Ringkasan metrics,"Total Pekerja, Pending, Request Masuk, Divisi, Role. Tampilkan trend (naik/turun) dari bulan lalu.",admin_dashboard
+110,K. Administrasi & Pengaturan,Pendaftaran Pending (List),List calon karyawan,"Urutkan dari yang paling baru. Filter by divisi. Tampilkan durasi pending (hari).",pending_registrations
+111,K. Administrasi & Pengaturan,Reset Password Pekerja,Admin reset password,"Generate password random (12 karakter, alfanumerik). Wajib force change pada login berikutnya.",worker_passwords
+112,K. Administrasi & Pengaturan,Export CSV (12 sheets),Ekspor data ke CSV,"Pilih sheet → download CSV. Maks 10.000 rows per export. Jika lebih, compress zip.",all_sheets
+113,K. Administrasi & Pengaturan,Import Universal,Import JSON ke sheet,"Validasi skema sebelum import. Rollback jika gagal di tengah (transaction).",import_logs
+114,K. Administrasi & Pengaturan,Backup Now,Backup manual data,"Snapshot semua data ke Supabase Storage. Backup disimpan 30 hari. Auto-cleanup.",backups
+115,K. Administrasi & Pengaturan,Feature Flags,Nyalakan/matikan fitur,"Jika flag OFF, fitur tidak tampil dan API mengembalikan 403. Prioritaskan untuk canary release.",feature_flags
+116,K. Administrasi & Pengaturan,Pengumuman (CRUD + Broadcast),Buat & kirim pengumuman,"Broadcast ke divisi tertentu atau semua. Prioritas HIGH → popup notifikasi otomatis di dashboard.",announcements
+117,K. Administrasi & Pengaturan,Scheduled Report (Email),Laporan otomatis via email,"Kirim laporan setiap Senin jam 8 pagi ke eksekutif. Format PDF + Link dashboard.",scheduled_reports
+118,K. Administrasi & Pengaturan,Bulk Operations (Mass Update),Update massal pekerja,"Pilih 10+ NRP → update Level/Divisi/Plan sekaligus. Wajib konfirmasi ""YA"" sebelum eksekusi.",bulk_operations
+119,K. Administrasi & Pengaturan,Approval Workflow untuk Posisi Baru,Request posisi baru,"Flow: Atasan → HR → Director Keuangan. Setiap level wajib memberi catatan sebelum approve.",position_requests
+120,K. Administrasi & Pengaturan,Ubah Password Admin,Ganti password admin,"Wajib input old password. Hash 1000x SHA256. Gagal 5x → lock akun admin 30 menit.",admin_credentials
+121,L. Platform & Pengalaman Pengguna (UX/UI),Mobile-first Responsive,Tampilan ramah mobile,"Bottom nav, full-width cards, touch-friendly (min 44px). Breakpoint: <768px = mobile.",CSS Framework
+122,L. Platform & Pengalaman Pengguna (UX/UI),Charts (Chart.js),Visualisasi interaktif,"Line, Bar, Doughnut, Radar. Responsive. Warna sesuai tema perusahaan (Navy & Teal).",chart_renderer
+123,L. Platform & Pengalaman Pengguna (UX/UI),Copilot FAB,Floating button AI,"Hanya muncul untuk ENTERPRISE tier. Modal chat overlay. Histori chat tersimpan 30 hari.",copilot_ui
+124,L. Platform & Pengalaman Pengguna (UX/UI),Loading Skeleton / Spinner,Indikator loading,"Skeleton untuk card, spinner untuk button. Minimum display 200ms untuk hindari flicker.",ui_state
+125,L. Platform & Pengalaman Pengguna (UX/UI),Toast Notifications,Feedback sukses/gagal,"Muncul 3 detik. Warna: Hijau (sukses), Merah (error), Kuning (warning). Stackable.",toast_store
+126,L. Platform & Pengalaman Pengguna (UX/UI),PWA (Progressive Web App),Install sebagai aplikasi,"Service Worker cache static assets. Offline mode untuk baca data dashboard (cache terakhir).",manifest.json, sw.js
+127,L. Platform & Pengalaman Pengguna (UX/UI),Push Notifikasi Real-time,Notifikasi browser/HP,"Menggunakan Vercel + Upstash Redis untuk real-time. Dikirim via Web Push API. Izin user wajib.",push_subscriptions
+128,L. Platform & Pengalaman Pengguna (UX/UI),QR Code Presensi,Check-in/out via QR,"QR dinamis (refresh 5 menit) dengan geolocation. Cek lokasi user vs lokasi kantor (radius 100m).",qr_attendance
+129,L. Platform & Pengalaman Pengguna (UX/UI),Dark Mode,Toggle tema gelap,"Deteksi preferensi sistem (prefers-color-scheme). User bisa override di settings.",theme_preferences
+130,L. Platform & Pengalaman Pengguna (UX/UI),Pencarian Karyawan Lanjutan,Search dengan filter,"Filter: Divisi, Lokasi, Skill, Level, Status Kerja. Full-text search di NRP, Nama, Email.",employee_search
+131,M. Manajemen Aset & Inventaris,Manajemen Inventaris Karyawan,Kelola aset karyawan,"Kategori: Laptop, HP, SIM Card, Access Card, Seragam, Lainnya. Status: ASSIGNED, AVAILABLE, MAINTENANCE, RETIRED.",assets
+132,M. Manajemen Aset & Inventaris,Check-in / Check-out Aset,Serah terima aset,"Check-out wajib scan barcode/QR. Check-in wajib cek kondisi (Baik/Rusak/Hilang). Jika Rusak, buat tiket maintenance.",asset_assignments
+133,M. Manajemen Aset & Inventaris,Manajemen Kendaraan Dinas,Kelola kendaraan operasional,"Jadwal servis otomatis setiap 5000km. Peminjaman wajib isi tujuan + durasi.",fleet_management
+134,M. Manajemen Aset & Inventaris,Pengajuan Fasilitas Kantor,Pengajuan meja/ruangan,"Cek ketersediaan ruangan via kalender. Jika tersedia, booking otomatis.",facility_requests
+135,N. Offboarding & Manajemen Keluar,Exit Interview Formal,Kuesioner alasan keluar,"Wajib diisi sebelum final settlement. Skala 1-5 untuk kepuasan, open feedback. Anonim untuk data agregat.",exit_interviews
+136,N. Offboarding & Manajemen Keluar,Kalkulasi Final Settlement,Hitung pesangon otomatis,"Komponen: Sisa Cuti diuangkan (× 1/30 gaji), THR pro-rata, Pesangon (sesuai UU: 1.0 × gaji × tenure_factor + 0.5 × gaji × tenure_factor).",final_settlements
+137,N. Offboarding & Manajemen Keluar,Checklist Serah Terima Aset,Wajib checklist sebelum keluar,"Jika ada aset yang belum dikembalikan, status HOLD. Baru bisa proses settlement jika semua checklist OK.",offboarding_checklist
+138,N. Offboarding & Manajemen Keluar,Nonaktifkan Akses Sistem,Kunci akses otomatis,"Pada tanggal efektif keluar, jalankan cron: Hapus token session di Redis + Nonaktifkan akun Supabase.",redis, supabase_auth
+139,O. Perencanaan Headcount & Anggaran,Perencanaan Headcount Tahunan,Rencana jumlah HC per kuartal,"Input per divisi per kuartal. Bandingkan dengan actual. Variance > 10% → alert ke HR.",headcount_plans
+140,O. Perencanaan Headcount & Anggaran,Alokasi Anggaran per Departemen,Budget SDM per dept,"Komponen: Budget Gaji + Budget Training + Budget Operasional. Realisasi di-track dari payroll dan pengajuan.",budget_allocation
+141,O. Perencanaan Headcount & Anggaran,Program Referral Karyawan,Rekomendasi kandidat dari karyawan,"Karyawan input nama & email kandidat. Status: SUBMITTED → CONTACTED → HIRED. Bonus Rp 1.000.000 jika kandidat hire & lulus probation.",referrals

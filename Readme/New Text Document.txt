@@ -1,201 +1,29 @@
-📋 REKAP PROYEK VITE (INSIGHTWOS)
-Status: ✅ SELESAI – Production live di https://insightwos.vercel.app
-Tanggal Migrasi: 29 Agustus 2026
-Branch: migrasi-vite
+Phase 4	OKRs module (#44)	P2	2 hari
+eNPS Survey (#61)	P2	1 hari
+Asset Management (#131-134)	P2	2 hari
+Offboarding workflow (#135-138)	P2	2 hari
+Continuous Performance notes (#38)	P2	1 hari
+Incentive auto-calc (#45)	P2	1 hari
+Phase 5	PWA offline-first (IndexedDB)	P2	2 hari
+Push notifications (Web Push)	P2	1 hari
+Webhooks (#94)	P2	1 hari
+SSO (#95)	P3	2 hari
+Phase 6	Workforce simulation (#90)	P3	2 hari
+Prediksi turnover ML (#89)	P3	2 hari
+Sentiment NLP (#62)	P3	2 hari
+Infra	Edge Middleware rate limiting	P1	1 hari
+Upstash Redis session	P2	2 hari
+PgBouncer transaction mode	P2	1 hari
+Cleanup	Legacy files (ui-kit, app-shell, etc.)	P3	0.5 hari
+Deploy Edge Functions	P2	0.5 hari
+Dashboard.jsx → PageLayout migration	P2	1 hari
 
-1. ARSITEKTUR SAAT INI
-Komponen	Detail
-Framework	Vite 8.2.2
-UI Library	React 18.2.0
-Routing	React Router DOM 6.22.0 (SPA murni)
-Database / Backend	Supabase (via RPC)
-Hosting	Vercel (Hobby Plan / Free Tier)
-Rendering Mode	100% Client-Side Rendering (CSR) – tidak ada Serverless Functions
-Build Output	dist/ (statis)
-2. STRUKTUR FOLDER & FILE
-text
-WOS-Web/
-├── .git/
-├── .vercel/
-├── dist/                          # Hasil build production
-├── node_modules/
-├── public/                        # Aset statis (favicon, dll)
-├── scripts/                       # Skrip utility (opsional)
-├── src/
-│   ├── components/
-│   │   └── Layout.jsx            # Provider (Theme, Toast) wrapper
-│   ├── lib/
-│   │   ├── app-shell.jsx         # Komponen shell (AppShell, MenuGrid, dll)
-│   │   ├── components.jsx        # Komponen UI (MultiStepForm, TaskBoard, dll)
-│   │   ├── ui-components.jsx     # Komponen UI (BarChart, StatCard, dll)
-│   │   ├── supabase-browser.js   # Client Supabase + RPC + session helpers
-│   │   ├── supabase.js           # (Opsional) untuk keperluan server
-│   │   ├── theme.js              # ThemeProvider & useTheme
-│   │   ├── toast.js              # ToastProvider & useToast
-│   │   ├── chart-config.js       # Konfigurasi Chart.js
-│   │   └── ... (file lain)
-│   ├── pages/
-│   │   ├── Home.jsx              # Halaman login (worker/admin/dashboard)
-│   │   ├── Dashboard.jsx         # Halaman dashboard (manajer)
-│   │   ├── Admin.jsx             # Halaman admin
-│   │   └── Worker.jsx            # Halaman pekerja
-│   ├── App.jsx                   # Routing utama (BrowserRouter + Routes)
-│   ├── main.jsx                  # Entry point React
-│   └── globals.css               # CSS global (dipindahkan dari src/app/)
-├── .env                           # Environment variables (TIDAK di-commit)
-├── .env.example                   # Contoh env (untuk dokumentasi)
-├── .gitignore                     # Mengabaikan node_modules, dist, .env, .vercel
-├── index.html                     # Entry point HTML Vite
-├── package.json                   # Dependencies & scripts
-├── package-lock.json
-├── vercel.json                    # Konfigurasi routing SPA + caching
-├── vite.config.js                 # Konfigurasi Vite
-└── README.md (atau dokumentasi lain)
-3. PERUBAHAN UTAMA DARI NEXT.JS
-Aspek	Sebelum (Next.js)	Sesudah (Vite)
-Routing	App Router (app/ folder)	React Router (<Routes> di App.jsx)
-Halaman	page.js + *Client.js	*.jsx di src/pages/ (gabungan)
-Layout	app/layout.js (dengan <html>, <head>, <body>)	components/Layout.jsx (hanya Provider)
-CSS Global	app/globals.css	src/globals.css
-'use client'	Wajib di semua komponen interaktif	Dihapus (semua berjalan di client)
-Environment Variables	NEXT_PUBLIC_*	VITE_* (via import.meta.env)
-Build Tool	Next.js (Webpack)	Vite (Rollup + Esbuild)
-Build Output	.next/	dist/
-Serverless Functions	Ada (API Routes, Middleware)	Tidak ada (100% statis)
-Deploy di Vercel	Framework Preset: Next.js	Framework Preset: Vite (atau Other)
-4. KONFIGURASI PENTING
-vite.config.js
-javascript
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
 
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
-    extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
-  },
-  server: { port: 3000, open: true },
-  build: {
-    outDir: 'dist',
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules') && 
-              (id.includes('react') || id.includes('react-dom') || 
-               id.includes('react-router-dom') || id.includes('scheduler'))) {
-            return 'vendor';
-          }
-        },
-      },
-    },
-  },
-});
-vercel.json
-json
-{
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
-  "headers": [
-    {
-      "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
-    }
-  ]
-}
-package.json (scripts)
-json
-"scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "preview": "vite preview"
-}
-Environment Variables (di Vercel & .env)
-Variabel	Nilai
-VITE_SUPABASE_URL	URL Supabase project
-VITE_SUPABASE_ANON_KEY	Anon key (publishable) – sudah di-rotate
-5. HASIL BUILD (Produksi)
-File	Ukuran	Gzip
-index.html	0.56 kB	0.32 kB
-assets/index-CORKVutG.css	3.25 kB	1.34 kB
-assets/rolldown-runtime-CbXtAM7H.js	0.58 kB	0.36 kB
-assets/vendor-DaqWZqLM.js (React, React Router, dll)	156.18 kB	51.39 kB
-assets/index-CyyRdMQt.js (kode aplikasi)	260.43 kB	64.60 kB
-Total gzip: ~118 KB (sangat ringan)
+Phase	Target	Capai
+Phase 1: Foundation	DB + Auth + UI Polish	95%
+Phase 2: Core ESS	Self-service + Approval	40%
+Phase 3: Edge & Cache	Redis + MV + Indexes	80%
+Phase 4: Talent & Assets	OKR + Survey + Asset	10%
+Phase 5: Ecosystem	PWA + Webhooks + SSO	15%
+Phase 6: AI & Analytics	Copilot + Prediction + Sim	30%
 
-6. KEAMANAN
-Aspek	Status
-Supabase Anon Key	✅ Sudah di-rotate (baru) – tidak terekspos di publik
-Supabase Service Role Key	❌ Tidak digunakan di frontend (aman)
-.env di Git	❌ Tidak di-commit (ada di .gitignore)
-GitHub Secret Scanning	✅ Sudah di-bypass dan resolved
-Row Level Security (RLS)	✅ Harus tetap aktif di Supabase
-7. DEPLOYMENT DI VERCEL
-Pengaturan	Nilai
-Framework Preset	Vite (atau Other)
-Build Command	npm run build
-Output Directory	dist
-Environment Variables	VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
-Production URL	https://insightwos.vercel.app
-Preview URL	https://insightwos-gglwy9gz9-cezetex-lab.vercel.app
-8. BATASAN & OPTIMASI FREE TIER VERCEL
-Batasan Free Tier (Hobby Plan)
-Komponen	Kuota	Status Pengaturan
-Bandwidth	100 GB/bulan	⚠️ Perlu cache & optimasi aset
-Build Time	6.000 menit/bulan (45 menit/deploy)	✅ Aman (build < 1 menit)
-Serverless Functions	1 juta invokasi/bulan	✅ Tidak terpakai (100% statis)
-Concurrent Builds	1	✅ Tidak masalah
-Optimasi yang Sudah Dilakukan
-☑ Migrasi ke Vite (build cepat & bundle kecil)
-☑ Menghilangkan Serverless Functions (0 invocation)
-☑ Caching header di vercel.json (asettidak diunduh ulang)
-☑ Menggunakan Supabase RPC (tidak ada API Routes)
-☑ Gambar & aset via Supabase Storage (bukan public/)
-Saran Tambahan
-Jika traffic > 50.000 user/bulan, pertimbangkan Cloudflare sebagai proxy CDN (unlimited bandwidth) atau upgrade ke Vercel Pro ($20/bulan).
-
-Pantau penggunaan bandwidth di dashboard Vercel → Usage.
-
-Aktifkan Vercel Analytics untuk memantau performa.
-
-9. CATATAN UNTUK PENGEMBANGAN LANJUTAN
-Sudah Selesai
-✅ Migrasi Next.js → Vite + React Router
-
-✅ Deploy ke Vercel (production)
-
-✅ Rotasi Supabase Anon Key
-
-✅ Optimasi caching & build
-
-Rencana Selanjutnya (Opsional)
-Migrasi backend Google Apps Script (GAS) → Supabase Edge Functions
-
-Setup cron jobs (otomatisasi) via Vercel Cron atau pg_cron
-
-Penambahan fitur baru (sesuai kebutuhan bisnis)
-
-10. KESIMPULAN
-Proyek insightWOS saat ini berjalan di:
-
-Vite + React Router (frontend SPA murni)
-
-Supabase (database + auth + RPC)
-
-Vercel (hosting statis, free tier)
-
-Keunggulan:
-
-Build sangat cepat (< 10 detik)
-
-Bundle kecil (~118 KB gzip)
-
-Tanpa Serverless Functions → aman dari biaya tambahan
-
-Caching optimal → hemat bandwidth
-
-Risiko:
-
-Bandwidth 100 GB/bulan bisa habis jika traffic sangat tinggi (> 50.000 user/bulan)
-
-Tidak ada SEO (karena SPA, tapi tidak masalah untuk dashboard internal)

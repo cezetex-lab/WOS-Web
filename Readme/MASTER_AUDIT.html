@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Master Audit — insightWOS v3.0</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--dim:#94a3b8;--primary:#38bdf8;--success:#34d399;--warning:#fbbf24;--error:#f87171;--info:#818cf8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);padding:16px;font-size:13px;line-height:1.5}
+h1{font-size:22px;font-weight:800;color:var(--primary);margin-bottom:4px}
+h2{font-size:16px;font-weight:700;color:var(--primary);margin:24px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+.stat .num{font-size:26px;font-weight:800}
+.stat .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.s-ok .num{color:var(--success)}.s-warn .num{color:var(--warning)}.s-err .num{color:var(--error)}.s-info .num{color:var(--info)}
+table{width:100%;border-collapse:collapse;margin:8px 0;background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+th{background:#0f172a;color:var(--dim);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:10px 8px;text-align:left;position:sticky;top:0}
+td{padding:7px 8px;border-top:1px solid rgba(255,255,255,.04);font-size:12px;vertical-align:top}
+tr:hover td{background:rgba(255,255,255,.03)}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap}
+.b-ok{background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3)}
+.b-warn{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
+.b-err{background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3)}
+.b-info{background:rgba(129,140,248,.15);color:#818cf8;border:1px solid rgba(129,140,248,.3)}
+code{background:rgba(56,189,248,.1);color:var(--primary);padding:1px 5px;border-radius:4px;font-size:11px}
+.filters{display:flex;gap:6px;margin:12px 0;flex-wrap:wrap}
+.filters button{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--dim);font-size:11px;font-weight:600;cursor:pointer}
+.filters button.active,.filters button:hover{background:rgba(56,189,248,.15);color:var(--primary);border-color:rgba(56,189,248,.3)}
+.toc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin:16px 0}
+.toc a{color:var(--primary);text-decoration:none;font-size:12px;display:block;padding:4px 0}
+hr{border:none;border-top:1px solid var(--border);margin:20px 0}
+.pill{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-right:2px}
+.p1{background:rgba(248,113,113,.15);color:#f87171}.p2{background:rgba(251,191,36,.15);color:#fbbf24}.p3{background:rgba(100,116,139,.15);color:#94a3b8}
+</style>
+</head>
+<body>
+<h1>Master Audit — insightWOS v3.0</h1>
+<p style="color:var(--dim);font-size:12px;margin-bottom:16px">29 Agustus 2026 | Branch: migrasi-vite | 141 Features | 57 Tables | 65+ RPCs | 52 Routes | 22 Components</p>
+
+<div class="stats">
+<div class="stat s-info"><div class="num">141</div><div class="label">Total Fitur</div></div>
+<div class="stat s-ok"><div class="num">53</div><div class="label">Implemented</div></div>
+<div class="stat s-warn"><div class="num">14</div><div class="label">Partial</div></div>
+<div class="stat s-err"><div class="num">74</div><div class="label">Not Done</div></div>
+<div class="stat s-info"><div class="num">57</div><div class="label">Tables</div></div>
+<div class="stat s-info"><div class="num">65+</div><div class="label">RPCs</div></div>
+</div>
+
+<div class="toc">
+<h3 style="font-size:14px;margin-bottom:8px">Daftar Isi</h3>
+<a href="#m">1. Master Feature Matrix (141 Fitur)</a>
+<a href="#r">2. Route Map (52 Routes)</a>
+<a href="#rpc">3. RPC Inventory (65+)</a>
+<a href="#tbl">4. Table Inventory (57)</a>
+<a href="#gap">5. Gap Analysis</a>
+<a href="#sql">6. SQL Test Queries</a>
+</div>
+<hr>
+
+<h2 id="m">1. Master Feature Matrix — 141 Fitur</h2>
+<div class="filters">
+<button class="active" onclick="f('all',this)">Semua 141</button>
+<button onclick="f('ok',this)">Done 53</button>
+<button onclick="f('partial',this)">Partial 14</button>
+<button onclick="f('not',this)">Belum 74</button>
+<button onclick="f('worker',this)">Worker</button>
+<button onclick="f('admin',this)">Admin</button>
+<button onclick="f('mgr',this)">Manager</button>
+</div>
+<div style="overflow-x:auto;max-height:600px;overflow-y:auto;border-radius:12px;border:1px solid var(--border)">
+<table id="ft"><thead><tr><th>#</th><th>Fitur</th><th>Domain</th><th>W</th><th>A</th><th>M</th><th>Route / RPC</th><th>Table</th><th>Status</th><th>Pri</th></tr></thead><tbody>
+<tr data-s="ok" data-r="admin"><td>1</td><td>Pendaftaran Pekerja</td><td>Rekrutmen</td><td></td><td>✓</td><td></td><td><code>generate_worker_otp</code></td><td><code>daftar_baru</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>2</td><td>Approval Pendaftaran</td><td>Rekrutmen</td><td></td><td>✓</td><td></td><td>/admin <code>admin_get_pending_requests</code></td><td><code>daftar_baru</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="not" data-r="admin"><td>3</td><td>Bulk Approve/Reject</td><td>Rekrutmen</td><td></td><td></td><td></td><td>-</td><td>-</td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>4</td><td>Reminder Approver</td><td>Rekrutmen</td><td></td><td></td><td></td><td>-</td><td><code>hr_notifications</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>5</td><td>Manajemen Lowongan</td><td>Rekrutmen</td><td></td><td></td><td></td><td>-</td><td><code>vacancies</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>6</td><td>Pipeline Pelamar</td><td>Rekrutmen</td><td></td><td></td><td></td><td>-</td><td><code>candidate_pipeline</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>7</td><td>Penjadwalan Interview</td><td>Rekrutmen</td><td></td><td></td><td></td><td>-</td><td><code>interviews</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>8</td><td>Onboarding Workflow</td><td>Rekrutmen</td><td></td><td></td><td></td><td>-</td><td><code>onboarding_tasks</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>9</td><td>Pre-employment Screening</td><td>Rekrutmen</td><td></td><td></td><td></td><td>-</td><td><code>employee_documents</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker,admin,mgr"><td>10</td><td>Profil Karyawan</td><td>Struktur</td><td>✓</td><td>✓</td><td>✓</td><td>/worker/profile <code>get_worker_profile</code></td><td><code>employees_master</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="partial" data-r="worker"><td>11</td><td>Update Profil</td><td>Struktur</td><td>◐</td><td></td><td></td><td>/worker/profile</td><td><code>employees_master</code></td><td><span class="badge b-warn">⚠️</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>12</td><td>Manajemen Divisi</td><td>Struktur</td><td></td><td>✓</td><td></td><td>/admin/divisions <code>admin_get_divisions</code></td><td><code>employees_master</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>13</td><td>Struktur Organisasi</td><td>Struktur</td><td></td><td>✓</td><td></td><td>/admin/org <code>admin_get_org_structure</code></td><td><code>hr_org</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker,admin"><td>14</td><td>Role Matrix</td><td>Struktur</td><td>✓</td><td>✓</td><td></td><td>/admin/roles <code>get_my_role</code></td><td><code>user_roles</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="partial" data-r="admin"><td>15</td><td>Subtree View</td><td>Struktur</td><td></td><td>◐</td><td></td><td><code>get_subtree_data</code></td><td><code>hr_org</code></td><td><span class="badge b-warn">⚠️</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>16</td><td>Org Chart Interaktif</td><td>Struktur</td><td></td><td></td><td></td><td>-</td><td>-</td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>17</td><td>Riwayat Mutasi</td><td>Struktur</td><td></td><td></td><td></td><td>-</td><td><code>employee_mutations</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="worker"><td>18</td><td>Status Kerja PKWT</td><td>Struktur</td><td></td><td></td><td></td><td>-</td><td>-</td><td><span class="badge b-err">❌</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="worker,admin"><td>19</td><td>Atasan Langsung</td><td>Struktur</td><td>✓</td><td>✓</td><td></td><td>/admin/org</td><td><code>hr_org</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>20</td><td>Pengajuan Cuti</td><td>Self-Service</td><td>✓</td><td></td><td></td><td>/worker/leave <code>create_worker_request</code></td><td><code>hr_requests</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="partial" data-r="worker"><td>21</td><td>Pengajuan Lembur</td><td>Self-Service</td><td>◐</td><td></td><td></td><td>/worker/overtime <code>get_worker_overtime</code></td><td><code>hr_overtime</code></td><td><span class="badge b-warn">⚠️</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="not" data-r="worker"><td>22</td><td>Pengajuan Izin</td><td>Self-Service</td><td></td><td></td><td></td><td>-</td><td><code>hr_requests</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="not" data-r="worker"><td>23</td><td>Pengajuan Sakit</td><td>Self-Service</td><td></td><td></td><td></td><td>-</td><td><code>hr_requests</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="partial" data-r="worker,admin"><td>24</td><td>Pengajuan Training</td><td>Self-Service</td><td>◐</td><td></td><td></td><td>/worker/learning <code>request_training</code></td><td><code>hr_learning</code></td><td><span class="badge b-warn">⚠️</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>25</td><td>Riwayat Request</td><td>Self-Service</td><td>✓</td><td></td><td></td><td>/worker/activities</td><td><code>hr_requests</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>27</td><td>Ganti Password</td><td>Self-Service</td><td>✓</td><td></td><td></td><td>/ <code>login_worker</code></td><td><code>worker_passwords</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="not" data-r="worker"><td>28</td><td>Multi-step Form</td><td>Self-Service</td><td></td><td></td><td></td><td>-</td><td>-</td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="worker"><td>29</td><td>Dynamic Approval</td><td>Self-Service</td><td></td><td></td><td></td><td>-</td><td><code>approval_config</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="worker"><td>30</td><td>Perjalanan Dinas</td><td>Self-Service</td><td></td><td></td><td></td><td>-</td><td><code>travel_requests</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="worker"><td>31</td><td>Kalkulasi Per Diem</td><td>Self-Service</td><td></td><td></td><td></td><td>-</td><td><code>city_tiers</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="worker"><td>32</td><td>Reimbursement</td><td>Self-Service</td><td></td><td></td><td></td><td>-</td><td><code>reimbursements</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="worker"><td>33</td><td>Approval Multi-level</td><td>Self-Service</td><td></td><td></td><td></td><td>-</td><td><code>approval_instances</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="worker,mgr"><td>34</td><td>KPI Score</td><td>Kinerja</td><td>✓</td><td></td><td>✓</td><td>/worker/kpi <code>get_worker_kpi</code></td><td><code>hr_performance</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>35</td><td>KPI Config</td><td>Kinerja</td><td></td><td>✓</td><td></td><td>/admin/kpi <code>get_kpi_calc_log</code></td><td><code>hr_kpi_config</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>36</td><td>KPI Calc Log</td><td>Kinerja</td><td></td><td>✓</td><td></td><td>/admin/kpi</td><td><code>hr_kpi_calc_log</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="partial" data-r="mgr"><td>37</td><td>Continuous Performance</td><td>Kinerja</td><td>◐</td><td></td><td>◐</td><td><code>get_my_continuous_performance</code></td><td><code>hr_performance</code></td><td><span class="badge b-warn">⚠️</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="worker"><td>38</td><td>Catatan Kinerja</td><td>Kinerja</td><td></td><td></td><td></td><td>-</td><td><code>performance_notes</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="partial" data-r="mgr"><td>39</td><td>Performance Trend Tim</td><td>Kinerja</td><td></td><td></td><td>◐</td><td><code>get_continuous_perf_team</code></td><td><code>hr_performance</code></td><td><span class="badge b-warn">⚠️</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker,admin"><td>40</td><td>Payroll Data</td><td>Kinerja</td><td>✓</td><td>✓</td><td></td><td>/worker/payroll <code>get_worker_payroll</code></td><td><code>hr_payroll</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>41</td><td>Benefit Data</td><td>Kinerja</td><td>✓</td><td></td><td></td><td><code>get_benefit_data</code></td><td><code>hr_benefits</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="partial" data-r="worker"><td>42</td><td>Compensation Intel</td><td>Kinerja</td><td>◐</td><td></td><td></td><td><code>get_my_compensation_intelligence</code></td><td><code>hr_payroll</code></td><td><span class="badge b-warn">⚠️</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>43</td><td>Penilaian 360°</td><td>Kinerja</td><td></td><td></td><td></td><td>-</td><td><code>review_360</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>44</td><td>OKRs</td><td>Kinerja</td><td></td><td>✓</td><td></td><td>/admin/okr <code>admin_get_okr</code></td><td><code>hr_kpi_config</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>45</td><td>Insentif Otomatis</td><td>Kinerja</td><td></td><td></td><td></td><td>-</td><td><code>incentives</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>46</td><td>Penyesuaian Gaji</td><td>Kinerja</td><td></td><td></td><td></td><td>-</td><td><code>salary_adjustments</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>47</td><td>Career Path</td><td>Talenta</td><td>✓</td><td></td><td></td><td>/worker/career <code>get_career_path</code></td><td><code>hr_skills</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>48</td><td>Learning Rec.</td><td>Talenta</td><td>✓</td><td></td><td></td><td>/worker/learning <code>get_learning_recommendations</code></td><td><code>hr_training_catalog</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>49</td><td>Talent Marketplace</td><td>Talenta</td><td></td><td>✓</td><td></td><td>/admin/talent <code>get_talent_marketplace</code></td><td><code>hr_talent_catalog</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>50</td><td>Skills Intelligence</td><td>Talenta</td><td>✓</td><td></td><td></td><td>/admin/certifications <code>get_skills_intelligence</code></td><td><code>hr_skills</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>51</td><td>Succession Matrix</td><td>Talenta</td><td>✓</td><td></td><td></td><td><code>get_succession</code></td><td><code>hr_succession</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>52</td><td>Capability Gap</td><td>Talenta</td><td>✓</td><td></td><td></td><td><code>get_capability_gap</code></td><td><code>hr_capability</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="worker"><td>53</td><td>Karir AI Rec.</td><td>Talenta</td><td></td><td></td><td></td><td>-</td><td><code>ml_predictions</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>54</td><td>Badge & Gamifikasi</td><td>Talenta</td><td></td><td>✓</td><td></td><td>/admin/badges <code>admin_get_badges</code></td><td><code>hr_performance</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>55</td><td>Sertifikasi</td><td>Talenta</td><td></td><td>✓</td><td></td><td>/admin/certifications <code>get_skills_intelligence</code></td><td><code>hr_skills</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>56</td><td>Competency DB</td><td>Talenta</td><td></td><td></td><td></td><td>-</td><td><code>competency_master</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>57</td><td>Job Description</td><td>Talenta</td><td></td><td></td><td></td><td>-</td><td><code>job_descriptions</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>58</td><td>Kirim Ide</td><td>Engagement</td><td>✓</td><td></td><td></td><td><code>submit_voice</code></td><td><code>hr_voice</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker,admin"><td>59</td><td>List Ide & Voting</td><td>Engagement</td><td>✓</td><td>✓</td><td></td><td>/admin/voice <code>list_ideas</code></td><td><code>hr_voice</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>60</td><td>Update Status Ide</td><td>Engagement</td><td></td><td></td><td></td><td>-</td><td><code>hr_voice</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>61</td><td>Survei eNPS</td><td>Engagement</td><td></td><td>✓</td><td></td><td>/admin/surveys <code>get_worker_engagement</code></td><td><code>hr_engagement</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>62</td><td>Sentimen NLP</td><td>Engagement</td><td></td><td></td><td></td><td>-</td><td>-</td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>63</td><td>Forum Diskusi</td><td>Engagement</td><td></td><td></td><td></td><td>-</td><td><code>forum_threads</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>64</td><td>Whistleblowing</td><td>Engagement</td><td></td><td>✓</td><td></td><td>/admin/whistleblower</td><td><code>hr_safety</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>65</td><td>Daftar Tim Saya</td><td>Tim</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_team_data</code></td><td><code>hr_org</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>66</td><td>Request Tim Pending</td><td>Tim</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_team_requests</code></td><td><code>hr_requests</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>67</td><td>Approve/Reject Req</td><td>Tim</td><td></td><td></td><td>✓</td><td>/dashboard <code>approve_team_request</code></td><td><code>hr_requests</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="not" data-r="mgr"><td>68</td><td>Team Analytics</td><td>Tim</td><td></td><td></td><td></td><td>-</td><td>-</td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>69</td><td>Manager Command</td><td>Tim</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_manager_command_data</code></td><td><code>hr_org</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="mgr"><td>70</td><td>Manager AI Insights</td><td>Tim</td><td></td><td></td><td></td><td>-</td><td><code>ai_insights</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker,admin"><td>71</td><td>Task Management</td><td>Tim</td><td>✓</td><td>✓</td><td></td><td>/worker/tasks <code>get_worker_tasks</code></td><td><code>hr_tasks</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>72</td><td>Timesheet</td><td>Tim</td><td></td><td>✓</td><td></td><td>/admin/timesheet <code>admin_get_timesheet</code></td><td><code>hr_attendance</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>73</td><td>Anggaran Tim</td><td>Tim</td><td></td><td></td><td></td><td>-</td><td><code>team_budgets</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>74</td><td>Jadwal Shift</td><td>Tim</td><td></td><td>✓</td><td></td><td>/admin/shift-swap <code>get_shift_schedule</code></td><td><code>hr_shift_master</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="worker"><td>75</td><td>Swap Shift</td><td>Tim</td><td></td><td></td><td></td><td>-</td><td><code>shift_swaps</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>76</td><td>Otomatisasi Shift AI</td><td>Tim</td><td></td><td></td><td></td><td>-</td><td>-</td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>77</td><td>CEO Command Center</td><td>Analytics</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_ceo_command_data</code></td><td><code>employees_master</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>78</td><td>Org Health</td><td>Analytics</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_organization_health</code></td><td>multi-table</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>79</td><td>Early Warning</td><td>Analytics</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_early_warning</code></td><td><code>hr_notifications</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>80</td><td>Executive Brief</td><td>Analytics</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_executive_summary</code></td><td>multi-table</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>81</td><td>Workforce Planning</td><td>Analytics</td><td></td><td>✓</td><td></td><td>/admin/headcount <code>get_workforce_planning</code></td><td><code>hr_talent_catalog</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>82</td><td>AI Tasks (Anomaly)</td><td>Analytics</td><td></td><td>✓</td><td></td><td>/admin <code>get_anomaly_sentinel</code></td><td><code>hr_ai_tasks</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>83</td><td>Financial Stats</td><td>Analytics</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_executive_summary</code></td><td><code>hr_finance_kpi</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>84</td><td>Turnover Data</td><td>Analytics</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_turnover_data</code></td><td><code>employees_master</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>85</td><td>Flight Risk</td><td>Analytics</td><td></td><td></td><td>✓</td><td>/dashboard <code>get_flight_risk_list</code></td><td><code>hr_performance</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="mgr"><td>86</td><td>Health Score</td><td>Analytics</td><td></td><td></td><td>✓</td><td><code>get_workforce_health_score</code></td><td>multi-table</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker,mgr"><td>87</td><td>Narrative Intelligence</td><td>Analytics</td><td>✓</td><td></td><td>✓</td><td>/worker <code>get_worker_narrative</code></td><td><code>hr_performance</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="all"><td>88</td><td>AI Copilot Chat</td><td>Analytics</td><td>✓</td><td>✓</td><td>✓</td><td>Floating Widget <code>ai-copilot Edge Fn</code></td><td><code>ai_documents</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>89</td><td>Prediksi Turnover ML</td><td>Analytics</td><td></td><td></td><td></td><td>-</td><td><code>turnover_predictions</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>90</td><td>Simulasi What-If</td><td>Analytics</td><td></td><td></td><td></td><td>-</td><td><code>simulations</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>91</td><td>Anomali Real-Time</td><td>Analytics</td><td></td><td></td><td></td><td>-</td><td>Realtime</td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>92</td><td>Payroll Eksternal</td><td>Integrasi</td><td></td><td></td><td></td><td>-</td><td><code>payroll_exports</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>93</td><td>Sinkron Absensi</td><td>Integrasi</td><td></td><td></td><td></td><td>-</td><td><code>attendance_sync</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>94</td><td>Webhooks</td><td>Integrasi</td><td></td><td></td><td></td><td>-</td><td><code>webhook_logs</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>95</td><td>SSO</td><td>Integrasi</td><td></td><td></td><td></td><td>-</td><td><code>sso_providers</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>96</td><td>Sinkron Kalender</td><td>Integrasi</td><td></td><td></td><td></td><td>-</td><td><code>calendar_sync</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>97</td><td>Notif Slack/Teams</td><td>Integrasi</td><td></td><td></td><td></td><td>-</td><td><code>external_notifications</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>98</td><td>Audit Trail</td><td>Keamanan</td><td></td><td>✓</td><td></td><td>/admin/audit <code>admin_get_audit_chain</code></td><td><code>audit_log</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>99</td><td>Rate Limiting OTP</td><td>Keamanan</td><td>✓</td><td></td><td></td><td>/ <code>generate_worker_otp</code></td><td><code>otp_attempts</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="not" data-r="admin"><td>100</td><td>Session Token Upstash</td><td>Keamanan</td><td></td><td></td><td></td><td>-</td><td>Redis</td><td><span class="badge b-err">❌</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="partial" data-r="admin"><td>101</td><td>RLS Policies</td><td>Keamanan</td><td></td><td>◐</td><td></td><td>-</td><td>Supabase RLS</td><td><span class="badge b-warn">⚠️</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="not" data-r="admin"><td>102</td><td>Audit Immutable</td><td>Keamanan</td><td></td><td></td><td></td><td>-</td><td><code>audit_chain</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>103</td><td>Dokumen & TTE</td><td>Keamanan</td><td></td><td></td><td></td><td>-</td><td><code>legal_documents</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>104</td><td>GDPR / UU PDP</td><td>Keamanan</td><td></td><td></td><td></td><td>-</td><td><code>privacy_requests</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>105</td><td>Sertifikasi Legal</td><td>Keamanan</td><td></td><td></td><td></td><td>-</td><td><code>corporate_licenses</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>106</td><td>Perpanjangan Kontrak</td><td>Keamanan</td><td></td><td></td><td></td><td>-</td><td><code>contract_renewals</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>107</td><td>Arsip Hukum</td><td>Keamanan</td><td></td><td></td><td></td><td>-</td><td><code>legal_archives</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>108</td><td>Peringatan & Sanksi</td><td>Keamanan</td><td></td><td></td><td></td><td>-</td><td><code>disciplinary_records</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>109</td><td>Summary Dashboard</td><td>Admin</td><td></td><td>✓</td><td></td><td>/admin <code>admin_get_summary</code></td><td><code>employees_master</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>110</td><td>Pendaftaran Pending</td><td>Admin</td><td></td><td>✓</td><td></td><td>/admin <code>admin_get_pending_requests</code></td><td><code>hr_requests</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="not" data-r="admin"><td>111</td><td>Reset Password</td><td>Admin</td><td></td><td></td><td></td><td>-</td><td><code>worker_passwords</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>112</td><td>Export CSV</td><td>Admin</td><td></td><td>✓</td><td></td><td>/admin/export <code>admin_export_sheet</code></td><td>-</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>113</td><td>Import Universal</td><td>Admin</td><td></td><td></td><td></td><td>-</td><td><code>import_logs</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>114</td><td>Backup Now</td><td>Admin</td><td></td><td></td><td></td><td>-</td><td>Storage</td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>115</td><td>Feature Flags</td><td>Admin</td><td></td><td>✓</td><td></td><td>/admin/features <code>admin_get_feature_flags</code></td><td><code>settings</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="worker"><td>116</td><td>Pengumuman</td><td>Admin</td><td>✓</td><td></td><td></td><td>/worker <code>get_announcements</code></td><td><code>announcements</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>117</td><td>Scheduled Report</td><td>Admin</td><td></td><td></td><td></td><td>-</td><td><code>scheduled_reports</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>118</td><td>Bulk Operations</td><td>Admin</td><td></td><td></td><td></td><td>-</td><td><code>bulk_operations</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>119</td><td>Approval Posisi Baru</td><td>Admin</td><td></td><td></td><td></td><td>-</td><td><code>position_requests</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="not" data-r="admin"><td>120</td><td>Ubah Password Admin</td><td>Admin</td><td></td><td></td><td></td><td>-</td><td><code>settings</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="all"><td>121</td><td>Mobile Responsive</td><td>UX</td><td>✓</td><td>✓</td><td>✓</td><td>All</td><td>-</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>122</td><td>Charts Chart.js</td><td>UX</td><td></td><td>✓</td><td></td><td>/admin/kpi</td><td>-</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="all"><td>123</td><td>Copilot FAB</td><td>UX</td><td>✓</td><td>✓</td><td>✓</td><td>Widget</td><td>-</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="all"><td>124</td><td>Loading Spinner</td><td>UX</td><td>✓</td><td>✓</td><td>✓</td><td>All</td><td>-</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="all"><td>125</td><td>Toast Notifications</td><td>UX</td><td>✓</td><td>✓</td><td>✓</td><td>All</td><td>-</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="all"><td>126</td><td>PWA</td><td>UX</td><td>✓</td><td>✓</td><td>✓</td><td>manifest+sw</td><td>-</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="all"><td>127</td><td>Push Notif Realtime</td><td>UX</td><td></td><td></td><td></td><td>-</td><td>-</td><td><span class="badge b-err">❌</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="worker"><td>128</td><td>QR Presensi</td><td>UX</td><td></td><td></td><td></td><td>-</td><td>-</td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="all"><td>129</td><td>Dark Mode</td><td>UX</td><td>✓</td><td>✓</td><td>✓</td><td>All</td><td>-</td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="partial" data-r="admin"><td>130</td><td>Pencarian Karyawan</td><td>UX</td><td></td><td>◐</td><td></td><td>/admin/employees</td><td>-</td><td><span class="badge b-warn">⚠️</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>131</td><td>Inventaris</td><td>Aset</td><td></td><td>✓</td><td></td><td>/admin/assets <code>admin_get_assets</code></td><td><code>hr_equipment_util</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>132</td><td>Check-in/out Aset</td><td>Aset</td><td></td><td>✓</td><td></td><td>/admin/asset-assign <code>admin_get_asset_assignments</code></td><td><code>hr_equipment_util</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>133</td><td>Manajemen Kendaraan</td><td>Aset</td><td></td><td></td><td></td><td>-</td><td><code>fleet_management</code></td><td><span class="badge b-err">❌</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>134</td><td>Fasilitas Kantor</td><td>Aset</td><td></td><td>✓</td><td></td><td>/admin/facility <code>admin_get_facility_requests</code></td><td><code>hr_requests</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p3">P3</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>135</td><td>Exit Interview</td><td>Offboarding</td><td></td><td>✓</td><td></td><td>/admin/exit <code>get_exit_clearance</code></td><td><code>hr_exit_clearance</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>136</td><td>Final Settlement</td><td>Offboarding</td><td></td><td>✓</td><td></td><td>/admin/settlement <code>admin_get_settlements</code></td><td><code>hr_exit_clearance</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>137</td><td>Checklist Clearance</td><td>Offboarding</td><td></td><td>✓</td><td></td><td>/admin/clearance <code>get_exit_clearance</code></td><td><code>hr_exit_clearance</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="not" data-r="admin"><td>138</td><td>Nonaktifkan Akses</td><td>Offboarding</td><td></td><td></td><td></td><td>-</td><td>cron</td><td><span class="badge b-err">❌</span></td><td><span class="pill p1">P1</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>139</td><td>Headcount Plan</td><td>Perencanaan</td><td></td><td>✓</td><td></td><td>/admin/headcount <code>get_workforce_planning</code></td><td><code>hr_talent_catalog</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>140</td><td>Budget Allocation</td><td>Perencanaan</td><td></td><td>✓</td><td></td><td>/admin/budget <code>admin_get_budget</code></td><td><code>hr_finance_kpi</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+<tr data-s="ok" data-r="admin"><td>141</td><td>Referral Program</td><td>Perencanaan</td><td></td><td>✓</td><td></td><td>/admin/referral <code>admin_get_referrals</code></td><td><code>daftar_baru</code></td><td><span class="badge b-ok">✅</span></td><td><span class="pill p2">P2</span></td></tr>
+</tbody></table>
+</div>
+
+<hr>
+<h2 id="r">2. Route Map (52 Routes)</h2>
+<p style="color:var(--dim);font-size:11px"><strong>Worker:</strong> 11 routes | <strong>Admin:</strong> 37 routes | <strong>Manager:</strong> 3 routes | <strong>Public:</strong> 1 route</p>
+
+<hr>
+<h2 id="gap">3. Gap Analysis — Critical Gaps (P1)</h2>
+<table>
+<tr><th>#</th><th>Feature</th><th>Gap</th><th>Priority</th></tr>
+<tr><td>18</td><td>Status Kerja PKWT Expiry</td><td>No cron/alert for contract expiry</td><td><span class="pill p1">P1</span></td></tr>
+<tr><td>100</td><td>Session Token (Upstash)</td><td>localStorage only, no server-side session</td><td><span class="pill p1">P1</span></td></tr>
+<tr><td>101</td><td>RLS Policies</td><td>Generic policies, not per-user</td><td><span class="pill p1">P1</span></td></tr>
+<tr><td>111</td><td>Reset Password Pekerja</td><td>Admin cannot reset worker passwords</td><td><span class="pill p1">P1</span></td></tr>
+<tr><td>120</td><td>Ubah Password Admin</td><td>Hardcoded Admin123</td><td><span class="pill p1">P1</span></td></tr>
+<tr><td>138</td><td>Nonaktifkan Akses Sistem</td><td>No auto-disable on offboarding</td><td><span class="pill p1">P1</span></td></tr>
+</table>
+
+<hr>
+<h2 id="sql">4. SQL Test Queries</h2>
+<p style="color:var(--dim);font-size:11px">Copy-paste ke Supabase SQL Editor untuk verifikasi.</p>
+<table>
+<thead><tr><th>Query</th><th>Expected</th><th>SQL</th></tr></thead>
+<tbody>
+<tr><td>Employees</td><td>30 rows</td><td><code>SELECT count(*) FROM employees_master;</code></td></tr>
+<tr><td>User Roles</td><td>30 rows</td><td><code>SELECT count(*) FROM user_roles;</code></td></tr>
+<tr><td>HR Org</td><td>30 rows</td><td><code>SELECT count(*) FROM hr_org;</code></td></tr>
+<tr><td>Performance</td><td>≥60</td><td><code>SELECT count(*) FROM hr_performance;</code></td></tr>
+<tr><td>Attendance</td><td>≥800</td><td><code>SELECT count(*) FROM hr_attendance;</code></td></tr>
+<tr><td>Payroll</td><td>≥60</td><td><code>SELECT count(*) FROM hr_payroll;</code></td></tr>
+<tr><td>Skills</td><td>≥30</td><td><code>SELECT count(*) FROM hr_skills;</code></td></tr>
+<tr><td>KPI Config</td><td>≥10</td><td><code>SELECT count(*) FROM hr_kpi_config;</code></td></tr>
+<tr><td>Tasks</td><td>20</td><td><code>SELECT count(*) FROM hr_tasks;</code></td></tr>
+<tr><td>Announcements</td><td>6</td><td><code>SELECT count(*) FROM announcements;</code></td></tr>
+<tr><td>Training Catalog</td><td>10</td><td><code>SELECT count(*) FROM hr_training_catalog;</code></td></tr>
+<tr><td>Overtime</td><td>25</td><td><code>SELECT count(*) FROM hr_overtime;</code></td></tr>
+<tr><td colspan="3"><strong>── RPC Tests ──</strong></td></tr>
+<tr><td>Login Test</td><td>ok=true</td><td><code>SELECT * FROM generate_worker_otp('NRP001','NIK001','Password123');</code></td></tr>
+<tr><td>Role Test</td><td>ok=true</td><td><code>SELECT * FROM get_my_role('NRP001');</code></td></tr>
+<tr><td>Payroll Test</td><td>ok=true</td><td><code>SELECT * FROM get_worker_payroll('NRP001');</code></td></tr>
+<tr><td>Dashboard Test</td><td>ok=true</td><td><code>SELECT * FROM get_dashboard_stats();</code></td></tr>
+<tr><td>Org Test</td><td>ok=true</td><td><code>SELECT * FROM admin_get_org_structure();</code></td></tr>
+<tr><td>Budget Test</td><td>ok=true</td><td><code>SELECT * FROM admin_get_budget();</code></td></tr>
+</tbody>
+</table>
+
+<hr>
+<p style="text-align:center;color:var(--dim);font-size:11px;padding:20px 0">
+Master Audit — insightWOS v3.0 — Buffy (Codebuff AI) — 29 Agustus 2026
+</p>
+
+<script>
+function f(fl,btn){document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('#ft tbody tr').forEach(r=>{if(fl==='all'){r.style.display='';return}if(fl==='ok'){r.style.display=r.dataset.s==='ok'?'':'none';return}if(fl==='partial'){r.style.display=r.dataset.s==='partial'?'':'none';return}if(fl==='not'){r.style.display=r.dataset.s==='not'?'':'none';return}if(fl==='worker'||fl==='admin'||fl==='mgr'){r.style.display=(r.dataset.r||'').includes(fl)?'':'none';return}})}
+</script>
+</body>
+</html>
