@@ -36,6 +36,11 @@ const MultiStepRequest = lazy(() => import('./worker/MultiStepRequest'));
 const TaskBoard = lazy(() => import('./worker/TaskBoard'));
 const ShiftSchedule = lazy(() => import('./admin/ShiftSchedule'));
 const ApprovalCenter = lazy(() => import('./admin/ApprovalCenter'));
+// Wave 6 — Custom Pages (replacing DetailPageFactory)
+const RequestsList = lazy(() => import('./pages/admin/RequestsList'));
+const LeaveManagement = lazy(() => import('./pages/admin/LeaveManagement'));
+const WorkerAttendance = lazy(() => import('./pages/worker/WorkerAttendance'));
+const WorkerLearning = lazy(() => import('./pages/worker/WorkerLearning'));
 // Wave 5
 const Okrs = lazy(() => import('./pages/admin/Okrs'));
 const SurveyPage = lazy(() => import('./pages/admin/SurveyPage'));
@@ -80,12 +85,12 @@ function AppContent() {
 
         {/* WORKER */}
         <Route path="/worker" element={withNav(Worker)} />
-        <Route path="/worker/attendance" element={workerPage('attendance')} />
+        <Route path="/worker/attendance" element={withNav(WorkerAttendance)} />
         <Route path="/worker/leave" element={workerPage('leave')} />
         <Route path="/worker/overtime" element={withNav(WorkerOvertime)} />
         <Route path="/worker/kpi" element={workerPage('kpi')} />
         <Route path="/worker/payroll" element={workerPage('payroll')} />
-        <Route path="/worker/learning" element={workerPage('learning')} />
+        <Route path="/worker/learning" element={withNav(WorkerLearning)} />
         <Route path="/worker/career" element={workerPage('career')} />
         <Route path="/worker/tasks" element={workerPage('tasks')} />
         <Route path="/worker/profile" element={withNav(WorkerProfile)} />
@@ -109,8 +114,8 @@ function AppContent() {
         <Route path="/admin/roles" element={adminPage('roles')} />
 
         {/* ADMIN — OPERASIONAL HR */}
-        <Route path="/admin/requests" element={adminPage('requests')} />
-        <Route path="/admin/leave" element={adminPage('leave')} />
+        <Route path="/admin/requests" element={withNav(RequestsList)} />
+        <Route path="/admin/leave" element={withNav(LeaveManagement)} />
         <Route path="/admin/overtime" element={adminPage('overtime')} />
         <Route path="/admin/payroll" element={withNav(Payroll)} />
         <Route path="/admin/timesheet" element={adminPage('timesheet')} />
