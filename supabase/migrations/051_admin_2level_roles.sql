@@ -349,8 +349,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================
 -- 9. SEED: Admin Pusat (NRP = ADMIN, role_level=5)
 -- ============================================================
--- Admin pusat already exists in worker_passwords (NRP=ADMIN)
--- Just ensure user_roles entry
+-- First ensure ADMIN exists in employees_master (required by FK)
+INSERT INTO employees_master (employee_id, nrp, nik, nama, email, divisi, posisi, status_kerja, business_unit, tanggal_masuk)
+VALUES ('EMP-ADMIN-001','ADMIN','NIK-ADMIN','Administrator','admin@company.com','Admin','System Administrator','PKWTT','HQ','2018-01-01')
+ON CONFLICT (nrp) DO NOTHING;
+
+-- Now insert user_roles
 INSERT INTO user_roles (nrp, role_level, role, scope_divisi, plan)
 VALUES ('ADMIN', 5, 'admin_pusat', NULL, 'ENTERPRISE')
 ON CONFLICT (nrp) DO UPDATE SET
