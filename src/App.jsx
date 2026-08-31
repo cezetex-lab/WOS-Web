@@ -91,6 +91,24 @@ const PackingLog = lazy(() => import('./pages/mill/PackingLog'));
 const PreventiveMaintenance = lazy(() => import('./pages/mill/PreventiveMaintenance'));
 const BreakdownLog = lazy(() => import('./pages/mill/BreakdownLog'));
 const MillShiftSchedule = lazy(() => import('./pages/mill/ShiftSchedule'));
+// MINING Modules
+const SimperPage = lazy(() => import('./pages/mining/SimperPage'));
+const HeavyEquipment = lazy(() => import('./pages/mining/HeavyEquipment'));
+const FatigueMonitor = lazy(() => import('./pages/mining/FatigueMonitor'));
+const ProductionDaily = lazy(() => import('./pages/mining/ProductionDaily'));
+const SafetyK3 = lazy(() => import('./pages/mining/SafetyK3'));
+const EmergencyProcedures = lazy(() => import('./pages/mining/EmergencyProcedures'));
+const JobSafetyAnalysis = lazy(() => import('./pages/mining/JobSafetyAnalysis'));
+
+// ESTATE Modules
+const HarvestRecord = lazy(() => import('./pages/estate/HarvestRecord'));
+const BlockManagement = lazy(() => import('./pages/estate/BlockManagement'));
+const TransportTBS = lazy(() => import('./pages/estate/TransportTBS'));
+const NurseryPage = lazy(() => import('./pages/estate/Nursery'));
+const IrrigationPage = lazy(() => import('./pages/estate/Irrigation'));
+const FacilityRequest = lazy(() => import('./pages/estate/FacilityRequest'));
+const MedicalCheckup = lazy(() => import('./pages/estate/MedicalCheckup'));
+
 const WorkerChangePassword = lazy(() => import('./pages/worker/WorkerChangePassword'));
 const PerformanceTrend = lazy(() => import('./pages/worker/PerformanceTrend'));
 const CompensationIntel = lazy(() => import('./pages/worker/CompensationIntel'));
@@ -163,6 +181,24 @@ function AppContent() {
         <Route path="/worker/maintenance" element={withNav(PreventiveMaintenance)} />
         <Route path="/worker/breakdown" element={withNav(BreakdownLog)} />
         <Route path="/worker/shift" element={withNav(MillShiftSchedule)} />
+
+        {/* MINING Modules */}
+        <Route path="/worker/simper" element={withNav(SimperPage)} />
+        <Route path="/worker/heavy-equip" element={withNav(HeavyEquipment)} />
+        <Route path="/worker/fatigue" element={withNav(FatigueMonitor)} />
+        <Route path="/worker/production" element={withNav(ProductionDaily)} />
+        <Route path="/worker/safety" element={withNav(SafetyK3)} />
+        <Route path="/worker/emergency" element={withNav(EmergencyProcedures)} />
+        <Route path="/worker/jsa" element={withNav(JobSafetyAnalysis)} />
+
+        {/* ESTATE Modules */}
+        <Route path="/worker/harvest" element={withNav(HarvestRecord)} />
+        <Route path="/worker/blocks" element={withNav(BlockManagement)} />
+        <Route path="/worker/transport" element={withNav(TransportTBS)} />
+        <Route path="/worker/nursery" element={withNav(NurseryPage)} />
+        <Route path="/worker/irrigation" element={withNav(IrrigationPage)} />
+        <Route path="/worker/facility" element={withNav(FacilityRequest)} />
+        <Route path="/worker/medical" element={withNav(MedicalCheckup)} />
 
         {/* ═══════════ ADMIN — REKRUTMEN ═══════════ */}
         <Route path="/admin/recruitment" element={withNav(RecruitmentDashboard)} />
