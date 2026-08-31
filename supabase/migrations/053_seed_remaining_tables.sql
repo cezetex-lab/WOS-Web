@@ -379,17 +379,18 @@ ON CONFLICT DO NOTHING;
 -- ════════════════════════════════════════════════════════════
 -- M. HR TASKS (additional)
 -- ════════════════════════════════════════════════════════════
-INSERT INTO hr_tasks (nrp, title, description, status, priority, due_date) VALUES
-  ('NRP001', 'Finalize Q3 Budget Report', 'Review dan approve laporan budget Q3', 'DONE', 'HIGH', '2026-08-30'),
-  ('NRP001', 'Prepare Board Presentation', 'Buat presentasi untuk board meeting September', 'TODO', 'HIGH', '2026-09-05'),
-  ('NRP002', 'Submit Safety Report', 'Kirim laporan kecelakaan bulanan', 'TODO', 'MEDIUM', '2026-09-03'),
-  ('NRP003', 'Harvest Plan Q4', 'Rencana panen Q4 untuk seluruh estate', 'TODO', 'HIGH', '2026-09-15'),
-  ('NRP004', 'Recruitment Plan 2027', 'Usulan kebutuhan tenaga kerja tahun depan', 'IN_PROGRESS', 'MEDIUM', '2026-09-30'),
-  ('NRP005', 'ISO 45001 Preparation', 'Dokumen dan evidence untuk sertifikasi K3', 'IN_PROGRESS', 'HIGH', '2026-10-15'),
-  ('NRP006', 'Annual Audit Preparation', 'Siapkan dokumen untuk audit eksternal', 'TODO', 'HIGH', '2026-09-20'),
-  ('NRP007', 'System Upgrade Plan', 'Rencana upgrade ke insightWOS v5.0', 'TODO', 'MEDIUM', '2026-09-30'),
-  ('MLL0001', 'Boiler Maintenance Schedule', 'Jadwal preventive maintenance boiler bulan September', 'TODO', 'HIGH', '2026-09-01'),
-  ('MLL0002', 'QC Report August', 'Laporan quality control bulanan', 'IN_PROGRESS', 'MEDIUM', '2026-09-05')
-ON CONFLICT DO NOTHING;
+-- hr_tasks (schema: id, assignee_nrp, title, status, due_date)
+INSERT INTO hr_tasks (id, assignee_nrp, title, status, due_date) VALUES
+  ('TASK-001', 'NRP001', 'Finalize Q3 Budget Report', 'DONE', '2026-08-30'),
+  ('TASK-002', 'NRP001', 'Prepare Board Presentation', 'TODO', '2026-09-05'),
+  ('TASK-003', 'NRP002', 'Submit Safety Report', 'TODO', '2026-09-03'),
+  ('TASK-004', 'NRP003', 'Harvest Plan Q4', 'TODO', '2026-09-15'),
+  ('TASK-005', 'NRP004', 'Recruitment Plan 2027', 'IN_PROGRESS', '2026-09-30'),
+  ('TASK-006', 'NRP005', 'ISO 45001 Preparation', 'IN_PROGRESS', '2026-10-15'),
+  ('TASK-007', 'NRP006', 'Annual Audit Preparation', 'TODO', '2026-09-20'),
+  ('TASK-008', 'NRP007', 'System Upgrade Plan', 'TODO', '2026-09-30'),
+  ('TASK-009', 'MLL0001', 'Boiler Maintenance Schedule', 'TODO', '2026-09-01'),
+  ('TASK-010', 'MLL0002', 'QC Report August', 'IN_PROGRESS', '2026-09-05')
+ON CONFLICT (id) DO NOTHING;
 
 SELECT '053 SEED REMAINING TABLES DONE — 150+ rows inserted' as status;
