@@ -17,116 +17,116 @@ const Admin = lazy(() => import('./pages/Admin'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 // ── ADMIN KELOLA DATA ──
-const Employees = lazy(() => import('./pages/admin/Employees'));
-const OrgSubtree = lazy(() => import('./pages/admin/OrgSubtree'));
-const OrgChart = lazy(() => import('./pages/admin/OrgChart'));
-const DivisionsManagement = lazy(() => import('./pages/admin/DivisionsManagement'));
-const MasterDataPage = lazy(() => import('./pages/admin/MasterDataPage'));
-const RoleMatrixPage = lazy(() => import('./pages/admin/RoleMatrixPage'));
+const Employees = lazy(() => import('./features/core/admin/Employees'));
+const OrgSubtree = lazy(() => import('./features/core/admin/OrgSubtree'));
+const OrgChart = lazy(() => import('./features/core/admin/OrgChart'));
+const DivisionsManagement = lazy(() => import('./features/core/admin/DivisionsManagement'));
+const MasterDataPage = lazy(() => import('./features/core/admin/MasterDataPage'));
+const RoleMatrixPage = lazy(() => import('./features/core/admin/RoleMatrixPage'));
 
 // ── ADMIN OPERASIONAL ──
-const RequestsList = lazy(() => import('./pages/admin/RequestsList'));
-const LeaveManagement = lazy(() => import('./pages/admin/LeaveManagement'));
-const OvertimeManagement = lazy(() => import('./pages/admin/OvertimeManagement'));
-const Payroll = lazy(() => import('./pages/admin/Payroll'));
-const TimesheetPage = lazy(() => import('./pages/admin/TimesheetPage'));
+const RequestsList = lazy(() => import('./features/core/admin/RequestsList'));
+const LeaveManagement = lazy(() => import('./features/core/admin/LeaveManagement'));
+const OvertimeManagement = lazy(() => import('./features/core/admin/OvertimeManagement'));
+const Payroll = lazy(() => import('./features/core/admin/Payroll'));
+const TimesheetPage = lazy(() => import('./features/core/admin/TimesheetPage'));
 const ShiftSchedule = lazy(() => import('./admin/ShiftSchedule'));
 const ApprovalCenter = lazy(() => import('./admin/ApprovalCenter'));
 
 // ── ADMIN TALENT & PERFORMANCE ──
-const Kpi = lazy(() => import('./pages/admin/Kpi'));
-const IncentiveCalc = lazy(() => import('./pages/admin/IncentiveCalc'));
-const Okrs = lazy(() => import('./pages/admin/Okrs'));
-const LearningManagement = lazy(() => import('./pages/admin/LearningManagement'));
-const CertificationsPage = lazy(() => import('./pages/admin/CertificationsPage'));
-const BadgesPage = lazy(() => import('./pages/admin/BadgesPage'));
-const TalentMarketPage = lazy(() => import('./pages/admin/TalentMarketPage'));
-const CareerPathPage = lazy(() => import('./pages/admin/CareerPathPage'));
+const Kpi = lazy(() => import('./features/core/admin/Kpi'));
+const IncentiveCalc = lazy(() => import('./features/core/admin/IncentiveCalc'));
+const Okrs = lazy(() => import('./features/core/admin/Okrs'));
+const LearningManagement = lazy(() => import('./features/core/admin/LearningManagement'));
+const CertificationsPage = lazy(() => import('./features/core/admin/CertificationsPage'));
+const BadgesPage = lazy(() => import('./features/core/admin/BadgesPage'));
+const TalentMarketPage = lazy(() => import('./features/core/admin/TalentMarketPage'));
+const CareerPathPage = lazy(() => import('./features/core/admin/CareerPathPage'));
 
 // ── ADMIN ASET ──
-const AssetManagement = lazy(() => import('./pages/admin/AssetManagement'));
+const AssetManagement = lazy(() => import('./features/core/admin/AssetManagement'));
 
 // ── ADMIN ENGAGEMENT ──
-const SurveyPage = lazy(() => import('./pages/admin/SurveyPage'));
-const VoiceIdeasPage = lazy(() => import('./pages/admin/VoiceIdeasPage'));
-const WhistleblowingPage = lazy(() => import('./pages/admin/WhistleblowingPage'));
+const SurveyPage = lazy(() => import('./features/core/admin/SurveyPage'));
+const VoiceIdeasPage = lazy(() => import('./features/core/admin/VoiceIdeasPage'));
+const WhistleblowingPage = lazy(() => import('./features/core/admin/WhistleblowingPage'));
 
 // ── ADMIN OFFBOARDING ──
-const Offboarding = lazy(() => import('./pages/admin/Offboarding'));
+const Offboarding = lazy(() => import('./features/core/admin/Offboarding'));
 
 // ── ADMIN SISTEM ──
-const AuditLog = lazy(() => import('./pages/admin/AuditLog'));
-const ExportPage = lazy(() => import('./pages/admin/ExportPage'));
-const FeatureFlagsPage = lazy(() => import('./pages/admin/FeatureFlagsPage'));
-const Settings = lazy(() => import('./pages/admin/Settings'));
-const Analytics = lazy(() => import('./pages/admin/Analytics'));
-const AuditChainPage = lazy(() => import('./pages/admin/AuditChainPage'));
+const AuditLog = lazy(() => import('./features/core/admin/AuditLog'));
+const ExportPage = lazy(() => import('./features/core/admin/ExportPage'));
+const FeatureFlagsPage = lazy(() => import('./features/core/admin/FeatureFlagsPage'));
+const Settings = lazy(() => import('./features/core/admin/Settings'));
+const Analytics = lazy(() => import('./features/core/admin/Analytics'));
+const AuditChainPage = lazy(() => import('./features/core/admin/AuditChainPage'));
 
 // ── ADMIN INTEGRASI & ANALYTICS ──
-const Integrations = lazy(() => import('./pages/admin/Integrations'));
-const WorkforceSimulation = lazy(() => import('./pages/admin/WorkforceSimulation'));
-const TurnoverPrediction = lazy(() => import('./pages/admin/TurnoverPrediction'));
-const ResetPassword = lazy(() => import('./pages/admin/ResetPassword'));
+const Integrations = lazy(() => import('./features/core/admin/Integrations'));
+const WorkforceSimulation = lazy(() => import('./features/core/admin/WorkforceSimulation'));
+const TurnoverPrediction = lazy(() => import('./features/core/admin/TurnoverPrediction'));
+const ResetPassword = lazy(() => import('./features/core/admin/ResetPassword'));
 
 // ── ADMIN PERENCANAAN ──
-const HeadcountPage = lazy(() => import('./pages/admin/HeadcountPage'));
-const BudgetPage = lazy(() => import('./pages/admin/BudgetPage'));
-const ReferralPage = lazy(() => import('./pages/admin/ReferralPage'));
+const HeadcountPage = lazy(() => import('./features/core/admin/HeadcountPage'));
+const BudgetPage = lazy(() => import('./features/core/admin/BudgetPage'));
+const ReferralPage = lazy(() => import('./features/core/admin/ReferralPage'));
 
 // ── WORKER ──
-const WorkerProfile = lazy(() => import('./pages/worker/WorkerProfile'));
-const WorkerOvertime = lazy(() => import('./pages/worker/WorkerOvertime'));
-const WorkerAttendance = lazy(() => import('./pages/worker/WorkerAttendance'));
-const WorkerLearning = lazy(() => import('./pages/worker/WorkerLearning'));
-const WorkerKpi = lazy(() => import('./pages/worker/WorkerKpi'));
-const WorkerPayroll = lazy(() => import('./pages/worker/WorkerPayroll'));
-const WorkerCareer = lazy(() => import('./pages/worker/WorkerCareer'));
-const WorkerActivities = lazy(() => import('./pages/worker/WorkerActivities'));
+const WorkerProfile = lazy(() => import('./features/core/worker/WorkerProfile'));
+const WorkerOvertime = lazy(() => import('./features/core/worker/WorkerOvertime'));
+const WorkerAttendance = lazy(() => import('./features/core/worker/WorkerAttendance'));
+const WorkerLearning = lazy(() => import('./features/core/worker/WorkerLearning'));
+const WorkerKpi = lazy(() => import('./features/core/worker/WorkerKpi'));
+const WorkerPayroll = lazy(() => import('./features/core/worker/WorkerPayroll'));
+const WorkerCareer = lazy(() => import('./features/core/worker/WorkerCareer'));
+const WorkerActivities = lazy(() => import('./features/core/worker/WorkerActivities'));
 
 // MILL/PKS Modules
-const BoilerMonitor = lazy(() => import('./pages/mill/BoilerMonitor'));
-const MesinPress = lazy(() => import('./pages/mill/MesinPress'));
-const QcLab = lazy(() => import('./pages/mill/QcLab'));
-const PackingLog = lazy(() => import('./pages/mill/PackingLog'));
-const PreventiveMaintenance = lazy(() => import('./pages/mill/PreventiveMaintenance'));
-const BreakdownLog = lazy(() => import('./pages/mill/BreakdownLog'));
-const MillShiftSchedule = lazy(() => import('./pages/mill/ShiftSchedule'));
+const BoilerMonitor = lazy(() => import('./features/industry/mill/BoilerMonitor'));
+const MesinPress = lazy(() => import('./features/industry/mill/MesinPress'));
+const QcLab = lazy(() => import('./features/industry/mill/QcLab'));
+const PackingLog = lazy(() => import('./features/industry/mill/PackingLog'));
+const PreventiveMaintenance = lazy(() => import('./features/industry/mill/PreventiveMaintenance'));
+const BreakdownLog = lazy(() => import('./features/industry/mill/BreakdownLog'));
+const MillShiftSchedule = lazy(() => import('./features/industry/mill/ShiftSchedule'));
 // MINING Modules
-const SimperPage = lazy(() => import('./pages/mining/SimperPage'));
-const HeavyEquipment = lazy(() => import('./pages/mining/HeavyEquipment'));
-const FatigueMonitor = lazy(() => import('./pages/mining/FatigueMonitor'));
-const ProductionDaily = lazy(() => import('./pages/mining/ProductionDaily'));
-const SafetyK3 = lazy(() => import('./pages/mining/SafetyK3'));
-const EmergencyProcedures = lazy(() => import('./pages/mining/EmergencyProcedures'));
-const JobSafetyAnalysis = lazy(() => import('./pages/mining/JobSafetyAnalysis'));
+const SimperPage = lazy(() => import('./features/industry/mining/SimperPage'));
+const HeavyEquipment = lazy(() => import('./features/industry/mining/HeavyEquipment'));
+const FatigueMonitor = lazy(() => import('./features/industry/mining/FatigueMonitor'));
+const ProductionDaily = lazy(() => import('./features/industry/mining/ProductionDaily'));
+const SafetyK3 = lazy(() => import('./features/industry/mining/SafetyK3'));
+const EmergencyProcedures = lazy(() => import('./features/industry/mining/EmergencyProcedures'));
+const JobSafetyAnalysis = lazy(() => import('./features/industry/mining/JobSafetyAnalysis'));
 
 // ESTATE Modules
-const HarvestRecord = lazy(() => import('./pages/estate/HarvestRecord'));
-const BlockManagement = lazy(() => import('./pages/estate/BlockManagement'));
-const TransportTBS = lazy(() => import('./pages/estate/TransportTBS'));
-const NurseryPage = lazy(() => import('./pages/estate/Nursery'));
-const IrrigationPage = lazy(() => import('./pages/estate/Irrigation'));
-const FacilityRequest = lazy(() => import('./pages/estate/FacilityRequest'));
-const MedicalCheckup = lazy(() => import('./pages/estate/MedicalCheckup'));
+const HarvestRecord = lazy(() => import('./features/industry/estate/HarvestRecord'));
+const BlockManagement = lazy(() => import('./features/industry/estate/BlockManagement'));
+const TransportTBS = lazy(() => import('./features/industry/estate/TransportTBS'));
+const NurseryPage = lazy(() => import('./features/industry/estate/Nursery'));
+const IrrigationPage = lazy(() => import('./features/industry/estate/Irrigation'));
+const FacilityRequest = lazy(() => import('./features/industry/estate/FacilityRequest'));
+const MedicalCheckup = lazy(() => import('./features/industry/estate/MedicalCheckup'));
 
-const WorkerChangePassword = lazy(() => import('./pages/worker/WorkerChangePassword'));
-const PerformanceTrend = lazy(() => import('./pages/worker/PerformanceTrend'));
-const CompensationIntel = lazy(() => import('./pages/worker/CompensationIntel'));
-const ContinuousPerf = lazy(() => import('./pages/worker/ContinuousPerf'));
-const TrainingForm = lazy(() => import('./pages/worker/TrainingForm'));
-const PerformanceNotes = lazy(() => import('./pages/worker/PerformanceNotes'));
+const WorkerChangePassword = lazy(() => import('./features/core/worker/WorkerChangePassword'));
+const PerformanceTrend = lazy(() => import('./features/core/worker/PerformanceTrend'));
+const CompensationIntel = lazy(() => import('./features/core/worker/CompensationIntel'));
+const ContinuousPerf = lazy(() => import('./features/core/worker/ContinuousPerf'));
+const TrainingForm = lazy(() => import('./features/core/worker/TrainingForm'));
+const PerformanceNotes = lazy(() => import('./features/core/worker/PerformanceNotes'));
 
 // ── WAVE 4 ──
 const MultiStepRequest = lazy(() => import('./worker/MultiStepRequest'));
 const TaskBoard = lazy(() => import('./worker/TaskBoard'));
 // ── WAVE FINAL — Recruitment, Approval, 360, Forum ──
-const RecruitmentDashboard = lazy(() => import('./pages/admin/RecruitmentDashboard'));
-const PipelineKanban = lazy(() => import('./pages/admin/PipelineKanban'));
-const OnboardingWorkflow = lazy(() => import('./pages/admin/OnboardingWorkflow'));
-const ScreeningPage = lazy(() => import('./pages/admin/ScreeningPage'));
-const ApprovalWorkflow = lazy(() => import('./pages/admin/ApprovalWorkflow'));
-const Review360 = lazy(() => import('./pages/admin/Review360'));
-const ForumDiskusi = lazy(() => import('./pages/worker/ForumDiskusi'));
+const RecruitmentDashboard = lazy(() => import('./features/core/admin/RecruitmentDashboard'));
+const PipelineKanban = lazy(() => import('./features/core/admin/PipelineKanban'));
+const OnboardingWorkflow = lazy(() => import('./features/core/admin/OnboardingWorkflow'));
+const ScreeningPage = lazy(() => import('./features/core/admin/ScreeningPage'));
+const ApprovalWorkflow = lazy(() => import('./features/core/admin/ApprovalWorkflow'));
+const Review360 = lazy(() => import('./features/core/admin/Review360'));
+const ForumDiskusi = lazy(() => import('./features/core/worker/ForumDiskusi'));
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
