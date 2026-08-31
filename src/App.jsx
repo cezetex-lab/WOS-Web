@@ -82,6 +82,15 @@ const WorkerKpi = lazy(() => import('./pages/worker/WorkerKpi'));
 const WorkerPayroll = lazy(() => import('./pages/worker/WorkerPayroll'));
 const WorkerCareer = lazy(() => import('./pages/worker/WorkerCareer'));
 const WorkerActivities = lazy(() => import('./pages/worker/WorkerActivities'));
+
+// MILL/PKS Modules
+const BoilerMonitor = lazy(() => import('./pages/mill/BoilerMonitor'));
+const MesinPress = lazy(() => import('./pages/mill/MesinPress'));
+const QcLab = lazy(() => import('./pages/mill/QcLab'));
+const PackingLog = lazy(() => import('./pages/mill/PackingLog'));
+const PreventiveMaintenance = lazy(() => import('./pages/mill/PreventiveMaintenance'));
+const BreakdownLog = lazy(() => import('./pages/mill/BreakdownLog'));
+const MillShiftSchedule = lazy(() => import('./pages/mill/ShiftSchedule'));
 const WorkerChangePassword = lazy(() => import('./pages/worker/WorkerChangePassword'));
 const PerformanceTrend = lazy(() => import('./pages/worker/PerformanceTrend'));
 const CompensationIntel = lazy(() => import('./pages/worker/CompensationIntel'));
@@ -145,6 +154,15 @@ function AppContent() {
         <Route path="/worker/performance-notes" element={withNav(PerformanceNotes)} />
         <Route path="/worker/change-password" element={withNav(WorkerChangePassword)} />
         <Route path="/worker/forum" element={withNav(ForumDiskusi)} />
+
+        {/* MILL/PKS Routes */}
+        <Route path="/worker/boiler" element={withNav(BoilerMonitor)} />
+        <Route path="/worker/machines" element={withNav(MesinPress)} />
+        <Route path="/worker/qc" element={withNav(QcLab)} />
+        <Route path="/worker/packing" element={withNav(PackingLog)} />
+        <Route path="/worker/maintenance" element={withNav(PreventiveMaintenance)} />
+        <Route path="/worker/breakdown" element={withNav(BreakdownLog)} />
+        <Route path="/worker/shift" element={withNav(MillShiftSchedule)} />
 
         {/* ═══════════ ADMIN — REKRUTMEN ═══════════ */}
         <Route path="/admin/recruitment" element={withNav(RecruitmentDashboard)} />
