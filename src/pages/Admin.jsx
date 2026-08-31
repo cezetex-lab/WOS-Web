@@ -71,6 +71,7 @@ export default function Admin() {
         <QuickTile icon="📊" label="KPI" color="purple" onClick={() => navigate('/admin/kpi')} />
         <QuickTile icon="📈" label="Analytics" color="orange" onClick={() => navigate('/admin/analytics')} />
         <QuickTile icon="📋" label="Audit" color="slate" onClick={() => navigate('/admin/audit')} />
+        <QuickTile icon="🔑" label="Reset PW" color="red" onClick={() => navigate('/admin/reset-password')} />
         <QuickTile icon="⚙️" label="Pengaturan" color="slate" onClick={() => navigate('/admin/settings')} />
       </div>
 

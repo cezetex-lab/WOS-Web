@@ -210,6 +210,7 @@ export default function Employees() {
             setSelected(null);
             navigate(path);
           }}
+          onDeactivate={fetchData}
         />
       )}
     </PageLayout>
@@ -219,8 +220,9 @@ export default function Employees() {
 // ──────────────────────────────────────────────────────────────
 // EMPLOYEE DETAIL MODAL
 // ──────────────────────────────────────────────────────────────
-function EmployeeDetail({ employee, onClose, onNavigate }) {
+function EmployeeDetail({ employee, onClose, onNavigate, onDeactivate }) {
   const emp = employee;
+  const [deactivating, setDeactivating] = useState(false);
 
   const infoRows = [
     { label: 'NRP', value: emp.nrp || '-' },
@@ -277,7 +279,7 @@ function EmployeeDetail({ employee, onClose, onNavigate }) {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               color="blue"
               size="sm"
@@ -295,12 +297,47 @@ function EmployeeDetail({ employee, onClose, onNavigate }) {
               👤 Profil Lengkap
             </Button>
             <Button
+              color="purple"
+              size="sm"
+              className="flex-1"
+              onClick={() => onNavigate(`/admin/reset-password?nrp=${emp.nrp}`)}
+            >
+              🔑 Reset Password
+            </Button>
+            <Button
               color="ghost"
               size="sm"
               onClick={onClose}
             >
               ✕
             </Button>
+            {(emp.status === 'Aktif' || emp.is_active === true) && (
+              <Button
+                color="red"
+                size="sm"
+                className="flex-1"
+                disabled={deactivating}
+                onClick={async () => {
+                  if (!confirm(`Nonaktifkan akses ${emp.nama} (${emp.nrp})?\n\nKaryawan tidak akan bisa login lagi.`)) return;
+                  setDeactivating(true);
+                  try {
+                    const result = await rpc('admin_deactivate_worker', { p_nrp: emp.nrp });
+                    if (result?.ok) {
+                      alert(`✅ ${result.msg}`);
+                      onClose();
+                      if (onDeactivate) onDeactivate();
+                    } else {
+                      alert(`❌ ${result?.msg || 'Gagal menonaktifkan'}`);
+                    }
+                  } catch (e) {
+                    alert('Error: ' + e.message);
+                  }
+                  setDeactivating(false);
+                }}
+              >
+                {deactivating ? '⏳...' : '🚫 Nonaktifkan'}
+              </Button>
+            )}
           </div>
         </div>
       </div>

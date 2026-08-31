@@ -613,6 +613,7 @@ export function Button({ children, color = 'teal', variant = 'solid', size = 'md
     blue:   'bg-blue-500 hover:bg-blue-400 text-white',
     red:    'bg-red-500 hover:bg-red-400 text-white',
     orange: 'bg-orange-500 hover:bg-orange-400 text-white',
+    purple: 'bg-purple-500 hover:bg-purple-400 text-white',
     slate:  'bg-slate-600 hover:bg-slate-500 text-white',
     ghost:  'bg-transparent hover:bg-white/10 text-slate-300',
   };

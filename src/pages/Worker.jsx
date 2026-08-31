@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, clearSession, getSession } from '../lib/supabase-browser';
-import { MetricCard, QuickTile, GlassCard, LoadingSpinner, SectionHeader, Badge } from '../lib/design-system';
+import { MetricCard, QuickTile, GlassCard, LoadingSpinner, SectionHeader, Badge, Button } from '../lib/design-system';
 import { getUserModules, getBusinessUnit } from '../lib/business-units';
 
 export default function Worker() {
@@ -113,6 +113,27 @@ export default function Worker() {
           Lihat Semua →
         </button>
       </GlassCard>
+
+      {/* 5. AKUN SAYA */}
+      <SectionHeader title="Akun Saya" icon="👤" />
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={() => navigate('/worker/profile')}
+          className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-2xl border border-white/5 hover:border-teal-500/30 transition-all">
+          <span className="text-2xl">👤</span>
+          <div className="text-left">
+            <p className="text-white text-sm font-semibold">Profil Saya</p>
+            <p className="text-slate-400 text-[10px]">Lihat & edit data</p>
+          </div>
+        </button>
+        <button onClick={() => navigate('/worker/change-password')}
+          className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-2xl border border-white/5 hover:border-red-500/30 transition-all">
+          <span className="text-2xl">🔑</span>
+          <div className="text-left">
+            <p className="text-white text-sm font-semibold">Ganti Password</p>
+            <p className="text-slate-400 text-[10px]">Ubah password akun</p>
+          </div>
+        </button>
+      </div>
     </div>
   );
 }

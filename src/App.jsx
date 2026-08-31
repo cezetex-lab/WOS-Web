@@ -48,6 +48,9 @@ const Integrations = lazy(() => import('./pages/admin/Integrations'));
 // Wave 9
 const WorkforceSimulation = lazy(() => import('./pages/admin/WorkforceSimulation'));
 const TurnoverPrediction = lazy(() => import('./pages/admin/TurnoverPrediction'));
+// P1 Security
+const ResetPassword = lazy(() => import('./pages/admin/ResetPassword'));
+const WorkerChangePassword = lazy(() => import('./pages/worker/WorkerChangePassword'));
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -94,6 +97,7 @@ function AppContent() {
         <Route path="/worker/request" element={withNav(MultiStepRequest)} />
         <Route path="/worker/task-board" element={withNav(TaskBoard)} />
         <Route path="/worker/performance-notes" element={withNav(PerformanceNotes)} />
+        <Route path="/worker/change-password" element={withNav(WorkerChangePassword)} />
 
         {/* ADMIN — KELOLA DATA */}
         <Route path="/admin" element={withNav(Admin)} />
@@ -143,6 +147,7 @@ function AppContent() {
         <Route path="/admin/integrations" element={withNav(Integrations)} />
         <Route path="/admin/simulation" element={withNav(WorkforceSimulation)} />
         <Route path="/admin/turnover" element={withNav(TurnoverPrediction)} />
+        <Route path="/admin/reset-password" element={withNav(ResetPassword)} />
         <Route path="/admin/chain" element={adminPage('chain')} />
 
         {/* ADMIN — PERENCANAAN */}
