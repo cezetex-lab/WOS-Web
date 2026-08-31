@@ -5,7 +5,7 @@ import posthog from 'posthog-js';
 const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
 
-if (POSTHOG_KEY && import.meta.env.PROD) {
+if (POSTHOG_KEY) {
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
     // Auto-capture
@@ -50,7 +50,7 @@ export default posthog;
 
 // Utility: track custom events
 export const track = (event, properties = {}) => {
-  if (import.meta.env.PROD && POSTHOG_KEY) {
+  if (POSTHOG_KEY) {
     posthog.capture(event, properties);
   }
 };
@@ -63,14 +63,14 @@ export const isFeatureEnabled = (flag) => {
 
 // Utility: identify user after login
 export const identifyUser = (nrp, properties = {}) => {
-  if (import.meta.env.PROD && POSTHOG_KEY) {
+  if (POSTHOG_KEY) {
     posthog.identify(nrp, properties);
   }
 };
 
 // Utility: reset on logout
 export const resetUser = () => {
-  if (import.meta.env.PROD && POSTHOG_KEY) {
+  if (POSTHOG_KEY) {
     posthog.reset();
   }
 };
