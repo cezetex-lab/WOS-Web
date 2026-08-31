@@ -4,9 +4,10 @@
 -- Only add NEW tables + fix RPC functions + seed data
 -- ============================================================
 
--- ── 1. NEW TABLES (only create if not exists) ──
+-- ── 1. DROP + CREATE TABLES (ensure correct schema) ──
 
-CREATE TABLE IF NOT EXISTS onboarding_tasks (
+DROP TABLE IF EXISTS onboarding_tasks CASCADE;
+CREATE TABLE onboarding_tasks (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   nrp text,
   task_name text NOT NULL,
@@ -18,7 +19,8 @@ CREATE TABLE IF NOT EXISTS onboarding_tasks (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS reviews_360 (
+DROP TABLE IF EXISTS reviews_360 CASCADE;
+CREATE TABLE reviews_360 (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   reviewee_nrp text NOT NULL,
   reviewer_nrp text NOT NULL,
@@ -34,7 +36,9 @@ CREATE TABLE IF NOT EXISTS reviews_360 (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS forum_posts (
+DROP TABLE IF EXISTS forum_replies CASCADE;
+DROP TABLE IF EXISTS forum_posts CASCADE;
+CREATE TABLE forum_posts (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   nrp text NOT NULL,
   title text NOT NULL,
@@ -46,7 +50,7 @@ CREATE TABLE IF NOT EXISTS forum_posts (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS forum_replies (
+CREATE TABLE forum_replies (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   post_id uuid REFERENCES forum_posts(id) ON DELETE CASCADE,
   nrp text NOT NULL,
@@ -54,7 +58,8 @@ CREATE TABLE IF NOT EXISTS forum_replies (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS screening_results (
+DROP TABLE IF EXISTS screening_results CASCADE;
+CREATE TABLE screening_results (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   candidate_name text NOT NULL,
   check_type text NOT NULL,
@@ -91,12 +96,8 @@ $$ LANGUAGE sql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION get_candidate_pipeline(p_vacancy_id text DEFAULT NULL)
 RETURNS jsonb AS $$
   SELECT COALESCE(jsonb_agg(t.* ORDER BY t.created_at DESC), '[]'::jsonb)
-  FROM (
-    SELECT cp.id, cp.nama AS candidate_name, cp.email AS candidate_email,
-           cp.stage, cp.notes, cp.nrp, cp.vacancy_id, cp.created_at
-    FROM candidate_pipeline cp
-    WHERE (p_vacancy_id IS NULL OR cp.vacancy_id = p_vacancy_id)
-  ) t;
+  FROM candidate_pipeline t
+  WHERE (p_vacancy_id IS NULL OR t.vacancy_id = p_vacancy_id);
 $$ LANGUAGE sql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION move_candidate(p_id text, p_stage text)
@@ -111,27 +112,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION get_onboarding_tasks(p_nrp text DEFAULT NULL)
 RETURNS jsonb AS $$
   SELECT COALESCE(jsonb_agg(t.* ORDER BY t.due_date), '[]'::jsonb)
-  FROM (
-    SELECT ot.id, ot.nrp, ot.task_name, ot.category, ot.status, ot.due_date, ot.assigned_to
-    FROM onboarding_tasks ot
-    WHERE (p_nrp IS NULL OR ot.nrp = p_nrp)
-  ) t;
+  FROM onboarding_tasks t
+  WHERE (p_nrp IS NULL OR t.nrp = p_nrp);
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ── 360° REVIEW ──
 CREATE OR REPLACE FUNCTION get_reviews_360(p_nrp text DEFAULT NULL)
 RETURNS jsonb AS $$
   SELECT jsonb_build_object(
-    'reviews', COALESCE((
-      SELECT jsonb_agg(t.* ORDER BY t.created_at DESC)
-      FROM (
-        SELECT r.id, r.reviewer_nrp, r.relationship, r.overall_score,
-               r.leadership_score, r.communication_score, r.teamwork_score,
-               r.innovation_score, r.comments, r.status, r.created_at
-        FROM reviews_360 r
-        WHERE (p_nrp IS NULL OR r.reviewee_nrp = p_nrp)
-      ) t
-    ), '[]'::jsonb),
+    'reviews', COALESCE(jsonb_agg(t.* ORDER BY t.created_at DESC), '[]'::jsonb),
     'summary', jsonb_build_object(
       'avg_leadership', (SELECT COALESCE(AVG(leadership_score), 0)::int FROM reviews_360 WHERE (p_nrp IS NULL OR reviewee_nrp = p_nrp)),
       'avg_communication', (SELECT COALESCE(AVG(communication_score), 0)::int FROM reviews_360 WHERE (p_nrp IS NULL OR reviewee_nrp = p_nrp)),
@@ -139,18 +128,16 @@ RETURNS jsonb AS $$
       'avg_innovation', (SELECT COALESCE(AVG(innovation_score), 0)::int FROM reviews_360 WHERE (p_nrp IS NULL OR reviewee_nrp = p_nrp)),
       'total_reviews', (SELECT count(*)::int FROM reviews_360 WHERE (p_nrp IS NULL OR reviewee_nrp = p_nrp))
     )
-  );
+  )
+  FROM reviews_360 t
+  WHERE (p_nrp IS NULL OR t.reviewee_nrp = p_nrp);
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ── FORUM ──
 CREATE OR REPLACE FUNCTION get_forum_posts()
 RETURNS jsonb AS $$
   SELECT COALESCE(jsonb_agg(t.* ORDER BY t.pinned DESC, t.created_at DESC), '[]'::jsonb)
-  FROM (
-    SELECT fp.id, fp.nrp, fp.title, fp.content, fp.category,
-           fp.replies_count, fp.likes_count, fp.pinned, fp.created_at
-    FROM forum_posts fp
-  ) t;
+  FROM forum_posts t;
 $$ LANGUAGE sql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION create_forum_post(p_nrp text, p_title text, p_content text, p_category text DEFAULT 'Umum')
@@ -175,10 +162,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION get_screening_results()
 RETURNS jsonb AS $$
   SELECT COALESCE(jsonb_agg(t.* ORDER BY t.created_at DESC), '[]'::jsonb)
-  FROM (
-    SELECT s.id, s.candidate_name, s.check_type, s.status, s.notes, s.created_at
-    FROM screening_results s
-  ) t;
+  FROM screening_results t;
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ══════════════════════════════════════════════════════════════
