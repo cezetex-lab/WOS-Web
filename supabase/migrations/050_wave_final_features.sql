@@ -87,19 +87,16 @@ RETURNS jsonb AS $$
   ) v;
 $$ LANGUAGE sql SECURITY DEFINER;
 
--- ── RECRUITMENT: Pipeline (use existing table: id TEXT, vacancy_id TEXT, nrp, nama, email, stage) ──
+-- ── RECRUITMENT: Pipeline ──
 CREATE OR REPLACE FUNCTION get_candidate_pipeline(p_vacancy_id text DEFAULT NULL)
 RETURNS jsonb AS $$
-  SELECT COALESCE(jsonb_agg(
-    jsonb_build_object(
-      'id', cp.id, 'candidate_name', cp.nama, 'candidate_email', cp.email,
-      'stage', cp.stage, 'notes', cp.notes, 'nrp', cp.nrp,
-      'vacancy_id', cp.vacancy_id, 'created_at', cp.created_at
-    )
-  ), '[]'::jsonb)
-  FROM candidate_pipeline cp
-  WHERE (p_vacancy_id IS NULL OR cp.vacancy_id = p_vacancy_id)
-  ORDER BY cp.created_at DESC;
+  SELECT COALESCE(jsonb_agg(t.* ORDER BY t.created_at DESC), '[]'::jsonb)
+  FROM (
+    SELECT cp.id, cp.nama AS candidate_name, cp.email AS candidate_email,
+           cp.stage, cp.notes, cp.nrp, cp.vacancy_id, cp.created_at
+    FROM candidate_pipeline cp
+    WHERE (p_vacancy_id IS NULL OR cp.vacancy_id = p_vacancy_id)
+  ) t;
 $$ LANGUAGE sql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION move_candidate(p_id text, p_stage text)
@@ -113,30 +110,27 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ── ONBOARDING ──
 CREATE OR REPLACE FUNCTION get_onboarding_tasks(p_nrp text DEFAULT NULL)
 RETURNS jsonb AS $$
-  SELECT COALESCE(jsonb_agg(
-    jsonb_build_object(
-      'id', t.id, 'nrp', t.nrp, 'task_name', t.task_name,
-      'category', t.category, 'status', t.status,
-      'due_date', t.due_date, 'assigned_to', t.assigned_to
-    )
-  ), '[]'::jsonb)
-  FROM onboarding_tasks t
-  WHERE (p_nrp IS NULL OR t.nrp = p_nrp)
-  ORDER BY t.due_date;
+  SELECT COALESCE(jsonb_agg(t.* ORDER BY t.due_date), '[]'::jsonb)
+  FROM (
+    SELECT ot.id, ot.nrp, ot.task_name, ot.category, ot.status, ot.due_date, ot.assigned_to
+    FROM onboarding_tasks ot
+    WHERE (p_nrp IS NULL OR ot.nrp = p_nrp)
+  ) t;
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ── 360° REVIEW ──
 CREATE OR REPLACE FUNCTION get_reviews_360(p_nrp text DEFAULT NULL)
 RETURNS jsonb AS $$
   SELECT jsonb_build_object(
-    'reviews', COALESCE(jsonb_agg(
-      jsonb_build_object(
-        'id', r.id, 'reviewer_nrp', r.reviewer_nrp,
-        'relationship', r.relationship, 'overall_score', r.overall_score,
-        'leadership_score', r.leadership_score, 'communication_score', r.communication_score,
-        'teamwork_score', r.teamwork_score, 'innovation_score', r.innovation_score,
-        'comments', r.comments, 'status', r.status
-      )
+    'reviews', COALESCE((
+      SELECT jsonb_agg(t.* ORDER BY t.created_at DESC)
+      FROM (
+        SELECT r.id, r.reviewer_nrp, r.relationship, r.overall_score,
+               r.leadership_score, r.communication_score, r.teamwork_score,
+               r.innovation_score, r.comments, r.status, r.created_at
+        FROM reviews_360 r
+        WHERE (p_nrp IS NULL OR r.reviewee_nrp = p_nrp)
+      ) t
     ), '[]'::jsonb),
     'summary', jsonb_build_object(
       'avg_leadership', (SELECT COALESCE(AVG(leadership_score), 0)::int FROM reviews_360 WHERE (p_nrp IS NULL OR reviewee_nrp = p_nrp)),
@@ -145,25 +139,18 @@ RETURNS jsonb AS $$
       'avg_innovation', (SELECT COALESCE(AVG(innovation_score), 0)::int FROM reviews_360 WHERE (p_nrp IS NULL OR reviewee_nrp = p_nrp)),
       'total_reviews', (SELECT count(*)::int FROM reviews_360 WHERE (p_nrp IS NULL OR reviewee_nrp = p_nrp))
     )
-  )
-  FROM reviews_360 r
-  WHERE (p_nrp IS NULL OR r.reviewee_nrp = p_nrp)
-  ORDER BY r.created_at DESC;
+  );
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ── FORUM ──
 CREATE OR REPLACE FUNCTION get_forum_posts()
 RETURNS jsonb AS $$
-  SELECT COALESCE(jsonb_agg(
-    jsonb_build_object(
-      'id', fp.id, 'nrp', fp.nrp, 'title', fp.title,
-      'content', fp.content, 'category', fp.category,
-      'replies_count', fp.replies_count, 'likes_count', fp.likes_count,
-      'pinned', fp.pinned, 'created_at', fp.created_at
-    )
-  ), '[]'::jsonb)
-  FROM forum_posts fp
-  ORDER BY fp.pinned DESC, fp.created_at DESC;
+  SELECT COALESCE(jsonb_agg(t.* ORDER BY t.pinned DESC, t.created_at DESC), '[]'::jsonb)
+  FROM (
+    SELECT fp.id, fp.nrp, fp.title, fp.content, fp.category,
+           fp.replies_count, fp.likes_count, fp.pinned, fp.created_at
+    FROM forum_posts fp
+  ) t;
 $$ LANGUAGE sql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION create_forum_post(p_nrp text, p_title text, p_content text, p_category text DEFAULT 'Umum')
@@ -187,15 +174,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ── SCREENING ──
 CREATE OR REPLACE FUNCTION get_screening_results()
 RETURNS jsonb AS $$
-  SELECT COALESCE(jsonb_agg(
-    jsonb_build_object(
-      'id', s.id, 'candidate_name', s.candidate_name,
-      'check_type', s.check_type, 'status', s.status,
-      'notes', s.notes, 'created_at', s.created_at
-    )
-  ), '[]'::jsonb)
-  FROM screening_results s
-  ORDER BY s.created_at DESC;
+  SELECT COALESCE(jsonb_agg(t.* ORDER BY t.created_at DESC), '[]'::jsonb)
+  FROM (
+    SELECT s.id, s.candidate_name, s.check_type, s.status, s.notes, s.created_at
+    FROM screening_results s
+  ) t;
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ══════════════════════════════════════════════════════════════
