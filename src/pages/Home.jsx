@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { rpc, setSession, getSession } from '@/lib/supabase-browser';
+import { rpc, setSession, getSession, supabase } from '@/lib/supabase-browser';
 
 const MFA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mfa-service`;
 async function checkMfaStatus(nrp) {
@@ -139,6 +139,8 @@ export default function Home() {
         }
         // No MFA — direct to worker
         setSession({ ...d, role: 'worker' });
+        // V6: sync Supabase Auth for gatekeeper RPCs
+        if (d.email) syncSupabaseAuth(d.email, 'auth-sync-' + d.nrp);
         window.location.href = '/worker';
       } else {
         setError(d.msg || 'OTP salah');
@@ -162,6 +164,9 @@ export default function Home() {
     try {
       const d = await verifyMfaLogin(mfaNrp, cleanCode);
       if (d.mfa_verified) {
+        // V6: sync Supabase Auth for gatekeeper RPCs
+        const mfaEmail = mfaContext === 'admin' ? (mfaNrp || 'admin').toLowerCase() + '@insightwos.local' : (mfaNrp || '') + '@insightwos.local';
+        syncSupabaseAuth(mfaEmail, 'mfa-sync-' + mfaNrp);
         window.location.href = mfaContext === 'admin' ? '/admin' : '/worker';
       } else {
         setError(d.msg || 'Kode TOTP salah');
@@ -192,6 +197,8 @@ export default function Home() {
           return;
         }
         setSession({ token: d.token, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
+        // V6: sync Supabase Auth for gatekeeper RPCs
+        syncSupabaseAuth(adminNrp.toLowerCase() + '@insightwos.local', 'admin-v6-sync');
         window.location.href = '/admin';
       } else {
         setError(d.msg || 'OTP salah');
