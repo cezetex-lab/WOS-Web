@@ -119,7 +119,7 @@ ON CONFLICT DO NOTHING;
 -- 6. RPC: get_harvest_records
 
 CREATE OR REPLACE FUNCTION get_harvest_records()
-RETURNS JSONB AS 296
+RETURNS JSONB AS $$
 DECLARE
   v_records JSONB;
   v_summary JSONB;
@@ -150,12 +150,12 @@ BEGIN
 
   RETURN jsonb_build_object('ok', true, 'data', v_records, 'summary', v_summary);
 END;
-296 LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE;
 
 -- 7. RPC: get_transport_dispatch
 
 CREATE OR REPLACE FUNCTION get_transport_dispatch()
-RETURNS JSONB AS 296
+RETURNS JSONB AS $$
 DECLARE
   v_dispatches JSONB;
 BEGIN
@@ -173,12 +173,12 @@ BEGIN
 
   RETURN jsonb_build_object('ok', true, 'data', v_dispatches);
 END;
-296 LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE;
 
 -- 8. RPC: get_simulations
 
 CREATE OR REPLACE FUNCTION get_simulations()
-RETURNS JSONB AS 296
+RETURNS JSONB AS $$
 DECLARE
   v_sims JSONB;
 BEGIN
@@ -193,7 +193,7 @@ BEGIN
 
   RETURN v_sims;
 END;
-296 LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE;
 
 -- 9. Indexes
 
