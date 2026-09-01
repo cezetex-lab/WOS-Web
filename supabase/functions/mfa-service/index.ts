@@ -83,7 +83,7 @@ serve(async (req: Request) => {
 
     if (action === "enroll") {
       const { data:ex } = await supabase.from("mfa_factors").select("id").eq("nrp",nrp).eq("enabled",true).limit(1);
-      if (ex) return new Response(JSON.stringify({ok:false,msg:"MFA sudah aktif."}),{headers:h});
+      if (ex && ex.length > 0) return new Response(JSON.stringify({ok:false,msg:"MFA sudah aktif."}),{headers:h});
       const secretBytes = crypto.getRandomValues(new Uint8Array(20));
       const al = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
       let bits=""; for(const b of secretBytes) bits+=b.toString(2).padStart(8,"0");

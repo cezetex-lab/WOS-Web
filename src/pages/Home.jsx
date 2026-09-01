@@ -1,6 +1,24 @@
 import { useState, useEffect } from 'react';
 import { rpc, setSession, getSession } from '@/lib/supabase-browser';
 
+const MFA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mfa-service`;
+async function checkMfaStatus(nrp) {
+  const res = await fetch(MFA_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+    body: JSON.stringify({ action: 'check', nrp }),
+  });
+  return res.json();
+}
+async function verifyMfaLogin(nrp, code) {
+  const res = await fetch(MFA_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+    body: JSON.stringify({ action: 'verify_login', nrp, code }),
+  });
+  return res.json();
+}
+
 export default function Home() {
   const [tab, setTab] = useState('worker');
   const [loading, setLoading] = useState(false);
@@ -16,6 +34,7 @@ export default function Home() {
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
   const [mfaNrp, setMfaNrp] = useState('');
+  const [mfaContext, setMfaContext] = useState('worker'); // 'worker' or 'admin'
   const [validatedNrp, setValidatedNrp] = useState('');
   const [adminValidated, setAdminValidated] = useState(false);
 
@@ -103,11 +122,40 @@ export default function Home() {
     try {
       const d = await rpc('verify_worker_otp', { p_nrp: validatedNrp, p_code: otp });
       if (d.ok) {
-        // Worker tab ALWAYS redirects to /worker (admin context via admin tab)
+        // Check if MFA is enabled for this user
+        const mfaRes = await checkMfaStatus(validatedNrp);
+        if (mfaRes.mfa_enabled) {
+          // MFA required — store OTP data, show MFA input
+          setSession({ ...d, role: 'worker' });
+          setMfaRequired(true);
+          setMfaNrp(validatedNrp);
+          setMfaContext('worker');
+          setLoginStep('mfa');
+          setLoading(false);
+          return;
+        }
+        // No MFA — direct to worker
         setSession({ ...d, role: 'worker' });
         window.location.href = '/worker';
       } else {
         setError(d.msg || 'OTP salah');
+      }
+    } catch (err) {
+      setError('Koneksi error: ' + err.message);
+    }
+    setLoading(false);
+  }
+
+  async function submitWorkerMfa(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const d = await verifyMfaLogin(mfaNrp, mfaCode);
+      if (d.mfa_verified) {
+        window.location.href = mfaContext === 'admin' ? '/admin' : '/worker';
+      } else {
+        setError(d.msg || 'Kode TOTP salah');
       }
     } catch (err) {
       setError('Koneksi error: ' + err.message);
@@ -122,7 +170,19 @@ export default function Home() {
     try {
       const d = await rpc('verify_admin_otp', { p_code: otp });
       if (d.ok) {
-        setSession({ token: d.token, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: d.nrp || 'ADMIN' });
+        const adminNrp = d.nrp || 'ADMIN';
+        // Check MFA for admin
+        const mfaRes = await checkMfaStatus(adminNrp);
+        if (mfaRes.mfa_enabled) {
+          setSession({ token: d.token, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
+          setMfaRequired(true);
+          setMfaNrp(adminNrp);
+          setMfaContext('admin');
+          setLoginStep('mfa');
+          setLoading(false);
+          return;
+        }
+        setSession({ token: d.token, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
         window.location.href = '/admin';
       } else {
         setError(d.msg || 'OTP salah');
@@ -385,8 +445,26 @@ export default function Home() {
           </div>
           <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '4px' }}>
-            <button type="button" style={S.btnBack} onClick={goBack}>{'\u2190'} Kembali</button>
+            <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
             <button type="button" style={S.btnSmall} onClick={resendOtp} disabled={loading}>Kirim Ulang OTP</button>
+          </div>
+        </form>
+      )}
+
+      {/* Worker MFA Step */}
+      {tab === 'worker' && loginStep === 'mfa' && (
+        <form onSubmit={submitWorkerMfa} style={S.form}>
+          <div style={S.otpInfo}>🔐 Verifikasi MFA untuk NRP: <strong>{mfaNrp}</strong></div>
+          <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', marginBottom: '12px' }}>
+            Masukkan 6 digit kode dari Authenticator App
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <input value={mfaCode} onChange={e => setMfaCode(e.target.value)} placeholder="000000" style={S.otpInp} maxLength={6} required autoFocus />
+          </div>
+          {error && <div style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', marginTop: '8px' }}>{error}</div>}
+          <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : 'Verifikasi MFA'}</button>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+            <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
           </div>
         </form>
       )}
@@ -410,7 +488,7 @@ export default function Home() {
           </div>
           <button onClick={requestAdminOtp} style={S.btn} disabled={loading}>{loading ? '...' : '\u{1F511} Minta OTP (via Email)'}</button>
           <div style={{ textAlign: 'center', marginTop: '8px' }}>
-            <button type="button" style={S.btnBack} onClick={() => { setAdminValidated(false); setError(''); }}>{'\u2190'} Ganti Password</button>
+            <button type="button" style={S.btnBack} onClick={() => { setAdminValidated(false); setError(''); }}>{'←'} Ganti Password</button>
           </div>
         </div>
       )}
@@ -430,7 +508,7 @@ export default function Home() {
           </div>
           <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '4px' }}>
-            <button type="button" style={S.btnBack} onClick={goBack}>{'\u2190'} Kembali</button>
+            <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
             <button type="button" style={S.btnSmall} onClick={resendOtp} disabled={loading}>Kirim Ulang OTP</button>
           </div>
         </form>
@@ -470,7 +548,7 @@ export default function Home() {
           </div>
           <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '4px' }}>
-            <button type="button" style={S.btnBack} onClick={goBack}>{'\u2190'} Kembali</button>
+            <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
             <button type="button" style={S.btnSmall} onClick={resendOtp} disabled={loading}>Kirim Ulang OTP</button>
           </div>
         </form>
