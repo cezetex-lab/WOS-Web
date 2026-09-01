@@ -228,6 +228,54 @@ const ADMIN_ROLE_MAP = {
   admin_produksi: ADMIN_PRODUKSI_GROUPS,
 };
 
+const CEO_GROUPS = [
+  {
+    title: 'OPERASI TAMBANG',
+    items: [
+      { icon: '⛏️', label: 'SIMPER', path: '/worker/simper' },
+      { icon: '🏗️', label: 'Alat Berat', path: '/worker/heavy-equip' },
+      { icon: '⚠️', label: 'Fatigue', path: '/worker/fatigue' },
+      { icon: '🪨', label: 'Produksi Harian', path: '/worker/production' },
+      { icon: '🛡️', label: 'Safety K3', path: '/worker/safety' },
+      { icon: '🔥', label: 'Emergency', path: '/worker/emergency' },
+      { icon: '📋', label: 'JSA', path: '/worker/jsa' },
+    ],
+  },
+  {
+    title: 'PERKEBUNAN',
+    items: [
+      { icon: '🌾', label: 'Panen', path: '/worker/harvest' },
+      { icon: '🗺️', label: 'Blok Kebun', path: '/worker/blocks' },
+      { icon: '💧', label: 'Irigrasi', path: '/worker/irrigation' },
+      { icon: '🌱', label: 'Nursery', path: '/worker/nursery' },
+      { icon: '🚛', label: 'Transport TBS', path: '/worker/transport' },
+      { icon: '🌿', label: 'Field Activity', path: '/worker/field' },
+      { icon: '📊', label: 'Yield', path: '/worker/yield' },
+    ],
+  },
+  {
+    title: 'PABRIK PKS',
+    items: [
+      { icon: '🔥', label: 'Boiler', path: '/worker/boiler' },
+      { icon: '⚙️', label: 'Mesin Press', path: '/worker/machines' },
+      { icon: '🔬', label: 'QC Lab', path: '/worker/qc' },
+      { icon: '📦', label: 'Packing', path: '/worker/packing' },
+      { icon: '🔧', label: 'Maintenance', path: '/worker/maintenance' },
+      { icon: '🚨', label: 'Breakdown', path: '/worker/breakdown' },
+      { icon: '🔄', label: 'Shift', path: '/worker/shift' },
+    ],
+  },
+  {
+    title: 'HR & AKTIVITAS',
+    items: [
+      { icon: '📍', label: 'Kehadiran', path: '/worker/attendance' },
+      { icon: '🌴', label: 'Cuti', path: '/worker/leave' },
+      { icon: '💰', label: 'Slip Gaji', path: '/worker/payroll' },
+      { icon: '👤', label: 'Profil Saya', path: '/worker/profile' },
+    ],
+  },
+];
+
 const WORKER_GROUPS = [
   {
     title: 'AKTIVITAS',
@@ -278,7 +326,9 @@ const MANAGER_GROUPS = [
 ];
 
 // Convert BU modules sidebarGroups to AppDrawer format
-function getWorkerGroups(bu) {
+function getWorkerGroups(bu, roleLevel) {
+  // CEO/Director sees ALL industry modules
+  if (roleLevel >= 4) return CEO_GROUPS;
   const modules = BU_MODULES[bu] || BU_MODULES.HQ;
   return modules.sidebarGroups || WORKER_GROUPS;
 }
@@ -295,7 +345,7 @@ export function AppDrawer({ isOpen, onClose }) {
   } else if (role === 'manager') {
     groups = MANAGER_GROUPS;
   } else {
-    groups = getWorkerGroups(bu);
+    groups = getWorkerGroups(bu, session?.role_level || 1);
   }
   return (
     <>
