@@ -1,5 +1,6 @@
 // MedicalCheckup.jsx — Estate Medical (Puskesmas Kebun)
 import { useState, useEffect } from 'react';
+import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner } from '@/lib/design-system';
 
 const RECORDS = [
@@ -17,7 +18,7 @@ export default function MedicalCheckup() {
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState([]);
 
-  useEffect(() => { setTimeout(() => { setRecords(RECORDS); setLoading(false); }, 500); }, []);
+  useEffect(() => { rpc('get_medical_checkup', { p_nrp: '*' }).then(r => { setRecords(r?.data || []); setLoading(false); }).catch(() => setLoading(false)); }, []);
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat data medical..." /></div>;
 

@@ -288,6 +288,30 @@ function AppContent() {
   );
 }
 
+
+// ── Route Preloading ──
+// Preload most-accessed routes after initial load for faster navigation
+const preloadRoutes = () => {
+  // Worker routes (most common)
+  Worker;
+  WorkerProfile;
+  WorkerLeave;
+  WorkerKpi;
+  // Admin routes (most common)
+  Admin;
+  Employees;
+  LeaveManagement;
+  Payroll;
+  Kpi;
+};
+
+// Trigger preload after 2s idle
+if (typeof requestIdleCallback !== 'undefined') {
+  requestIdleCallback(preloadRoutes);
+} else {
+  setTimeout(preloadRoutes, 2000);
+}
+
 export default function App() {
   return (
     <BrowserRouter>

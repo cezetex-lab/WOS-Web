@@ -1,5 +1,6 @@
 // FacilityRequest.jsx — Estate Facility Request (Mess, Kerja, Dll)
 import { useState, useEffect } from 'react';
+import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';
 
 const REQUESTS = [
@@ -17,7 +18,7 @@ export default function FacilityRequest() {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
 
-  useEffect(() => { setTimeout(() => { setRequests(REQUESTS); setLoading(false); }, 500); }, []);
+  useEffect(() => { rpc('admin_get_facility_requests').then(r => { setRequests(r?.data || []); setLoading(false); }).catch(() => setLoading(false)); }, []);
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat data fasilitas..." /></div>;
 
