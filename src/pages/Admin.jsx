@@ -76,7 +76,7 @@ export default function Admin() {
       setLoading(true);
       try {
         // 1. Statistik Admin
-        const { data: statsData } = await supabase.rpc('admin_get_summary');
+        const { data: statsData } = await supabase.rpc('get_dashboard_stats');
         setStats(statsData || {});
         
         // 2. Pending Requests

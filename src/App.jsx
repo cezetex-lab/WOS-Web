@@ -80,6 +80,7 @@ const WorkerProfile = lazy(() => import('./features/core/people/WorkerProfile'))
 const WorkerOvertime = lazy(() => import('./features/core/overtime/WorkerOvertime'));
 const WorkerAttendance = lazy(() => import('./features/core/attendance/WorkerAttendance'));
 const WorkerLearning = lazy(() => import('./features/core/learning/WorkerLearning'));
+const WorkerLeave = lazy(() => import('./features/core/leave/WorkerLeave'));
 const WorkerKpi = lazy(() => import('./features/core/performance/WorkerKpi'));
 const WorkerPayroll = lazy(() => import('./features/core/payroll/WorkerPayroll'));
 const WorkerCareer = lazy(() => import('./features/core/talent/WorkerCareer'));
@@ -159,7 +160,7 @@ function AppContent() {
         {/* ═══════════ WORKER ═══════════ */}
         <Route path="/worker" element={withNav(Worker)} />
         <Route path="/worker/attendance" element={withNav(WorkerAttendance)} />
-        <Route path="/worker/leave" element={withNav(WorkerLearning)} />
+        <Route path="/worker/leave" element={withNav(WorkerLeave)} />
         <Route path="/worker/overtime" element={withNav(WorkerOvertime)} />
         <Route path="/worker/kpi" element={withNav(WorkerKpi)} />
         <Route path="/worker/payroll" element={withNav(WorkerPayroll)} />
