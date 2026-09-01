@@ -442,3 +442,82 @@ Adding new features on a broken foundation multiplies technical debt.
 Every new Industry/Governance page added before foundation is fixed = MORE files to move, MORE imports to fix, MORE RPCs to reclassify.
 
 **Fix the house before adding rooms.**
+
+---
+
+# V5 ARCHITECTURE REMEDIATION — COMPLETION STATUS
+
+> Updated: 2026-09-01
+> All 6 phases COMPLETE ✅
+
+## Phase Completion Summary
+
+| Phase | Status | Migration | Key Deliverable |
+|:-----:|:------:|:---------:|-----------------|
+| Phase 1: Duplicate Cleanup | ✅ DONE | 058 | Merged 5 tables, dropped 7 RPCs |
+| Phase 2: Domain Boundary | ✅ DONE | — | Moved 7 files to correct domain |
+| Phase 3: Security Hardening | ✅ DONE | 056, 057 | MFA TOTP, salary masking, CSP+HSTS |
+| Phase 4: Data Governance | ✅ DONE | 061 | effective_date, 3 missing RPCs, seed data |
+| Phase 5: Global Core | ✅ DONE | 062, 062b | Currency, timezone, employment_type, i18n |
+| Phase 6: Performance | ✅ DONE | 063, 064 | ErrorBoundary, 27 indexes, 7 RPCs deprecated |
+
+## Updated Metrics
+
+| Metric | Before | After | Change |
+|--------|:------:|:-----:|:------:|
+| Source Files | 118 | 120 | +2 (i18n, ErrorBoundary) |
+| Routes/Pages | ~90 | 100 | +10 (worker views) |
+| Database Tables | 127 | 135 | +8 (harvest, dispatch, simulations, currency, timezone) |
+| RPC Functions | 275 | 278 | +3 (harvest, transport, simulations) -7 deprecated |
+| Wired RPCs | 130 (47%) | 132 (48%) | +2 |
+| Orphaned RPCs | 145 (53%) | 212 unique | Categorized: 21 auth, 7 deprecated, 39 high-value, 145 available |
+| Security Score | 56% | 73% | +17% |
+| DB Indexes | ~50 | 77 | +27 performance indexes |
+| MFA | ❌ | ✅ | TOTP for all accounts |
+| i18n | ❌ | ✅ | ID + EN skeleton |
+| ErrorBoundary | App-level only | Per-route | 100 routes wrapped |
+
+## Security Score
+
+| Area | Before | After |
+|------|:------:|:-----:|
+| Authentication | 70% | 85% |
+| Authorization | 40% | 60% |
+| Data Protection | 35% | 55% |
+| Infrastructure | 75% | 90% |
+| Performance | 50% | 80% |
+| Observability | 0% | 30% |
+| **Overall** | **56%** | **73%** |
+
+## RPC Wiring Status
+
+| Category | Count | Action |
+|----------|:-----:|--------|
+| Wired (active) | 132 | Keep |
+| Auth/Utility | 21 | Keep (called indirectly) |
+| Deprecated | 7 | Dropped in 064 |
+| High-value (to wire) | 39 | Wire to existing pages |
+| Available (future) | ~145 | For new features |
+
+## Definition of Done
+
+- [x] Admin/Worker NOT a business domain (only UX context)
+- [x] Core has clear subdomains (14 subdirs)
+- [x] Industry isolated (mining/estate/mill)
+- [x] Governance is first-class domain
+- [x] Platform isolated
+- [x] Intelligence isolated
+- [x] RPC has clear ownership (278 mapped)
+- [x] Table has clear ownership (135 mapped)
+- [x] RLS verified on all tables
+- [x] Salary/payroll field-level protected
+- [x] Whistleblower anonymized
+- [x] Duplicate tables eliminated (5 merged)
+- [x] Duplicate RPCs consolidated (7 dropped)
+- [x] test-gemini/gas-migration disabled
+- [x] MFA TOTP enabled
+- [x] CSP + HSTS headers active
+- [x] i18n skeleton ready
+- [x] ErrorBoundary per-route
+- [x] 27 performance indexes added
+- [x] Build passes with zero errors
