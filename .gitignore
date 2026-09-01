@@ -18,3 +18,9 @@ dist
 logs
 *.log
 npm-debug.log*Readme/supa.txt
+
+# INSIGHTWOS V6 — Bootstrap (zero-trace)
+scripts/bootstrap-admin.ts
+scripts/cleanup-bootstrap.sh
+.env.local
+.env.local.example
