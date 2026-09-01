@@ -126,7 +126,8 @@ const PipelineKanban = lazy(() => import('./features/core/people/PipelineKanban'
 const OnboardingWorkflow = lazy(() => import('./features/core/people/OnboardingWorkflow'));
 const ScreeningPage = lazy(() => import('./features/core/people/ScreeningPage'));
 const ApprovalWorkflow = lazy(() => import('./features/platform/workflow/ApprovalWorkflow'));
-const Review360 = lazy(() => import('./features/core/performance/Review360'));
+const Review360 = lazy(() => import("./features/core/performance/Review360"));
+const WorkerReview360 = lazy(() => import("./features/core/performance/WorkerReview360"));
 const ForumDiskusi = lazy(() => import('./features/core/engagement/ForumDiskusi'));
 
 function AppContent() {
@@ -171,6 +172,7 @@ function AppContent() {
         <Route path="/worker/request" element={withNav(MultiStepRequest)} />
         <Route path="/worker/task-board" element={withNav(TaskBoard)} />
         <Route path="/worker/performance-notes" element={withNav(PerformanceNotes)} />
+        <Route path="/worker/review-360" element={withNav(WorkerReview360)} />
         <Route path="/worker/change-password" element={withNav(WorkerChangePassword)} />
         <Route path="/worker/mfa" element={withNav(MfaSetup)} />
         <Route path="/worker/forum" element={withNav(ForumDiskusi)} />
