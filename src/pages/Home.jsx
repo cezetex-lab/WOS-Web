@@ -103,32 +103,9 @@ export default function Home() {
     try {
       const d = await rpc('verify_worker_otp', { p_nrp: validatedNrp, p_code: otp });
       if (d.ok) {
-        // Role detection: admin_pusat/admin_hrd/admin_finance/admin_produksi → /admin, manager → /dashboard, worker → /worker
-
-const MFA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mfa-service`;
-async function checkMfaLogin(nrp, code) {
-  const res = await fetch(MFA_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-    body: JSON.stringify({ action: 'verify_login', nrp, code }),
-  });
-  return res.json();
-}
-
-        const userRole = d.role || 'worker';
-        let loginRole, redirectPath;
-        if (userRole.startsWith('admin_')) {
-          loginRole = userRole;
-          redirectPath = '/admin';
-        } else if (userRole === 'manager') {
-          loginRole = 'manager';
-          redirectPath = '/dashboard';
-        } else {
-          loginRole = 'worker';
-          redirectPath = '/worker';
-        }
-        setSession({ ...d, role: loginRole });
-        window.location.href = redirectPath;
+        // Worker tab ALWAYS redirects to /worker (admin context via admin tab)
+        setSession({ ...d, role: 'worker' });
+        window.location.href = '/worker';
       } else {
         setError(d.msg || 'OTP salah');
       }
