@@ -53,3 +53,14 @@ INSERT INTO mill_maintenance (equipment_code, equipment_name, maintenance_type, 
 INSERT INTO mill_breakdowns (equipment_code, equipment_name, breakdown_time, severity, category, description, reported_by, status, site_code) VALUES
 ('PRS-05','Screw Press 5',CURRENT_DATE-2 + INTERVAL '14 hours','HIGH','MECHANICAL','Bearing rusak, perlu penggantian','Operator 1','IN_PROGRESS','S03'),
 ('BLR-04','Boiler Lama',CURRENT_DATE-5 + INTERVAL '9 hours','MEDIUM','INSTRUMENT','Pressure sensor error','Operator 2','RESOLVED','S03');
+
+-- Estate Blocks (existing from 018: id, block_name, area_hectare, terrain, division, status)
+INSERT INTO estate_blocks (id, block_name, area_hectare, terrain, division, status, business_unit_id) VALUES
+('BLK-A1','Blok A1',18.0,'Datar','Divisi Utara','ACTIVE','BU02'),
+('BLK-A2','Blok A2',21.0,'Datar','Divisi Utara','ACTIVE','BU02'),
+('BLK-B1','Blok B1',24.0,'Berbukit','Divisi Timur','ACTIVE','BU02'),
+('BLK-B2','Blok B2',27.0,'Datar','Divisi Timur','ACTIVE','BU02'),
+('BLK-C1','Blok C1',30.0,'Berbukit','Divisi Selatan','ACTIVE','BU02'),
+('BLK-C2','Blok C2',33.0,'Datar','Divisi Selatan','ACTIVE','BU02'),
+('BLK-D1','Blok D1',36.0,'Datar','Divisi Barat','ACTIVE','BU02')
+ON CONFLICT (id) DO NOTHING;

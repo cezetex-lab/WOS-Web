@@ -88,12 +88,7 @@ INSERT INTO estate_harvest (business_unit_id, block_name, tonnage, harvester_nrp
 ('BU02','Blok C1',15.5,'EST0005','Panen 5','A'),('BU02','C2',20.5,'EST0006','Panen 6','B'),
 ('BU02','D1',25.5,'EST0007','Panen 7','A');
 
--- Estate Blocks 7 records
-INSERT INTO estate_blocks (business_unit_id, block_code, block_name, area_ha, plant_age, yield_potential) VALUES
-('BU02','BLK-A1','Blok A1',18.0,3,25.0),('BU02','BLK-A2','Blok A2',21.0,4,30.0),
-('BU02','BLK-B1','Blok B1',24.0,5,35.0),('BU02','BLK-B2','Blok B2',27.0,6,40.0),
-('BU02','BLK-C1','Blok C1',30.0,7,45.0),('BU02','BLK-C2','C2',33.0,8,50.0),
-('BU02','BLK-D1','D1',36.0,9,55.0);
+-- Estate blocks seed data moved to 077 (existing table from 018 has different schema)
 
 -- RLS POLICIES
 ALTER TABLE mining_simper ENABLE ROW LEVEL SECURITY;
