@@ -28,9 +28,9 @@ CREATE INDEX IF NOT EXISTS idx_overtime_nrp ON hr_overtime(nrp);
 CREATE INDEX IF NOT EXISTS idx_overtime_status ON hr_overtime(status);
 
 -- hr_tasks
-CREATE INDEX IF NOT EXISTS idx_tasks_assigned ON hr_tasks(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON hr_tasks(assignee_nrp);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON hr_tasks(status);
-CREATE INDEX IF NOT EXISTS idx_tasks_priority ON hr_tasks(priority);
+-- hr_tasks has no priority column, skip
 
 -- hr_kpi_config
 CREATE INDEX IF NOT EXISTS idx_kpi_config_position ON hr_kpi_config(position_code);
