@@ -27,6 +27,7 @@ export default function Home() {
   const [nik, setNik] = useState('');
   const [pass, setPass] = useState('');
   const [adminPass, setAdminPass] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpCode, setOtpCode] = useState('');
 
@@ -198,7 +199,7 @@ export default function Home() {
         }
         setSession({ token: d.token, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
         // V6: sync Supabase Auth for gatekeeper RPCs
-        syncSupabaseAuth(adminNrp.toLowerCase() + '@insightwos.local', 'admin-v6-sync');
+        if (adminEmail) syncSupabaseAuth(adminEmail, adminPass);
         window.location.href = '/admin';
       } else {
         setError(d.msg || 'OTP salah');
@@ -494,6 +495,8 @@ export default function Home() {
       {tab === 'admin' && loginStep === 'credentials' && !adminValidated && (
         <form onSubmit={submitAdminCredentials} style={S.form}>
           <div style={S.field}>
+            <label style={S.label}>Email Admin</label>
+            <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="owner@insightwos.com" style={S.inp} required />
             <label style={S.label}>Password Admin</label>
             <input type="password" value={adminPass} onChange={e => setAdminPass(e.target.value)} placeholder="Masukkan password admin" style={S.inp} required />
           </div>
