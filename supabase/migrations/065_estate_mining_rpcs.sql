@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS irrigation_blocks (
   id SERIAL PRIMARY KEY,
   block TEXT NOT NULL,
-  status TEXT DEFAULT "ACTIVE",
+  status TEXT DEFAULT 'ACTIVE',
   last_irrigation DATE,
   next_scheduled DATE,
   water_level NUMERIC(5,1),
@@ -27,7 +27,7 @@ ON CONFLICT DO NOTHING;
 CREATE OR REPLACE FUNCTION get_irrigation_data()
 RETURNS JSONB AS $$
 BEGIN RETURN (
-  SELECT jsonb_build_object("ok", true, "data", COALESCE(jsonb_agg(row_to_json(ib)), "[]"::jsonb))
+  SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(row_to_json(ib)), '[]'::jsonb))
   FROM irrigation_blocks ib
 ); END;
 $$ LANGUAGE plpgsql STABLE;
@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS nursery_blocks (
   block TEXT NOT NULL,
   seedling_count INTEGER DEFAULT 0,
   age_months INTEGER DEFAULT 0,
-  species TEXT DEFAULT "Tenera",
-  health TEXT DEFAULT "GOOD",
+  species TEXT DEFAULT 'Tenera',
+  health TEXT DEFAULT 'GOOD',
   next_transfer DATE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -56,7 +56,7 @@ ON CONFLICT DO NOTHING;
 CREATE OR REPLACE FUNCTION get_nursery_data()
 RETURNS JSONB AS $$
 BEGIN RETURN (
-  SELECT jsonb_build_object("ok", true, "data", COALESCE(jsonb_agg(row_to_json(nb)), "[]"::jsonb))
+  SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(row_to_json(nb)), '[]'::jsonb))
   FROM nursery_blocks nb
 ); END;
 $$ LANGUAGE plpgsql STABLE;
@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS emergency_procedures (
   id SERIAL PRIMARY KEY,
   code TEXT NOT NULL,
   title TEXT NOT NULL,
-  category TEXT DEFAULT "SAFETY",
-  severity TEXT DEFAULT "HIGH",
+  category TEXT DEFAULT 'SAFETY',
+  severity TEXT DEFAULT 'HIGH',
   steps TEXT,
   contact TEXT,
   last_drill DATE,
@@ -99,7 +99,7 @@ ON CONFLICT DO NOTHING;
 CREATE OR REPLACE FUNCTION get_emergency_procedures()
 RETURNS JSONB AS $$
 BEGIN RETURN (
-  SELECT jsonb_build_object("ok", true, "data", COALESCE(jsonb_agg(row_to_json(ep)), "[]"::jsonb))
+  SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(row_to_json(ep)), '[]'::jsonb))
   FROM emergency_procedures ep WHERE ep.is_active = true
 ); END;
 $$ LANGUAGE plpgsql STABLE;
