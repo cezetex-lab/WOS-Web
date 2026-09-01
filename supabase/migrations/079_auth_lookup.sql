@@ -1,4 +1,4 @@
--- Migration 079: Auth lookup RPC for V6 login flow
+-- Migration 079: Auth lookup RPC for V6 login flow (FIXED)
 -- Looks up employee info by Supabase Auth user ID
 
 CREATE OR REPLACE FUNCTION get_user_context_by_auth_id(p_auth_id UUID)
@@ -8,23 +8,19 @@ DECLARE
   v_role RECORD;
   v_bu RECORD;
 BEGIN
-  -- Find employee by auth_id
-  SELECT employee_id, nrp, nama, email, business_unit_id, role_level, 
-         divisi, jabatan, foto_url
+  SELECT employee_id, nrp, nama, email, business_unit_id, role_level, divisi, posisi
   INTO v_emp
   FROM employees_master
   WHERE auth_id = p_auth_id
   LIMIT 1;
   
   IF NOT FOUND THEN
-    RETURN jsonb_build_object('ok', false, 'msg', 'Employee not found for this auth user');
+    RETURN jsonb_build_object('ok', false, 'msg', 'Akun tidak ditemukan di sistem');
   END IF;
 
-  -- Get role
   SELECT role, role_level INTO v_role
   FROM user_roles WHERE nrp = v_emp.nrp LIMIT 1;
 
-  -- Get business unit info
   SELECT tier, unit_name INTO v_bu
   FROM business_units WHERE id = v_emp.business_unit_id;
 
@@ -39,8 +35,7 @@ BEGIN
     'business_unit_name', COALESCE(v_bu.unit_name, ''),
     'tier', COALESCE(v_bu.tier, 0),
     'divisi', v_emp.divisi,
-    'jabatan', v_emp.jabatan,
-    'foto_url', v_emp.foto_url
+    'jabatan', v_emp.posisi
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
