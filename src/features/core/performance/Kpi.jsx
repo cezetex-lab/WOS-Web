@@ -101,7 +101,7 @@ export default function Kpi() {
     try {
       const [overviewResult, divisionResult, trendResult, topResult, lowResult] = await Promise.all([
         rpc('admin_get_kpi_overview'),
-        rpc('admin_get_kpi_by_division'),
+        rpc('get_kpi_by_division'),
         rpc('admin_get_kpi_trend'),
         rpc('admin_get_top_performers'),
         rpc('admin_get_low_performers'),

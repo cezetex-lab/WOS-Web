@@ -10,7 +10,7 @@ export default function CareerPathPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await rpc('get_worker_career');
+      const result = await rpc('get_career_path');
       setData(Array.isArray(result) ? result : result?.data || []);
     } catch (e) { console.error(e); }
     setLoading(false);

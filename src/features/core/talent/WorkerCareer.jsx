@@ -12,7 +12,7 @@ export default function WorkerCareer() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await rpc('get_worker_career', { p_nrp: nrp });
+      const result = await rpc('get_career_path', { p_nrp: nrp });
       setData(Array.isArray(result) ? result : result?.data || []);
     } catch (e) { console.error(e); }
     setLoading(false);

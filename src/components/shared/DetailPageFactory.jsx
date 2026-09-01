@@ -75,7 +75,7 @@ export const WORKER_PAGE_CONFIGS = {
   kpi:          { title: 'KPI Saya', desc: 'Target & pencapaian performa', icon: '📊', rpc: 'get_worker_kpi', fallbackTable: 'hr_performance', paramField: 'p_nrp' },
   payroll:      { title: 'Slip Gaji', desc: 'Lihat slip gaji bulanan', icon: '💰', rpc: 'get_worker_payroll', fallbackTable: 'hr_payroll', paramField: 'p_nrp' },
   learning:     { title: 'Learning', desc: 'Kursus & pelatihan', icon: '📚', rpc: 'get_worker_learning', fallbackTable: 'hr_learning', paramField: 'p_nrp' },
-  career:       { title: 'Karir', desc: 'Jalur karir & peluang', icon: '🚀', rpc: 'get_worker_career', fallbackTable: 'hr_skills', paramField: 'p_nrp' },
+  career:       { title: 'Karir', desc: 'Jalur karir & peluang', icon: '🚀', rpc: 'get_career_path', fallbackTable: 'hr_skills', paramField: 'p_nrp' },
   tasks:        { title: 'Tasks', desc: 'Daftar tugas harian', icon: '✅', rpc: 'get_worker_tasks', fallbackTable: 'hr_tasks', paramField: 'p_nrp' },
   profile:      { title: 'Profil Saya', desc: 'Data profil & pengaturan', icon: '👤', rpc: 'get_worker_profile', fallbackTable: 'employees_master', paramField: 'p_nrp' },
   activities:   { title: 'Aktivitas', desc: 'Riwayat aktivitas terkini', icon: '📋', rpc: 'get_worker_activities', fallbackTable: 'audit_log', paramField: 'p_nrp' },

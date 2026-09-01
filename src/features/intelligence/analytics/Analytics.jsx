@@ -36,8 +36,8 @@ export default function Analytics() {
     setLoading(true);
     try {
       const [s, k, p, a] = await Promise.all([
-        rpc('admin_get_summary'),
-        rpc('admin_get_kpi_by_division'),
+        rpc('get_dashboard_stats'),
+        rpc('get_kpi_by_division'),
         rpc('admin_get_payroll'),
         rpc('get_worker_attendance'),
       ]);

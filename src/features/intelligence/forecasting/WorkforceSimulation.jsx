@@ -74,7 +74,7 @@ export default function WorkforceSimulation() {
         });
       } else {
         // Fallback: calculate locally
-        const { data: summary } = await supabase.rpc('admin_get_summary');
+        const { data: summary } = await supabase.rpc('get_dashboard_stats');
         const hc = summary?.total_employees || 2000;
         const avgSalary = 8000000;
         const currentCost = hc * avgSalary * 12;
