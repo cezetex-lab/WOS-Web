@@ -6,6 +6,7 @@ import { AppDrawer } from './components/AppDrawer';
 import { BottomNav } from './components/BottomNav';
 import OfflineIndicator from './components/OfflineIndicator';
 import LazyLoad from './components/LazyLoad';
+import ErrorBoundary from './components/ErrorBoundary';
 import PrivacyConsent from './components/PrivacyConsent';
 
 // Core pages (keep eager — loaded on every visit)
@@ -137,9 +138,11 @@ function AppContent() {
 
   const withNav = (Component, props) => (
     <Layout>
-      <LazyLoad>
-        <Component {...props} />
-      </LazyLoad>
+      <ErrorBoundary fallbackName={Component.displayName || Component.name || 'Page'}>
+        <LazyLoad>
+          <Component {...props} />
+        </LazyLoad>
+      </ErrorBoundary>
       <BottomNav onMenuClick={toggleDrawer} />
       <AppDrawer isOpen={isDrawerOpen} onClose={closeDrawer} />
     </Layout>
