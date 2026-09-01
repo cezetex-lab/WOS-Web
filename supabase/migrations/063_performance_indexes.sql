@@ -2,9 +2,7 @@
 -- Migration 063: Performance — Missing DB Indexes
 -- ============================================================
 
--- Hot query indexes based on RPC analysis
-
--- employees_master (most queried table)
+-- employees_master
 CREATE INDEX IF NOT EXISTS idx_emp_divisi ON employees_master(divisi);
 CREATE INDEX IF NOT EXISTS idx_emp_business_unit ON employees_master(business_unit);
 CREATE INDEX IF NOT EXISTS idx_emp_nama ON employees_master(nama);
@@ -19,40 +17,47 @@ CREATE INDEX IF NOT EXISTS idx_payroll_nrp ON hr_payroll(nrp);
 CREATE INDEX IF NOT EXISTS idx_payroll_periode ON hr_payroll(periode);
 CREATE INDEX IF NOT EXISTS idx_payroll_nrp_periode ON hr_payroll(nrp, periode);
 
--- leave_requests
-CREATE INDEX IF NOT EXISTS idx_leave_nrp ON leave_requests(nrp);
-CREATE INDEX IF NOT EXISTS idx_leave_status ON leave_requests(status);
-CREATE INDEX IF NOT EXISTS idx_leave_nrp_status ON leave_requests(nrp, status);
+-- hr_requests (leave/overtime/training requests)
+CREATE INDEX IF NOT EXISTS idx_requests_nrp ON hr_requests(nrp);
+CREATE INDEX IF NOT EXISTS idx_requests_status ON hr_requests(status);
+CREATE INDEX IF NOT EXISTS idx_requests_type ON hr_requests(type);
+CREATE INDEX IF NOT EXISTS idx_requests_nrp_status ON hr_requests(nrp, status);
 
--- overtime_requests
-CREATE INDEX IF NOT EXISTS idx_overtime_nrp ON overtime_requests(nrp);
-CREATE INDEX IF NOT EXISTS idx_overtime_status ON overtime_requests(status);
+-- hr_overtime
+CREATE INDEX IF NOT EXISTS idx_overtime_nrp ON hr_overtime(nrp);
+CREATE INDEX IF NOT EXISTS idx_overtime_status ON hr_overtime(status);
 
 -- hr_tasks
 CREATE INDEX IF NOT EXISTS idx_tasks_assigned ON hr_tasks(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON hr_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON hr_tasks(priority);
 
--- hr_kpi
-CREATE INDEX IF NOT EXISTS idx_kpi_nrp ON hr_kpi(nrp);
-CREATE INDEX IF NOT EXISTS idx_kpi_periode ON hr_kpi(periode);
+-- hr_kpi_config
+CREATE INDEX IF NOT EXISTS idx_kpi_config_position ON hr_kpi_config(position_code);
+CREATE INDEX IF NOT EXISTS idx_kpi_config_periode ON hr_kpi_config(periode);
 
 -- hr_attendance
 CREATE INDEX IF NOT EXISTS idx_attendance_nrp ON hr_attendance(nrp);
-CREATE INDEX IF NOT EXISTS idx_attendance_date ON hr_attendance(attendance_date);
-CREATE INDEX IF NOT EXISTS idx_attendance_nrp_date ON hr_attendance(nrp, attendance_date);
+CREATE INDEX IF NOT EXISTS idx_attendance_date ON hr_attendance(date);
+CREATE INDEX IF NOT EXISTS idx_attendance_nrp_date ON hr_attendance(nrp, date);
 
 -- performance_notes
 CREATE INDEX IF NOT EXISTS idx_notes_nrp ON performance_notes(nrp);
+CREATE INDEX IF NOT EXISTS idx_notes_author ON performance_notes(author_nrp);
 
--- voice_ideas
-CREATE INDEX IF NOT EXISTS idx_ideas_status ON voice_ideas(status);
-CREATE INDEX IF NOT EXISTS idx_ideas_created ON voice_ideas(created_at DESC);
+-- hr_voice (ideas)
+CREATE INDEX IF NOT EXISTS idx_voice_nrp ON hr_voice(nrp);
+CREATE INDEX IF NOT EXISTS idx_voice_status ON hr_voice(type);
 
 -- reviews_360
 CREATE INDEX IF NOT EXISTS idx_reviews_reviewee ON reviews_360(reviewee_nrp);
-CREATE INDEX IF NOT EXISTS idx_reviews_period ON reviews_360(review_period);
+CREATE INDEX IF NOT EXISTS idx_reviews_period ON reviews_360(period);
+CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews_360(status);
 
 -- onboarding_tasks
-CREATE INDEX IF NOT EXISTS idx_onboarding_nrp ON onboarding_tasks(employee_nrp);
+CREATE INDEX IF NOT EXISTS idx_onboarding_nrp ON onboarding_tasks(nrp);
 CREATE INDEX IF NOT EXISTS idx_onboarding_status ON onboarding_tasks(status);
+
+-- hr_leave (quota)
+CREATE INDEX IF NOT EXISTS idx_leave_nrp ON hr_leave(nrp);
+CREATE INDEX IF NOT EXISTS idx_leave_tahun ON hr_leave(tahun);
