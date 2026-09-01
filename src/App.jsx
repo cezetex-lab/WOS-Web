@@ -42,7 +42,7 @@ const LearningManagement = lazy(() => import('./features/core/learning/LearningM
 const CertificationsPage = lazy(() => import('./features/core/talent/CertificationsPage'));
 const BadgesPage = lazy(() => import('./features/core/talent/BadgesPage'));
 const TalentMarketPage = lazy(() => import('./features/core/talent/TalentMarketPage'));
-const CareerPathPage = lazy(() => import('./features/core/talent/CareerPathPage'));
+const CareerPathPage = lazy(() => import('./features/core/career/CareerPathPage'));
 
 // ── ADMIN ASET ──
 const AssetManagement = lazy(() => import('./features/industry/mill/AssetManagement'));
@@ -53,7 +53,7 @@ const VoiceIdeasPage = lazy(() => import('./features/core/engagement/VoiceIdeasP
 const WhistleblowingPage = lazy(() => import('./features/core/engagement/WhistleblowingPage'));
 
 // ── ADMIN OFFBOARDING ──
-const Offboarding = lazy(() => import('./features/core/people/Offboarding'));
+const Offboarding = lazy(() => import('./features/core/offboarding/Offboarding'));
 
 // ── ADMIN SISTEM ──
 const AuditLog = lazy(() => import('./features/governance/audit/AuditLog'));
@@ -112,7 +112,7 @@ const MedicalCheckup = lazy(() => import('./features/industry/estate/MedicalChec
 
 const WorkerChangePassword = lazy(() => import('./features/platform/auth/WorkerChangePassword'));
 const PerformanceTrend = lazy(() => import('./features/core/performance/PerformanceTrend'));
-const CompensationIntel = lazy(() => import('./features/intelligence/analytics/CompensationIntel'));
+const CompensationIntel = lazy(() => import('./features/core/payroll/CompensationIntel'));
 const ContinuousPerf = lazy(() => import('./features/core/performance/ContinuousPerf'));
 const TrainingForm = lazy(() => import('./features/core/learning/TrainingForm'));
 const PerformanceNotes = lazy(() => import('./features/core/performance/PerformanceNotes'));
@@ -121,10 +121,10 @@ const PerformanceNotes = lazy(() => import('./features/core/performance/Performa
 const MultiStepRequest = lazy(() => import('./features/platform/workflow/MultiStepRequest'));
 const TaskBoard = lazy(() => import('./features/core/workforce/TaskBoard'));
 // ── WAVE FINAL — Recruitment, Approval, 360, Forum ──
-const RecruitmentDashboard = lazy(() => import('./features/core/people/RecruitmentDashboard'));
-const PipelineKanban = lazy(() => import('./features/core/people/PipelineKanban'));
-const OnboardingWorkflow = lazy(() => import('./features/core/people/OnboardingWorkflow'));
-const ScreeningPage = lazy(() => import('./features/core/people/ScreeningPage'));
+const RecruitmentDashboard = lazy(() => import('./features/core/recruitment/RecruitmentDashboard'));
+const PipelineKanban = lazy(() => import('./features/core/recruitment/PipelineKanban'));
+const OnboardingWorkflow = lazy(() => import('./features/core/recruitment/OnboardingWorkflow'));
+const ScreeningPage = lazy(() => import('./features/core/recruitment/ScreeningPage'));
 const ApprovalWorkflow = lazy(() => import('./features/platform/workflow/ApprovalWorkflow'));
 const Review360 = lazy(() => import("./features/core/performance/Review360"));
 const WorkerReview360 = lazy(() => import("./features/core/performance/WorkerReview360"));
