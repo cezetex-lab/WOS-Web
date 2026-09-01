@@ -1,11 +1,11 @@
 -- INSIGHTWOS V6 - FOUNDATION (HARI 1)
 
 -- 1. TAMBAH KOLOM KE TABEL EXISTING
-DO '' BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='business_units' AND column_name='tier') THEN ALTER TABLE business_units ADD COLUMN tier INT DEFAULT 0; END IF; END '';
-DO '' BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees_master' AND column_name='role_level') THEN ALTER TABLE employees_master ADD COLUMN role_level INT DEFAULT 1; END IF; END '';
-DO '' BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees_master' AND column_name='auth_id') THEN ALTER TABLE employees_master ADD COLUMN auth_id UUID REFERENCES auth.users(id) ON DELETE SET NULL; END IF; END '';
-DO '' BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees_master' AND column_name='business_unit_id') THEN ALTER TABLE employees_master ADD COLUMN business_unit_id TEXT REFERENCES business_units(id); END IF; END '';
-DO '' BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_roles' AND column_name='role') THEN ALTER TABLE user_roles ADD COLUMN role TEXT DEFAULT 'worker'; END IF; END '';
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='business_units' AND column_name='tier') THEN ALTER TABLE business_units ADD COLUMN tier INT DEFAULT 0; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees_master' AND column_name='role_level') THEN ALTER TABLE employees_master ADD COLUMN role_level INT DEFAULT 1; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees_master' AND column_name='auth_id') THEN ALTER TABLE employees_master ADD COLUMN auth_id UUID REFERENCES auth.users(id) ON DELETE SET NULL; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees_master' AND column_name='business_unit_id') THEN ALTER TABLE employees_master ADD COLUMN business_unit_id TEXT REFERENCES business_units(id); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_roles' AND column_name='role') THEN ALTER TABLE user_roles ADD COLUMN role TEXT DEFAULT 'worker'; END IF; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_employees_auth_id ON employees_master(auth_id);
 CREATE INDEX IF NOT EXISTS idx_employees_bu ON employees_master(business_unit_id);
