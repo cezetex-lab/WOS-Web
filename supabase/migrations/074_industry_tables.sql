@@ -79,19 +79,7 @@ INSERT INTO mining_fatigue (business_unit_id, nrp, nama, shift, fatigue_level, h
 ('BU01','MN0007','Hendra Wijaya','Pagi',3,8,16),('BU01','MN0008','Indra Gunawan','Sore',4,9,15),
 ('BU01','MN0009','Joko Susilo','Malam',5,10,14);
 
--- Mill Boiler 7 units
-INSERT INTO mill_boiler (business_unit_id, boiler_id, temperature, pressure, fuel_consumption, efficiency_pct) VALUES
-('BU03','BLR-01',187,12.5,530,75),('BU03','BLR-02',194,13.5,560,80),
-('BU03','BLR-03',201,14.5,590,85),('BU03','BLR-04',180,15.5,620,78),
-('BU03','BLR-05',187,12.5,500,82),('BU03','BLR-06',194,13.5,530,88),
-('BU03','BLR-07',201,14.5,560,90);
-
--- Mill QC 7 batches
-INSERT INTO mill_qc (business_unit_id, batch_id, ffa_pct, moisture_pct, dobii, grade) VALUES
-('BU03','QC-001',1.80,9.3,3.0,'RBD'),('BU03','QC-002',2.10,10.1,3.5,'CPKO'),
-('BU03','QC-003',2.40,10.9,4.0,'RBD'),('BU03','QC-004',2.70,11.7,4.5,'CPKO'),
-('BU03','QC-005',3.00,12.5,5.0,'RBD'),('BU03','QC-006',3.30,13.3,5.5,'CPKO'),
-('BU03','QC-007',3.60,14.1,6.0,'RBD');
+-- Mill seed data moved to 077_fix_seed_data.sql (existing tables have different schemas)
 
 -- Estate Harvest 7 records
 INSERT INTO estate_harvest (business_unit_id, block_name, tonnage, harvester_nrp, harvester_nama, quality) VALUES
