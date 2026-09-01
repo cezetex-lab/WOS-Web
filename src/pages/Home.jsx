@@ -56,6 +56,10 @@ export default function Home() {
     setOtpCode('');
     setValidatedNrp('');
     setAdminValidated(false);
+    setMfaRequired(false);
+    setMfaNrp('');
+    setMfaCode('');
+    setMfaContext('worker');
     setNrp('');
     setNik('');
     setPass('');
@@ -228,6 +232,9 @@ export default function Home() {
     setAdminValidated(false);
     setLoading(false);
     setMfaCode('');
+    setMfaRequired(false);
+    setMfaNrp('');
+    setMfaContext('worker');
   }
 
   const S = {
@@ -521,6 +528,24 @@ export default function Home() {
         </form>
       )}
 
+      {/* Admin MFA Step */}
+      {tab === 'admin' && loginStep === 'mfa' && (
+        <form onSubmit={submitWorkerMfa} style={S.form}>
+          <div style={S.otpInfo}>🔐 Verifikasi MFA untuk Admin</div>
+          <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', marginBottom: '12px' }}>
+            Masukkan 6 digit kode dari Authenticator App
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <input value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\s/g, '').slice(0, 6))} placeholder="000000" style={S.otpInp} maxLength={6} required autoFocus />
+          </div>
+          {error && <div style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', marginTop: '8px' }}>{error}</div>}
+          <button type="submit" style={S.btn}>Verifikasi</button>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+            <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
+          </div>
+        </form>
+      )}
+
       {/* Dashboard Login (sama dengan worker, dengan tujuan dashboard) */}
       {tab === 'dashboard' && loginStep === 'credentials' && (
         <form onSubmit={submitWorkerCredentials} style={S.form}>
@@ -563,57 +588,7 @@ export default function Home() {
 
       <p style={{ marginTop: '32px', fontSize: '11px', color: '#475569' }}>{'\u00A9'} 2026 insightWOS</p>
 
-      {/* MFA Verification Step */}
-      {loginStep === 'mfa' && (
-        <div className="space-y-4">
-          <div className="bg-slate-800/50 border border-blue-500/30 rounded-xl p-4 text-center">
-            <p className="text-2xl mb-2">🔐</p>
-            <p className="text-white font-semibold">Verifikasi MFA</p>
-            <p className="text-sm text-slate-400">Masukkan 6 digit kode dari authenticator app</p>
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Kode TOTP</label>
-            <input
-              type="text"
-              value={mfaCode}
-              onChange={e => setMfaCode(e.target.value)}
-              placeholder="000000"
-              maxLength={6}
-              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-blue-500"
-              onKeyDown={async e => {
-                if (e.key === 'Enter' && mfaCode.length === 6) {
-                  const d = await checkMfaLogin(mfaNrp, mfaCode);
-                  if (d.ok && d.mfa_verified) {
-                    navigate('/worker');
-                  } else {
-                    setError(d.msg || 'Kode TOTP salah');
-                  }
-                }
-              }}
-            />
-          </div>
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-          <button
-            onClick={async () => {
-              const d = await checkMfaLogin(mfaNrp, mfaCode);
-              if (d.ok && d.mfa_verified) {
-                navigate('/worker');
-              } else {
-                setError(d.msg || 'Kode TOTP salah');
-              }
-            }}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
-          >
-            Verifikasi
-          </button>
-          <button
-            onClick={() => { setLoginStep('otp'); setError(''); }}
-            className="w-full text-slate-400 hover:text-white text-sm py-2"
-          >
-            Kembali
-          </button>
-        </div>
-      )}
+
 
     </div>
   );
