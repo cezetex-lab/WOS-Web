@@ -13,6 +13,9 @@ export default function Home() {
   const [otpCode, setOtpCode] = useState('');
 
   const [loginStep, setLoginStep] = useState('credentials');
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaNrp, setMfaNrp] = useState('');
   const [validatedNrp, setValidatedNrp] = useState('');
   const [adminValidated, setAdminValidated] = useState(false);
 
@@ -101,6 +104,17 @@ export default function Home() {
       const d = await rpc('verify_worker_otp', { p_nrp: validatedNrp, p_code: otp });
       if (d.ok) {
         // Role detection: admin_pusat/admin_hrd/admin_finance/admin_produksi → /admin, manager → /dashboard, worker → /worker
+
+const MFA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mfa-service`;
+async function checkMfaLogin(nrp, code) {
+  const res = await fetch(MFA_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+    body: JSON.stringify({ action: 'verify_login', nrp, code }),
+  });
+  return res.json();
+}
+
         const userRole = d.role || 'worker';
         let loginRole, redirectPath;
         if (userRole.startsWith('admin_')) {
@@ -486,6 +500,59 @@ export default function Home() {
       )}
 
       <p style={{ marginTop: '32px', fontSize: '11px', color: '#475569' }}>{'\u00A9'} 2026 insightWOS</p>
+
+      {/* MFA Verification Step */}
+      {loginStep === 'mfa' && (
+        <div className="space-y-4">
+          <div className="bg-slate-800/50 border border-blue-500/30 rounded-xl p-4 text-center">
+            <p className="text-2xl mb-2">🔐</p>
+            <p className="text-white font-semibold">Verifikasi MFA</p>
+            <p className="text-sm text-slate-400">Masukkan 6 digit kode dari authenticator app</p>
+          </div>
+          <div>
+            <label className="block text-sm text-slate-300 mb-1">Kode TOTP</label>
+            <input
+              type="text"
+              value={mfaCode}
+              onChange={e => setMfaCode(e.target.value)}
+              placeholder="000000"
+              maxLength={6}
+              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-blue-500"
+              onKeyDown={async e => {
+                if (e.key === 'Enter' && mfaCode.length === 6) {
+                  const d = await checkMfaLogin(mfaNrp, mfaCode);
+                  if (d.ok && d.mfa_verified) {
+                    navigate('/worker');
+                  } else {
+                    setError(d.msg || 'Kode TOTP salah');
+                  }
+                }
+              }}
+            />
+          </div>
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          <button
+            onClick={async () => {
+              const d = await checkMfaLogin(mfaNrp, mfaCode);
+              if (d.ok && d.mfa_verified) {
+                navigate('/worker');
+              } else {
+                setError(d.msg || 'Kode TOTP salah');
+              }
+            }}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
+          >
+            Verifikasi
+          </button>
+          <button
+            onClick={() => { setLoginStep('otp'); setError(''); }}
+            className="w-full text-slate-400 hover:text-white text-sm py-2"
+          >
+            Kembali
+          </button>
+        </div>
+      )}
+
     </div>
   );
 }

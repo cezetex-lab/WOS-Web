@@ -10,6 +10,7 @@ import PrivacyConsent from './components/PrivacyConsent';
 
 // Core pages (keep eager — loaded on every visit)
 import Home from './pages/Home';
+import MfaSetup from './features/platform/auth/MfaSetup';
 
 // Lazy-loaded pages — loaded only when route is visited
 const Worker = lazy(() => import('./pages/Worker'));
@@ -171,6 +172,7 @@ function AppContent() {
         <Route path="/worker/task-board" element={withNav(TaskBoard)} />
         <Route path="/worker/performance-notes" element={withNav(PerformanceNotes)} />
         <Route path="/worker/change-password" element={withNav(WorkerChangePassword)} />
+        <Route path="/worker/mfa" element={withNav(MfaSetup)} />
         <Route path="/worker/forum" element={withNav(ForumDiskusi)} />
 
         {/* MILL/PKS Routes */}
@@ -257,6 +259,7 @@ function AppContent() {
         <Route path="/admin/simulation" element={withNav(WorkforceSimulation)} />
         <Route path="/admin/turnover" element={withNav(TurnoverPrediction)} />
         <Route path="/admin/reset-password" element={withNav(ResetPassword)} />
+        <Route path="/admin/mfa" element={withNav(MfaSetup)} />
         <Route path="/admin/chain" element={withNav(AuditChainPage)} />
 
         {/* ═══════════ ADMIN — PERENCANAAN ═══════════ */}
