@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { rpc, setSession, getSession, supabase } from '@/lib/supabase-browser';
+import { rpc, setSession, getSession, supabase, syncSupabaseAuth } from '@/lib/supabase-browser';
 
 const MFA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mfa-service`;
 async function checkMfaStatus(nrp) {
@@ -91,12 +91,37 @@ export default function Home() {
     setError('');
     setLoading(true);
     try {
-      const d = await rpc('login_admin', { p_password: adminPass });
-      if (d.ok) {
-        setAdminValidated(true);
-      } else {
-        setError(d.msg || 'Password salah');
+      // V6: Use Supabase Auth directly for admin login
+      const authResult = await syncSupabaseAuth(adminEmail, adminPass);
+      if (!authResult) {
+        setError('Email atau password salah');
+        setLoading(false);
+        return;
       }
+      
+      // Look up employee by auth_id
+      const ctx = await rpc('get_user_context_by_auth_id', { p_auth_id: authResult.user.id });
+      if (!ctx.ok) {
+        setError(ctx.msg || 'Akun tidak ditemukan di sistem');
+        setLoading(false);
+        return;
+      }
+
+      // Check MFA
+      const mfaRes = await checkMfaStatus(ctx.nrp);
+      if (mfaRes?.enabled) {
+        setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, tier: ctx.tier });
+        setMfaNrp(ctx.nrp);
+        setMfaEmail(adminEmail);
+        setMfaContext('admin');
+        setLoginStep('mfa');
+        setLoading(false);
+        return;
+      }
+      
+      // No MFA — direct login
+      setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, tier: ctx.tier });
+      window.location.href = '/admin';
     } catch (err) {
       setError('Koneksi error: ' + err.message);
     }
@@ -166,8 +191,12 @@ export default function Home() {
       const d = await verifyMfaLogin(mfaNrp, cleanCode);
       if (d.mfa_verified) {
         // V6: sync Supabase Auth for gatekeeper RPCs
-        const mfaEmail = mfaContext === 'admin' ? (mfaNrp || 'admin').toLowerCase() + '@insightwos.local' : (mfaNrp || '') + '@insightwos.local';
-        syncSupabaseAuth(mfaEmail, 'mfa-sync-' + mfaNrp);
+        // V6: For admin, Supabase Auth session already established in submitAdminCredentials
+        // For worker, sync now with the worker's Supabase Auth credentials
+        if (mfaContext === 'worker') {
+          const workerEmail = (mfaNrp || '') + '@insightwos.local';
+          syncSupabaseAuth(workerEmail, 'mfa-sync-' + mfaNrp);
+        }
         window.location.href = mfaContext === 'admin' ? '/admin' : '/worker';
       } else {
         setError(d.msg || 'Kode TOTP salah');
@@ -505,38 +534,9 @@ export default function Home() {
         </form>
       )}
 
-      {tab === 'admin' && loginStep === 'credentials' && adminValidated && (
-        <div style={S.form}>
-          <div style={{ ...S.otpInfo, background: '#065f46', borderColor: '#22c55e', color: '#34d399' }}>
-            {'\u2705'} Password diverifikasi. Klik tombol di bawah untuk mendapatkan OTP.
-          </div>
-          <button onClick={requestAdminOtp} style={S.btn} disabled={loading}>{loading ? '...' : '\u{1F511} Minta OTP (via Email)'}</button>
-          <div style={{ textAlign: 'center', marginTop: '8px' }}>
-            <button type="button" style={S.btnBack} onClick={() => { setAdminValidated(false); setError(''); }}>{'←'} Ganti Password</button>
-          </div>
-        </div>
-      )}
+      
 
-      {tab === 'admin' && loginStep === 'otp' && (
-        <form onSubmit={submitAdminOtp} style={S.form}>
-          <div style={S.otpInfo}>Kode OTP admin</div>
-          {otpCode && (
-            <div style={S.otpShow}>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Kode OTP Anda:</div>
-              <div style={S.otpNumber}>{otpCode}</div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>Berlaku 5 menit</div>
-            </div>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <input value={otp} onChange={e => setOtp(e.target.value)} placeholder="000000" style={S.otpInp} maxLength={6} required autoFocus />
-          </div>
-          <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '4px' }}>
-            <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
-            <button type="button" style={S.btnSmall} onClick={resendOtp} disabled={loading}>Kirim Ulang OTP</button>
-          </div>
-        </form>
-      )}
+      
 
       {/* Admin MFA Step */}
       {tab === 'admin' && loginStep === 'mfa' && (

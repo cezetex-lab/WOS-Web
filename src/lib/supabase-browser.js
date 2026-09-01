@@ -36,3 +36,28 @@ export function clearSession() {
     sessionStorage.removeItem('wos_user');
   }
 }
+
+// V6: Sync login to Supabase Auth (needed for auth.uid() in gatekeeper RPCs)
+export async function syncSupabaseAuth(email, password) {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      console.warn('Supabase Auth sync failed:', error.message);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Supabase Auth sync error:', err.message);
+    return null;
+  }
+}
+
+// V6: Get current Supabase Auth user
+export function getAuthUser() {
+  return supabase.auth.getUser();
+}
+
+// V6: Sign out from Supabase Auth
+export async function signOutAuth() {
+  await supabase.auth.signOut();
+}
