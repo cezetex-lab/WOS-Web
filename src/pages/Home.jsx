@@ -131,7 +131,6 @@ export default function Home() {
           setMfaNrp(validatedNrp);
           setMfaContext('worker');
           setLoginStep('mfa');
-          setLoading(false);
           return;
         }
         // No MFA — direct to worker
@@ -149,9 +148,15 @@ export default function Home() {
   async function submitWorkerMfa(e) {
     e.preventDefault();
     setError('');
+    setLoading(false); // Ensure loading is reset
+    const cleanCode = mfaCode.replace(/\s/g, '');
+    if (cleanCode.length !== 6) {
+      setError('Masukkan 6 digit kode TOTP');
+      return;
+    }
     setLoading(true);
     try {
-      const d = await verifyMfaLogin(mfaNrp, mfaCode);
+      const d = await verifyMfaLogin(mfaNrp, cleanCode);
       if (d.mfa_verified) {
         window.location.href = mfaContext === 'admin' ? '/admin' : '/worker';
       } else {
@@ -221,6 +226,8 @@ export default function Home() {
     setOtpCode('');
     setError('');
     setAdminValidated(false);
+    setLoading(false);
+    setMfaCode('');
   }
 
   const S = {
@@ -459,10 +466,10 @@ export default function Home() {
             Masukkan 6 digit kode dari Authenticator App
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <input value={mfaCode} onChange={e => setMfaCode(e.target.value)} placeholder="000000" style={S.otpInp} maxLength={6} required autoFocus />
+            <input value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\s/g, '').slice(0, 6))} placeholder="000000" style={S.otpInp} maxLength={6} required autoFocus />
           </div>
           {error && <div style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', marginTop: '8px' }}>{error}</div>}
-          <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : 'Verifikasi MFA'}</button>
+          <button type="submit" style={S.btn}>Verifikasi</button>
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
             <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
           </div>
