@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "@tanstack/react-query": "^5.102.8",
     "@upstash/redis": "^1.28.0",
     "chart.js": "^4.5.1",
+    "lucide-react": "^1.39.0",
     "posthog-js": "^1.422.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

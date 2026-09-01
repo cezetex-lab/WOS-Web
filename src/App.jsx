@@ -61,6 +61,7 @@ const AuditLog = lazy(() => import('./features/governance/audit/AuditLog'));
 const ExportPage = lazy(() => import('./features/platform/exports/ExportPage'));
 const FeatureFlagsPage = lazy(() => import('./features/platform/settings/FeatureFlagsPage'));
 const Settings = lazy(() => import('./features/platform/settings/Settings'));
+const ModuleManagement = lazy(() => import('./features/platform/configuration/pages/ModuleManagement'));
 const Analytics = lazy(() => import('./features/intelligence/analytics/Analytics'));
 const AuditChainPage = lazy(() => import('./features/governance/audit/AuditChainPage'));
 
@@ -267,6 +268,7 @@ function AppContent() {
         <Route path="/admin/export" element={withNav(ExportPage)} />
         <Route path="/admin/features" element={withNav(FeatureFlagsPage)} />
         <Route path="/admin/settings" element={withNav(Settings)} />
+        <Route path="/admin/modules" element={withNav(ModuleManagement)} />
         <Route path="/admin/analytics" element={withNav(Analytics)} />
         <Route path="/admin/integrations" element={withNav(Integrations)} />
         <Route path="/admin/simulation" element={withNav(WorkforceSimulation)} />
