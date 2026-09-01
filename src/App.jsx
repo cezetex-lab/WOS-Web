@@ -173,6 +173,13 @@ function AppContent() {
         <Route path="/worker/task-board" element={withNav(TaskBoard)} />
         <Route path="/worker/performance-notes" element={withNav(PerformanceNotes)} />
         <Route path="/worker/review-360" element={withNav(WorkerReview360)} />
+        <Route path="/worker/okr" element={withNav(Okrs)} />
+        <Route path="/worker/surveys" element={withNav(SurveyPage)} />
+        <Route path="/worker/voice" element={withNav(VoiceIdeasPage)} />
+        <Route path="/worker/whistleblowing" element={withNav(WhistleblowingPage)} />
+        <Route path="/worker/certifications" element={withNav(CertificationsPage)} />
+        <Route path="/worker/badges" element={withNav(BadgesPage)} />
+        <Route path="/worker/referral" element={withNav(ReferralPage)} />
         <Route path="/worker/change-password" element={withNav(WorkerChangePassword)} />
         <Route path="/worker/mfa" element={withNav(MfaSetup)} />
         <Route path="/worker/forum" element={withNav(ForumDiskusi)} />
