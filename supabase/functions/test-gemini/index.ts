@@ -7,6 +7,13 @@ const corsHeaders = {
 };
 
 serve(async (req: Request) => {
+  // SECURITY: Block in production — test endpoint only
+  if (Deno.env.get("DENO_DEPLOYMENT_ID")) {
+    return new Response(
+      JSON.stringify({ error: "This endpoint is disabled in production" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

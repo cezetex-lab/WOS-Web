@@ -19,6 +19,13 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 serve(async (req) => {
+  // SECURITY: Block in production — migration endpoint only
+  if (Deno.env.get("DENO_DEPLOYMENT_ID")) {
+    return new Response(
+      JSON.stringify({ error: "This endpoint is disabled in production" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
   try {
     const { action, params } = await req.json();
 
