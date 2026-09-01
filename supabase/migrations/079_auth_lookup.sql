@@ -1,6 +1,3 @@
--- Migration 079: Auth lookup RPC for V6 login flow (FIXED)
--- Looks up employee info by Supabase Auth user ID
-
 CREATE OR REPLACE FUNCTION get_user_context_by_auth_id(p_auth_id UUID)
 RETURNS JSONB AS $$
 DECLARE
@@ -21,7 +18,7 @@ BEGIN
   SELECT role, role_level INTO v_role
   FROM user_roles WHERE nrp = v_emp.nrp LIMIT 1;
 
-  SELECT tier, unit_name INTO v_bu
+  SELECT tier, unit_name, unit_code INTO v_bu
   FROM business_units WHERE id = v_emp.business_unit_id;
 
   RETURN jsonb_build_object(
@@ -32,6 +29,7 @@ BEGIN
     'role', COALESCE(v_role.role, 'worker'),
     'role_level', GREATEST(COALESCE(v_role.role_level, 1), COALESCE(v_emp.role_level, 1)),
     'business_unit_id', v_emp.business_unit_id,
+    'unit_code', COALESCE(v_bu.unit_code, 'HQ'),
     'business_unit_name', COALESCE(v_bu.unit_name, ''),
     'tier', COALESCE(v_bu.tier, 0),
     'divisi', v_emp.divisi,

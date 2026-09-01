@@ -110,7 +110,7 @@ export default function Home() {
       // Check MFA
       const mfaRes = await checkMfaStatus(ctx.nrp);
       if (mfaRes?.enabled) {
-        setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, tier: ctx.tier });
+        setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier });
         setMfaNrp(ctx.nrp);
         setMfaEmail(adminEmail);
         setMfaContext('admin');
@@ -120,7 +120,7 @@ export default function Home() {
       }
       
       // No MFA — direct login
-      setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, tier: ctx.tier });
+      setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier });
       window.location.href = '/admin';
     } catch (err) {
       setError('Koneksi error: ' + err.message);
