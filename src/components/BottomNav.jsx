@@ -73,6 +73,16 @@ const ROLE_CONFIG = {
       { to: '/admin/assets', icon: '🛠️', label: 'Aset' },
     ],
   },
+  // Owner: full access (same as admin_pusat)
+  owner: {
+    home: '/admin',
+    items: [
+      { to: '/admin', icon: '🏠', label: 'Beranda' },
+      { to: '/admin/employees', icon: '👥', label: 'Karyawan' },
+      { to: '/admin/requests', icon: '📝', label: 'Pengajuan' },
+      { to: '/admin/modules', icon: '🧩', label: 'Modules' },
+    ],
+  },
   // Backward compat
   admin: {
     home: '/admin',
