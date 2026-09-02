@@ -173,7 +173,7 @@ CREATE POLICY mq_select ON mill_qc_results FOR SELECT USING (TRUE);
 DROP POLICY IF EXISTS wk_all ON hr_tasks;
 DROP POLICY IF EXISTS wk_select ON hr_tasks;
 CREATE POLICY wk_select ON hr_tasks FOR SELECT
-  USING (assigned_to = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
+  USING (assignee_nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
 
 -- Ideas/voice — all authenticated
 DROP POLICY IF EXISTS vi_all ON hr_voice;
