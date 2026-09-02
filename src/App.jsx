@@ -12,6 +12,7 @@ import SessionGuard from './components/SessionGuard';
 
 // Core pages (keep eager — loaded on every visit)
 import Home from './pages/Home';
+import OwnerLogin from './pages/OwnerLogin';
 import MfaSetup from './features/platform/auth/MfaSetup';
 
 // Lazy-loaded pages — loaded only when route is visited
@@ -163,6 +164,7 @@ function AppContent() {
       <Routes>
         {/* LOGIN */}
         <Route path="/" element={<Home />} />
+        <Route path="/owner" element={<OwnerLogin />} />
 
         {/* ═══════════ WORKER ═══════════ */}
         <Route path="/worker" element={withNav(Worker)} />
