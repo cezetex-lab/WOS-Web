@@ -13,7 +13,7 @@ export default function MasterDataPage() {
     try {
       const result = await rpc('admin_get_master_data');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error('Failed to load master data:', e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

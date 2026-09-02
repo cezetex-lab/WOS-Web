@@ -45,9 +45,7 @@ export default function PerformanceTrend() {
         const perf = await rpc('get_worker_kpi', { p_nrp: nrp });
         setPerfData(perf?.data || perf || []);
       }
-    } catch (err) {
-      console.error('Failed to load perf data:', err);
-    }
+    } catch (err) { }
     setLoading(false);
   }, [nrp, role]);
 

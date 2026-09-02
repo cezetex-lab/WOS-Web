@@ -38,7 +38,7 @@ export default function WorkerLearning() {
       const data = Array.isArray(result) ? result
         : result?.data && Array.isArray(result.data) ? result.data : [];
       setLearning(data);
-    } catch (err) { console.error('Failed to load learning:', err); }
+    } catch (err) { }
     setLoading(false);
   }, [nrp]);
 

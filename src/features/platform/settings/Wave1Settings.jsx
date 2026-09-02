@@ -25,9 +25,7 @@ export default function Wave1Settings() {
     try {
       const { data } = await rpc('get_pkwt_expiry_alert');
       setPkwtAlerts(data?.data || []);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { }
     setLoading(false);
   }
 

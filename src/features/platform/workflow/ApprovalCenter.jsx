@@ -32,7 +32,7 @@ export default function ApprovalCenter() {
       // Fetch all requests (admin can see all)
       const { data } = await supabase.rpc('get_worker_requests');
       setRequests(data || []);
-    } catch (err) { console.error(err); }
+    } catch (err) { }
     setLoading(false);
   }, []);
 
@@ -48,7 +48,7 @@ export default function ApprovalCenter() {
       });
       fetchRequests();
       setSelectedRequest(null);
-    } catch (err) { console.error(err); }
+    } catch (err) { }
     setProcessing(false);
   };
 
@@ -63,7 +63,7 @@ export default function ApprovalCenter() {
       });
       fetchRequests();
       setSelectedRequest(null);
-    } catch (err) { console.error(err); }
+    } catch (err) { }
     setProcessing(false);
   };
 

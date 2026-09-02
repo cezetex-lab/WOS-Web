@@ -23,7 +23,7 @@ export default function LeaveManagement() {
       const data = Array.isArray(result) ? result
         : result?.data && Array.isArray(result.data) ? result.data : [];
       setLeaveData(data);
-    } catch (err) { console.error('Failed to load leave:', err); }
+    } catch (err) { }
     setLoading(false);
   }, []);
 

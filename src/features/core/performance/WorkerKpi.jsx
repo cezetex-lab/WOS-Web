@@ -17,7 +17,7 @@ export default function WorkerKpi() {
       const result = await rpc('get_worker_kpi', { p_nrp: nrp });
       setData(Array.isArray(result) ? result : result?.data || []);
       if (result?.profile) setProfile(result.profile);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, [nrp]);
 

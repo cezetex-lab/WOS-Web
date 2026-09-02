@@ -90,9 +90,7 @@ export default function Admin() {
         // 4. Anomaly Sentinel
         const { data: anomalyData } = await supabase.rpc('get_anomaly_sentinel');
         setAnomalies(anomalyData?.data || []);
-      } catch (e) {
-        console.error('Admin dashboard error:', e);
-      }
+      } catch (e) { }
       setLoading(false);
     };
     fetchData();

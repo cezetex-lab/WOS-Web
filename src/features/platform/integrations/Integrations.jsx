@@ -64,7 +64,7 @@ export default function Integrations() {
       if (whl?.data?.ok) setWebhookLogs(whl.data.data || []);
       if (sso?.data?.ok) setSsoProviders(sso.data.data || []);
       if (en?.data?.ok) setExtNotifs(en.data.data || []);
-    } catch (e) { console.warn('Integrations fetch error:', e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -79,14 +79,14 @@ export default function Integrations() {
       setNewWhUrl('');
       setNewWhEvents([]);
       fetchData();
-    } catch (e) { console.warn('Create webhook error:', e); }
+    } catch (e) { }
   };
 
   const toggleWebhook = async (id, active) => {
     try {
       await supabase.rpc('admin_toggle_webhook', { p_id: id, p_active: !active });
       fetchData();
-    } catch (e) { console.warn('Toggle webhook error:', e); }
+    } catch (e) { }
   };
 
   const deleteWebhook = async (id) => {
@@ -94,7 +94,7 @@ export default function Integrations() {
     try {
       await supabase.rpc('admin_delete_webhook', { p_id: id });
       fetchData();
-    } catch (e) { console.warn('Delete webhook error:', e); }
+    } catch (e) { }
   };
 
   const toggleEvent = (key) => {

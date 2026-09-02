@@ -114,7 +114,6 @@ export async function cachedRpc(fn, params = {}, ttlSeconds = DEFAULT_TTL) {
   // Call RPC
   const { data, error } = await supabase.rpc(fn, params);
   if (error) {
-    console.error(`cachedRpc ${fn} error:`, error);
     return { ok: false, msg: error.message };
   }
 
@@ -177,9 +176,7 @@ export async function serverCacheSet(key, value, ttlSeconds = 300) {
       p_value: JSON.stringify(value),
       p_ttl: ttlSeconds,
     });
-  } catch (e) {
-    console.error('serverCacheSet error:', e);
-  }
+  } catch (e) { }
 }
 
 // ──────────────────────────────────────────────────────────────

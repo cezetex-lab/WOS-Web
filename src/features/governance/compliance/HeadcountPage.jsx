@@ -12,7 +12,7 @@ export default function HeadcountPage() {
     try {
       const result = await rpc('get_workforce_planning');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

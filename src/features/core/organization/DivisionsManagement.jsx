@@ -14,7 +14,7 @@ export default function DivisionsManagement() {
     try {
       const result = await rpc('admin_get_divisions');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error('Failed to load divisions:', e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

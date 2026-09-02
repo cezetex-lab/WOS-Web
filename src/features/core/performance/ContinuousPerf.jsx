@@ -32,9 +32,7 @@ export default function ContinuousPerf() {
       const items = result?.data || result || [];
       // Filter for performance check-in activities
       setCheckins(Array.isArray(items) ? items.filter(i => (i.type || '').toLowerCase().includes('checkin') || (i.type || '').toLowerCase().includes('performance')) : []);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { }
     setLoading(false);
   }, [nrp]);
 

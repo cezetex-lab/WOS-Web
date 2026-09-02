@@ -13,7 +13,7 @@ export default function TalentMarketPage() {
     try {
       const result = await rpc('get_talent_marketplace');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

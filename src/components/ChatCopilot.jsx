@@ -211,7 +211,6 @@ export default function ChatCopilot({ context = 'general' }) {
 
       if (!isOpen) setUnread(prev => prev + 1);
     } catch (error) {
-      console.error('Copilot error:', error);
       const errorMsg = {
         id: Date.now() + 1,
         text: `❌ Maaf, terjadi kesalahan: ${error.message}\n\nCoba lagi dalam beberapa saat.`,

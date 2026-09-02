@@ -45,7 +45,7 @@ export default function IncentiveCalc() {
       try {
         const { data } = await supabase.rpc('get_incentives', { p_nrp: nrp });
         if (data) setIncentives(data);
-      } catch (e2) { console.warn('Incentive fetch error:', e2); }
+      } catch (e2) { }
     }
     setLoading(false);
   }, [nrp]);
@@ -62,7 +62,7 @@ export default function IncentiveCalc() {
       } else {
         alert('⚠️ Gagal menghitung incentive: ' + (data?.error || 'Unknown error'));
       }
-    } catch (e) { console.warn('Calculate error:', e); }
+    } catch (e) { }
     setCalculating(false);
   };
 

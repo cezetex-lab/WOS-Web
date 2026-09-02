@@ -71,7 +71,6 @@ serve(async (req: Request) => {
         }, { onConflict: "endpoint" });
 
       if (error) {
-        console.error("Save subscription error:", error);
         return new Response(
           JSON.stringify({ error: "Failed to save subscription" }),
           { status: 500, headers: { "Content-Type": "application/json" } }
@@ -124,10 +123,8 @@ serve(async (req: Request) => {
           // Use web-push compatible format
           // In production, use proper VAPID signing with ECDSA
           // For now, we log the push intent (needs web-push library for actual sending)
-          console.log(`Push to ${sub.nrp}: ${title} — ${message}`);
           sent++;
         } catch (e) {
-          console.error(`Push failed for ${sub.nrp}:`, e);
           // Remove invalid subscription
           await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
         }
@@ -149,7 +146,6 @@ serve(async (req: Request) => {
 
     return new Response("Not found", { status: 404 });
   } catch (e) {
-    console.error("Push subscriber error:", e);
     return new Response(
       JSON.stringify({ error: "Internal error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

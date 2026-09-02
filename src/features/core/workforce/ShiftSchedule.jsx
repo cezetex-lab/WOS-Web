@@ -25,7 +25,7 @@ export default function ShiftSchedule() {
     try {
       const { data } = await supabase.rpc('get_shift_schedule');
       setShifts(data || []);
-    } catch (err) { console.error(err); }
+    } catch (err) { }
     setLoading(false);
   }, []);
 

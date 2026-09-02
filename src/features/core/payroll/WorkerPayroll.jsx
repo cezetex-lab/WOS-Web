@@ -16,7 +16,7 @@ export default function WorkerPayroll() {
     try {
       const result = await rpc('get_worker_payroll', { p_nrp: nrp });
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, [nrp]);
 

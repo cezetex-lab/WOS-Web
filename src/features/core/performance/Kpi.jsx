@@ -143,9 +143,7 @@ export default function Kpi() {
       } else if (lowResult?.data && Array.isArray(lowResult.data)) {
         setLowPerformers(lowResult.data);
       }
-    } catch (err) {
-      console.error('Failed to load KPI data:', err);
-    }
+    } catch (err) { }
     setLoading(false);
   }, []);
 

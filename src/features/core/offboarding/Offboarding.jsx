@@ -53,7 +53,7 @@ export default function Offboarding() {
       if (ei?.ok) setExitInterviews(ei.data || []);
       const { data: st } = await supabase.rpc('admin_get_settlements');
       if (st?.ok) setSettlements(st.data || []);
-    } catch (e) { console.warn('Offboarding fetch error:', e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -67,7 +67,7 @@ export default function Offboarding() {
         (data.data || []).forEach(item => { map[item.step] = item.status; });
         setChecklist(map);
       }
-    } catch (e) { console.warn('Checklist fetch error:', e); }
+    } catch (e) { }
   };
 
   const handleShowDetail = async (emp) => {

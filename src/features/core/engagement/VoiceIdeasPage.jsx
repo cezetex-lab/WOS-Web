@@ -23,7 +23,7 @@ export default function VoiceIdeasPage() {
     try {
       const result = await rpc('list_ideas');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -38,7 +38,7 @@ export default function VoiceIdeasPage() {
       await rpc('submit_idea', { p_nrp: nrp, p_title: newTitle, p_description: newDesc, p_category: newCategory });
       setNewTitle(''); setNewDesc(''); setNewCategory('Umum'); setShowSubmit(false);
       fetchData();
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const handleStatusUpdate = async (idea, newStatus) => {
@@ -47,14 +47,14 @@ export default function VoiceIdeasPage() {
       await rpc('admin_update_idea_status', { p_idea_id: idea.id, p_status: newStatus });
       setData(data.map(r => r.id === idea.id ? { ...r, status: newStatus } : r));
       setSelected(null);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const handleVote = async (idea) => {
     try {
       await rpc('vote_idea', { p_idea_id: idea.id });
       setData(data.map(r => r.id === idea.id ? { ...r, votes: (r.votes || 0) + 1 } : r));
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const columns = [

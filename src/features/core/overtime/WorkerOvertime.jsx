@@ -50,7 +50,6 @@ export default function WorkerOvertime() {
       const items = result?.data || result || [];
       setOvertime(Array.isArray(items) ? items : []);
     } catch (err) {
-      console.error('Overtime RPC failed:', err);
       setOvertime([]);
     }
     setLoading(false);

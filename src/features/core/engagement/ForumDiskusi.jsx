@@ -21,7 +21,7 @@ export default function ForumDiskusi() {
     try {
       const result = await rpc('get_forum_posts');
       setPosts(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -35,7 +35,7 @@ export default function ForumDiskusi() {
       setNewTitle('');
       setNewContent('');
       fetchData();
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const sendReply = async () => {
@@ -44,7 +44,7 @@ export default function ForumDiskusi() {
       await rpc('reply_forum_post', { p_post_id: selected.id, p_nrp: nrp, p_content: replyContent });
       setReplyContent('');
       fetchData();
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const categories = ['Umum', 'KPI', 'Kebijakan', 'Saran', 'K3'];

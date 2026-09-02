@@ -35,7 +35,7 @@ export default function WorkerAttendance() {
       const data = Array.isArray(result) ? result
         : result?.data && Array.isArray(result.data) ? result.data : [];
       setRecords(data);
-    } catch (err) { console.error('Failed to load attendance:', err); }
+    } catch (err) { }
     setLoading(false);
   }, [nrp]);
 

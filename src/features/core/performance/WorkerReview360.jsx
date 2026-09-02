@@ -18,7 +18,7 @@ export default function WorkerReview360() {
       const d = result || {};
       setData(d.summary || {});
       setReviews(d.reviews || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, [nrp]);
 

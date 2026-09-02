@@ -13,7 +13,7 @@ export default function OvertimeManagement() {
     try {
       const result = await rpc('admin_get_overtime');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -24,7 +24,7 @@ export default function OvertimeManagement() {
       await rpc('admin_approve_request', { p_request_id: row.id, p_type: 'overtime' });
       setData(data.map(r => r.id === row.id ? { ...r, status: 'Approved' } : r));
       setSelected(null);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const handleReject = async (row) => {
@@ -32,7 +32,7 @@ export default function OvertimeManagement() {
       await rpc('admin_reject_request', { p_request_id: row.id, p_type: 'overtime' });
       setData(data.map(r => r.id === row.id ? { ...r, status: 'Rejected' } : r));
       setSelected(null);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const totalHours = data.reduce((s, r) => s + (parseFloat(r.hours || r.jam || 0)), 0);

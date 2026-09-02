@@ -12,7 +12,7 @@ export default function AuditChainPage() {
     try {
       const result = await rpc('admin_get_audit_chain');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

@@ -20,7 +20,7 @@ export default function RoleMatrixPage() {
     try {
       const result = await rpc('admin_get_role_matrix');
       setRoles(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error('Failed to load role matrix:', e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

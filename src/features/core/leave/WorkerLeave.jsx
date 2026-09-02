@@ -20,9 +20,7 @@ export default function WorkerLeave() {
       ]);
       if (leaveRes?.ok) setLeaveData(leaveRes);
       if (reqRes?.ok) setRequests(reqRes.data || []);
-    } catch (e) {
-      console.error('Worker leave error:', e);
-    }
+    } catch (e) { }
     setLoading(false);
   }
 

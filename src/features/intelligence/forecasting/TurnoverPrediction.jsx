@@ -46,7 +46,7 @@ export default function TurnoverPrediction() {
       if (pred?.data?.ok) setPredictions(pred.data.data || []);
       if (fr?.data?.ok) setFlightRisks(fr.data.data || []);
       if (ew?.data?.ok) setEarlyWarnings(ew.data.data || []);
-    } catch (e) { console.warn('Turnover fetch error:', e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

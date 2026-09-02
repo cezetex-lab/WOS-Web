@@ -53,7 +53,7 @@ export default function WorkforceSimulation() {
       // Try to get past simulations
       const { data } = await supabase.rpc('get_simulations');
       if (data) setSimulations(data);
-    } catch (e) { console.warn('Sim fetch error:', e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -102,7 +102,6 @@ export default function WorkforceSimulation() {
         });
       }
     } catch (e) {
-      console.warn('Simulation error:', e);
       setResult({ error: 'Gagal menjalankan simulasi' });
     }
     setSimulating(false);

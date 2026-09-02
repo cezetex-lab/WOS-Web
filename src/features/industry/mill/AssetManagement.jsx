@@ -55,7 +55,7 @@ export default function AssetManagement() {
       if (a1?.ok) setAssets(a1.data || []);
       const { data: a2 } = await supabase.rpc('admin_get_asset_assignments');
       if (a2?.ok) setAssignments(a2.data || []);
-    } catch (e) { console.warn('Asset fetch error:', e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -66,7 +66,7 @@ export default function AssetManagement() {
       await supabase.rpc('checkout_asset', { p_asset_id: assetId, p_nrp: nrp });
       setShowCheckout(null);
       fetchAssets();
-    } catch (e) { console.warn('Checkout error:', e); }
+    } catch (e) { }
   };
 
   const handleCheckin = async (assetId) => {
@@ -75,7 +75,7 @@ export default function AssetManagement() {
       setShowCheckin(null);
       setCondition('good');
       fetchAssets();
-    } catch (e) { console.warn('Checkin error:', e); }
+    } catch (e) { }
   };
 
   const filtered = catFilter === 'all' ? assets : assets.filter(a => a.category === catFilter);

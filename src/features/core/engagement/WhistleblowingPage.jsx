@@ -21,7 +21,7 @@ export default function WhistleblowingPage() {
     try {
       const result = await rpc('get_whistleblowers');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -36,7 +36,7 @@ export default function WhistleblowingPage() {
       await rpc('submit_whistleblower', { p_category: newCategory, p_desc: newDesc });
       setNewDesc(''); setShowSubmit(false);
       fetchData();
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const columns = [

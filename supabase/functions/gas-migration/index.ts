@@ -69,7 +69,6 @@ serve(async (req) => {
               .eq("id", notif.id);
             sent++;
           } catch (e) {
-            console.error(`Failed to send notification ${notif.id}:`, e);
           }
         }
 

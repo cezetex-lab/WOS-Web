@@ -35,9 +35,7 @@ export default function WorkerProfile() {
         email: p.email || '',
         tanggal_lahir: p.tanggal_lahir || p.birth_date || '',
       });
-    } catch (err) {
-      console.error('Failed to load profile:', err);
-    }
+    } catch (err) { }
     setLoading(false);
   }, [nrp]);
 
@@ -56,7 +54,6 @@ export default function WorkerProfile() {
       setEditing(false);
       fetchProfile();
     } catch (err) {
-      console.error('Failed to save profile:', err);
       toast.error('Gagal memperbarui profil');
     }
     setSaving(false);
@@ -193,7 +190,7 @@ function SupervisorInfo({ nrp }) {
           const supResult = await rpc('get_worker_profile', { p_nrp: result.atasan_nrp });
           setSupervisor(supResult);
         }
-      } catch (e) { console.warn('Supervisor load failed:', e); }
+      } catch (e) { }
     };
     load();
   }, [nrp]);

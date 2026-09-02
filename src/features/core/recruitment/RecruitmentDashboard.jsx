@@ -19,7 +19,7 @@ export default function RecruitmentDashboard() {
       ]);
       setVacancies(Array.isArray(v) ? v : v?.data || []);
       setCandidates(Array.isArray(c) ? c : c?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

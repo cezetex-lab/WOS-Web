@@ -57,9 +57,7 @@ export default function Employees() {
       if (statsResult && typeof statsResult === 'object') {
         setStats(statsResult);
       }
-    } catch (err) {
-      console.error('Failed to load employees:', err);
-    }
+    } catch (err) { }
     setLoading(false);
   }, []);
 

@@ -12,7 +12,7 @@ export default function BudgetPage() {
     try {
       const result = await rpc('admin_get_budget');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

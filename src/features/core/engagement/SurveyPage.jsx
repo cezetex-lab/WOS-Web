@@ -59,7 +59,7 @@ export default function SurveyPage() {
       const fn = role === 'admin' ? 'admin_get_surveys' : 'get_active_surveys';
       const { data } = await supabase.rpc(fn);
       if (data?.ok) setSurveys(data.data || []);
-    } catch (e) { console.warn('Survey fetch error:', e); }
+    } catch (e) { }
     setLoading(false);
   }, [role]);
 
@@ -69,7 +69,7 @@ export default function SurveyPage() {
     try {
       const { data } = await supabase.rpc('get_survey_results', { p_survey_id: surveyId });
       if (data?.ok) setResults(data);
-    } catch (e) { console.warn('Survey results error:', e); }
+    } catch (e) { }
   };
 
   const submitSurvey = async () => {
@@ -85,7 +85,7 @@ export default function SurveyPage() {
         setScore(7);
         alert('✅ Terima kasih sudah mengisi survei!');
       }
-    } catch (e) { console.warn('Submit survey error:', e); }
+    } catch (e) { }
     setSubmitting(false);
   };
 

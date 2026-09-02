@@ -8,7 +8,6 @@
  */
 export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) {
-    console.warn('Service Workers not supported');
     return null;
   }
 
@@ -16,10 +15,8 @@ export async function registerServiceWorker() {
     const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/',
     });
-    console.log('[Push] Service Worker registered:', registration.scope);
     return registration;
   } catch (e) {
-    console.warn('[Push] SW registration failed:', e);
     return null;
   }
 }
@@ -74,11 +71,8 @@ export async function subscribeToPush(vapidPublicKey) {
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       });
     }
-
-    console.log('[Push] Subscribed:', subscription.endpoint);
     return subscription;
   } catch (e) {
-    console.warn('[Push] Subscribe failed:', e);
     return null;
   }
 }
@@ -93,12 +87,10 @@ export async function unsubscribeFromPush() {
 
     if (subscription) {
       await subscription.unsubscribe();
-      console.log('[Push] Unsubscribed');
       return true;
     }
     return false;
   } catch (e) {
-    console.warn('[Push] Unsubscribe failed:', e);
     return false;
   }
 }
@@ -120,9 +112,7 @@ export function sendLocalNotification(title, options = {}) {
       vibrate: [200, 100, 200],
       ...options,
     });
-  } catch (e) {
-    console.warn('[Push] Local notification error:', e);
-  }
+  } catch (e) { }
 }
 
 /**
@@ -152,7 +142,6 @@ export async function initPushNotifications() {
     // Already subscribed — check
     const existing = await registration.pushManager.getSubscription();
     if (existing) {
-      console.log('[Push] Already subscribed');
     }
   }
 

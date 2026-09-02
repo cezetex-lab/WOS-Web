@@ -41,7 +41,6 @@ export default function ModuleManagement() {
     if (!buId) { console.error('No buId for', code); return; }
     setToggling(code);
     const result = await rpc('owner_toggle_lock', { p_module_code: code, p_enable: !enabled, p_bu_id: buId });
-    console.log('[Toggle]', code, '->', result);
     await loadAllData();
     setToggling(null);
   }

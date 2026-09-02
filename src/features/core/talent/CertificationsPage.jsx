@@ -22,7 +22,7 @@ export default function CertificationsPage() {
         const result = await rpc('get_worker_certifications', { p_nrp: nrp });
         setData(Array.isArray(result) ? result : result?.data || []);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, [isAdmin, nrp]);
 

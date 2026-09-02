@@ -78,7 +78,6 @@ serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
-    console.error("AI Copilot error:", error);
     return new Response(
       JSON.stringify({ error: error.message || "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -127,7 +126,6 @@ async function callGemini(
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          console.log(`Gemini ${model} OK`);
           return text;
         }
       } else {
@@ -135,7 +133,6 @@ async function callGemini(
         console.warn(`${model} ${res.status}:`, (err as any).error?.message || res.status);
       }
     } catch (e) {
-      console.warn(`${model} error:`, e);
     }
   }
 
@@ -357,7 +354,6 @@ async function fetchDatabaseData(supabase: any, message: string, context: string
     } catch (_e) {}
 
   } catch (e) {
-    console.warn("DB fetch error:", e);
   }
 
   return parts.length > 0 ? parts.join("\n\n") : "Tidak ada data spesifik yang tersedia.";

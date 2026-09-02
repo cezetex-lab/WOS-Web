@@ -40,7 +40,7 @@ export default function DashboardPage() {
       const r = await Promise.all([rpc('get_dashboard_stats'), rpc('get_team_data', { p_nrp: nrp }), rpc('get_team_requests', { p_nrp: nrp }), rpc('get_executive_summary'), rpc('get_team_narrative', { p_nrp: nrp }), rpc('get_early_warning')]);
       const [s, t, tr, es, tn, ew] = r;
       if (s?.ok) setStats(s); if (t?.ok && t.data) setTeam(t.data); if (tr?.ok && tr.data) setTeamRequests(tr.data); if (es?.ok) setExecSummary(es); if (tn?.ok) setTeamNarrative(tn); if (ew?.ok && ew.data) setEarlyWarning(ew.data);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }
 

@@ -58,7 +58,7 @@ export default function Okrs() {
     try {
       const { data } = await supabase.rpc('get_my_okrs', { p_nrp: nrp });
       if (data?.ok) setOkrs(data.data || []);
-    } catch (e) { console.warn('OKR fetch error:', e); }
+    } catch (e) { }
     setLoading(false);
   }, [nrp]);
 
@@ -66,7 +66,7 @@ export default function Okrs() {
     try {
       const { data } = await supabase.rpc('admin_get_okr');
       if (data?.ok) setAdminOkrs(data.data || []);
-    } catch (e) { console.warn('Admin OKR fetch error:', e); }
+    } catch (e) { }
   }, []);
 
   useEffect(() => { fetchMyOkrs(); if (role === 'admin') fetchAdminOkrs(); }, [fetchMyOkrs, fetchAdminOkrs, role]);
@@ -89,7 +89,7 @@ export default function Okrs() {
         setKrList([]);
         fetchMyOkrs();
       }
-    } catch (e) { console.warn('Create OKR error:', e); }
+    } catch (e) { }
   };
 
   const addKrToList = () => {

@@ -11,7 +11,6 @@ export async function rpc(fn, params = {}) {
   // Rate limit check
   const { allowed, retryAfter } = checkRateLimit(fn);
   if (!allowed) {
-    console.warn(`Rate limited: ${fn} — retry in ${retryAfter}s`);
     return { ok: false, msg: `Rate limited. Retry in ${retryAfter}s.` };
   }
 

@@ -80,9 +80,7 @@ export default function Payroll() {
       if (summaryResult && typeof summaryResult === 'object') {
         setSummary(summaryResult);
       }
-    } catch (err) {
-      console.error('Failed to load payroll:', err);
-    }
+    } catch (err) { }
     setLoading(false);
   }, [period]);
 

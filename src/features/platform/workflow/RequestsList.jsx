@@ -36,7 +36,7 @@ export default function RequestsList() {
       const data = Array.isArray(result) ? result
         : result?.data && Array.isArray(result.data) ? result.data : [];
       setRequests(data);
-    } catch (err) { console.error('Failed to load requests:', err); }
+    } catch (err) { }
     setLoading(false);
   }, []);
 
@@ -52,7 +52,7 @@ export default function RequestsList() {
       });
       setSelected(null);
       fetchRequests();
-    } catch (err) { console.error(err); }
+    } catch (err) { }
     setProcessing(false);
   };
 
@@ -69,7 +69,7 @@ export default function RequestsList() {
       setRejectNote('');
       setShowRejectInput(false);
       fetchRequests();
-    } catch (err) { console.error(err); }
+    } catch (err) { }
     setProcessing(false);
   };
 

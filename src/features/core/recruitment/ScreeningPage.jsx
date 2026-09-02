@@ -12,7 +12,7 @@ export default function ScreeningPage() {
     try {
       const result = await rpc('get_screening_results');
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 

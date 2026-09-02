@@ -20,7 +20,7 @@ export default function ApprovalWorkflow() {
     try {
       const result = await rpc('get_worker_requests');
       setRequests(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -41,7 +41,7 @@ export default function ApprovalWorkflow() {
       await rpc('process_request', { p_request_id: req.id, p_action: 'approve' });
       setRequests(requests.map(r => r.id === req.id ? { ...r, status: 'Approved' } : r));
       setSelected(null);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const handleReject = async (req) => {
@@ -49,7 +49,7 @@ export default function ApprovalWorkflow() {
       await rpc('process_request', { p_request_id: req.id, p_action: 'reject' });
       setRequests(requests.map(r => r.id === req.id ? { ...r, status: 'Rejected' } : r));
       setSelected(null);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   if (loading) return <PageLayout backTo="/admin" title="Approval"><LoadingSpinner text="Memuat approval..." /></PageLayout>;

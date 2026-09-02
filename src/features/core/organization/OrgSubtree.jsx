@@ -23,7 +23,6 @@ export default function OrgSubtree() {
       const items = result?.data || result || [];
       setOrgData(Array.isArray(items) ? items : []);
     } catch (err) {
-      console.error('OrgSubtree RPC failed:', err);
       setOrgData([]);
     }
     setLoading(false);

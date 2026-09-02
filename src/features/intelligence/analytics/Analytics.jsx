@@ -45,7 +45,7 @@ export default function Analytics() {
       setTeamKpi(k?.data || k || []);
       setPayroll(p?.data || p || []);
       setAttendance(a?.data || a || []);
-    } catch (err) { console.error(err); }
+    } catch (err) { }
     setLoading(false);
   }, []);
 

@@ -122,9 +122,7 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
       } else {
         setData([]);
       }
-    } catch (err) {
-      console.error(`Failed to load ${pageKey}:`, err);
-    }
+    } catch (err) { }
     setLoading(false);
   }, [pageKey, nrp]);
 
@@ -290,14 +288,14 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
               await rpc(`${config.rpc.replace('get', 'approve')}`, { p_id: selected.id, p_status: 'Approved' });
               setData(data.filter(r => r.id !== selected.id));
               setSelected(null);
-            } catch (e) { console.error(e); }
+            } catch (e) { }
           } : null}
           onReject={config?.hasActions ? async () => {
             try {
               await rpc(`${config.rpc.replace('get', 'approve')}`, { p_id: selected.id, p_status: 'Rejected' });
               setData(data.filter(r => r.id !== selected.id));
               setSelected(null);
-            } catch (e) { console.error(e); }
+            } catch (e) { }
           } : null}
         />
       )}

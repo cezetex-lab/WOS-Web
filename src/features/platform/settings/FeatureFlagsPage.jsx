@@ -12,7 +12,7 @@ export default function FeatureFlagsPage() {
     try {
       const result = await rpc('admin_get_feature_flags');
       setFlags(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -22,7 +22,7 @@ export default function FeatureFlagsPage() {
     try {
       await rpc('admin_set_feature_flag', { p_flag: flag.flag || flag.key || flag.name, p_enabled: !flag.enabled });
       setFlags(flags.map(f => f.id === flag.id ? { ...f, enabled: !f.enabled } : f));
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   const enabledCount = flags.filter(f => f.enabled).length;

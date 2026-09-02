@@ -13,7 +13,6 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('ErrorBoundary caught:', error, errorInfo);
     this.setState({ errorInfo });
     // Report to PostHog if available
     try {

@@ -27,9 +27,7 @@ export default function CompensationIntel() {
       ]);
       setPayroll(p?.data || p || []);
       setBenefits(b?.data || b || []);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { }
     setLoading(false);
   }, [nrp]);
 

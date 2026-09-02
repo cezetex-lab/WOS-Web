@@ -20,7 +20,7 @@ export default function PipelineKanban() {
     try {
       const result = await rpc('get_candidate_pipeline');
       setCandidates(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, []);
 
@@ -30,7 +30,7 @@ export default function PipelineKanban() {
     try {
       await rpc('move_candidate', { p_id: id, p_stage: newStage });
       setCandidates(candidates.map(c => c.id === id ? { ...c, stage: newStage } : c));
-    } catch (e) { console.error(e); }
+    } catch (e) { }
   };
 
   if (loading) return <PageLayout backTo="/admin" title="Pipeline"><LoadingSpinner text="Memuat pipeline..." /></PageLayout>;

@@ -25,7 +25,6 @@ export default function OrgChart() {
       const items = result?.data || result || [];
       setOrgData(Array.isArray(items) ? items : []);
     } catch (err) {
-      console.error('OrgChart RPC failed:', err);
       setOrgData([]);
     }
     setLoading(false);

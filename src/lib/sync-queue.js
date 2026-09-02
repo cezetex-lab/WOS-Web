@@ -21,9 +21,7 @@ export function enqueue(op) {
       timestamp: new Date().toISOString(),
     });
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-  } catch (e) {
-    console.warn('Sync queue enqueue error:', e);
-  }
+  } catch (e) { }
 }
 
 /**
@@ -44,9 +42,7 @@ function dequeue(id) {
   try {
     const queue = getQueue().filter(op => op.id !== id);
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-  } catch (e) {
-    console.warn('Sync queue dequeue error:', e);
-  }
+  } catch (e) { }
 }
 
 /**
@@ -77,7 +73,6 @@ export async function processQueue(rpcFn) {
         if (op.retries >= MAX_RETRIES) {
           dequeue(op.id);
           failed++;
-          console.warn(`Sync queue: max retries for ${op.rpc}`, error);
         }
       }
     } catch {
@@ -109,14 +104,11 @@ if (typeof window !== 'undefined') {
   window.addEventListener('online', async () => {
     const count = getQueueCount();
     if (count > 0) {
-      console.log(`[SyncQueue] Back online — processing ${count} queued operations`);
       // Import supabase dynamically to avoid circular deps
       try {
         const { supabase } = await import('./supabase-browser');
         await processQueue((rpc, params) => supabase.rpc(rpc, params));
-      } catch (e) {
-        console.warn('[SyncQueue] Auto-process error:', e);
-      }
+      } catch (e) { }
     }
   });
 }

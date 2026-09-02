@@ -32,9 +32,7 @@ export default function ResetPassword() {
         const data = await rpc('admin_get_employees');
         const list = Array.isArray(data) ? data : data?.data || [];
         setEmployees(list);
-      } catch (e) {
-        console.error('Failed to load employees:', e);
-      }
+      } catch (e) { }
       setLoading(false);
     })();
   }, []);

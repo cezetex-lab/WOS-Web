@@ -52,7 +52,7 @@ export default function PerformanceNotes() {
     try {
       const { data } = await supabase.rpc('get_performance_notes', { p_nrp: nrp });
       if (data?.ok) setNotes(data.data || []);
-    } catch (e) { console.warn('Notes fetch error:', e); }
+    } catch (e) { }
     setLoading(false);
   }, [nrp]);
 
@@ -74,7 +74,7 @@ export default function PerformanceNotes() {
         setTargetNrp('');
         fetchNotes();
       }
-    } catch (e) { console.warn('Add note error:', e); }
+    } catch (e) { }
     setSubmitting(false);
   };
 

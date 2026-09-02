@@ -16,7 +16,7 @@ export default function WorkerActivities() {
     try {
       const result = await rpc('get_worker_activities', { p_nrp: nrp });
       setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { }
     setLoading(false);
   }, [nrp]);
 

@@ -31,7 +31,7 @@ export default function TaskBoard() {
           done: data.done || [],
         });
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { }
     setLoading(false);
   }, [nrp]);
 
@@ -47,7 +47,7 @@ export default function TaskBoard() {
       });
       setNewTitle('');
       fetchTasks();
-    } catch (err) { console.error(err); }
+    } catch (err) { }
     setAdding(false);
   };
 
@@ -55,7 +55,7 @@ export default function TaskBoard() {
     try {
       await supabase.rpc('update_task_status', { p_task_id: taskId, p_status: newStatus });
       fetchTasks();
-    } catch (err) { console.error(err); }
+    } catch (err) { }
   };
 
   const moveToNext = (currentStatus) => {
