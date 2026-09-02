@@ -37,9 +37,9 @@ export default function ModuleManagement() {
     setLoading(false);
   }
 
-  async function toggleLock(code, enabled) {
+  async function toggleLock(code, enabled, buId) {
     setToggling(code);
-    await rpc('owner_toggle_lock', { p_module_code: code, p_enable: !enabled });
+    await rpc('owner_toggle_lock', { p_module_code: code, p_enable: !enabled, p_bu_id: buId });
     await loadAllData();
     setToggling(null);
   }
@@ -79,7 +79,7 @@ export default function ModuleManagement() {
             {mods.map(m=>(
               <div key={m.module_code} className={"border rounded-lg p-4 flex items-center justify-between "+(m.is_enabled?'bg-green-50 border-green-200':'bg-gray-50 border-gray-200')}>
                 <div><p className="font-medium text-sm">{m.module_name}</p><p className="text-xs text-gray-500">{m.module_code}</p></div>
-                <button onClick={()=>toggleLock(m.module_code,m.is_enabled)} disabled={toggling===m.module_code} className={"p-2 rounded-lg transition "+(m.is_enabled?'text-green-600 hover:bg-green-100':'text-gray-400 hover:bg-gray-100')}>
+                <button onClick={()=>toggleLock(m.module_code,m.is_enabled,m.business_unit_id)} disabled={toggling===m.module_code} className={"p-2 rounded-lg transition "+(m.is_enabled?'text-green-600 hover:bg-green-100':'text-gray-400 hover:bg-gray-100')}>
                   {m.is_enabled?<ToggleRight size={28}/>:<ToggleLeft size={28}/>}
                 </button>
               </div>
