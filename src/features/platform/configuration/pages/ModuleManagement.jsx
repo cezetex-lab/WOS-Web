@@ -87,15 +87,15 @@ export default function ModuleManagement() {
           </div>
         </div>
       ))}
-      {tab==='tier' && <div><p className="text-sm text-gray-500 mb-4">Tier 0=Profile, 4=Enterprise.</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{businessUnits.map(bu=>(
+      {tab==='tier' && <div><p className="text-sm text-gray-400 mb-4">Tier 0=Profile, 4=Enterprise.</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{businessUnits.map(bu=>(
         <div key={bu.id} className="border rounded-lg p-4 bg-white">
-          <div className="flex items-center justify-between mb-3"><p className="font-semibold">{bu.unit_name||bu.id}</p><span className={"px-2 py-1 rounded text-xs font-medium "+((bu.tier||0)>=4?'bg-purple-100 text-purple-800':'bg-gray-100 text-gray-600')}>Tier {bu.tier||0}: {tierL[bu.tier||0]}</span></div>
+          <div className="flex items-center justify-between mb-3"><p className="font-semibold text-gray-800">{bu.unit_name || bu.unit_code || bu.id}</p><span className={"px-2 py-1 rounded text-xs font-medium "+((bu.tier||0)>=4?'bg-purple-100 text-purple-800':'bg-gray-100 text-gray-600')}>Tier {bu.tier||0}: {tierL[bu.tier||0]}</span></div>
           <div className="flex gap-1">{[0,1,2,3,4].map(t=><button key={t} onClick={()=>setTier(bu.id,t)} className={"flex-1 py-2 rounded text-xs font-medium transition "+((bu.tier||0)===t?'bg-blue-600 text-white':'bg-gray-100 text-gray-600 hover:bg-gray-200')}>T{t}</button>)}</div>
         </div>
       ))}</div></div>}
-      {tab==='role' && <div><p className="text-sm text-gray-500 mb-4">1=Staff, 2=Supervisor, 3=Manager, 4=Director, 5=CEO</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{businessUnits.map(bu=>{const br=roleStats.filter(r=>r.business_unit_id===bu.id);return(
-        <div key={bu.id} className="border rounded-lg p-4 bg-white"><p className="font-semibold mb-3">{bu.unit_name||bu.id}</p><div className="space-y-2">{roleL.map((l,i)=>{const c=br.find(r=>r.role_level===i+1)?.count||0;return(
-          <div key={i} className="flex items-center justify-between"><div className="flex items-center gap-2"><div className={"w-3 h-3 rounded-full "+(i>=4?'bg-purple-500':i>=3?'bg-blue-500':i>=2?'bg-green-500':i>=1?'bg-yellow-500':'bg-gray-400')}/><span className="text-sm">L{i+1}: {l}</span></div><span className="text-sm font-medium">{c}</span></div>
+      {tab==='role' && <div><p className="text-sm text-gray-400 mb-4">1=Staff, 2=Supervisor, 3=Manager, 4=Director, 5=CEO</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{businessUnits.map(bu=>{const br=roleStats.filter(r=>r.business_unit_id===bu.id);return(
+        <div key={bu.id} className="border rounded-lg p-4 bg-white"><p className="font-semibold mb-3 text-gray-800">{bu.unit_name || bu.unit_code || bu.id}</p><div className="space-y-2">{roleL.map((l,i)=>{const c=br.find(r=>r.role_level===i+1)?.count||0;return(
+          <div key={i} className="flex items-center justify-between"><div className="flex items-center gap-2"><div className={"w-3 h-3 rounded-full "+(i>=4?'bg-purple-500':i>=3?'bg-blue-500':i>=2?'bg-green-500':i>=1?'bg-yellow-500':'bg-gray-400')}/><span className="text-sm text-gray-800">L{i+1}: {l}</span></div><span className="text-sm font-medium text-gray-800">{c}</span></div>
         );})}</div></div>
       );})}</div></div>}
     </div>
