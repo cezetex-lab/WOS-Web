@@ -181,14 +181,22 @@ DROP POLICY IF EXISTS vi_select ON hr_voice;
 CREATE POLICY vi_select ON hr_voice FOR SELECT USING (TRUE);
 
 -- Surveys — all authenticated
-DROP POLICY IF EXISTS sv_all ON surveys;
-DROP POLICY IF EXISTS sv_select ON surveys;
-CREATE POLICY sv_select ON surveys FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS sv_all ON hr_surveys;
+DROP POLICY IF EXISTS sv_select ON hr_surveys;
+CREATE POLICY sv_select ON hr_surveys FOR SELECT USING (TRUE);
 
 -- Forum — all authenticated
-DROP POLICY IF EXISTS fr_all ON forum_posts;
-DROP POLICY IF EXISTS fr_select ON forum_posts;
-CREATE POLICY fr_select ON forum_posts FOR SELECT USING (TRUE);
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'forum_posts') THEN
+    DROP POLICY IF EXISTS fr_all ON forum_posts;
+    DROP POLICY IF EXISTS fr_select ON forum_posts;
+    CREATE POLICY fr_select ON forum_posts FOR SELECT USING (TRUE);
+  ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_forum') THEN
+    DROP POLICY IF EXISTS fr_all ON hr_forum;
+    DROP POLICY IF EXISTS fr_select ON hr_forum;
+    CREATE POLICY fr_select ON hr_forum FOR SELECT USING (TRUE);
+  END IF;
+END $$;
 
 -- Certifications — workers see own
 DROP POLICY IF EXISTS ce_all ON certifications;
@@ -208,9 +216,9 @@ DROP POLICY IF EXISTS sc_select ON hr_succession_matrix;
 CREATE POLICY sc_select ON hr_succession_matrix FOR SELECT USING (is_admin_or_owner());
 
 -- OKRs — workers see own
-DROP POLICY IF EXISTS ok_all ON okrs;
-DROP POLICY IF EXISTS ok_select ON okrs;
-CREATE POLICY ok_select ON okrs FOR SELECT
+DROP POLICY IF EXISTS ok_all ON hr_okrs;
+DROP POLICY IF EXISTS ok_select ON hr_okrs;
+CREATE POLICY ok_select ON hr_okrs FOR SELECT
   USING (nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
 
 -- Performance notes — workers see own
@@ -225,9 +233,9 @@ DROP POLICY IF EXISTS of_select ON offboarding_checklist;
 CREATE POLICY of_select ON offboarding_checklist FOR SELECT USING (is_admin_or_owner());
 
 -- Reviews 360 — workers see own
-DROP POLICY IF EXISTS rv_all ON reviews_360;
-DROP POLICY IF EXISTS rv_select ON reviews_360;
-CREATE POLICY rv_select ON reviews_360 FOR SELECT
+DROP POLICY IF EXISTS rv_all ON review_360;
+DROP POLICY IF EXISTS rv_select ON review_360;
+CREATE POLICY rv_select ON review_360 FOR SELECT
   USING (reviewee_nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
 
 -- Leave requests — workers see own
