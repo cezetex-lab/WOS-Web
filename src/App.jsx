@@ -8,6 +8,7 @@ import OfflineIndicator from './components/OfflineIndicator';
 import LazyLoad from './components/LazyLoad';
 import ErrorBoundary from './components/ErrorBoundary';
 import PrivacyConsent from './components/PrivacyConsent';
+import SessionGuard from './components/SessionGuard';
 
 // Core pages (keep eager — loaded on every visit)
 import Home from './pages/Home';
@@ -154,6 +155,7 @@ function AppContent() {
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white font-sans antialiased">
       <OfflineIndicator />
       <PrivacyConsent />
+      <SessionGuard>
       <Routes>
         {/* LOGIN */}
         <Route path="/" element={<Home />} />
@@ -286,6 +288,7 @@ function AppContent() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/*" element={<Dashboard />} />
       </Routes>
+      </SessionGuard>
     </div>
   );
 }

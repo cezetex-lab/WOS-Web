@@ -1,4 +1,5 @@
 // WorkerCareer.jsx — Jalur karir & peluang karyawan
+import { getSession } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '../../../lib/design-system';
@@ -7,7 +8,7 @@ export default function WorkerCareer() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
 
-  const nrp = localStorage.getItem('wos_nrp') || JSON.parse(sessionStorage.getItem('wos_user') || '{}')?.nrp || 'NRP001';
+    const nrp = getSession()?.nrp || 'NRP001';
 
   const fetchData = useCallback(async () => {
     setLoading(true);

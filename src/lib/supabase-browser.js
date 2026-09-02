@@ -1,22 +1,28 @@
 import { createClient } from '@supabase/supabase-js';
+import { checkRateLimit } from './rate-limiter';
 
-// Gunakan import.meta.env dengan prefix VITE_
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Helper: call RPC function
+// P3 FIX: RPC with rate limiting
 export async function rpc(fn, params = {}) {
+  // Rate limit check
+  const { allowed, retryAfter } = checkRateLimit(fn);
+  if (!allowed) {
+    console.warn(`Rate limited: ${fn} — retry in ${retryAfter}s`);
+    return { ok: false, msg: `Rate limited. Retry in ${retryAfter}s.` };
+  }
+
   const { data, error } = await supabase.rpc(fn, params);
   if (error) {
-    console.error(`RPC ${fn} error:`, error);
     return { ok: false, msg: error.message };
   }
   return data || { ok: false, msg: 'No response' };
 }
 
-// Session helpers
+// Session helpers (P2 FIX: single source of truth)
 export function setSession(user) {
   if (typeof window !== 'undefined') {
     sessionStorage.setItem('wos_user', JSON.stringify(user));
@@ -37,27 +43,23 @@ export function clearSession() {
   }
 }
 
-// V6: Sync login to Supabase Auth (needed for auth.uid() in gatekeeper RPCs)
+// V6: Sync login to Supabase Auth
 export async function syncSupabaseAuth(email, password) {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      console.warn('Supabase Auth sync failed:', error.message);
       return null;
     }
     return data;
-  } catch (err) {
-    console.warn('Supabase Auth sync error:', err.message);
+  } catch {
     return null;
   }
 }
 
-// V6: Get current Supabase Auth user
 export function getAuthUser() {
   return supabase.auth.getUser();
 }
 
-// V6: Sign out from Supabase Auth
 export async function signOutAuth() {
   await supabase.auth.signOut();
 }

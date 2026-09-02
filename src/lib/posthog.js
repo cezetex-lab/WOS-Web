@@ -1,6 +1,6 @@
 import posthog from 'posthog-js';
 
-// PostHog — product analytics, session recording, error tracking, feature flags
+// PostHog — product analytics (manual events only)
 // Free tier: 1M events/month + 5K session recordings
 const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
@@ -8,25 +8,22 @@ const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.
 if (POSTHOG_KEY) {
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
-    // Auto-capture
-    autocapture: true,
-    capture_pageview: true,
-    capture_pageleave: true,
-    capture_console_errors: true,   // ← error tracking built-in!
+    // P0 FIX: All autocapture DISABLED to protect free tier
+    autocapture: false,
+    capture_pageview: false,    // manual only
+    capture_pageleave: false,   // manual only
+    capture_console_errors: false,
     
-    // Session recording (free tier: 5K/month)
+    // Session recording DISABLED (5K/month limit — too risky)
     session_recording: {
-      recordCrossOriginIframes: false,
-      maskTextSelector: '.ph-no-capture, input[type="password"]',
+      enabled: false,
     },
     
     // Performance
     loaded: (ph) => {
-      // Identify user on login
-      const nrp = sessionStorage.getItem('nrp');
-      const role = sessionStorage.getItem('role');
-      if (nrp) {
-        ph.identify(nrp, { role });
+      const session = JSON.parse(sessionStorage.getItem('wos_user') || '{}');
+      if (session.nrp) {
+        ph.identify(session.nrp, { role: session.role });
       }
     },
     
@@ -34,12 +31,13 @@ if (POSTHOG_KEY) {
     persistence: 'localStorage',
     persistence_name: 'insightwos_posthog',
     
-    // Privacy — don't record password fields
+    // Sanitize sensitive data
     sanitize_properties: (props) => {
-      // Remove sensitive data from events
       if (props.$set) {
         delete props.$set.email;
         delete props.$set.password;
+        delete props.$set.bank_account;
+        delete props.$set.salary;
       }
       return props;
     },
@@ -48,27 +46,26 @@ if (POSTHOG_KEY) {
 
 export default posthog;
 
-// Utility: track custom events
+// ── Manual Event Tracking (ONLY critical business events) ──
+// Use: track('user_login', { nrp, role }) — NOT for page views or clicks
+
 export const track = (event, properties = {}) => {
   if (POSTHOG_KEY) {
     posthog.capture(event, properties);
   }
 };
 
-// Utility: feature flags
 export const isFeatureEnabled = (flag) => {
   if (!POSTHOG_KEY) return false;
   return posthog.isFeatureEnabled(flag);
 };
 
-// Utility: identify user after login
 export const identifyUser = (nrp, properties = {}) => {
   if (POSTHOG_KEY) {
     posthog.identify(nrp, properties);
   }
 };
 
-// Utility: reset on logout
 export const resetUser = () => {
   if (POSTHOG_KEY) {
     posthog.reset();

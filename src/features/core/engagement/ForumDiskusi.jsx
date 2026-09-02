@@ -1,4 +1,5 @@
 // ForumDiskusi.jsx — Forum diskusi karyawan
+import { getSession } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, Badge, Button, LoadingSpinner, EmptyState, Input } from '../../../lib/design-system';
@@ -13,7 +14,7 @@ export default function ForumDiskusi() {
   const [newCategory, setNewCategory] = useState('Umum');
   const [replyContent, setReplyContent] = useState('');
 
-  const nrp = localStorage.getItem('wos_nrp') || JSON.parse(sessionStorage.getItem('wos_user') || '{}')?.nrp || 'NRP001';
+    const nrp = getSession()?.nrp || 'NRP001';
 
   const fetchData = useCallback(async () => {
     setLoading(true);

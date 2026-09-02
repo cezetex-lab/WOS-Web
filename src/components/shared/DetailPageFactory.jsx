@@ -3,6 +3,7 @@
 // Satu komponen, 30+ halaman berbeda via config
 // ============================================================
 
+import { getSession } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, rpc } from '../../../lib/supabase-browser';

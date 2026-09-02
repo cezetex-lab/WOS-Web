@@ -3,6 +3,7 @@
 // RPC: worker_change_password(nrp, old_password, new_password)
 // ============================================================
 
+import { getSession } from '@/lib/supabase-browser';
 import React, { useState } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import {

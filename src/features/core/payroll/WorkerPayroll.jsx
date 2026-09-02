@@ -1,4 +1,5 @@
 // WorkerPayroll.jsx — Slip gaji bulanan karyawan
+import { getSession } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState, Button } from '../../../lib/design-system';
@@ -8,7 +9,7 @@ export default function WorkerPayroll() {
   const [data, setData] = useState([]);
   const [selected, setSelected] = useState(null);
 
-  const nrp = localStorage.getItem('wos_nrp') || JSON.parse(sessionStorage.getItem('wos_user') || '{}')?.nrp || 'NRP001';
+    const nrp = getSession()?.nrp || 'NRP001';
 
   const fetchData = useCallback(async () => {
     setLoading(true);

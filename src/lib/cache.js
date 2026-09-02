@@ -213,3 +213,59 @@ export function getCacheStats() {
     totalSizeKB: (totalSize / 1024).toFixed(1),
   };
 }
+
+// ============================================================
+// P1 FIX: UPSTASH QUOTA PROTECTION
+// 10K commands/day limit — counter + graceful fallback
+// ============================================================
+
+const UPSTASH_QUOTA_KEY = 'wos_upstash_quota';
+const UPSTASH_DAILY_LIMIT = 8000; // 80% of 10K for safety margin
+
+function getUpstashCount() {
+  try {
+    const raw = localStorage.getItem(UPSTASH_QUOTA_KEY);
+    if (!raw) return { count: 0, date: new Date().toDateString() };
+    const data = JSON.parse(raw);
+    // Reset counter if day changed
+    if (data.date !== new Date().toDateString()) {
+      return { count: 0, date: new Date().toDateString() };
+    }
+    return data;
+  } catch {
+    return { count: 0, date: new Date().toDateString() };
+  }
+}
+
+function incrementUpstashCount() {
+  const data = getUpstashCount();
+  data.count++;
+  localStorage.setItem(UPSTASH_QUOTA_KEY, JSON.stringify(data));
+  return data.count;
+}
+
+/**
+ * Check if Upstash quota is available
+ * @returns {boolean} true if under quota
+ */
+export function isUpstashQuotaAvailable() {
+  const { count } = getUpstashCount();
+  return count < UPSTASH_DAILY_LIMIT;
+}
+
+/**
+ * Get current Upstash usage stats
+ */
+export function getUpstashStats() {
+  const { count, date } = getUpstashCount();
+  return {
+    used: count,
+    limit: UPSTASH_DAILY_LIMIT,
+    remaining: Math.max(0, UPSTASH_DAILY_LIMIT - count),
+    percentage: Math.round((count / UPSTASH_DAILY_LIMIT) * 100),
+    date,
+  };
+}
+
+// Export for use in serverCache functions
+export { incrementUpstashCount };
