@@ -11,8 +11,10 @@ export default function ModuleManagement() {
   const { data: ctx, isLoading: ctxLoading } = useCurrentUserContext();
   const [modules, setModules] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
+  const [businessUnits, setBusinessUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(null);
+  const [tab, setTab] = useState("lock");
 
   useEffect(() => {
     if (!ctx || !ctx.is_owner) return;
@@ -21,6 +23,8 @@ export default function ModuleManagement() {
 
   async function loadData() {
     setLoading(true);
+    const { data: bus } = await supabase.from("business_units").select("*").order("id");
+    setBusinessUnits(bus || []);
     const { data: mods } = await supabase
       .from('business_unit_modules')
       .select('*, module_definitions(module_name, module_group, is_industry_module), business_units(unit_name, unit_code)')
@@ -48,6 +52,11 @@ export default function ModuleManagement() {
     }
     await loadData();
     setToggling(null);
+  }
+
+  async function setTier(buId, newTier) {
+    await supabase.from("business_units").update({ tier: newTier }).eq("id", buId);
+    await loadAllData();
   }
 
   if (ctxLoading || loading) {
