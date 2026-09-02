@@ -1,8 +1,9 @@
 /**
  * useModuleAccess — Plain React hooks (no React Query dependency)
+ * P2 FIX: Removed session fallback — auth.uid() is the only source of truth
  */
-import { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '@/lib/supabase-browser';
+import { useState, useEffect } from 'react';
+import { supabase, rpc } from '@/lib/supabase-browser';
 
 export function useModuleAccess(moduleCode, requiredRoleLevel = 1) {
   const [hasAccess, setHasAccess] = useState(null);
@@ -53,18 +54,11 @@ export function useCurrentUserContext() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Get auth user first
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        // Fallback: read from session
-        const session = getSession();
+        // P2 FIX: No session fallback — must login via Supabase Auth
         if (!cancelled) {
-          setCtx({
-            is_owner: session?.role === 'owner',
-            role: session?.role,
-            role_level: session?.role_level,
-            nrp: session?.nrp,
-          });
+          setCtx(null);
           setLoading(false);
         }
         return;

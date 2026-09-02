@@ -11,8 +11,9 @@ import {
 } from '../../../lib/design-system';
 
 export default function WorkerChangePassword() {
-  const nrp = sessionStorage.getItem('nrp') || '';
-  const nama = sessionStorage.getItem('nama') || nrp;
+  const session = getSession();
+  const nrp = session?.nrp || "";
+  const nama = session?.nama || nrp;
 
   const [form, setForm] = useState({ old: '', new: '', confirm: '' });
   const [changing, setChanging] = useState(false);

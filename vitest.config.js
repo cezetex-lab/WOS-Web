@@ -7,6 +7,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./tests/setup.js'],
     css: false,
+    include: ['tests/**/*.test.{js,jsx,ts,tsx}'],
   },
   resolve: {
     alias: {
