@@ -12,7 +12,7 @@ END $$;
 INSERT INTO employees_master (employee_id, nrp, nama, email, auth_id, business_unit_id, role_level, divisi, posisi, status_kerja)
 SELECT 
   'OWNER001', 'OWNER001', 'System Owner', au.email, au.id,
-  'BU04', 5, 'KORPORAT', 'System Owner', 'AKTIF'
+  'BU04', 5, 'KORPORAT', 'System Owner', 'PKWTT'
 FROM auth.users au WHERE au.email = 'owner@insightwos.com'
 ON CONFLICT (nrp) DO UPDATE SET 
   email = EXCLUDED.email, 
@@ -23,7 +23,7 @@ ON CONFLICT (nrp) DO UPDATE SET
 INSERT INTO employees_master (employee_id, nrp, nama, email, auth_id, business_unit_id, role_level, divisi, posisi, status_kerja)
 SELECT 
   'NRP001', 'NRP001', 'Chief Executive Officer', au.email, au.id,
-  'BU04', 5, 'KORPORAT', 'CEO', 'AKTIF'
+  'BU04', 5, 'KORPORAT', 'CEO', 'PKWTT'
 FROM auth.users au WHERE au.email = 'ceo@insightwos.com'
 ON CONFLICT (nrp) DO UPDATE SET 
   email = EXCLUDED.email, 
