@@ -233,9 +233,13 @@ DROP POLICY IF EXISTS of_select ON offboarding_checklist;
 CREATE POLICY of_select ON offboarding_checklist FOR SELECT USING (is_admin_or_owner());
 
 -- Reviews 360 — workers see own
-DROP POLICY IF EXISTS rv_all ON review_360;
-DROP POLICY IF EXISTS rv_select ON review_360;
-CREATE POLICY rv_select ON review_360 FOR SELECT
-  USING (reviewee_nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'review_360') THEN
+    DROP POLICY IF EXISTS rv_all ON review_360;
+    DROP POLICY IF EXISTS rv_select ON review_360;
+    CREATE POLICY rv_select ON review_360 FOR SELECT
+      USING (reviewee_nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
+  END IF;
+END $$;
 
 -- Leave requests — workers see own
