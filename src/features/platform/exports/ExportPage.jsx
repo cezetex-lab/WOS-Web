@@ -32,7 +32,7 @@ export default function ExportPage() {
         a.click();
         URL.revokeObjectURL(url);
       }
-    } catch (e) { console.error('Export failed:', e); alert('Export gagal. Silakan coba lagi.'); }
+    } catch (e) { if (import.meta.env.DEV) console.error('Export failed:', e); alert('Export gagal. Silakan coba lagi.'); }
     setExporting(null);
   }, []);
 

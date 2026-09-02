@@ -72,6 +72,14 @@ export default function Home() {
     setError('');
     setLoading(true);
     try {
+      // V6: Check lockout before attempting login
+      const lockCheck = await rpc('check_login_lockout', { p_identifier: nrp, p_attempt_type: 'worker' });
+      if (lockCheck?.locked) {
+        setError(lockCheck.reason || "Akun sementara dikunci");
+        setLoading(false);
+        return;
+      }
+
       const d = await rpc('generate_worker_otp', { p_nrp: nrp, p_nik: nik, p_password: pass });
       if (d.ok) {
         setValidatedNrp(nrp);
@@ -91,6 +99,14 @@ export default function Home() {
     setError('');
     setLoading(true);
     try {
+      // V6: Check lockout before attempting login
+      const lockCheck = await rpc('check_login_lockout', { p_identifier: adminEmail, p_attempt_type: 'admin' });
+      if (lockCheck?.locked) {
+        setError(lockCheck.reason || "Akun sementara dikunci");
+        setLoading(false);
+        return;
+      }
+
       // V6: Use Supabase Auth directly for admin login
       const authResult = await syncSupabaseAuth(adminEmail, adminPass);
       if (!authResult) {

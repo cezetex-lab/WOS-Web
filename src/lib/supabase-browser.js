@@ -30,8 +30,13 @@ export function setSession(user) {
 
 export function getSession() {
   if (typeof window !== 'undefined') {
-    const raw = sessionStorage.getItem('wos_user');
-    return raw ? JSON.parse(raw) : null;
+    try {
+      const raw = sessionStorage.getItem('wos_user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      sessionStorage.removeItem('wos_user');
+      return null;
+    }
   }
   return null;
 }
