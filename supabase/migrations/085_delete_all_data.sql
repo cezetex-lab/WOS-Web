@@ -1,174 +1,155 @@
--- ============================================
--- DELETE ALL DATA — CLEAN SLATE
--- INSIGHTWOS V6 Database Reset
--- ============================================
--- WARNING: This will delete ALL data from ALL tables!
--- Run this BEFORE seeding new data.
--- ============================================
+-- DELETE ALL DATA — CLEAN SLATE (SAFE VERSION)
+-- Only truncates tables that actually exist
 
--- Disable triggers temporarily
-SET session_replication_role = 'replica';
-
-TRUNCATE TABLE admin_division_access CASCADE;
-TRUNCATE TABLE ai_conversations CASCADE;
-TRUNCATE TABLE ai_documents CASCADE;
-TRUNCATE TABLE announcements CASCADE;
-TRUNCATE TABLE approval_config CASCADE;
-TRUNCATE TABLE approval_instances CASCADE;
-TRUNCATE TABLE asset_assignments CASCADE;
-TRUNCATE TABLE assets CASCADE;
-TRUNCATE TABLE audit_chain CASCADE;
-TRUNCATE TABLE audit_log CASCADE;
-TRUNCATE TABLE audit_log_owner CASCADE;
-TRUNCATE TABLE badges CASCADE;
-TRUNCATE TABLE bu_divisions CASCADE;
-TRUNCATE TABLE budget_allocation CASCADE;
-TRUNCATE TABLE business_unit_modules CASCADE;
-TRUNCATE TABLE business_units CASCADE;
-TRUNCATE TABLE candidate_pipeline CASCADE;
-TRUNCATE TABLE certifications CASCADE;
-TRUNCATE TABLE corporate_licenses CASCADE;
-TRUNCATE TABLE currency_master CASCADE;
-TRUNCATE TABLE daftar_baru CASCADE;
-TRUNCATE TABLE disciplinary_records CASCADE;
-TRUNCATE TABLE emergency_procedures CASCADE;
-TRUNCATE TABLE employee_mutations CASCADE;
-TRUNCATE TABLE employees_master CASCADE;
-TRUNCATE TABLE estate_blocks CASCADE;
-TRUNCATE TABLE estate_field CASCADE;
-TRUNCATE TABLE estate_harvest CASCADE;
-TRUNCATE TABLE estate_irrigation CASCADE;
-TRUNCATE TABLE estate_nursery CASCADE;
-TRUNCATE TABLE estate_transport CASCADE;
-TRUNCATE TABLE estate_yield CASCADE;
-TRUNCATE TABLE exit_interviews CASCADE;
-TRUNCATE TABLE external_notification_logs CASCADE;
-TRUNCATE TABLE external_notifications CASCADE;
-TRUNCATE TABLE facility_requests CASCADE;
-TRUNCATE TABLE feature_flags CASCADE;
-TRUNCATE TABLE final_settlements CASCADE;
-TRUNCATE TABLE forum_posts CASCADE;
-TRUNCATE TABLE forum_replies CASCADE;
-TRUNCATE TABLE harvest_records CASCADE;
-TRUNCATE TABLE headcount_plans CASCADE;
-TRUNCATE TABLE hr_ai_tasks CASCADE;
-TRUNCATE TABLE hr_attendance CASCADE;
-TRUNCATE TABLE hr_audit_chain CASCADE;
-TRUNCATE TABLE hr_benefit_catalog CASCADE;
-TRUNCATE TABLE hr_benefits CASCADE;
-TRUNCATE TABLE hr_calendar CASCADE;
-TRUNCATE TABLE hr_capability CASCADE;
-TRUNCATE TABLE hr_coaching CASCADE;
-TRUNCATE TABLE hr_coaching_catalog CASCADE;
-TRUNCATE TABLE hr_competency_matrix CASCADE;
-TRUNCATE TABLE hr_compliance CASCADE;
-TRUNCATE TABLE hr_compliance_catalog CASCADE;
-TRUNCATE TABLE hr_critical CASCADE;
-TRUNCATE TABLE hr_document_types CASCADE;
-TRUNCATE TABLE hr_engagement CASCADE;
-TRUNCATE TABLE hr_equipment_util CASCADE;
-TRUNCATE TABLE hr_exit_clearance CASCADE;
-TRUNCATE TABLE hr_finance_kpi CASCADE;
-TRUNCATE TABLE hr_kpi_calc_log CASCADE;
-TRUNCATE TABLE hr_kpi_config CASCADE;
-TRUNCATE TABLE hr_learning CASCADE;
-TRUNCATE TABLE hr_leave CASCADE;
-TRUNCATE TABLE hr_medical_checkup CASCADE;
-TRUNCATE TABLE hr_monthly_snapshot CASCADE;
-TRUNCATE TABLE hr_notifications CASCADE;
-TRUNCATE TABLE hr_okr_results CASCADE;
-TRUNCATE TABLE hr_okrs CASCADE;
-TRUNCATE TABLE hr_org CASCADE;
-TRUNCATE TABLE hr_overtime CASCADE;
-TRUNCATE TABLE hr_payroll CASCADE;
-TRUNCATE TABLE hr_penalty_matrix CASCADE;
-TRUNCATE TABLE hr_performance CASCADE;
-TRUNCATE TABLE hr_plantation_harvest CASCADE;
-TRUNCATE TABLE hr_position_skills CASCADE;
-TRUNCATE TABLE hr_preview_data CASCADE;
-TRUNCATE TABLE hr_production_daily CASCADE;
-TRUNCATE TABLE hr_relations CASCADE;
-TRUNCATE TABLE hr_requests CASCADE;
-TRUNCATE TABLE hr_safety CASCADE;
-TRUNCATE TABLE hr_shift_master CASCADE;
-TRUNCATE TABLE hr_shift_swaps CASCADE;
-TRUNCATE TABLE hr_skills CASCADE;
-TRUNCATE TABLE hr_succession CASCADE;
-TRUNCATE TABLE hr_succession_matrix CASCADE;
-TRUNCATE TABLE hr_survey_responses CASCADE;
-TRUNCATE TABLE hr_surveys CASCADE;
-TRUNCATE TABLE hr_talent_catalog CASCADE;
-TRUNCATE TABLE hr_task_board CASCADE;
-TRUNCATE TABLE hr_tasks CASCADE;
-TRUNCATE TABLE hr_training_catalog CASCADE;
-TRUNCATE TABLE hr_voice CASCADE;
-TRUNCATE TABLE hr_work_schedule CASCADE;
-TRUNCATE TABLE idx_nrp CASCADE;
-TRUNCATE TABLE incentives CASCADE;
-TRUNCATE TABLE irrigation_blocks CASCADE;
-TRUNCATE TABLE legal_documents CASCADE;
-TRUNCATE TABLE login_attempts CASCADE;
-TRUNCATE TABLE mfa_factors CASCADE;
-TRUNCATE TABLE mill_boiler CASCADE;
-TRUNCATE TABLE mill_breakdown CASCADE;
-TRUNCATE TABLE mill_breakdowns CASCADE;
-TRUNCATE TABLE mill_maintenance CASCADE;
-TRUNCATE TABLE mill_packing CASCADE;
-TRUNCATE TABLE mill_press CASCADE;
-TRUNCATE TABLE mill_qc CASCADE;
-TRUNCATE TABLE mill_qc_results CASCADE;
-TRUNCATE TABLE mill_shift CASCADE;
-TRUNCATE TABLE mining_equipment CASCADE;
-TRUNCATE TABLE mining_fatigue CASCADE;
-TRUNCATE TABLE mining_fuel CASCADE;
-TRUNCATE TABLE mining_jsa CASCADE;
-TRUNCATE TABLE mining_production CASCADE;
-TRUNCATE TABLE mining_safety CASCADE;
-TRUNCATE TABLE mining_simper CASCADE;
-TRUNCATE TABLE module_definitions CASCADE;
-TRUNCATE TABLE nursery_blocks CASCADE;
-TRUNCATE TABLE offboarding_checklist CASCADE;
-TRUNCATE TABLE okrs CASCADE;
-TRUNCATE TABLE onboarding_tasks CASCADE;
-TRUNCATE TABLE otp_attempts CASCADE;
-TRUNCATE TABLE otp_store CASCADE;
-TRUNCATE TABLE performance_notes CASCADE;
-TRUNCATE TABLE push_subscriptions CASCADE;
-TRUNCATE TABLE rate_limits CASCADE;
-TRUNCATE TABLE referrals CASCADE;
-TRUNCATE TABLE reimbursements CASCADE;
-TRUNCATE TABLE review_360 CASCADE;
-TRUNCATE TABLE reviews_360 CASCADE;
-TRUNCATE TABLE salary_adjustments CASCADE;
-TRUNCATE TABLE screening_results CASCADE;
-TRUNCATE TABLE security_audit_log CASCADE;
-TRUNCATE TABLE session_store CASCADE;
-TRUNCATE TABLE session_tokens CASCADE;
-TRUNCATE TABLE settings CASCADE;
-TRUNCATE TABLE shift_assignments CASCADE;
-TRUNCATE TABLE shift_swaps CASCADE;
-TRUNCATE TABLE simulation_logs CASCADE;
-TRUNCATE TABLE simulations CASCADE;
-TRUNCATE TABLE sites CASCADE;
-TRUNCATE TABLE sso_providers CASCADE;
-TRUNCATE TABLE survey_responses CASCADE;
-TRUNCATE TABLE surveys CASCADE;
-TRUNCATE TABLE system_bootstrap CASCADE;
-TRUNCATE TABLE team_budgets CASCADE;
-TRUNCATE TABLE timesheets CASCADE;
-TRUNCATE TABLE timezone_master CASCADE;
-TRUNCATE TABLE transport_dispatch CASCADE;
-TRUNCATE TABLE travel_requests CASCADE;
-TRUNCATE TABLE user_roles CASCADE;
-TRUNCATE TABLE vacancies CASCADE;
-TRUNCATE TABLE webhook_configs CASCADE;
-TRUNCATE TABLE webhook_logs CASCADE;
-TRUNCATE TABLE whistleblowers CASCADE;
-TRUNCATE TABLE worker_passwords CASCADE;
-TRUNCATE TABLE workforce_simulations CASCADE;
-
--- Re-enable triggers
-SET session_replication_role = 'origin';
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'admin_division_access') THEN TRUNCATE TABLE admin_division_access CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ai_conversations') THEN TRUNCATE TABLE ai_conversations CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ai_documents') THEN TRUNCATE TABLE ai_documents CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'announcements') THEN TRUNCATE TABLE announcements CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'approval_config') THEN TRUNCATE TABLE approval_config CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'approval_instances') THEN TRUNCATE TABLE approval_instances CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'asset_assignments') THEN TRUNCATE TABLE asset_assignments CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'assets') THEN TRUNCATE TABLE assets CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'audit_chain') THEN TRUNCATE TABLE audit_chain CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'audit_log') THEN TRUNCATE TABLE audit_log CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'audit_log_owner') THEN TRUNCATE TABLE audit_log_owner CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'badges') THEN TRUNCATE TABLE badges CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'bu_divisions') THEN TRUNCATE TABLE bu_divisions CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'budget_allocation') THEN TRUNCATE TABLE budget_allocation CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'business_unit_modules') THEN TRUNCATE TABLE business_unit_modules CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'business_units') THEN TRUNCATE TABLE business_units CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'candidate_pipeline') THEN TRUNCATE TABLE candidate_pipeline CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'certifications') THEN TRUNCATE TABLE certifications CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'corporate_licenses') THEN TRUNCATE TABLE corporate_licenses CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'currency_master') THEN TRUNCATE TABLE currency_master CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'daftar_baru') THEN TRUNCATE TABLE daftar_baru CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'disciplinary_records') THEN TRUNCATE TABLE disciplinary_records CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'emergency_procedures') THEN TRUNCATE TABLE emergency_procedures CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'employee_mutations') THEN TRUNCATE TABLE employee_mutations CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'employees_master') THEN TRUNCATE TABLE employees_master CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'estate_blocks') THEN TRUNCATE TABLE estate_blocks CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'estate_field') THEN TRUNCATE TABLE estate_field CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'estate_harvest') THEN TRUNCATE TABLE estate_harvest CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'estate_irrigation') THEN TRUNCATE TABLE estate_irrigation CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'estate_nursery') THEN TRUNCATE TABLE estate_nursery CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'estate_transport') THEN TRUNCATE TABLE estate_transport CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'estate_yield') THEN TRUNCATE TABLE estate_yield CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'exit_interviews') THEN TRUNCATE TABLE exit_interviews CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'external_notification_logs') THEN TRUNCATE TABLE external_notification_logs CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'external_notifications') THEN TRUNCATE TABLE external_notifications CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'facility_requests') THEN TRUNCATE TABLE facility_requests CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'feature_flags') THEN TRUNCATE TABLE feature_flags CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'final_settlements') THEN TRUNCATE TABLE final_settlements CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'harvest_records') THEN TRUNCATE TABLE harvest_records CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'headcount_plans') THEN TRUNCATE TABLE headcount_plans CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_ai_tasks') THEN TRUNCATE TABLE hr_ai_tasks CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_attendance') THEN TRUNCATE TABLE hr_attendance CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_audit_chain') THEN TRUNCATE TABLE hr_audit_chain CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_benefit_catalog') THEN TRUNCATE TABLE hr_benefit_catalog CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_benefits') THEN TRUNCATE TABLE hr_benefits CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_calendar') THEN TRUNCATE TABLE hr_calendar CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_capability') THEN TRUNCATE TABLE hr_capability CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_coaching') THEN TRUNCATE TABLE hr_coaching CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_coaching_catalog') THEN TRUNCATE TABLE hr_coaching_catalog CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_competency_matrix') THEN TRUNCATE TABLE hr_competency_matrix CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_compliance') THEN TRUNCATE TABLE hr_compliance CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_compliance_catalog') THEN TRUNCATE TABLE hr_compliance_catalog CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_critical') THEN TRUNCATE TABLE hr_critical CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_document_types') THEN TRUNCATE TABLE hr_document_types CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_engagement') THEN TRUNCATE TABLE hr_engagement CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_equipment_util') THEN TRUNCATE TABLE hr_equipment_util CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_exit_clearance') THEN TRUNCATE TABLE hr_exit_clearance CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_finance_kpi') THEN TRUNCATE TABLE hr_finance_kpi CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_kpi_calc_log') THEN TRUNCATE TABLE hr_kpi_calc_log CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_kpi_config') THEN TRUNCATE TABLE hr_kpi_config CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_learning') THEN TRUNCATE TABLE hr_learning CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_leave') THEN TRUNCATE TABLE hr_leave CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_medical_checkup') THEN TRUNCATE TABLE hr_medical_checkup CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_monthly_snapshot') THEN TRUNCATE TABLE hr_monthly_snapshot CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_notifications') THEN TRUNCATE TABLE hr_notifications CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_okr_results') THEN TRUNCATE TABLE hr_okr_results CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_okrs') THEN TRUNCATE TABLE hr_okrs CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_org') THEN TRUNCATE TABLE hr_org CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_overtime') THEN TRUNCATE TABLE hr_overtime CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_payroll') THEN TRUNCATE TABLE hr_payroll CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_penalty_matrix') THEN TRUNCATE TABLE hr_penalty_matrix CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_performance') THEN TRUNCATE TABLE hr_performance CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_plantation_harvest') THEN TRUNCATE TABLE hr_plantation_harvest CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_position_skills') THEN TRUNCATE TABLE hr_position_skills CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_preview_data') THEN TRUNCATE TABLE hr_preview_data CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_production_daily') THEN TRUNCATE TABLE hr_production_daily CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_relations') THEN TRUNCATE TABLE hr_relations CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_requests') THEN TRUNCATE TABLE hr_requests CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_safety') THEN TRUNCATE TABLE hr_safety CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_shift_master') THEN TRUNCATE TABLE hr_shift_master CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_shift_swaps') THEN TRUNCATE TABLE hr_shift_swaps CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_skills') THEN TRUNCATE TABLE hr_skills CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_succession') THEN TRUNCATE TABLE hr_succession CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_succession_matrix') THEN TRUNCATE TABLE hr_succession_matrix CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_survey_responses') THEN TRUNCATE TABLE hr_survey_responses CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_surveys') THEN TRUNCATE TABLE hr_surveys CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_talent_catalog') THEN TRUNCATE TABLE hr_talent_catalog CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_task_board') THEN TRUNCATE TABLE hr_task_board CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_tasks') THEN TRUNCATE TABLE hr_tasks CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_training_catalog') THEN TRUNCATE TABLE hr_training_catalog CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_voice') THEN TRUNCATE TABLE hr_voice CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'hr_work_schedule') THEN TRUNCATE TABLE hr_work_schedule CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'idx_nrp') THEN TRUNCATE TABLE idx_nrp CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'incentives') THEN TRUNCATE TABLE incentives CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'irrigation_blocks') THEN TRUNCATE TABLE irrigation_blocks CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'legal_documents') THEN TRUNCATE TABLE legal_documents CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'login_attempts') THEN TRUNCATE TABLE login_attempts CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mfa_factors') THEN TRUNCATE TABLE mfa_factors CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mill_boiler') THEN TRUNCATE TABLE mill_boiler CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mill_breakdown') THEN TRUNCATE TABLE mill_breakdown CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mill_breakdowns') THEN TRUNCATE TABLE mill_breakdowns CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mill_maintenance') THEN TRUNCATE TABLE mill_maintenance CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mill_packing') THEN TRUNCATE TABLE mill_packing CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mill_press') THEN TRUNCATE TABLE mill_press CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mill_qc') THEN TRUNCATE TABLE mill_qc CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mill_qc_results') THEN TRUNCATE TABLE mill_qc_results CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mill_shift') THEN TRUNCATE TABLE mill_shift CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mining_equipment') THEN TRUNCATE TABLE mining_equipment CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mining_fatigue') THEN TRUNCATE TABLE mining_fatigue CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mining_fuel') THEN TRUNCATE TABLE mining_fuel CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mining_jsa') THEN TRUNCATE TABLE mining_jsa CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mining_production') THEN TRUNCATE TABLE mining_production CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mining_safety') THEN TRUNCATE TABLE mining_safety CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mining_simper') THEN TRUNCATE TABLE mining_simper CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'module_definitions') THEN TRUNCATE TABLE module_definitions CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'nursery_blocks') THEN TRUNCATE TABLE nursery_blocks CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'offboarding_checklist') THEN TRUNCATE TABLE offboarding_checklist CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'otp_attempts') THEN TRUNCATE TABLE otp_attempts CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'otp_store') THEN TRUNCATE TABLE otp_store CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'performance_notes') THEN TRUNCATE TABLE performance_notes CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'push_subscriptions') THEN TRUNCATE TABLE push_subscriptions CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'rate_limits') THEN TRUNCATE TABLE rate_limits CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'referrals') THEN TRUNCATE TABLE referrals CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'reimbursements') THEN TRUNCATE TABLE reimbursements CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'salary_adjustments') THEN TRUNCATE TABLE salary_adjustments CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'security_audit_log') THEN TRUNCATE TABLE security_audit_log CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'session_store') THEN TRUNCATE TABLE session_store CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'session_tokens') THEN TRUNCATE TABLE session_tokens CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'settings') THEN TRUNCATE TABLE settings CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'shift_assignments') THEN TRUNCATE TABLE shift_assignments CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'shift_swaps') THEN TRUNCATE TABLE shift_swaps CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'simulation_logs') THEN TRUNCATE TABLE simulation_logs CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'simulations') THEN TRUNCATE TABLE simulations CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sites') THEN TRUNCATE TABLE sites CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sso_providers') THEN TRUNCATE TABLE sso_providers CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'survey_responses') THEN TRUNCATE TABLE survey_responses CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'system_bootstrap') THEN TRUNCATE TABLE system_bootstrap CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'team_budgets') THEN TRUNCATE TABLE team_budgets CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'timesheets') THEN TRUNCATE TABLE timesheets CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'timezone_master') THEN TRUNCATE TABLE timezone_master CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transport_dispatch') THEN TRUNCATE TABLE transport_dispatch CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'travel_requests') THEN TRUNCATE TABLE travel_requests CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_roles') THEN TRUNCATE TABLE user_roles CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'vacancies') THEN TRUNCATE TABLE vacancies CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'webhook_configs') THEN TRUNCATE TABLE webhook_configs CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'webhook_logs') THEN TRUNCATE TABLE webhook_logs CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'whistleblowers') THEN TRUNCATE TABLE whistleblowers CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'worker_passwords') THEN TRUNCATE TABLE worker_passwords CASCADE; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'workforce_simulations') THEN TRUNCATE TABLE workforce_simulations CASCADE; END IF; END $$;
 
 -- Reset sequences
 ALTER SEQUENCE IF EXISTS admin_division_access_id_seq RESTART WITH 1;
@@ -209,8 +190,6 @@ ALTER SEQUENCE IF EXISTS external_notifications_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS facility_requests_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS feature_flags_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS final_settlements_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS forum_posts_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS forum_replies_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS harvest_records_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS headcount_plans_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS hr_ai_tasks_id_seq RESTART WITH 1;
@@ -290,8 +269,6 @@ ALTER SEQUENCE IF EXISTS mining_simper_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS module_definitions_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS nursery_blocks_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS offboarding_checklist_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS okrs_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS onboarding_tasks_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS otp_attempts_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS otp_store_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS performance_notes_id_seq RESTART WITH 1;
@@ -299,10 +276,7 @@ ALTER SEQUENCE IF EXISTS push_subscriptions_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS rate_limits_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS referrals_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS reimbursements_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS review_360_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS reviews_360_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS salary_adjustments_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS screening_results_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS security_audit_log_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS session_store_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS session_tokens_id_seq RESTART WITH 1;
@@ -314,7 +288,6 @@ ALTER SEQUENCE IF EXISTS simulations_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS sites_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS sso_providers_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS survey_responses_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS surveys_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS system_bootstrap_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS team_budgets_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS timesheets_id_seq RESTART WITH 1;
@@ -329,322 +302,4 @@ ALTER SEQUENCE IF EXISTS whistleblowers_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS worker_passwords_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS workforce_simulations_id_seq RESTART WITH 1;
 
--- Verify: all tables should have 0 rows
--- Run this to check:
--- SELECT schemaname, tablename, n_live_tup FROM pg_stat_user_table;
-
-SELECT 'DELETE COMPLETE' AS status, COUNT(*) AS tables_cleared FROM (
-  SELECT COUNT(*) FROM admin_division_access
-  UNION ALL
-  SELECT COUNT(*) FROM ai_conversations
-  UNION ALL
-  SELECT COUNT(*) FROM ai_documents
-  UNION ALL
-  SELECT COUNT(*) FROM announcements
-  UNION ALL
-  SELECT COUNT(*) FROM approval_config
-  UNION ALL
-  SELECT COUNT(*) FROM approval_instances
-  UNION ALL
-  SELECT COUNT(*) FROM asset_assignments
-  UNION ALL
-  SELECT COUNT(*) FROM assets
-  UNION ALL
-  SELECT COUNT(*) FROM audit_chain
-  UNION ALL
-  SELECT COUNT(*) FROM audit_log
-  UNION ALL
-  SELECT COUNT(*) FROM audit_log_owner
-  UNION ALL
-  SELECT COUNT(*) FROM badges
-  UNION ALL
-  SELECT COUNT(*) FROM bu_divisions
-  UNION ALL
-  SELECT COUNT(*) FROM budget_allocation
-  UNION ALL
-  SELECT COUNT(*) FROM business_unit_modules
-  UNION ALL
-  SELECT COUNT(*) FROM business_units
-  UNION ALL
-  SELECT COUNT(*) FROM candidate_pipeline
-  UNION ALL
-  SELECT COUNT(*) FROM certifications
-  UNION ALL
-  SELECT COUNT(*) FROM corporate_licenses
-  UNION ALL
-  SELECT COUNT(*) FROM currency_master
-  UNION ALL
-  SELECT COUNT(*) FROM daftar_baru
-  UNION ALL
-  SELECT COUNT(*) FROM disciplinary_records
-  UNION ALL
-  SELECT COUNT(*) FROM emergency_procedures
-  UNION ALL
-  SELECT COUNT(*) FROM employee_mutations
-  UNION ALL
-  SELECT COUNT(*) FROM employees_master
-  UNION ALL
-  SELECT COUNT(*) FROM estate_blocks
-  UNION ALL
-  SELECT COUNT(*) FROM estate_field
-  UNION ALL
-  SELECT COUNT(*) FROM estate_harvest
-  UNION ALL
-  SELECT COUNT(*) FROM estate_irrigation
-  UNION ALL
-  SELECT COUNT(*) FROM estate_nursery
-  UNION ALL
-  SELECT COUNT(*) FROM estate_transport
-  UNION ALL
-  SELECT COUNT(*) FROM estate_yield
-  UNION ALL
-  SELECT COUNT(*) FROM exit_interviews
-  UNION ALL
-  SELECT COUNT(*) FROM external_notification_logs
-  UNION ALL
-  SELECT COUNT(*) FROM external_notifications
-  UNION ALL
-  SELECT COUNT(*) FROM facility_requests
-  UNION ALL
-  SELECT COUNT(*) FROM feature_flags
-  UNION ALL
-  SELECT COUNT(*) FROM final_settlements
-  UNION ALL
-  SELECT COUNT(*) FROM forum_posts
-  UNION ALL
-  SELECT COUNT(*) FROM forum_replies
-  UNION ALL
-  SELECT COUNT(*) FROM harvest_records
-  UNION ALL
-  SELECT COUNT(*) FROM headcount_plans
-  UNION ALL
-  SELECT COUNT(*) FROM hr_ai_tasks
-  UNION ALL
-  SELECT COUNT(*) FROM hr_attendance
-  UNION ALL
-  SELECT COUNT(*) FROM hr_audit_chain
-  UNION ALL
-  SELECT COUNT(*) FROM hr_benefit_catalog
-  UNION ALL
-  SELECT COUNT(*) FROM hr_benefits
-  UNION ALL
-  SELECT COUNT(*) FROM hr_calendar
-  UNION ALL
-  SELECT COUNT(*) FROM hr_capability
-  UNION ALL
-  SELECT COUNT(*) FROM hr_coaching
-  UNION ALL
-  SELECT COUNT(*) FROM hr_coaching_catalog
-  UNION ALL
-  SELECT COUNT(*) FROM hr_competency_matrix
-  UNION ALL
-  SELECT COUNT(*) FROM hr_compliance
-  UNION ALL
-  SELECT COUNT(*) FROM hr_compliance_catalog
-  UNION ALL
-  SELECT COUNT(*) FROM hr_critical
-  UNION ALL
-  SELECT COUNT(*) FROM hr_document_types
-  UNION ALL
-  SELECT COUNT(*) FROM hr_engagement
-  UNION ALL
-  SELECT COUNT(*) FROM hr_equipment_util
-  UNION ALL
-  SELECT COUNT(*) FROM hr_exit_clearance
-  UNION ALL
-  SELECT COUNT(*) FROM hr_finance_kpi
-  UNION ALL
-  SELECT COUNT(*) FROM hr_kpi_calc_log
-  UNION ALL
-  SELECT COUNT(*) FROM hr_kpi_config
-  UNION ALL
-  SELECT COUNT(*) FROM hr_learning
-  UNION ALL
-  SELECT COUNT(*) FROM hr_leave
-  UNION ALL
-  SELECT COUNT(*) FROM hr_medical_checkup
-  UNION ALL
-  SELECT COUNT(*) FROM hr_monthly_snapshot
-  UNION ALL
-  SELECT COUNT(*) FROM hr_notifications
-  UNION ALL
-  SELECT COUNT(*) FROM hr_okr_results
-  UNION ALL
-  SELECT COUNT(*) FROM hr_okrs
-  UNION ALL
-  SELECT COUNT(*) FROM hr_org
-  UNION ALL
-  SELECT COUNT(*) FROM hr_overtime
-  UNION ALL
-  SELECT COUNT(*) FROM hr_payroll
-  UNION ALL
-  SELECT COUNT(*) FROM hr_penalty_matrix
-  UNION ALL
-  SELECT COUNT(*) FROM hr_performance
-  UNION ALL
-  SELECT COUNT(*) FROM hr_plantation_harvest
-  UNION ALL
-  SELECT COUNT(*) FROM hr_position_skills
-  UNION ALL
-  SELECT COUNT(*) FROM hr_preview_data
-  UNION ALL
-  SELECT COUNT(*) FROM hr_production_daily
-  UNION ALL
-  SELECT COUNT(*) FROM hr_relations
-  UNION ALL
-  SELECT COUNT(*) FROM hr_requests
-  UNION ALL
-  SELECT COUNT(*) FROM hr_safety
-  UNION ALL
-  SELECT COUNT(*) FROM hr_shift_master
-  UNION ALL
-  SELECT COUNT(*) FROM hr_shift_swaps
-  UNION ALL
-  SELECT COUNT(*) FROM hr_skills
-  UNION ALL
-  SELECT COUNT(*) FROM hr_succession
-  UNION ALL
-  SELECT COUNT(*) FROM hr_succession_matrix
-  UNION ALL
-  SELECT COUNT(*) FROM hr_survey_responses
-  UNION ALL
-  SELECT COUNT(*) FROM hr_surveys
-  UNION ALL
-  SELECT COUNT(*) FROM hr_talent_catalog
-  UNION ALL
-  SELECT COUNT(*) FROM hr_task_board
-  UNION ALL
-  SELECT COUNT(*) FROM hr_tasks
-  UNION ALL
-  SELECT COUNT(*) FROM hr_training_catalog
-  UNION ALL
-  SELECT COUNT(*) FROM hr_voice
-  UNION ALL
-  SELECT COUNT(*) FROM hr_work_schedule
-  UNION ALL
-  SELECT COUNT(*) FROM idx_nrp
-  UNION ALL
-  SELECT COUNT(*) FROM incentives
-  UNION ALL
-  SELECT COUNT(*) FROM irrigation_blocks
-  UNION ALL
-  SELECT COUNT(*) FROM legal_documents
-  UNION ALL
-  SELECT COUNT(*) FROM login_attempts
-  UNION ALL
-  SELECT COUNT(*) FROM mfa_factors
-  UNION ALL
-  SELECT COUNT(*) FROM mill_boiler
-  UNION ALL
-  SELECT COUNT(*) FROM mill_breakdown
-  UNION ALL
-  SELECT COUNT(*) FROM mill_breakdowns
-  UNION ALL
-  SELECT COUNT(*) FROM mill_maintenance
-  UNION ALL
-  SELECT COUNT(*) FROM mill_packing
-  UNION ALL
-  SELECT COUNT(*) FROM mill_press
-  UNION ALL
-  SELECT COUNT(*) FROM mill_qc
-  UNION ALL
-  SELECT COUNT(*) FROM mill_qc_results
-  UNION ALL
-  SELECT COUNT(*) FROM mill_shift
-  UNION ALL
-  SELECT COUNT(*) FROM mining_equipment
-  UNION ALL
-  SELECT COUNT(*) FROM mining_fatigue
-  UNION ALL
-  SELECT COUNT(*) FROM mining_fuel
-  UNION ALL
-  SELECT COUNT(*) FROM mining_jsa
-  UNION ALL
-  SELECT COUNT(*) FROM mining_production
-  UNION ALL
-  SELECT COUNT(*) FROM mining_safety
-  UNION ALL
-  SELECT COUNT(*) FROM mining_simper
-  UNION ALL
-  SELECT COUNT(*) FROM module_definitions
-  UNION ALL
-  SELECT COUNT(*) FROM nursery_blocks
-  UNION ALL
-  SELECT COUNT(*) FROM offboarding_checklist
-  UNION ALL
-  SELECT COUNT(*) FROM okrs
-  UNION ALL
-  SELECT COUNT(*) FROM onboarding_tasks
-  UNION ALL
-  SELECT COUNT(*) FROM otp_attempts
-  UNION ALL
-  SELECT COUNT(*) FROM otp_store
-  UNION ALL
-  SELECT COUNT(*) FROM performance_notes
-  UNION ALL
-  SELECT COUNT(*) FROM push_subscriptions
-  UNION ALL
-  SELECT COUNT(*) FROM rate_limits
-  UNION ALL
-  SELECT COUNT(*) FROM referrals
-  UNION ALL
-  SELECT COUNT(*) FROM reimbursements
-  UNION ALL
-  SELECT COUNT(*) FROM review_360
-  UNION ALL
-  SELECT COUNT(*) FROM reviews_360
-  UNION ALL
-  SELECT COUNT(*) FROM salary_adjustments
-  UNION ALL
-  SELECT COUNT(*) FROM screening_results
-  UNION ALL
-  SELECT COUNT(*) FROM security_audit_log
-  UNION ALL
-  SELECT COUNT(*) FROM session_store
-  UNION ALL
-  SELECT COUNT(*) FROM session_tokens
-  UNION ALL
-  SELECT COUNT(*) FROM settings
-  UNION ALL
-  SELECT COUNT(*) FROM shift_assignments
-  UNION ALL
-  SELECT COUNT(*) FROM shift_swaps
-  UNION ALL
-  SELECT COUNT(*) FROM simulation_logs
-  UNION ALL
-  SELECT COUNT(*) FROM simulations
-  UNION ALL
-  SELECT COUNT(*) FROM sites
-  UNION ALL
-  SELECT COUNT(*) FROM sso_providers
-  UNION ALL
-  SELECT COUNT(*) FROM survey_responses
-  UNION ALL
-  SELECT COUNT(*) FROM surveys
-  UNION ALL
-  SELECT COUNT(*) FROM system_bootstrap
-  UNION ALL
-  SELECT COUNT(*) FROM team_budgets
-  UNION ALL
-  SELECT COUNT(*) FROM timesheets
-  UNION ALL
-  SELECT COUNT(*) FROM timezone_master
-  UNION ALL
-  SELECT COUNT(*) FROM transport_dispatch
-  UNION ALL
-  SELECT COUNT(*) FROM travel_requests
-  UNION ALL
-  SELECT COUNT(*) FROM user_roles
-  UNION ALL
-  SELECT COUNT(*) FROM vacancies
-  UNION ALL
-  SELECT COUNT(*) FROM webhook_configs
-  UNION ALL
-  SELECT COUNT(*) FROM webhook_logs
-  UNION ALL
-  SELECT COUNT(*) FROM whistleblowers
-  UNION ALL
-  SELECT COUNT(*) FROM worker_passwords
-  UNION ALL
-  SELECT COUNT(*) FROM workforce_simulations
-) t;
+SELECT 'DELETE COMPLETE' AS status;
