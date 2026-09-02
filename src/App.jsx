@@ -45,6 +45,10 @@ const CertificationsPage = lazy(() => import('./features/core/talent/Certificati
 const BadgesPage = lazy(() => import('./features/core/talent/BadgesPage'));
 const TalentMarketPage = lazy(() => import('./features/core/talent/TalentMarketPage'));
 const CareerPathPage = lazy(() => import('./features/core/career/CareerPathPage'));
+const SuccessionPlanning = lazy(() => import('./features/core/career/SuccessionPlanning'));
+const CareerDevelopment = lazy(() => import('./features/core/career/CareerDevelopment'));
+const AdminAttendance = lazy(() => import('./features/core/attendance/AdminAttendance'));
+const TimesheetManagement = lazy(() => import('./features/core/attendance/TimesheetManagement'));
 
 // ── ADMIN ASET ──
 const AssetManagement = lazy(() => import('./features/industry/mill/AssetManagement'));
@@ -163,6 +167,10 @@ function AppContent() {
         {/* ═══════════ WORKER ═══════════ */}
         <Route path="/worker" element={withNav(Worker)} />
         <Route path="/worker/attendance" element={withNav(WorkerAttendance)} />
+        <Route path="/worker/career-dev" element={withNav(CareerDevelopment)} />
+        <Route path="/admin/attendance" element={withNav(AdminAttendance)} />
+        <Route path="/admin/timesheet" element={withNav(TimesheetManagement)} />
+        <Route path="/admin/succession" element={withNav(SuccessionPlanning)} />
         <Route path="/worker/leave" element={withNav(WorkerLeave)} />
         <Route path="/worker/overtime" element={withNav(WorkerOvertime)} />
         <Route path="/worker/kpi" element={withNav(WorkerKpi)} />
