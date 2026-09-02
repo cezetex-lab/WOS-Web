@@ -106,9 +106,9 @@ CREATE POLICY hpay_select ON hr_payroll FOR SELECT
   USING (nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
 
 -- HR training — workers see own
-DROP POLICY IF EXISTS ht_all ON hr_training;
-DROP POLICY IF EXISTS ht_select ON hr_training;
-CREATE POLICY ht_select ON hr_training FOR SELECT
+DROP POLICY IF EXISTS ht_all ON hr_training_catalog;
+DROP POLICY IF EXISTS ht_select ON hr_training_catalog;
+CREATE POLICY ht_select ON hr_training_catalog FOR SELECT
   USING (nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
 
 -- HR KPI config — admin only
@@ -177,9 +177,9 @@ CREATE POLICY wk_select ON hr_tasks FOR SELECT
   USING (assigned_to = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
 
 -- Ideas/voice — all authenticated
-DROP POLICY IF EXISTS vi_all ON voice_ideas;
-DROP POLICY IF EXISTS vi_select ON voice_ideas;
-CREATE POLICY vi_select ON voice_ideas FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS vi_all ON hr_voice;
+DROP POLICY IF EXISTS vi_select ON hr_voice;
+CREATE POLICY vi_select ON hr_voice FOR SELECT USING (TRUE);
 
 -- Surveys — all authenticated
 DROP POLICY IF EXISTS sv_all ON surveys;
@@ -204,9 +204,9 @@ CREATE POLICY bg_select ON badges FOR SELECT
   USING (nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
 
 -- Succession — admin only
-DROP POLICY IF EXISTS sc_all ON succession_matrix;
-DROP POLICY IF EXISTS sc_select ON succession_matrix;
-CREATE POLICY sc_select ON succession_matrix FOR SELECT USING (is_admin_or_owner());
+DROP POLICY IF EXISTS sc_all ON hr_succession_matrix;
+DROP POLICY IF EXISTS sc_select ON hr_succession_matrix;
+CREATE POLICY sc_select ON hr_succession_matrix FOR SELECT USING (is_admin_or_owner());
 
 -- OKRs — workers see own
 DROP POLICY IF EXISTS ok_all ON okrs;
@@ -221,9 +221,9 @@ CREATE POLICY pn_select ON performance_notes FOR SELECT
   USING (nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
 
 -- Offboarding — admin only
-DROP POLICY IF EXISTS of_all ON offboarding;
-DROP POLICY IF EXISTS of_select ON offboarding;
-CREATE POLICY of_select ON offboarding FOR SELECT USING (is_admin_or_owner());
+DROP POLICY IF EXISTS of_all ON offboarding_checklist;
+DROP POLICY IF EXISTS of_select ON offboarding_checklist;
+CREATE POLICY of_select ON offboarding_checklist FOR SELECT USING (is_admin_or_owner());
 
 -- Reviews 360 — workers see own
 DROP POLICY IF EXISTS rv_all ON reviews_360;
@@ -232,7 +232,3 @@ CREATE POLICY rv_select ON reviews_360 FOR SELECT
   USING (reviewee_nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
 
 -- Leave requests — workers see own
-DROP POLICY IF EXISTS lr_all ON leave_requests;
-DROP POLICY IF EXISTS lr_select ON leave_requests;
-CREATE POLICY lr_select ON leave_requests FOR SELECT
-  USING (nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
