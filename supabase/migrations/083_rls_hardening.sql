@@ -108,8 +108,7 @@ CREATE POLICY hpay_select ON hr_payroll FOR SELECT
 -- HR training — workers see own
 DROP POLICY IF EXISTS ht_all ON hr_training_catalog;
 DROP POLICY IF EXISTS ht_select ON hr_training_catalog;
-CREATE POLICY ht_select ON hr_training_catalog FOR SELECT
-  USING (nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
+CREATE POLICY ht_select ON hr_training_catalog FOR SELECT USING (TRUE);
 
 -- HR KPI config — admin only
 DROP POLICY IF EXISTS hk_all ON hr_kpi_config;
