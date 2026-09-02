@@ -164,8 +164,10 @@ function AppContent() {
         {/* PUBLIC — no auth needed */}
         <Route path="/" element={<Home />} />
         <Route path="/owner" element={<OwnerLogin />} />
-      <SessionGuard>
-      <Routes>
+        {/* PROTECTED — wrapped in SessionGuard */}
+        <Route path="/*" element={
+          <SessionGuard>
+            <Routes>
 
         {/* ═══════════ WORKER ═══════════ */}
         <Route path="/worker" element={withNav(Worker)} />
@@ -298,8 +300,9 @@ function AppContent() {
         {/* ═══════════ DASHBOARD (Manager) ═══════════ */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/*" element={<Dashboard />} />
-      </Routes>
-      </SessionGuard>
+            </Routes>
+          </SessionGuard>
+        } />
       </Routes>
     </div>
   );
