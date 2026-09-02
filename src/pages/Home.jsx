@@ -40,6 +40,12 @@ export default function Home() {
   const [adminValidated, setAdminValidated] = useState(false);
 
   useEffect(() => {
+    rpc('get_branding', {}).then(d => {
+      if (d && d.company_name) setBrand(d);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const user = getSession();
     if (user) {
       const r = user.role || 'worker';
@@ -545,7 +551,7 @@ export default function Home() {
             <label style={S.label}>Password Admin</label>
             <input type="password" value={adminPass} onChange={e => setAdminPass(e.target.value)} placeholder="Masukkan password admin" style={S.inp} required />
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', textAlign: 'center' }}>Default: Admin123</div>
+
           <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : 'Verifikasi Password'}</button>
         </form>
       )}
