@@ -160,11 +160,12 @@ function AppContent() {
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white font-sans antialiased">
       <OfflineIndicator />
       <PrivacyConsent />
-      <SessionGuard>
       <Routes>
-        {/* LOGIN */}
+        {/* PUBLIC — no auth needed */}
         <Route path="/" element={<Home />} />
         <Route path="/owner" element={<OwnerLogin />} />
+      <SessionGuard>
+      <Routes>
 
         {/* ═══════════ WORKER ═══════════ */}
         <Route path="/worker" element={withNav(Worker)} />
@@ -299,6 +300,7 @@ function AppContent() {
         <Route path="/dashboard/*" element={<Dashboard />} />
       </Routes>
       </SessionGuard>
+      </Routes>
     </div>
   );
 }
