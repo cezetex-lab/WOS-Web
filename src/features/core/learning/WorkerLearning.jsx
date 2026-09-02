@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc } from '../../../lib/supabase-browser';
+import { supabase, getSession, rpc } from '../../../lib/supabase-browser';
 import {
   PageLayout, MetricCard, GlassCard, Badge, LoadingSpinner, EmptyState, Button, Tabs
 } from '../../../lib/design-system';
@@ -25,7 +25,8 @@ const STATUS_CONFIG = {
 };
 
 export default function WorkerLearning() {
-  const nrp = JSON.parse(sessionStorage.getItem('wos_user') || '{}')?.nrp;
+  const session = getSession();
+  const nrp = session?.nrp;
   const [loading, setLoading] = useState(true);
   const [learning, setLearning] = useState([]);
   const [activeTab, setActiveTab] = useState('all');

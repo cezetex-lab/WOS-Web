@@ -31,21 +31,17 @@ export default function MfaSetup() {
 
   useEffect(() => {
     // Get NRP from session
-    const raw = sessionStorage.getItem('wos_user');
-    if (raw) {
-      try {
-        const u = JSON.parse(raw);
-        setNrp(u.nrp || u.id || '');
-      } catch {}
+    const session = getSession();
+    if (session) {
+      setNrp(session.nrp || session.id || '');
     }
     checkStatus();
   }, []);
 
   async function checkStatus() {
     try {
-      const raw = sessionStorage.getItem('wos_user');
-      const u = raw ? JSON.parse(raw) : null;
-      const userNrp = u?.nrp || u?.id || '';
+      const session = getSession();
+      const userNrp = session?.nrp || session?.id || '';
       if (!userNrp) { setStep('error'); return; }
       
       const d = await mfaAction('check', { nrp: userNrp });

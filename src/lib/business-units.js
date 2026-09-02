@@ -1,3 +1,4 @@
+import { getSession } from './supabase-browser';
 // ============================================================
 // business-units.js — BU-Specific Menu & Module Configs
 // Conditional rendering based on business_unit from login
@@ -190,7 +191,7 @@ export const BU_MODULES = {
 export function getUserModules() {
   if (typeof window === 'undefined') return HQ_MODULES;
   try {
-    const session = JSON.parse(sessionStorage.getItem('wos_user') || '{}');
+    const session = getSession() || {};
     const bu = session.business_unit || 'HQ';
     return BU_MODULES[bu] || HQ_MODULES;
   } catch {
@@ -202,7 +203,7 @@ export function getUserModules() {
 export function getBusinessUnit() {
   if (typeof window === 'undefined') return 'HQ';
   try {
-    const session = JSON.parse(sessionStorage.getItem('wos_user') || '{}');
+    const session = getSession() || {};
     return session.business_unit || 'HQ';
   } catch {
     return 'HQ';
@@ -213,7 +214,7 @@ export function getBusinessUnit() {
 export function getRoleLevel() {
   if (typeof window === 'undefined') return 1;
   try {
-    const session = JSON.parse(sessionStorage.getItem('wos_user') || '{}');
+    const session = getSession() || {};
     return session.role_level || 1;
   } catch {
     return 1;

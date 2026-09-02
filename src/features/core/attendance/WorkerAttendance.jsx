@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc } from '../../../lib/supabase-browser';
+import { supabase, getSession, rpc } from '../../../lib/supabase-browser';
 import {
   PageLayout, MetricCard, GlassCard, Badge, LoadingSpinner, EmptyState, Button
 } from '../../../lib/design-system';
@@ -21,7 +21,8 @@ const STATUS_CONFIG = {
 const DAYS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 export default function WorkerAttendance() {
-  const nrp = JSON.parse(sessionStorage.getItem('wos_user') || '{}')?.nrp;
+  const session = getSession();
+  const nrp = session?.nrp;
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());

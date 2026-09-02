@@ -100,7 +100,7 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
 
   // ── COMPUTED FIELDS ──
   const nrp = typeof window !== 'undefined'
-    ? localStorage.getItem('wos_nrp') || JSON.parse(sessionStorage.getItem('wos_user') || '{}')?.nrp || 'NRP001'
+    ? getSession()?.nrp || 'NRP001'
     : 'NRP001';
 
   const params = config?.paramField ? { [config.paramField]: nrp } : {};

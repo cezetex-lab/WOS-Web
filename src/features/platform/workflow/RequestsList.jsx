@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc } from '../../../lib/supabase-browser';
+import { supabase, getSession, rpc } from '../../../lib/supabase-browser';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, Avatar
@@ -20,7 +20,8 @@ const STATUS_COLORS = {
 };
 
 export default function RequestsList() {
-  const nrp = JSON.parse(sessionStorage.getItem('wos_user') || '{}')?.nrp || 'ADMIN001';
+  const session = getSession();
+  const nrp = session?.nrp || 'ADMIN001';
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
