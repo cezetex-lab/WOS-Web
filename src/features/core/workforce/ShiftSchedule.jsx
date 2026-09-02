@@ -73,20 +73,20 @@ export default function ShiftSchedule() {
                   </div>
                   <div className="text-right">
                     <Badge status={shift.shift_code} type="info" />
-                    <p className="text-[10px] text-slate-500 mt-1">Grace: {shift.grace_minutes}m</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Grace: {shift.grace_minutes}m</p>
                   </div>
                 </div>
 
                 {/* ── WEEKLY PATTERN ── */}
                 <div className="mt-3 pt-3 border-t border-white/5">
-                  <p className="text-[10px] text-slate-500 mb-2 uppercase tracking-wider">Jadwal Mingguan</p>
+                  <p className="text-[11px] text-slate-500 mb-2 uppercase tracking-wider">Jadwal Mingguan</p>
                   <div className="grid grid-cols-7 gap-1">
                     {DAYS.map((day, i) => {
                       const isWorkDay = i < 5; // Mon-Fri
                       return (
                         <div
                           key={day}
-                          className={`text-center py-1.5 rounded-lg text-[10px] ${
+                          className={`text-center py-1.5 rounded-lg text-[11px] ${
                             isWorkDay
                               ? `${style.bg} ${style.text} border ${style.border}`
                               : 'bg-slate-800/30 text-slate-600'

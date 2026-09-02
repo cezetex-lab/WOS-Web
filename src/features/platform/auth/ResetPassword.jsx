@@ -146,7 +146,7 @@ export default function ResetPassword() {
                     <Avatar name={emp.nama} size="sm" />
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-xs font-medium truncate">{emp.nama}</p>
-                      <p className="text-slate-500 text-[10px]">{emp.nrp} • {emp.divisi || '-'}</p>
+                      <p className="text-slate-500 text-[11px]">{emp.nrp} • {emp.divisi || '-'}</p>
                     </div>
                     <Badge color={emp.status === 'Aktif' ? 'green' : 'red'}>{emp.status || '-'}</Badge>
                   </button>
@@ -205,7 +205,7 @@ export default function ResetPassword() {
 
             {newPassword && (
               <div className="p-3 bg-slate-800/50 rounded-xl border border-white/5">
-                <p className="text-[10px] text-slate-500 mb-1">Password baru untuk {selectedEmp.nama}:</p>
+                <p className="text-[11px] text-slate-500 mb-1">Password baru untuk {selectedEmp.nama}:</p>
                 <code className="text-amber-400 text-sm font-mono">{newPassword}</code>
               </div>
             )}

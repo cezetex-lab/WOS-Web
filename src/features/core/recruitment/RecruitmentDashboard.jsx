@@ -65,7 +65,7 @@ export default function RecruitmentDashboard() {
           {stages.filter(s => s !== 'Rejected').map(s => (
             <div key={s} className="flex-1 text-center">
               <div className={`h-2 rounded-full mb-1 ${s === 'Hired' ? 'bg-green-500' : s === 'Interview' ? 'bg-orange-500' : 'bg-blue-500'}`} style={{ height: `${Math.max((stageCount[s] || 0) * 8, 4)}px` }} />
-              <p className="text-[10px] text-slate-400">{s}</p>
+              <p className="text-[11px] text-slate-400">{s}</p>
               <p className="text-xs font-bold text-white">{stageCount[s] || 0}</p>
             </div>
           ))}

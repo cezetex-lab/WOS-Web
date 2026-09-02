@@ -29,9 +29,9 @@ export default function MedicalCheckup() {
         <p className="text-xs text-slate-400 mb-4">Medical checkup & kesehatan karyawan kebun</p>
 
         <div className="grid grid-cols-3 gap-2 mb-4">
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-emerald-400">{HEALTH_STATS.completed}</div><div className="text-[10px] text-slate-400">Completed</div></GlassCard>
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{HEALTH_STATS.scheduled}</div><div className="text-[10px] text-slate-400">Scheduled</div></GlassCard>
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{HEALTH_STATS.pending}</div><div className="text-[10px] text-slate-400">Pending</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-emerald-400">{HEALTH_STATS.completed}</div><div className="text-[11px] text-slate-400">Completed</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{HEALTH_STATS.scheduled}</div><div className="text-[11px] text-slate-400">Scheduled</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{HEALTH_STATS.pending}</div><div className="text-[11px] text-slate-400">Pending</div></GlassCard>
         </div>
 
         {/* Quick Actions */}
@@ -39,12 +39,12 @@ export default function MedicalCheckup() {
           <GlassCard className="p-3 text-center cursor-pointer hover:bg-white/5 transition-all">
             <div className="text-2xl mb-1">📞</div>
             <div className="text-xs font-semibold text-white">Hubungi Dokter</div>
-            <div className="text-[10px] text-slate-500">ext 120</div>
+            <div className="text-[11px] text-slate-500">ext 120</div>
           </GlassCard>
           <GlassCard className="p-3 text-center cursor-pointer hover:bg-white/5 transition-all">
             <div className="text-2xl mb-1">💊</div>
             <div className="text-xs font-semibold text-white">Ambil Obat</div>
-            <div className="text-[10px] text-slate-500">Apotek kebun</div>
+            <div className="text-[11px] text-slate-500">Apotek kebun</div>
           </GlassCard>
         </div>
 
@@ -56,14 +56,14 @@ export default function MedicalCheckup() {
                   <span className="text-lg">🩺</span>
                   <div>
                     <span className="text-sm font-bold text-white">{r.name}</span>
-                    <span className="text-[10px] text-slate-500 ml-2">{r.nrp}</span>
+                    <span className="text-[11px] text-slate-500 ml-2">{r.nrp}</span>
                   </div>
                 </div>
                 <Badge status={r.status} type={r.status === 'COMPLETED' ? 'success' : r.status === 'SCHEDULED' ? 'warning' : 'info'} />
               </div>
               <div className="text-xs text-slate-300 mb-1">{r.type}</div>
-              {r.results && <div className="text-[10px] text-emerald-400 bg-emerald-500/5 rounded p-1.5">✅ {r.results}</div>}
-              <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+              {r.results && <div className="text-[11px] text-emerald-400 bg-emerald-500/5 rounded p-1.5">✅ {r.results}</div>}
+              <div className="flex justify-between text-[11px] text-slate-500 mt-1">
                 <span>BPJS: {r.bpjs}</span>
                 <span>📅 {r.date}</span>
               </div>

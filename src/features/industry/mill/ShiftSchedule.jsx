@@ -48,7 +48,7 @@ export default function ShiftSchedule() {
               <span className="text-2xl">{sc.icon}</span>
               <p className={`text-lg font-bold mt-1 ${sc.text}`}>{count}</p>
               <p className="text-xs text-slate-400">{shift}</p>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[11px] text-slate-500">
                 {shift === 'PAGI' ? '06:00 - 14:00' : shift === 'SORE' ? '14:00 - 22:00' : '22:00 - 06:00'}
               </p>
             </button>
@@ -70,8 +70,8 @@ export default function ShiftSchedule() {
                     {items.map(a => (
                       <div key={a.id} className="p-2 bg-slate-800/50 rounded-lg border border-white/5">
                         <p className="text-xs font-bold text-white">{a.nrp}</p>
-                        <p className="text-[10px] text-slate-400">{a.section} • {a.equipment}</p>
-                        <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                        <p className="text-[11px] text-slate-400">{a.section} • {a.equipment}</p>
+                        <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[11px] font-bold ${
                           a.status === 'CHECKED_IN' ? 'bg-green-500/20 text-green-400' :
                           a.status === 'ABSENT' ? 'bg-red-500/20 text-red-400' :
                           'bg-slate-500/20 text-slate-400'

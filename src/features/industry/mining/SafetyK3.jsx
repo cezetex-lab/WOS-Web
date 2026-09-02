@@ -42,9 +42,9 @@ export default function SafetyK3() {
 
         {stats && (
           <div className="grid grid-cols-3 gap-2 mb-4">
-            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-emerald-400">{stats.lti}</div><div className="text-[10px] text-slate-400">LTI (Lost Time)</div></GlassCard>
-            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{stats.total}</div><div className="text-[10px] text-slate-400">Total Reports</div></GlassCard>
-            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{stats.open}</div><div className="text-[10px] text-slate-400">Open Cases</div></GlassCard>
+            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-emerald-400">{stats.lti}</div><div className="text-[11px] text-slate-400">LTI (Lost Time)</div></GlassCard>
+            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{stats.total}</div><div className="text-[11px] text-slate-400">Total Reports</div></GlassCard>
+            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{stats.open}</div><div className="text-[11px] text-slate-400">Open Cases</div></GlassCard>
           </div>
         )}
 
@@ -60,11 +60,11 @@ export default function SafetyK3() {
                 <Badge status={inc.status} type={inc.status === 'CLOSED' ? 'success' : inc.status === 'OPEN' ? 'danger' : 'warning'} />
               </div>
               <p className="text-xs text-slate-300 mb-2">{inc.description}</p>
-              <div className="flex justify-between text-[10px] text-slate-500">
+              <div className="flex justify-between text-[11px] text-slate-500">
                 <span>📍 {inc.zone} • 📅 {inc.date}</span>
                 <span>Reporter: {inc.reporter}</span>
               </div>
-              {inc.action_taken && <div className="mt-2 p-2 bg-emerald-500/10 rounded text-[10px] text-emerald-400">✅ {inc.action_taken}</div>}
+              {inc.action_taken && <div className="mt-2 p-2 bg-emerald-500/10 rounded text-[11px] text-emerald-400">✅ {inc.action_taken}</div>}
             </GlassCard>
           ))}
         </div>

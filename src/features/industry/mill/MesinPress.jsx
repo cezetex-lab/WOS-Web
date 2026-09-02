@@ -46,35 +46,35 @@ export default function MesinPress() {
           <GlassCard key={p.id} title={`${p.code} — ${p.name}`} icon="⚙️" accent={p.status === 'RUNNING' ? 'green' : 'slate'}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Status</p>
+                <p className="text-[11px] text-slate-500 uppercase">Status</p>
                 <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${STATUS_COLORS[p.status]}`}>{p.status}</span>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">RPM</p>
+                <p className="text-[11px] text-slate-500 uppercase">RPM</p>
                 <p className="text-lg font-bold text-white">{p.rpm}</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Torque</p>
+                <p className="text-[11px] text-slate-500 uppercase">Torque</p>
                 <p className="text-lg font-bold text-white">{p.torque} Nm</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Suhu</p>
+                <p className="text-[11px] text-slate-500 uppercase">Suhu</p>
                 <p className="text-lg font-bold text-white">{p.temperature}°C</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Vibrasi</p>
+                <p className="text-[11px] text-slate-500 uppercase">Vibrasi</p>
                 <p className={`text-lg font-bold ${p.vibration > 3 ? 'text-red-400' : 'text-green-400'}`}>{p.vibration} mm/s</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Oil Quality</p>
+                <p className="text-[11px] text-slate-500 uppercase">Oil Quality</p>
                 <p className={`text-sm font-bold ${p.oil_quality === 'GOOD' ? 'text-green-400' : 'text-orange-400'}`}>{p.oil_quality}</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Kapasitas</p>
+                <p className="text-[11px] text-slate-500 uppercase">Kapasitas</p>
                 <p className="text-sm text-white">{p.capacity} ton/jam</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Maintenance</p>
+                <p className="text-[11px] text-slate-500 uppercase">Maintenance</p>
                 <p className="text-xs text-slate-300">Next: {p.next_maintenance || '-'}</p>
               </div>
             </div>

@@ -96,7 +96,7 @@ export default function ContinuousPerf() {
                     }`}
                   >
                     <span className="text-xl">{m.emoji}</span>
-                    <span className="text-[9px] text-slate-400 mt-1">{m.label}</span>
+                    <span className="text-[11px] text-slate-400 mt-1">{m.label}</span>
                   </button>
                 ))}
               </div>
@@ -137,7 +137,7 @@ export default function ContinuousPerf() {
               <div key={i} className="p-3 bg-slate-900/40 rounded-xl border border-white/5">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold text-white">Check-in</span>
-                  <span className="text-[10px] text-slate-500">
+                  <span className="text-[11px] text-slate-500">
                     {item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'}
                   </span>
                 </div>

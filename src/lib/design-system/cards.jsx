@@ -8,11 +8,11 @@ export function MetricCard({ icon, value, label, trend, color = 'blue', loading,
     <div onClick={onClick} className={`bg-gradient-to-br ${colors[color]} backdrop-blur-sm border rounded-2xl p-4 shadow-lg transition-all duration-200 ${onClick ? 'cursor-pointer hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]' : ''}`}>
       <div className="flex items-start justify-between">
         <span className="text-2xl">{icon}</span>
-        {trend && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${trendColors[color]}`}>{trend}</span>}
+        {trend && <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${trendColors[color]}`}>{trend}</span>}
       </div>
       <div className="mt-2">
         <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
-        <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">{label}</div>
+        <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">{label}</div>
       </div>
     </div>
   );
@@ -41,8 +41,8 @@ export function QuickTile({ icon, label, color = 'slate', onClick, badge }) {
   return (
     <button onClick={onClick} className={`relative flex flex-col items-center justify-center p-3 rounded-2xl ${bgColors[color]} backdrop-blur-sm border border-white/5 transition-all duration-200 hover:border-white/15 active:scale-95`}>
       <span className="text-2xl mb-1">{icon}</span>
-      <span className="text-[10px] font-medium text-slate-300 text-center leading-tight">{label}</span>
-      {badge > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full px-1">{badge > 99 ? '99+' : badge}</span>}
+      <span className="text-[11px] font-medium text-slate-300 text-center leading-tight">{label}</span>
+      {badge > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[11px] font-bold rounded-full px-1">{badge > 99 ? '99+' : badge}</span>}
     </button>
   );
 }

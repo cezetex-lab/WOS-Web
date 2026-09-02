@@ -41,9 +41,9 @@ export default function BlockManagement() {
         <p className="text-xs text-slate-400 mb-4">Manajemen blok perkebunan sawit</p>
 
         <div className="grid grid-cols-3 gap-2 mb-4">
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-white">{totalArea}</div><div className="text-[10px] text-slate-400">Total Ha</div></GlassCard>
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-green-400">{(totalTrees / 1000).toFixed(1)}K</div><div className="text-[10px] text-slate-400">Total Pohon</div></GlassCard>
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{blocks.length}</div><div className="text-[10px] text-slate-400">Active Blok</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-white">{totalArea}</div><div className="text-[11px] text-slate-400">Total Ha</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-green-400">{(totalTrees / 1000).toFixed(1)}K</div><div className="text-[11px] text-slate-400">Total Pohon</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{blocks.length}</div><div className="text-[11px] text-slate-400">Active Blok</div></GlassCard>
         </div>
 
         <div className="space-y-2">
@@ -52,17 +52,17 @@ export default function BlockManagement() {
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <span className="text-sm font-bold text-white">{b.id}</span>
-                  <span className="text-[10px] text-slate-500 ml-2">{b.name}</span>
+                  <span className="text-[11px] text-slate-500 ml-2">{b.name}</span>
                 </div>
                 <Badge status={b.status} type={statusColor[b.status]} />
               </div>
-              <div className="grid grid-cols-4 gap-1 text-[10px]">
+              <div className="grid grid-cols-4 gap-1 text-[11px]">
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Luas</div><div className="text-white font-bold">{b.area_ha} ha</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Pohon</div><div className="text-white font-bold">{b.total_trees.toLocaleString()}</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Umur</div><div className="text-white font-bold">{b.age_years} thn</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Yield/Ha</div><div className="text-emerald-400 font-bold">{b.yield_per_ha} ton</div></div>
               </div>
-              <div className="flex justify-between text-[10px] text-slate-500 mt-2">
+              <div className="flex justify-between text-[11px] text-slate-500 mt-2">
                 <span>💧 {b.irrigation} {b.fertilized ? '• ✅ Fertilized' : '• ❌ Not fertilized'}</span>
                 <span>Panen: {b.last_harvest}</span>
               </div>

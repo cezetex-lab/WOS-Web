@@ -23,8 +23,8 @@ export default function AuditChainPage() {
     { key: 'action', label: 'Aksi', render: v => <span className="text-sm font-semibold text-white">{v || '-'}</span> },
     { key: 'table_name', label: 'Tabel', render: v => <Badge status={v || '-'} type="info" /> },
     { key: 'record_id', label: 'Record', render: v => <span className="text-xs font-mono text-slate-400">{v || '-'}</span> },
-    { key: 'prev_hash', label: 'Prev Hash', render: v => <span className="text-[10px] font-mono text-slate-500 truncate block max-w-[100px]">{v ? v.slice(0, 16) + '...' : 'genesis'}</span> },
-    { key: 'hash', label: 'Hash', render: v => <span className="text-[10px] font-mono text-green-400 truncate block max-w-[100px]">{v ? v.slice(0, 16) + '...' : '-'}</span> },
+    { key: 'prev_hash', label: 'Prev Hash', render: v => <span className="text-[11px] font-mono text-slate-500 truncate block max-w-[100px]">{v ? v.slice(0, 16) + '...' : 'genesis'}</span> },
+    { key: 'hash', label: 'Hash', render: v => <span className="text-[11px] font-mono text-green-400 truncate block max-w-[100px]">{v ? v.slice(0, 16) + '...' : '-'}</span> },
     { key: 'created_at', label: 'Waktu', render: v => <span className="text-xs text-slate-300">{v ? new Date(v).toLocaleString('id-ID') : '-'}</span> },
   ];
 

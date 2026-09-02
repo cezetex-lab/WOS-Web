@@ -52,15 +52,15 @@ export default function PipelineKanban() {
                 {stageCandidates.map(c => (
                   <GlassCard key={c.id} accent={stage.color} className="p-3">
                     <h4 className="text-sm font-semibold text-white mb-1">{c.candidate_name}</h4>
-                    <p className="text-[10px] text-slate-400 mb-2">{c.candidate_email || '-'}</p>
+                    <p className="text-[11px] text-slate-400 mb-2">{c.candidate_email || '-'}</p>
                     <div className="flex items-center gap-1 mb-2">
                       {'⭐'.repeat(Math.min(c.rating || 0, 5))}
-                      <span className="text-[10px] text-slate-400 ml-1">{c.rating || 0}/5</span>
+                      <span className="text-[11px] text-slate-400 ml-1">{c.rating || 0}/5</span>
                     </div>
-                    {c.notes && <p className="text-[10px] text-slate-300 truncate">{c.notes}</p>}
+                    {c.notes && <p className="text-[11px] text-slate-300 truncate">{c.notes}</p>}
                     <div className="flex gap-1 mt-2">
                       {STAGES.filter(s => s.id !== stage.id && s.id !== 'Rejected').slice(0, 2).map(s => (
-                        <button key={s.id} onClick={() => moveCandidate(c.id, s.id)} className="text-[10px] px-2 py-0.5 rounded bg-slate-700/50 text-slate-300 hover:bg-slate-600/50 transition-all">
+                        <button key={s.id} onClick={() => moveCandidate(c.id, s.id)} className="text-[11px] px-2 py-0.5 rounded bg-slate-700/50 text-slate-300 hover:bg-slate-600/50 transition-all">
                           → {s.label}
                         </button>
                       ))}

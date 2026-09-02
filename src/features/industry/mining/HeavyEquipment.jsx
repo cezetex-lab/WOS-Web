@@ -49,10 +49,10 @@ export default function HeavyEquipment() {
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-2 mb-4">
-          <GlassCard className="text-center p-2"><div className="text-xl font-bold text-white">{equipment.length}</div><div className="text-[10px] text-slate-400">Total Unit</div></GlassCard>
-          <GlassCard className="text-center p-2"><div className="text-xl font-bold text-emerald-400">{operational}</div><div className="text-[10px] text-slate-400">Operasional</div></GlassCard>
-          <GlassCard className="text-center p-2"><div className="text-xl font-bold text-amber-400">{maintenance}</div><div className="text-[10px] text-slate-400">Maintenance</div></GlassCard>
-          <GlassCard className="text-center p-2"><div className="text-xl font-bold text-red-400">{breakdown}</div><div className="text-[10px] text-slate-400">Breakdown</div></GlassCard>
+          <GlassCard className="text-center p-2"><div className="text-xl font-bold text-white">{equipment.length}</div><div className="text-[11px] text-slate-400">Total Unit</div></GlassCard>
+          <GlassCard className="text-center p-2"><div className="text-xl font-bold text-emerald-400">{operational}</div><div className="text-[11px] text-slate-400">Operasional</div></GlassCard>
+          <GlassCard className="text-center p-2"><div className="text-xl font-bold text-amber-400">{maintenance}</div><div className="text-[11px] text-slate-400">Maintenance</div></GlassCard>
+          <GlassCard className="text-center p-2"><div className="text-xl font-bold text-red-400">{breakdown}</div><div className="text-[11px] text-slate-400">Breakdown</div></GlassCard>
         </div>
 
         {/* Filter */}
@@ -73,12 +73,12 @@ export default function HeavyEquipment() {
                   <span className="text-lg">{eq.type === 'Excavator' ? '🏗️' : eq.type === 'Dump Truck' ? '🚛' : eq.type === 'Bulldozer' ? '🚜' : eq.type === 'Drill Rig' ? '🔩' : '🏗️'}</span>
                   <div>
                     <span className="text-sm font-bold text-white">{eq.id}</span>
-                    <span className="text-[10px] text-slate-500 ml-2">{eq.brand}</span>
+                    <span className="text-[11px] text-slate-500 ml-2">{eq.brand}</span>
                   </div>
                 </div>
                 <Badge status={eq.status} type={STATUS_COLOR[eq.status]} />
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div className="bg-slate-800/40 rounded-lg p-2">
                   <div className="text-slate-500">Operator</div>
                   <div className="text-white font-semibold">{eq.operator || '—'}</div>
@@ -96,7 +96,7 @@ export default function HeavyEquipment() {
                   <div className={`font-semibold ${eq.fuel_level < 30 ? 'text-red-400' : eq.fuel_level < 60 ? 'text-amber-400' : 'text-emerald-400'}`}>{eq.fuel_level}%</div>
                 </div>
               </div>
-              <div className="mt-2 text-[10px] text-slate-500">Next service: <span className={eq.next_service === 'OVERDUE' ? 'text-red-400 font-bold' : 'text-slate-400'}>{eq.next_service}</span></div>
+              <div className="mt-2 text-[11px] text-slate-500">Next service: <span className={eq.next_service === 'OVERDUE' ? 'text-red-400 font-bold' : 'text-slate-400'}>{eq.next_service}</span></div>
             </GlassCard>
           ))}
         </div>

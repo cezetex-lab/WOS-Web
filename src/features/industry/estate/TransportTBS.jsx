@@ -40,8 +40,8 @@ export default function TransportTBS() {
         <p className="text-xs text-slate-400 mb-4">Jadwal & tracking pengiriman TBS ke pabrik</p>
 
         <div className="grid grid-cols-2 gap-2 mb-4">
-          <GlassCard className="p-3"><div className="text-lg font-bold text-emerald-400">{delivered} ton</div><div className="text-[10px] text-slate-400">Terkirim Hari Ini</div></GlassCard>
-          <GlassCard className="p-3"><div className="text-lg font-bold text-white">{total} ton</div><div className="text-[10px] text-slate-400">Total Dispatch</div></GlassCard>
+          <GlassCard className="p-3"><div className="text-lg font-bold text-emerald-400">{delivered} ton</div><div className="text-[11px] text-slate-400">Terkirim Hari Ini</div></GlassCard>
+          <GlassCard className="p-3"><div className="text-lg font-bold text-white">{total} ton</div><div className="text-[11px] text-slate-400">Total Dispatch</div></GlassCard>
         </div>
 
         <div className="space-y-2">
@@ -52,12 +52,12 @@ export default function TransportTBS() {
                   <span className="text-xl">🚛</span>
                   <div>
                     <span className="text-sm font-bold text-white">{d.id}</span>
-                    <span className="text-[10px] text-slate-500 ml-2">{d.truck} • {d.driver}</span>
+                    <span className="text-[11px] text-slate-500 ml-2">{d.truck} • {d.driver}</span>
                   </div>
                 </div>
                 <Badge status={d.status} type={statusColor[d.status]} />
               </div>
-              <div className="grid grid-cols-3 gap-1 text-[10px] mt-2">
+              <div className="grid grid-cols-3 gap-1 text-[11px] mt-2">
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Dari</div><div className="text-white font-bold">{d.from}</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Tonase</div><div className="text-emerald-400 font-bold">{d.weight_ton} ton</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">ETA</div><div className="text-white font-bold">{d.arrive || d.depart || '—'}</div></div>

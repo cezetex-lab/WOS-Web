@@ -90,7 +90,7 @@ export default function CompensationIntel() {
               <div key={i} className="flex items-center justify-between p-2 bg-slate-900/40 rounded-xl border border-white/5">
                 <div>
                   <p className="text-xs font-bold text-white">{b.name || b.nama || '-'}</p>
-                  <p className="text-[10px] text-slate-500">{b.type || b.tipe || '-'}</p>
+                  <p className="text-[11px] text-slate-500">{b.type || b.tipe || '-'}</p>
                 </div>
                 <Badge status={b.status || 'Aktif'} type="success" />
               </div>

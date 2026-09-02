@@ -39,8 +39,8 @@ export default function ProductionDaily() {
 
         {summary && (
           <div className="grid grid-cols-2 gap-2 mb-4">
-            <GlassCard className="p-3"><div className="text-lg font-bold text-white">{summary.total_actual?.toLocaleString()} ton</div><div className="text-[10px] text-slate-400">Produksi Hari Ini</div></GlassCard>
-            <GlassCard className="p-3"><div className={`text-lg font-bold ${summary.efficiency >= 100 ? 'text-emerald-400' : 'text-amber-400'}`}>{summary.efficiency}%</div><div className="text-[10px] text-slate-400">Efisiensi</div></GlassCard>
+            <GlassCard className="p-3"><div className="text-lg font-bold text-white">{summary.total_actual?.toLocaleString()} ton</div><div className="text-[11px] text-slate-400">Produksi Hari Ini</div></GlassCard>
+            <GlassCard className="p-3"><div className={`text-lg font-bold ${summary.efficiency >= 100 ? 'text-emerald-400' : 'text-amber-400'}`}>{summary.efficiency}%</div><div className="text-[11px] text-slate-400">Efisiensi</div></GlassCard>
           </div>
         )}
 
@@ -56,7 +56,7 @@ export default function ProductionDaily() {
                 <div className="w-full bg-slate-700 rounded-full h-2 mb-2">
                   <div className={`h-2 rounded-full ${pct >= 100 ? 'bg-emerald-500' : pct >= 90 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                 </div>
-                <div className="flex justify-between text-[10px] text-slate-400">
+                <div className="flex justify-between text-[11px] text-slate-400">
                   <span>Target: {d.target?.toLocaleString()} {d.unit}</span>
                   <span>Actual: {d.actual?.toLocaleString()} {d.unit}</span>
                   <span>👷 {d.operator_count}</span>

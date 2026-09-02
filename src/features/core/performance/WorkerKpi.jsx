@@ -95,7 +95,7 @@ export default function WorkerKpi() {
               <div key={i} className="flex items-center justify-between py-2 border-b border-white/5">
                 <div>
                   <p className="text-xs text-white">{row.period || row.periode || `Periode ${i + 1}`}</p>
-                  <p className="text-[10px] text-slate-400">Kehadiran: {row.attendance_score || 0} • Prod: {row.productivity_score || 0}</p>
+                  <p className="text-[11px] text-slate-400">Kehadiran: {row.attendance_score || 0} • Prod: {row.productivity_score || 0}</p>
                 </div>
                 <Badge status={`${row.kpi_score || row.overall_score || 0}`} type={getScoreColor(row.kpi_score || row.overall_score || 0)} />
               </div>

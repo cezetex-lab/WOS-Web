@@ -50,7 +50,7 @@ export default function JobSafetyAnalysis() {
               <h3 className="text-sm font-semibold text-white mb-2">⚡ {jsa.job}</h3>
 
               <div className="mb-3">
-                <div className="text-[10px] text-red-400 font-bold mb-1">⚠️ HAZARDS:</div>
+                <div className="text-[11px] text-red-400 font-bold mb-1">⚠️ HAZARDS:</div>
                 <div className="space-y-1">
                   {jsa.hazards.map((h, j) => (
                     <div key={j} className="text-xs text-slate-300 bg-red-500/5 border border-red-500/10 rounded px-2 py-1">• {h}</div>
@@ -59,7 +59,7 @@ export default function JobSafetyAnalysis() {
               </div>
 
               <div className="mb-2">
-                <div className="text-[10px] text-emerald-400 font-bold mb-1">✅ CONTROLS:</div>
+                <div className="text-[11px] text-emerald-400 font-bold mb-1">✅ CONTROLS:</div>
                 <div className="space-y-1">
                   {jsa.controls.map((c, j) => (
                     <div key={j} className="text-xs text-slate-300 bg-emerald-500/5 border border-emerald-500/10 rounded px-2 py-1">• {c}</div>
@@ -67,7 +67,7 @@ export default function JobSafetyAnalysis() {
                 </div>
               </div>
 
-              <div className="flex justify-between text-[10px] text-slate-500 mt-2 pt-2 border-t border-white/5">
+              <div className="flex justify-between text-[11px] text-slate-500 mt-2 pt-2 border-t border-white/5">
                 <span>Prepared by: {jsa.prepared_by}</span>
                 <span>Valid until: {jsa.valid_date}</span>
               </div>

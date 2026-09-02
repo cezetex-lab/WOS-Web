@@ -38,29 +38,29 @@ export default function QcLab() {
       <GlassCard title="Standar Kualitas CPO" icon="📋" accent="teal" className="mb-6">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
           <div className="p-3 bg-slate-800/50 rounded-xl">
-            <p className="text-[10px] text-slate-500">FFA</p>
+            <p className="text-[11px] text-slate-500">FFA</p>
             <p className="text-lg font-bold text-white">{avgFfa}%</p>
-            <p className="text-[10px] text-green-400">Max: 5.0%</p>
+            <p className="text-[11px] text-green-400">Max: 5.0%</p>
           </div>
           <div className="p-3 bg-slate-800/50 rounded-xl">
-            <p className="text-[10px] text-slate-500">Moisture</p>
+            <p className="text-[11px] text-slate-500">Moisture</p>
             <p className="text-lg font-bold text-white">{avgMoisture}%</p>
-            <p className="text-[10px] text-green-400">Max: 0.3%</p>
+            <p className="text-[11px] text-green-400">Max: 0.3%</p>
           </div>
           <div className="p-3 bg-slate-800/50 rounded-xl">
-            <p className="text-[10px] text-slate-500">DOBI</p>
+            <p className="text-[11px] text-slate-500">DOBI</p>
             <p className="text-lg font-bold text-white">3.5</p>
-            <p className="text-[10px] text-green-400">Min: 3.0</p>
+            <p className="text-[11px] text-green-400">Min: 3.0</p>
           </div>
           <div className="p-3 bg-slate-800/50 rounded-xl">
-            <p className="text-[10px] text-slate-500">Color</p>
+            <p className="text-[11px] text-slate-500">Color</p>
             <p className="text-lg font-bold text-white">22</p>
-            <p className="text-[10px] text-green-400">Max: 30</p>
+            <p className="text-[11px] text-green-400">Max: 30</p>
           </div>
           <div className="p-3 bg-slate-800/50 rounded-xl">
-            <p className="text-[10px] text-slate-500">Dirt</p>
+            <p className="text-[11px] text-slate-500">Dirt</p>
             <p className="text-lg font-bold text-white">0.04%</p>
-            <p className="text-[10px] text-green-400">Max: 0.1%</p>
+            <p className="text-[11px] text-green-400">Max: 0.1%</p>
           </div>
         </div>
       </GlassCard>

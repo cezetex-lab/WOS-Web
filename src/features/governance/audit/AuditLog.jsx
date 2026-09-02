@@ -54,7 +54,7 @@ export default function AuditLog() {
       key: 'created_at',
       label: 'Waktu',
       render: (val) => (
-        <span className="text-[10px] text-slate-400">
+        <span className="text-[11px] text-slate-400">
           {val ? new Date(val).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
         </span>
       ),
@@ -82,7 +82,7 @@ export default function AuditLog() {
       key: 'detail',
       label: 'Detail',
       render: (val) => (
-        <span className="text-[10px] text-slate-400 truncate block max-w-[180px]">{val || '-'}</span>
+        <span className="text-[11px] text-slate-400 truncate block max-w-[180px]">{val || '-'}</span>
       ),
     },
   ];
@@ -101,7 +101,7 @@ export default function AuditLog() {
         ].map((s, i) => (
           <div key={i} className="p-2 bg-slate-800/50 rounded-xl border border-white/5 text-center">
             <div className={`text-lg font-bold ${s.color}`}>{s.count}</div>
-            <div className="text-[9px] text-slate-500">{s.label}</div>
+            <div className="text-[11px] text-slate-500">{s.label}</div>
           </div>
         ))}
       </div>

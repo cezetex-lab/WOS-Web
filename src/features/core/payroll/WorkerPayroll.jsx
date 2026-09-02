@@ -45,7 +45,7 @@ export default function WorkerPayroll() {
               </div>
               <div className="text-right">
                 <p className="text-lg font-bold text-green-400">{formatRp(row.net_salary || row.take_home)}</p>
-                <p className="text-[10px] text-slate-400">Bersih</p>
+                <p className="text-[11px] text-slate-400">Bersih</p>
               </div>
             </div>
 

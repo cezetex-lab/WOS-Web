@@ -42,9 +42,9 @@ export default function FatigueMonitor() {
         <p className="text-xs text-slate-400 mb-4">Tracking kelelahan kerja operator tambang</p>
 
         <div className="grid grid-cols-3 gap-2 mb-4">
-          <GlassCard className="text-center p-3"><div className="text-2xl font-bold text-emerald-400">{low}</div><div className="text-[10px] text-slate-400">🟢 Fit</div></GlassCard>
-          <GlassCard className="text-center p-3"><div className="text-2xl font-bold text-amber-400">{med}</div><div className="text-[10px] text-slate-400">🟡 Caution</div></GlassCard>
-          <GlassCard className="text-center p-3"><div className="text-2xl font-bold text-red-400">{high}</div><div className="text-[10px] text-slate-400">🔴 Rest Required</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-2xl font-bold text-emerald-400">{low}</div><div className="text-[11px] text-slate-400">🟢 Fit</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-2xl font-bold text-amber-400">{med}</div><div className="text-[11px] text-slate-400">🟡 Caution</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-2xl font-bold text-red-400">{high}</div><div className="text-[11px] text-slate-400">🔴 Rest Required</div></GlassCard>
         </div>
 
         <div className="space-y-2">
@@ -55,12 +55,12 @@ export default function FatigueMonitor() {
                   <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white">{w.name?.charAt(0)}</div>
                   <div>
                     <div className="text-sm font-semibold text-white">{w.name}</div>
-                    <div className="text-[10px] text-slate-500">{w.nrp} • Shift {w.shift}</div>
+                    <div className="text-[11px] text-slate-500">{w.nrp} • Shift {w.shift}</div>
                   </div>
                 </div>
                 <Badge status={w.status} type={fatigueColor[w.fatigue_level]} />
               </div>
-              <div className="grid grid-cols-3 gap-2 text-[10px] mt-2">
+              <div className="grid grid-cols-3 gap-2 text-[11px] mt-2">
                 <div className="bg-slate-800/40 rounded p-2 text-center">
                   <div className="text-slate-500">Jam Kerja</div>
                   <div className={`font-bold ${w.hours_worked > 12 ? 'text-red-400' : 'text-white'}`}>{w.hours_worked}h</div>
@@ -75,7 +75,7 @@ export default function FatigueMonitor() {
                 </div>
               </div>
               {w.fatigue_level === 'HIGH' && (
-                <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[10px] text-red-400">
+                <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400">
                   ⚠️ <strong>REST REQUIRED</strong> — Operator melebihi batas jam kerja. Harus istirahat minimal 8 jam.
                 </div>
               )}

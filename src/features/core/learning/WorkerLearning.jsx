@@ -122,7 +122,7 @@ export default function WorkerLearning() {
                       <h3 className="text-sm font-bold text-white truncate">{item.title || 'Tanpa judul'}</h3>
                       <Badge status={statusConfig.label} type={statusConfig.color} />
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <div className="flex items-center gap-3 text-[11px] text-slate-500">
                       <span>{typeConfig.label}</span>
                       {item.start_date && <span>Mulai: {new Date(item.start_date).toLocaleDateString('id-ID')}</span>}
                       {item.end_date && <span>Selesai: {new Date(item.end_date).toLocaleDateString('id-ID')}</span>}
@@ -130,7 +130,7 @@ export default function WorkerLearning() {
 
                     {/* Progress Bar */}
                     <div className="mt-2">
-                      <div className="flex justify-between text-[10px] mb-1">
+                      <div className="flex justify-between text-[11px] mb-1">
                         <span className="text-slate-400">Progress</span>
                         <span className="text-white font-semibold">{progress}%</span>
                       </div>

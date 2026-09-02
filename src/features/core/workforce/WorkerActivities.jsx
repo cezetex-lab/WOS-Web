@@ -57,7 +57,7 @@ export default function WorkerActivities() {
                   {row.type && <Badge status={row.type} type="info" />}
                 </div>
                 {row.details && <p className="text-xs text-slate-400 mt-1 truncate">{row.details}</p>}
-                <p className="text-[10px] text-slate-500 mt-1">{row.created_at ? new Date(row.created_at).toLocaleString('id-ID') : '-'}</p>
+                <p className="text-[11px] text-slate-500 mt-1">{row.created_at ? new Date(row.created_at).toLocaleString('id-ID') : '-'}</p>
               </div>
             </div>
           ))}

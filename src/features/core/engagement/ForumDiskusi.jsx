@@ -65,7 +65,7 @@ export default function ForumDiskusi() {
               <label className="text-xs text-slate-400 mb-1 block">Kategori</label>
               <div className="flex gap-1 flex-wrap">
                 {categories.map(c => (
-                  <button key={c} onClick={() => setNewCategory(c)} className={`text-[10px] px-3 py-1 rounded-full transition-all ${newCategory === c ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}>{c}</button>
+                  <button key={c} onClick={() => setNewCategory(c)} className={`text-[11px] px-3 py-1 rounded-full transition-all ${newCategory === c ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}>{c}</button>
                 ))}
               </div>
             </div>
@@ -78,19 +78,19 @@ export default function ForumDiskusi() {
       <div className="space-y-2">
         {posts.map(post => (
           <GlassCard key={post.id} accent={post.pinned ? 'yellow' : 'blue'} className={`cursor-pointer hover:border-blue-500/30 transition-all ${selected?.id === post.id ? 'ring-1 ring-blue-500/30' : ''}`} onClick={() => setSelected(selected?.id === post.id ? null : post)}>
-            {post.pinned && <span className="text-[10px] text-yellow-400 mb-1 block">📌 Pinned</span>}
+            {post.pinned && <span className="text-[11px] text-yellow-400 mb-1 block">📌 Pinned</span>}
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
                 {(post.nrp || '?')[0]}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-white truncate">{post.title}</h3>
-                <p className="text-[10px] text-slate-300 mt-1 line-clamp-2">{post.content}</p>
+                <p className="text-[11px] text-slate-300 mt-1 line-clamp-2">{post.content}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <Badge status={post.category || 'Umum'} type="info" />
-                  <span className="text-[10px] text-slate-400">💬 {post.replies_count || 0}</span>
-                  <span className="text-[10px] text-slate-400">👍 {post.likes_count || 0}</span>
-                  <span className="text-[10px] text-slate-500">{post.created_at ? new Date(post.created_at).toLocaleDateString('id-ID') : '-'}</span>
+                  <span className="text-[11px] text-slate-400">💬 {post.replies_count || 0}</span>
+                  <span className="text-[11px] text-slate-400">👍 {post.likes_count || 0}</span>
+                  <span className="text-[11px] text-slate-500">{post.created_at ? new Date(post.created_at).toLocaleDateString('id-ID') : '-'}</span>
                 </div>
               </div>
             </div>

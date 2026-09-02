@@ -69,8 +69,8 @@ export default function ApprovalWorkflow() {
             <React.Fragment key={step.level}>
               <div className="flex-1 text-center p-2 rounded-lg bg-slate-800/50 border border-white/5">
                 <span className="text-xl">{step.icon}</span>
-                <p className="text-[10px] text-white font-semibold mt-1">{step.label}</p>
-                <p className="text-[9px] text-slate-400">{step.desc}</p>
+                <p className="text-[11px] text-white font-semibold mt-1">{step.label}</p>
+                <p className="text-[11px] text-slate-400">{step.desc}</p>
               </div>
               {i < WORKFLOW_STEPS.length - 1 && <span className="text-slate-500">→</span>}
             </React.Fragment>
@@ -92,7 +92,7 @@ export default function ApprovalWorkflow() {
                     <p className="text-sm font-semibold text-white">{req.type || req.request_type || '-'}</p>
                     <Badge status={`Level ${level}`} type={level >= 3 ? 'danger' : level >= 2 ? 'warning' : 'info'} />
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">{req.nrp} • {days} hari</p>
+                  <p className="text-[11px] text-slate-400 mt-1">{req.nrp} • {days} hari</p>
                 </div>
                 <Badge status={req.status || 'Pending'} type="warning" />
               </div>

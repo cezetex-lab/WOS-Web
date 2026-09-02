@@ -140,7 +140,7 @@ export default function WorkerChangePassword() {
                   );
                 })}
               </div>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[11px] text-slate-500">
                 {form.new.length < 8 ? 'Lemah' : form.new.length < 10 ? 'Sedang' : form.new.length < 12 ? 'Kuat' : 'Sangat Kuat'}
               </p>
             </div>

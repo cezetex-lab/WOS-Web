@@ -30,7 +30,7 @@ export default function CareerPathPage() {
         <div className="w-16 bg-slate-700 rounded-full h-1.5">
           <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${v || 0}%` }} />
         </div>
-        <span className="text-[10px] text-slate-400">{v || 0}%</span>
+        <span className="text-[11px] text-slate-400">{v || 0}%</span>
       </div>
     )},
     { key: 'status', label: 'Status', render: v => <Badge status={v || 'Active'} type={v === 'Promoted' ? 'success' : 'info'} /> },

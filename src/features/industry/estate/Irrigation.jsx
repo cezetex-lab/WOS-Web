@@ -29,9 +29,9 @@ export default function Irrigation() {
         <p className="text-xs text-slate-400 mb-4">Monitoring sistem pengairan kebun</p>
 
         <div className="grid grid-cols-3 gap-2 mb-4">
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{activeZones}</div><div className="text-[10px] text-slate-400">Active Zones</div></GlassCard>
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-emerald-400">{avgMoisture}%</div><div className="text-[10px] text-slate-400">Avg Moisture</div></GlassCard>
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{zones.filter(z => z.soil_moisture < 50).length}</div><div className="text-[10px] text-slate-400">Low Moisture</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{activeZones}</div><div className="text-[11px] text-slate-400">Active Zones</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-emerald-400">{avgMoisture}%</div><div className="text-[11px] text-slate-400">Avg Moisture</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{zones.filter(z => z.soil_moisture < 50).length}</div><div className="text-[11px] text-slate-400">Low Moisture</div></GlassCard>
         </div>
 
         <div className="space-y-2">
@@ -41,12 +41,12 @@ export default function Irrigation() {
                 <span className="text-sm font-bold text-white">{z.zone} — {z.system}</span>
                 <Badge status={z.status} type={z.status === 'ACTIVE' ? 'success' : z.status === 'MAINTENANCE' ? 'warning' : 'info'} />
               </div>
-              <div className="grid grid-cols-3 gap-1 text-[10px]">
+              <div className="grid grid-cols-3 gap-1 text-[11px]">
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Flow</div><div className="text-blue-400 font-bold">{z.flow_lpm} LPM</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Pressure</div><div className="text-white font-bold">{z.pressure_bar} bar</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Moisture</div><div className={`font-bold ${z.soil_moisture < 50 ? 'text-red-400' : z.soil_moisture < 65 ? 'text-amber-400' : 'text-emerald-400'}`}>{z.soil_moisture}%</div></div>
               </div>
-              <div className="flex justify-between text-[10px] text-slate-500 mt-2">
+              <div className="flex justify-between text-[11px] text-slate-500 mt-2">
                 <span>💧 {z.water_source} • pH {z.ph}</span>
                 <span>Last: {z.last_irrigation}</span>
               </div>

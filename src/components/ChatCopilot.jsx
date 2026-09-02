@@ -130,10 +130,10 @@ function MessageBubble({ msg, isUser }) {
           {/* Sources */}
           {!isUser && msg.sources?.length > 0 && (
             <div className="mt-2 pt-2 border-t border-slate-700/50">
-              <p className="text-[10px] text-slate-500 mb-1">📚 Sumber:</p>
+              <p className="text-[11px] text-slate-500 mb-1">📚 Sumber:</p>
               <div className="flex flex-wrap gap-1">
                 {msg.sources.map((s, i) => (
-                  <span key={i} className="text-[10px] bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded-full">
+                  <span key={i} className="text-[11px] bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded-full">
                     {s.title} ({Math.round(s.similarity * 100)}%)
                   </span>
                 ))}
@@ -142,7 +142,7 @@ function MessageBubble({ msg, isUser }) {
           )}
 
           {/* Timestamp */}
-          <p className={`text-[10px] mt-1 ${isUser ? 'text-sky-200/50' : 'text-slate-500'}`}>
+          <p className={`text-[11px] mt-1 ${isUser ? 'text-sky-200/50' : 'text-slate-500'}`}>
             {msg.time}
           </p>
         </div>
@@ -247,7 +247,7 @@ export default function ChatCopilot({ context = 'general' }) {
         >
           🤖
           {unread > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] text-white font-bold">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[11px] text-white font-bold">
               {unread > 9 ? '9+' : unread}
             </span>
           )}
@@ -266,7 +266,7 @@ export default function ChatCopilot({ context = 'general' }) {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white">AI Copilot</h3>
-                <p className="text-[10px] text-slate-400">insightWOS Assistant</p>
+                <p className="text-[11px] text-slate-400">insightWOS Assistant</p>
               </div>
             </div>
             <button
@@ -335,7 +335,7 @@ export default function ChatCopilot({ context = 'general' }) {
                 )}
               </button>
             </div>
-            <p className="text-[9px] text-slate-600 text-center mt-1.5">
+            <p className="text-[11px] text-slate-600 text-center mt-1.5">
               AI Copilot — jawaban berdasarkan data & kebijakan perusahaan (Gemini)
             </p>
           </div>

@@ -123,7 +123,7 @@ export default function WorkerAttendance() {
         <h3 className="text-sm font-bold text-white mb-3">📅 Kalender {months[selectedMonth]}</h3>
         <div className="grid grid-cols-7 gap-1 mb-2">
           {DAYS.map(d => (
-            <div key={d} className="text-center text-[10px] font-semibold text-slate-500 py-1">{d}</div>
+            <div key={d} className="text-center text-[11px] font-semibold text-slate-500 py-1">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -134,7 +134,7 @@ export default function WorkerAttendance() {
             return (
               <div
                 key={i}
-                className={`aspect-square flex flex-col items-center justify-center rounded-lg text-[10px] ${
+                className={`aspect-square flex flex-col items-center justify-center rounded-lg text-[11px] ${
                   !day ? 'bg-transparent' :
                   config ? `bg-${config.color === 'green' ? 'emerald' : config.color === 'warning' ? 'amber' : config.color === 'red' ? 'red' : config.color === 'teal' ? 'teal' : 'slate'}-500/15` :
                   'bg-slate-800/30'
@@ -169,7 +169,7 @@ export default function WorkerAttendance() {
                       <p className="text-xs font-semibold text-white">{rec.status_hadir || '-'}</p>
                       <Badge status={rec.shift || '-'} type="info" />
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5">
                       {rec.date ? new Date(rec.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' }) : '-'}
                     </p>
                   </div>
@@ -178,10 +178,10 @@ export default function WorkerAttendance() {
                       <p className="text-xs text-white font-mono">{rec.jam_masuk?.slice(0, 5)}</p>
                     )}
                     {rec.jam_keluar && (
-                      <p className="text-[10px] text-slate-500">→ {rec.jam_keluar?.slice(0, 5)}</p>
+                      <p className="text-[11px] text-slate-500">→ {rec.jam_keluar?.slice(0, 5)}</p>
                     )}
                     {rec.menit_terlambat > 0 && (
-                      <p className="text-[10px] text-amber-400">+{rec.menit_terlambat}m</p>
+                      <p className="text-[11px] text-amber-400">+{rec.menit_terlambat}m</p>
                     )}
                   </div>
                 </div>

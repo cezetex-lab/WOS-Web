@@ -109,15 +109,15 @@ export default function OrgSubtree() {
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="p-2 bg-slate-900/40 rounded-xl">
             <div className="text-lg font-bold text-white">{orgData.length}</div>
-            <div className="text-[10px] text-slate-400">Total Node</div>
+            <div className="text-[11px] text-slate-400">Total Node</div>
           </div>
           <div className="p-2 bg-slate-900/40 rounded-xl">
             <div className="text-lg font-bold text-teal-400">{orgData.filter(d => !d.atasan_nrp).length || 1}</div>
-            <div className="text-[10px] text-slate-400">Root Nodes</div>
+            <div className="text-[11px] text-slate-400">Root Nodes</div>
           </div>
           <div className="p-2 bg-slate-900/40 rounded-xl">
             <div className="text-lg font-bold text-blue-400">{calcDepth(tree)}</div>
-            <div className="text-[10px] text-slate-400">Max Depth</div>
+            <div className="text-[11px] text-slate-400">Max Depth</div>
           </div>
         </div>
       </GlassCard>
@@ -155,7 +155,7 @@ function TreeNode({ node, level, expanded, toggleExpand, searchNrp }) {
         <Avatar name={node.nama || node.nrp} size="sm" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold text-white truncate">{node.nama || node.nrp}</p>
-          <p className="text-[10px] text-slate-500">{node.nrp} • {node.posisi || node.role_level || '-'}</p>
+          <p className="text-[11px] text-slate-500">{node.nrp} • {node.posisi || node.role_level || '-'}</p>
         </div>
 
         {/* Children count */}

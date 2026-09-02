@@ -262,7 +262,7 @@ export default function Kpi() {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-white">{d.divisi || d.division || '-'}</div>
-                        <div className="text-[10px] text-slate-500">{d.total || d.total_employees || 0} karyawan</div>
+                        <div className="text-[11px] text-slate-500">{d.total || d.total_employees || 0} karyawan</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge status={getKpiLabel(score)} type={getKpiBadgeType(score)} />
@@ -297,11 +297,11 @@ export default function Kpi() {
                     <Avatar name={p.nama || p.name} size="sm" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-white truncate">{p.nama || p.name || '-'}</div>
-                      <div className="text-[10px] text-slate-500">{p.nrp || '-'} • {p.divisi || p.division || '-'}</div>
+                      <div className="text-[11px] text-slate-500">{p.nrp || '-'} • {p.divisi || p.division || '-'}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold text-emerald-400">{p.kpi_score || p.score || 0}</div>
-                      <div className="text-[10px] text-slate-500">KPI</div>
+                      <div className="text-[11px] text-slate-500">KPI</div>
                     </div>
                   </div>
                 ))}
@@ -328,11 +328,11 @@ export default function Kpi() {
                     <Avatar name={p.nama || p.name} size="sm" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-white truncate">{p.nama || p.name || '-'}</div>
-                      <div className="text-[10px] text-slate-500">{p.nrp || '-'} • {p.divisi || p.division || '-'}</div>
+                      <div className="text-[11px] text-slate-500">{p.nrp || '-'} • {p.divisi || p.division || '-'}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold text-red-400">{p.kpi_score || p.score || 0}</div>
-                      <div className="text-[10px] text-slate-500">KPI</div>
+                      <div className="text-[11px] text-slate-500">KPI</div>
                     </div>
                   </div>
                 ))}

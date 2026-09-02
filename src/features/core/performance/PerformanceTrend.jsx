@@ -192,7 +192,7 @@ export default function PerformanceTrend() {
               <div key={i} className="flex items-center justify-between p-3 bg-slate-900/40 rounded-xl border border-white/5">
                 <div>
                   <p className="text-xs font-bold text-white">{item.periode || '-'}</p>
-                  <p className="text-[10px] text-slate-500">KPI: {item.kpi_score || item.kpi_scor || 0}</p>
+                  <p className="text-[11px] text-slate-500">KPI: {item.kpi_score || item.kpi_scor || 0}</p>
                 </div>
                 <Badge
                   status={Number(item.kpi_score || item.kpi_scor || 0) >= 80 ? 'Excellent' : Number(item.kpi_score || item.kpi_scor || 0) >= 60 ? 'Good' : 'Needs Improvement'}

@@ -366,7 +366,7 @@ export function AppDrawer({ isOpen, onClose }) {
         <div className="p-4 space-y-6">
           {groups.map((group, idx) => (
             <div key={idx}>
-              <h4 className="text-[10px] font-bold text-teal-400 tracking-widest mb-2">{group.title}</h4>
+              <h4 className="text-[11px] font-bold text-teal-400 tracking-widest mb-2">{group.title}</h4>
               <div className="space-y-1">
                 {group.items.map((item, i) => (
                   <Link

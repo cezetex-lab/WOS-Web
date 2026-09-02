@@ -102,7 +102,7 @@ export default function WhistleblowingPage() {
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-slate-500 text-center mb-3">🔒 Identitas pelapor dilindungi</p>
+            <p className="text-[11px] text-slate-500 text-center mb-3">🔒 Identitas pelapor dilindungi</p>
             <button className="w-full py-2 text-xs text-slate-400 border border-white/10 rounded-lg" onClick={() => setSelected(null)}>✕ Tutup</button>
           </div>
         </>

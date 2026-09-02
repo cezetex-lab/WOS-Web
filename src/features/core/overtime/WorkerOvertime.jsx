@@ -145,7 +145,7 @@ export default function WorkerOvertime() {
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-slate-500 mt-2">* Tarif dikalikan upah per jam sesuai UMR</p>
+        <p className="text-[11px] text-slate-500 mt-2">* Tarif dikalikan upah per jam sesuai UMR</p>
       </GlassCard>
 
       {/* ── ACTION ── */}
@@ -163,7 +163,7 @@ export default function WorkerOvertime() {
 
             {/* Auto-detected type */}
             <div className="p-3 rounded-xl bg-slate-800/50 border border-white/5">
-              <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Tipe Terdeteksi</p>
+              <p className="text-[11px] text-slate-500 uppercase font-bold mb-1">Tipe Terdeteksi</p>
               <div className="flex items-center gap-2">
                 <Badge status={RATE_MULTIPLIERS[formType].label} type="info" />
                 <span className="text-lg font-bold text-teal-400">{RATE_MULTIPLIERS[formType].rate}x</span>

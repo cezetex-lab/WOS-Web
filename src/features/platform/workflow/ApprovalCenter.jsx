@@ -84,15 +84,15 @@ export default function ApprovalCenter() {
       <div className="grid grid-cols-3 gap-2 mb-4">
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
           <p className="text-lg font-bold text-amber-400">{pendingCount}</p>
-          <p className="text-[10px] text-slate-400">Pending</p>
+          <p className="text-[11px] text-slate-400">Pending</p>
         </div>
         <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-center">
           <p className="text-lg font-bold text-green-400">{requests.filter(r => r.status === 'Approved').length}</p>
-          <p className="text-[10px] text-slate-400">Approved</p>
+          <p className="text-[11px] text-slate-400">Approved</p>
         </div>
         <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
           <p className="text-lg font-bold text-red-400">{requests.filter(r => r.status === 'Rejected').length}</p>
-          <p className="text-[10px] text-slate-400">Rejected</p>
+          <p className="text-[11px] text-slate-400">Rejected</p>
         </div>
       </div>
 
@@ -134,7 +134,7 @@ export default function ApprovalCenter() {
                       <p className="text-sm font-semibold text-white truncate">{req.nama || req.nrp}</p>
                       <Badge status={req.type} type="info" />
                     </div>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-[11px] text-slate-500">
                       {req.divisi || '-'} • {new Date(req.created_at).toLocaleDateString('id-ID')}
                     </p>
                   </div>

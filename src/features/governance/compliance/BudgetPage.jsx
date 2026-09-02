@@ -33,7 +33,7 @@ export default function BudgetPage() {
           <div className="w-16 bg-slate-700 rounded-full h-1.5">
             <div className={`h-1.5 rounded-full ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-orange-500' : 'bg-green-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
-          <span className="text-[10px] text-slate-400">{pct}%</span>
+          <span className="text-[11px] text-slate-400">{pct}%</span>
         </div>
       );
     }},

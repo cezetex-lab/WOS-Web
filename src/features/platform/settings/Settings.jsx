@@ -96,7 +96,7 @@ export default function Settings() {
           </Button>
         </form>
         <div className="mt-4 p-3 bg-slate-900/50 rounded-xl border border-white/5">
-          <p className="text-[10px] text-slate-500">Default password: <code className="text-amber-400">Admin123</code></p>
+          <p className="text-[11px] text-slate-500">Default password: <code className="text-amber-400">Admin123</code></p>
         </div>
       </GlassCard>
 

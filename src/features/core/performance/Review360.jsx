@@ -72,12 +72,12 @@ export default function Review360() {
               <div className="grid grid-cols-4 gap-2 mb-2">
                 {['leadership', 'communication', 'teamwork', 'innovation'].map(key => (
                   <div key={key} className="text-center">
-                    <p className="text-[10px] text-slate-400 capitalize">{key.slice(0, 4)}</p>
+                    <p className="text-[11px] text-slate-400 capitalize">{key.slice(0, 4)}</p>
                     <p className={`text-xs font-bold text-${getScoreColor(r[`${key}_score`] || 0)}-400`}>{r[`${key}_score`] || 0}</p>
                   </div>
                 ))}
               </div>
-              {r.comments && <p className="text-[10px] text-slate-300 italic">"{r.comments}"</p>}
+              {r.comments && <p className="text-[11px] text-slate-300 italic">"{r.comments}"</p>}
             </div>
           ))}
           {reviews.length === 0 && <EmptyState title="Belum ada review 360°" icon="🔄" />}

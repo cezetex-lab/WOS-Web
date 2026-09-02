@@ -52,7 +52,7 @@ export default function OnboardingWorkflow() {
       <div className="grid grid-cols-5 gap-2 mb-4">
         {categories.map(cat => (
           <div key={cat} className="text-center p-2 rounded-lg bg-slate-800/50 border border-white/5">
-            <p className="text-[10px] text-slate-400">{cat}</p>
+            <p className="text-[11px] text-slate-400">{cat}</p>
             <p className="text-sm font-bold text-white">{catCount[cat] || 0}</p>
           </div>
         ))}
@@ -70,8 +70,8 @@ export default function OnboardingWorkflow() {
                 <p className="text-sm font-semibold text-white">{task.task_name}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge status={task.category} type="info" />
-                  {task.due_date && <span className="text-[10px] text-slate-400">Due: {new Date(task.due_date).toLocaleDateString('id-ID')}</span>}
-                  {task.assigned_to && <span className="text-[10px] text-slate-400">→ {task.assigned_to}</span>}
+                  {task.due_date && <span className="text-[11px] text-slate-400">Due: {new Date(task.due_date).toLocaleDateString('id-ID')}</span>}
+                  {task.assigned_to && <span className="text-[11px] text-slate-400">→ {task.assigned_to}</span>}
                 </div>
               </div>
               <Badge status={task.status} type={task.status === 'Completed' ? 'success' : task.status === 'InProgress' ? 'warning' : 'info'} />

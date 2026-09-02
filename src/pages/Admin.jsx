@@ -107,7 +107,7 @@ export default function Admin() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-bold text-white tracking-tight">Selamat Datang, Admin</h1>
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.color}`}>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${badge.color}`}>
               {badge.icon} {badge.label}
             </span>
           </div>
@@ -161,9 +161,9 @@ export default function Admin() {
                 <span className="text-red-400 text-lg">🔴</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-white truncate">{item.title}</p>
-                  <p className="text-[10px] text-slate-400">{item.type}</p>
+                  <p className="text-[11px] text-slate-400">{item.type}</p>
                 </div>
-                <span className="text-[10px] font-bold text-orange-300 bg-orange-500/20 px-2 py-0.5 rounded-full">Proses</span>
+                <span className="text-[11px] font-bold text-orange-300 bg-orange-500/20 px-2 py-0.5 rounded-full">Proses</span>
               </div>
             ))
           )}

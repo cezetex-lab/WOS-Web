@@ -1,0 +1,51 @@
+name: Supabase Database Backup
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: apt-get update && apt-get install -y postgresql-client
+
+      - name: Create backup directory
+        run: mkdir -p backups
+
+      - name: Generate backup filename
+        id: filename
+        run: echo "filename=backup_$(date +%Y-%m-%d_%H-%M-%S)" >> $GITHUB_OUTPUT
+
+      - name: Run pg_dump
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          pg_dump "$DATABASE_URL" --schema=public --no-owner --no-privileges --clean --if-exists -f "backups/${{ steps.filename.outputs.filename }}.sql"
+
+      - name: Compress backup
+        run: |
+          cd backups
+          gzip "${{ steps.filename.outputs.filename }}.sql"
+          ls -lh
+
+      - name: Upload to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ steps.filename.outputs.filename }}
+          path: backups/*.sql.gz
+          retention-days: 30
+
+      - name: Sync to Neon
+        env:
+          NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
+        run: |
+          if [ -n "$NEON_DB_URL" ]; then
+            gunzip "backups/${{ steps.filename.outputs.filename }}.sql.gz"
+            pg_restore -d "$NEON_DB_URL" --no-owner --clean --if-exists "backups/${{ steps.filename.outputs.filename }}.sql"
+          fi

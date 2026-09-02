@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 export function Badge({ status, type = 'default', className = '' }) {
   const types = { default: 'bg-slate-500/20 text-slate-300 border-slate-500/30', success: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', warning: 'bg-amber-500/20 text-amber-300 border-amber-500/30', danger: 'bg-red-500/20 text-red-300 border-red-500/30', info: 'bg-blue-500/20 text-blue-300 border-blue-500/30' };
-  return <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${types[type]} ${className}`}>{status}</span>;
+  return <span className={`inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-full border ${types[type]} ${className}`}>{status}</span>;
 }
 
 export function Button({ children, color = 'teal', variant = 'solid', size = 'md', onClick, disabled, className = '', type = 'button', ariaLabel }) {
@@ -23,7 +23,7 @@ export function Input({ label, placeholder, value, onChange, type = 'text', icon
         {icon && <span className="text-base flex-shrink-0" aria-hidden="true">{icon}</span>}
         <input id={inputId} type={type} placeholder={placeholder} value={value} onChange={onChange} aria-invalid={!!error} aria-describedby={error ? errorId : undefined} className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none focus:outline-none" />
       </div>
-      {error && <span id={errorId} className="text-[10px] text-red-400" role="alert">{error}</span>}
+      {error && <span id={errorId} className="text-[11px] text-red-400" role="alert">{error}</span>}
     </div>
   );
 }
@@ -45,7 +45,7 @@ export function Tabs({ tabs = [], active, onChange, className = '' }) {
       {tabs.map(tab => (
         <button key={tab.id} role="tab" aria-selected={active === tab.id} tabIndex={active === tab.id ? 0 : -1} onClick={() => onChange(tab.id)} onKeyDown={(e) => { const idx = tabs.findIndex(t => t.id === active); if (e.key === 'ArrowRight') { e.preventDefault(); onChange(tabs[(idx + 1) % tabs.length].id); } else if (e.key === 'ArrowLeft') { e.preventDefault(); onChange(tabs[(idx - 1 + tabs.length) % tabs.length].id); } }} className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400/50 ${active === tab.id ? 'bg-teal-500/20 text-teal-400 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
           {tab.label}
-          {tab.count !== undefined && <span className="ml-1 text-[10px] opacity-60">({tab.count})</span>}
+          {tab.count !== undefined && <span className="ml-1 text-[11px] opacity-60">({tab.count})</span>}
         </button>
       ))}
     </div>

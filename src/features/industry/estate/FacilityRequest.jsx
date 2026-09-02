@@ -29,8 +29,8 @@ export default function FacilityRequest() {
         <p className="text-xs text-slate-400 mb-4">Request perbaikan mess, kantor, kendaraan</p>
 
         <div className="grid grid-cols-2 gap-2 mb-4">
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{requests.filter(r => r.status === 'PENDING').length}</div><div className="text-[10px] text-slate-400">Pending</div></GlassCard>
-          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{requests.filter(r => r.status === 'IN_PROGRESS').length}</div><div className="text-[10px] text-slate-400">In Progress</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{requests.filter(r => r.status === 'PENDING').length}</div><div className="text-[11px] text-slate-400">Pending</div></GlassCard>
+          <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{requests.filter(r => r.status === 'IN_PROGRESS').length}</div><div className="text-[11px] text-slate-400">In Progress</div></GlassCard>
         </div>
 
         <div className="space-y-2">
@@ -41,11 +41,11 @@ export default function FacilityRequest() {
                 <Badge status={r.status} type={STATUS_COLOR[r.status]} />
               </div>
               <p className="text-xs text-slate-300 mb-2">{r.description}</p>
-              <div className="flex justify-between text-[10px] text-slate-500">
+              <div className="flex justify-between text-[11px] text-slate-500">
                 <span>📍 {r.location} • <Badge status={r.priority} type={PRI_COLOR[r.priority]} /></span>
                 <span>{r.submitted}</span>
               </div>
-              {r.assigned && <div className="text-[10px] text-teal-400 mt-1">👤 {r.assigned}</div>}
+              {r.assigned && <div className="text-[11px] text-teal-400 mt-1">👤 {r.assigned}</div>}
             </GlassCard>
           ))}
         </div>

@@ -51,11 +51,11 @@ export default function PreventiveMaintenance() {
             accent={t.status === 'OVERDUE' ? 'red' : t.status === 'IN_PROGRESS' ? 'orange' : 'blue'}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Tipe</p>
+                <p className="text-[11px] text-slate-500 uppercase">Tipe</p>
                 <p className="text-sm text-white">{t.type}</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Prioritas</p>
+                <p className="text-[11px] text-slate-500 uppercase">Prioritas</p>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                   t.priority === 'CRITICAL' ? 'bg-red-500/20 text-red-400' :
                   t.priority === 'HIGH' ? 'bg-orange-500/20 text-orange-400' :
@@ -64,7 +64,7 @@ export default function PreventiveMaintenance() {
                 }`}>{t.priority}</span>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Status</p>
+                <p className="text-[11px] text-slate-500 uppercase">Status</p>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                   t.status === 'OVERDUE' ? 'bg-red-500/20 text-red-400' :
                   t.status === 'IN_PROGRESS' ? 'bg-yellow-500/20 text-yellow-400' :
@@ -73,19 +73,19 @@ export default function PreventiveMaintenance() {
                 }`}>{t.status}</span>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Downtime</p>
+                <p className="text-[11px] text-slate-500 uppercase">Downtime</p>
                 <p className="text-sm text-white">{t.downtime} jam</p>
               </div>
               <div className="col-span-2">
-                <p className="text-[10px] text-slate-500 uppercase">Deskripsi</p>
+                <p className="text-[11px] text-slate-500 uppercase">Deskripsi</p>
                 <p className="text-sm text-slate-300">{t.description}</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Scheduled</p>
+                <p className="text-[11px] text-slate-500 uppercase">Scheduled</p>
                 <p className="text-sm text-white">{t.scheduled}</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Assigned</p>
+                <p className="text-[11px] text-slate-500 uppercase">Assigned</p>
                 <p className="text-sm text-white">{t.assigned_to || '-'}</p>
               </div>
             </div>

@@ -130,7 +130,7 @@ export default function WorkforceSimulation() {
                 }`}
               >
                 <p className="text-white text-xs font-semibold">{p.name}</p>
-                <p className="text-slate-400 text-[10px]">
+                <p className="text-slate-400 text-[11px]">
                   TO: {p.turnover > 0 ? '+' : ''}{p.turnover}% | Hire: {p.hiring > 0 ? '+' : ''}{p.hiring}%
                 </p>
               </button>
@@ -207,7 +207,7 @@ export default function WorkforceSimulation() {
               {simulations.map((sim) => (
                 <div key={sim.id} className="bg-slate-800/30 rounded-lg p-2">
                   <p className="text-white text-xs">{sim.scenario_name || sim.id}</p>
-                  <p className="text-slate-500 text-[10px]">{new Date(sim.created_at).toLocaleString('id-ID')}</p>
+                  <p className="text-slate-500 text-[11px]">{new Date(sim.created_at).toLocaleString('id-ID')}</p>
                 </div>
               ))}
             </div>

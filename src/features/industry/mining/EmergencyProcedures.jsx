@@ -68,7 +68,7 @@ export default function EmergencyProcedures() {
                   <span className="text-xl">{c.icon}</span>
                   <div>
                     <div className="text-sm font-semibold text-white">{c.name}</div>
-                    <div className="text-[10px] text-slate-500">{c.available}</div>
+                    <div className="text-[11px] text-slate-500">{c.available}</div>
                   </div>
                 </div>
                 <a href={`tel:${c.phone}`} className="px-3 py-1 bg-teal-500/20 text-teal-400 rounded-lg text-xs font-bold hover:bg-teal-500/30">📞 Hubungi</a>

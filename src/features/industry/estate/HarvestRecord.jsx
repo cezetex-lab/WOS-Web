@@ -43,16 +43,16 @@ export default function HarvestRecord() {
           <div className="grid grid-cols-2 gap-2 mb-4">
             <GlassCard className="p-3">
               <div className="text-lg font-bold text-white">{summary.total_ton} ton</div>
-              <div className="text-[10px] text-slate-400">Total Panen Hari Ini</div>
+              <div className="text-[11px] text-slate-400">Total Panen Hari Ini</div>
               <div className="w-full bg-slate-700 rounded-full h-1.5 mt-2">
                 <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${Math.min(summary.achievement, 100)}%` }} />
               </div>
-              <div className="text-[10px] text-slate-500 mt-1">{summary.achievement}% dari target {summary.target_ton} ton</div>
+              <div className="text-[11px] text-slate-500 mt-1">{summary.achievement}% dari target {summary.target_ton} ton</div>
             </GlassCard>
             <GlassCard className="p-3">
               <div className="text-lg font-bold text-amber-400">{summary.avg_ripe}%</div>
-              <div className="text-[10px] text-slate-400">Rata-rata Kematangan</div>
-              <div className="mt-2 text-[10px] text-slate-500">
+              <div className="text-[11px] text-slate-400">Rata-rata Kematangan</div>
+              <div className="mt-2 text-[11px] text-slate-500">
                 {summary.avg_ripe >= 80 ? '✅ Siap panen' : summary.avg_ripe >= 60 ? '⚠️ Belum optimal' : '❌ Masih mentah'}
               </div>
             </GlassCard>
@@ -70,7 +70,7 @@ export default function HarvestRecord() {
                 </div>
                 <span className="text-sm font-bold text-emerald-400">{(r.weight_kg / 1000).toFixed(1)} ton</span>
               </div>
-              <div className="flex justify-between text-[10px] text-slate-500">
+              <div className="flex justify-between text-[11px] text-slate-500">
                 <span>📅 {r.date}</span>
                 <span>👷 {r.worker}</span>
                 <span>🍊 Kematangan: {r.ripe_pct}%</span>

@@ -56,8 +56,8 @@ export default function ScreeningPage() {
               <div className="text-xl">{item.check_type === 'Background' ? '🔐' : item.check_type === 'Medical' ? '🏥' : item.check_type === 'Reference' ? '📞' : '🎓'}</div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-white">{item.candidate_name}</p>
-                <p className="text-[10px] text-slate-400">{item.check_type} Check • {item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'}</p>
-                {item.notes && <p className="text-[10px] text-slate-300 mt-1">{item.notes}</p>}
+                <p className="text-[11px] text-slate-400">{item.check_type} Check • {item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'}</p>
+                {item.notes && <p className="text-[11px] text-slate-300 mt-1">{item.notes}</p>}
               </div>
               <Badge status={item.status || 'Pending'} type={item.status === 'Passed' ? 'success' : item.status === 'Failed' ? 'danger' : 'warning'} />
             </div>

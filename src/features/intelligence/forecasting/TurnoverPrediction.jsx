@@ -92,7 +92,7 @@ export default function TurnoverPrediction() {
                     </div>
                     <div className="text-right">
                       <Badge color={getRiskColor(p.risk_score)}>{p.risk_score || 0}%</Badge>
-                      <p className="text-[10px] text-slate-500 mt-1">{getRiskLabel(p.risk_score)}</p>
+                      <p className="text-[11px] text-slate-500 mt-1">{getRiskLabel(p.risk_score)}</p>
                     </div>
                   </div>
                   {/* Risk factors */}

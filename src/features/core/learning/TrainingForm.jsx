@@ -103,8 +103,8 @@ export default function TrainingForm() {
             <Input label="Alasan / Justifikasi" placeholder="Mengapa training ini penting?" value={trainingReason} onChange={(e) => setTrainingReason(e.target.value)} icon="📝" />
 
             <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-              <p className="text-[10px] text-blue-400 font-bold">ℹ️ Approval 2 Level</p>
-              <p className="text-[10px] text-slate-400">Pengajuan akan disetujui oleh atasan langsung, kemudian HR.</p>
+              <p className="text-[11px] text-blue-400 font-bold">ℹ️ Approval 2 Level</p>
+              <p className="text-[11px] text-slate-400">Pengajuan akan disetujui oleh atasan langsung, kemudian HR.</p>
             </div>
 
             <Button color="teal" onClick={handleEnroll} disabled={submitting} className="w-full">

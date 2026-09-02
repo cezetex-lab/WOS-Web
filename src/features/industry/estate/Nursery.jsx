@@ -32,8 +32,8 @@ export default function Nursery() {
         <p className="text-xs text-slate-400 mb-4">Persemaian bibit sawit</p>
 
         <div className="grid grid-cols-2 gap-2 mb-4">
-          <GlassCard className="p-3"><div className="text-lg font-bold text-green-400">{(totalSeedlings / 1000).toFixed(1)}K</div><div className="text-[10px] text-slate-400">Total Bibit</div></GlassCard>
-          <GlassCard className="p-3"><div className="text-lg font-bold text-blue-400">{seedlings.filter(s => s.stage === 'READY').length}</div><div className="text-[10px] text-slate-400">Siap Tanam</div></GlassCard>
+          <GlassCard className="p-3"><div className="text-lg font-bold text-green-400">{(totalSeedlings / 1000).toFixed(1)}K</div><div className="text-[11px] text-slate-400">Total Bibit</div></GlassCard>
+          <GlassCard className="p-3"><div className="text-lg font-bold text-blue-400">{seedlings.filter(s => s.stage === 'READY').length}</div><div className="text-[11px] text-slate-400">Siap Tanam</div></GlassCard>
         </div>
 
         {/* Stage Pipeline */}
@@ -59,18 +59,18 @@ export default function Nursery() {
                   <span className="text-lg">🌱</span>
                   <div>
                     <span className="text-sm font-bold text-white">{n.id}</span>
-                    <span className="text-[10px] text-slate-500 ml-2">{n.variety}</span>
+                    <span className="text-[11px] text-slate-500 ml-2">{n.variety}</span>
                   </div>
                 </div>
                 <Badge status={n.stage.replace('_', ' ')} type={STAGE_COLOR[n.stage]} />
               </div>
-              <div className="grid grid-cols-4 gap-1 text-[10px]">
+              <div className="grid grid-cols-4 gap-1 text-[11px]">
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Batch</div><div className="text-white font-bold">{n.batch}</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Jumlah</div><div className="text-white font-bold">{n.total.toLocaleString()}</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Umur</div><div className="text-white font-bold">{n.age_months} bln</div></div>
                 <div className="bg-slate-800/40 rounded p-1.5 text-center"><div className="text-slate-500">Health</div><div className="text-white font-bold"><Badge status={n.health} type={HEALTH_COLOR[n.health]} /></div></div>
               </div>
-              <div className="text-[10px] text-slate-500 mt-2">Target: {n.target_field} • Ready: {n.ready_date}</div>
+              <div className="text-[11px] text-slate-500 mt-2">Target: {n.target_field} • Ready: {n.ready_date}</div>
             </GlassCard>
           ))}
         </div>

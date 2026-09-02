@@ -107,7 +107,7 @@ export default function TaskBoard() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white truncate">{task.title}</p>
                           {task.due && (
-                            <p className="text-[10px] text-slate-500 mt-0.5">
+                            <p className="text-[11px] text-slate-500 mt-0.5">
                               Due: {new Date(task.due).toLocaleDateString('id-ID')}
                             </p>
                           )}
@@ -116,7 +116,7 @@ export default function TaskBoard() {
                           {next && (
                             <button
                               onClick={() => handleMoveTask(task.id, next)}
-                              className="px-2 py-1 rounded-lg bg-sky-500/20 text-sky-400 text-[10px] font-semibold hover:bg-sky-500/30 transition-all"
+                              className="px-2 py-1 rounded-lg bg-sky-500/20 text-sky-400 text-[11px] font-semibold hover:bg-sky-500/30 transition-all"
                             >
                               → {next}
                             </button>
@@ -124,7 +124,7 @@ export default function TaskBoard() {
                           {col.id === 'DOING' && (
                             <button
                               onClick={() => handleMoveTask(task.id, 'TODO')}
-                              className="px-2 py-1 rounded-lg bg-slate-600/30 text-slate-400 text-[10px] hover:bg-slate-600/50 transition-all"
+                              className="px-2 py-1 rounded-lg bg-slate-600/30 text-slate-400 text-[11px] hover:bg-slate-600/50 transition-all"
                             >
                               ← Back
                             </button>

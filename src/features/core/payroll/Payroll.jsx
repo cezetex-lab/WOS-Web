@@ -142,7 +142,7 @@ export default function Payroll() {
           <Avatar name={val} size="sm" />
           <div className="min-w-0">
             <div className="text-xs font-semibold text-white truncate">{val}</div>
-            <div className="text-[10px] text-slate-500">{row.nrp || '-'}</div>
+            <div className="text-[11px] text-slate-500">{row.nrp || '-'}</div>
           </div>
         </div>
       ),
@@ -376,7 +376,7 @@ function PayrollDetail({ data, onClose, onNavigate }) {
 
               {potonganItems.length > 0 && (
                 <div className="pl-3 border-l-2 border-red-500/30 space-y-1.5 my-2">
-                  <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Potongan</span>
+                  <span className="text-[11px] font-bold text-red-400 uppercase tracking-wider">Potongan</span>
                   {potonganItems.map((p, i) => (
                     <div key={i} className="flex justify-between items-center">
                       <span className="text-xs text-slate-400">{p.label}</span>

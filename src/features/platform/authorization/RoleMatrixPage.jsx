@@ -70,7 +70,7 @@ export default function RoleMatrixPage() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-white">{u.nama || u.nrp}</p>
-                      <p className="text-[10px] text-slate-400">{u.nrp} • {u.divisi || '-'}</p>
+                      <p className="text-[11px] text-slate-400">{u.nrp} • {u.divisi || '-'}</p>
                     </div>
                   </div>
                   <Badge status={group.label} type={group.color} />

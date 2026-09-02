@@ -45,35 +45,35 @@ export default function BoilerMonitor() {
           <GlassCard key={b.id} title={`${b.code} — ${b.name}`} icon="🔥" accent={b.status === 'RUNNING' ? 'green' : 'slate'}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Status</p>
+                <p className="text-[11px] text-slate-500 uppercase">Status</p>
                 <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${STATUS_COLORS[b.status]}`}>{b.status}</span>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Suhu</p>
+                <p className="text-[11px] text-slate-500 uppercase">Suhu</p>
                 <p className="text-lg font-bold text-white">{b.temperature}°C</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Tekanan</p>
+                <p className="text-[11px] text-slate-500 uppercase">Tekanan</p>
                 <p className="text-lg font-bold text-white">{b.pressure} bar</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Steam Flow</p>
+                <p className="text-[11px] text-slate-500 uppercase">Steam Flow</p>
                 <p className="text-lg font-bold text-white">{b.steam_flow?.toLocaleString()} kg/jam</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Efisiensi</p>
+                <p className="text-[11px] text-slate-500 uppercase">Efisiensi</p>
                 <p className="text-lg font-bold text-teal-400">{b.efficiency}%</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Bahan Bakar</p>
+                <p className="text-[11px] text-slate-500 uppercase">Bahan Bakar</p>
                 <p className="text-sm text-white">{b.fuel_type}</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Konsumsi BB</p>
+                <p className="text-[11px] text-slate-500 uppercase">Konsumsi BB</p>
                 <p className="text-sm text-white">{b.fuel_consumption?.toLocaleString()} kg/jam</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 uppercase">Maintenance</p>
+                <p className="text-[11px] text-slate-500 uppercase">Maintenance</p>
                 <p className="text-xs text-slate-300">Next: {b.next_maintenance || '-'}</p>
               </div>
             </div>

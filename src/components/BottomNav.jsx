@@ -121,7 +121,7 @@ export function BottomNav({ onMenuClick }) {
         ))}
         <button onClick={onMenuClick} aria-label="Buka menu navigasi" className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-slate-400 hover:text-white transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-400/50">
           <span className="text-2xl" aria-hidden="true">📌</span>
-          <span className="text-[9px] font-medium">Menu</span>
+          <span className="text-[11px] font-medium">Menu</span>
         </button>
       </div>
     </nav>
@@ -132,7 +132,7 @@ function NavItem({ to, icon, label, active }) {
   return (
     <Link to={to} aria-label={label} aria-current={active ? 'page' : undefined} className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-teal-400/50 ${active ? 'text-teal-400 bg-teal-400/10' : 'text-slate-400 hover:text-white'}`}>
       <span className="text-2xl" aria-hidden="true">{icon}</span>
-      <span className="text-[9px] font-medium">{label}</span>
+      <span className="text-[11px] font-medium">{label}</span>
     </Link>
   );
 }

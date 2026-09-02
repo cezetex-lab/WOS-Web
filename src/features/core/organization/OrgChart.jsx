@@ -199,7 +199,7 @@ function OrgTreeNode({ node, level, searchNrp, onSelect, selectedNrp }) {
         <Avatar name={node.nama} size="sm" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold text-white truncate">{node.nama}</p>
-          <p className="text-[10px] text-slate-500">{node.nrp} • {node.posisi || '-'}</p>
+          <p className="text-[11px] text-slate-500">{node.nrp} • {node.posisi || '-'}</p>
         </div>
         {hasChildren && <Badge status={`${node.children.length}`} type="info" />}
       </div>

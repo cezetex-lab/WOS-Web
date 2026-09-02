@@ -46,7 +46,7 @@ export default function WorkerLeave() {
           <div className="w-full bg-slate-700 rounded-full h-2.5 mb-2">
             <div className="h-2.5 rounded-full bg-emerald-500 transition-all" style={{ width: Math.min(pct, 100) + "%" }} />
           </div>
-          <div className="flex justify-between text-[10px] text-slate-500">
+          <div className="flex justify-between text-[11px] text-slate-500">
             <span>{pct}% terpakai</span>
             <span>{remaining} hari tersisa</span>
           </div>
@@ -66,8 +66,8 @@ export default function WorkerLeave() {
                     {r.status}
                   </Badge>
                 </div>
-                <p className="text-[10px] text-slate-400">{r.details_json || r.note || '-'}</p>
-                <p className="text-[10px] text-slate-500 mt-1">{r.created_at ? new Date(r.created_at).toLocaleDateString('id-ID') : '-'}</p>
+                <p className="text-[11px] text-slate-400">{r.details_json || r.note || '-'}</p>
+                <p className="text-[11px] text-slate-500 mt-1">{r.created_at ? new Date(r.created_at).toLocaleDateString('id-ID') : '-'}</p>
               </GlassCard>
             ))}
           </div>

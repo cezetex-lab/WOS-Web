@@ -39,7 +39,7 @@ export default function WorkerCareer() {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isCurrent ? 'bg-blue-500 text-white scale-110 ring-2 ring-blue-400' : isActive ? 'bg-teal-500 text-white' : 'bg-slate-700 text-slate-400'}`}>
                     {level}
                   </div>
-                  <span className="text-[10px] text-slate-400 mt-1">{['Staff', 'Sr Staff', 'Lead', 'Manager', 'Director'][i]}</span>
+                  <span className="text-[11px] text-slate-400 mt-1">{['Staff', 'Sr Staff', 'Lead', 'Manager', 'Director'][i]}</span>
                 </div>
               );
             })}
@@ -79,7 +79,7 @@ export default function WorkerCareer() {
               <div key={i} className="flex items-center justify-between py-2 border-b border-white/5">
                 <div>
                   <p className="text-xs font-semibold text-white">{row.skill || row.position || `Level ${i + 1}`}</p>
-                  <p className="text-[10px] text-slate-400">{row.description || '-'}</p>
+                  <p className="text-[11px] text-slate-400">{row.description || '-'}</p>
                 </div>
                 <Badge status={row.status || 'Active'} type={row.status === 'Completed' ? 'success' : 'info'} />
               </div>

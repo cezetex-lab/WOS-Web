@@ -103,7 +103,7 @@ export default function Worker() {
             <div key={item.id} className="p-3 bg-white/5 rounded-xl mb-2 last:mb-0 border border-white/5">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-white">{item.title}</h4>
-                {item.priority === 'HIGH' && <span className="text-[10px] font-bold text-red-400 bg-red-500/20 px-2 py-0.5 rounded-full">Penting</span>}
+                {item.priority === 'HIGH' && <span className="text-[11px] font-bold text-red-400 bg-red-500/20 px-2 py-0.5 rounded-full">Penting</span>}
               </div>
               <p className="text-xs text-slate-400 mt-1">{item.message}</p>
             </div>
@@ -122,7 +122,7 @@ export default function Worker() {
           <span className="text-2xl">👤</span>
           <div className="text-left">
             <p className="text-white text-sm font-semibold">Profil Saya</p>
-            <p className="text-slate-400 text-[10px]">Lihat & edit data</p>
+            <p className="text-slate-400 text-[11px]">Lihat & edit data</p>
           </div>
         </button>
         <button onClick={() => navigate('/worker/change-password')}
@@ -130,7 +130,7 @@ export default function Worker() {
           <span className="text-2xl">🔑</span>
           <div className="text-left">
             <p className="text-white text-sm font-semibold">Ganti Password</p>
-            <p className="text-slate-400 text-[10px]">Ubah password akun</p>
+            <p className="text-slate-400 text-[11px]">Ubah password akun</p>
           </div>
         </button>
       </div>

@@ -58,15 +58,15 @@ export default function SimperPage() {
         <div className="grid grid-cols-3 gap-2 mb-4">
           <GlassCard className="text-center p-3">
             <div className="text-2xl font-bold text-emerald-400">{activePermits.length}</div>
-            <div className="text-[10px] text-slate-400">Aktif</div>
+            <div className="text-[11px] text-slate-400">Aktif</div>
           </GlassCard>
           <GlassCard className="text-center p-3">
             <div className="text-2xl font-bold text-red-400">{expiredPermits.length}</div>
-            <div className="text-[10px] text-slate-400">Expired</div>
+            <div className="text-[11px] text-slate-400">Expired</div>
           </GlassCard>
           <GlassCard className="text-center p-3">
             <div className="text-2xl font-bold text-blue-400">{new Set(permits.map(p => p.zone)).size}</div>
-            <div className="text-[10px] text-slate-400">Zones</div>
+            <div className="text-[11px] text-slate-400">Zones</div>
           </GlassCard>
         </div>
 
@@ -88,12 +88,12 @@ export default function SimperPage() {
                   <span className="text-sm font-bold text-white">{p.id}</span>
                   <Badge status={p.status === 'ACTIVE' ? 'Approved' : 'Rejected'} type={p.status === 'ACTIVE' ? 'success' : 'danger'} />
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold bg-${ZONE_COLORS[p.zone] || 'slate'}-500/20 text-${ZONE_COLORS[p.zone] || 'slate'}-400`}>
+                <span className={`px-2 py-0.5 rounded text-[11px] font-bold bg-${ZONE_COLORS[p.zone] || 'slate'}-500/20 text-${ZONE_COLORS[p.zone] || 'slate'}-400`}>
                   {p.zone}
                 </span>
               </div>
               <p className="text-xs text-slate-300 mb-1">📌 {p.purpose}</p>
-              <div className="flex justify-between text-[10px] text-slate-500">
+              <div className="flex justify-between text-[11px] text-slate-500">
                 <span>Issued: {p.issued_by}</span>
                 <span>Valid until: {p.valid_until}</span>
               </div>

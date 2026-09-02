@@ -101,7 +101,7 @@ export default function RequestsList() {
           <Avatar name={val || row.nrp} size="sm" />
           <div className="min-w-0">
             <div className="text-xs font-semibold text-white truncate">{val || row.nrp}</div>
-            <div className="text-[10px] text-slate-500">{row.nrp}</div>
+            <div className="text-[11px] text-slate-500">{row.nrp}</div>
           </div>
         </div>
       ),
@@ -132,7 +132,7 @@ export default function RequestsList() {
       key: 'created_at',
       label: 'Tanggal',
       render: (val) => (
-        <span className="text-[10px] text-slate-500">
+        <span className="text-[11px] text-slate-500">
           {val ? new Date(val).toLocaleDateString('id-ID') : '-'}
         </span>
       ),
