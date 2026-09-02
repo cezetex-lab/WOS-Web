@@ -1,7 +1,7 @@
 // src/components/AppDrawer.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { getSession } from '@/lib/supabase-browser';
+import { rpc, getSession } from '@/lib/supabase-browser';
 import { BU_MODULES } from '@/lib/business-units';
 
 // Admin Pusat: ALL modules
@@ -347,6 +347,14 @@ export function AppDrawer({ isOpen, onClose }) {
   } else {
     groups = getWorkerGroups(bu, session?.role_level || 1);
   }
+  const [brand, setBrand] = useState({ company_name: 'insightWOS', logo_url: '' });
+  
+  useEffect(() => {
+    rpc('get_branding', {}).then(d => {
+      if (d && d.company_name) setBrand(d);
+    }).catch(() => {});
+  }, []);
+
   return (
     <>
       {/* Overlay */}
@@ -355,8 +363,12 @@ export function AppDrawer({ isOpen, onClose }) {
       <div className="fixed top-0 left-0 bottom-0 z-50 w-[85%] max-w-sm bg-slate-900 border-r border-white/10 shadow-2xl overflow-y-auto pb-20">
         <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-md p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">📊</span>
-            <span className="font-bold text-white tracking-tight text-lg">insightWOS</span>
+            {brand.logo_url ? (
+              <img src={brand.logo_url} alt="Logo" className="h-8 w-8 object-contain rounded" />
+            ) : (
+              <span className="text-2xl">📊</span>
+            )}
+            <span className="font-bold text-white tracking-tight text-lg">{brand.company_name || 'insightWOS'}</span>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl text-slate-400">
             <span className="text-2xl">✕</span>

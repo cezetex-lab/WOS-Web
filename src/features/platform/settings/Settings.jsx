@@ -4,6 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
+import LogoUploader from '@/components/LogoUploader';
 import { rpc } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Input, LoadingSpinner, Badge,
@@ -54,6 +55,13 @@ export default function Settings() {
 
   return (
     <PageLayout backTo="/admin" title="Pengaturan" subtitle="Konfigurasi sistem & keamanan">
+      {/* Logo & Branding — Owner Only */}
+      {isOwner && (
+        <GlassCard className="mb-6">
+          <LogoUploader />
+        </GlassCard>
+      )}
+
       {/* PKWT EXPIRY ALERTS */}
       <SectionHeader title="PKWT Expiry Alert" icon="⚠️" />
       <div className="grid grid-cols-3 gap-3 mb-6">
