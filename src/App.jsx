@@ -13,6 +13,7 @@ import SessionGuard from './components/SessionGuard';
 // Core pages (keep eager — loaded on every visit)
 import Home from './pages/Home';
 import OwnerLogin from './pages/OwnerLogin';
+import OwnerDashboard from './pages/OwnerDashboard';
 import MfaSetup from './features/platform/auth/MfaSetup';
 
 // Lazy-loaded pages — loaded only when route is visited
@@ -164,6 +165,7 @@ function AppContent() {
         {/* PUBLIC — no auth needed */}
         <Route path="/" element={<Home />} />
         <Route path="/owner" element={<OwnerLogin />} />
+        <Route path="/owner/dashboard" element={<OwnerDashboard />} />
         {/* PROTECTED — wrapped in SessionGuard */}
         <Route path="/*" element={
           <SessionGuard>

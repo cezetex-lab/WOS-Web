@@ -40,7 +40,7 @@ export default function OwnerLogin() {
       }
       // No MFA — go directly to admin
       setSession({ ...ctx, token: auth.session?.access_token });
-      navigate('/admin');
+      navigate('/owner/dashboard');
     } catch (err) {
       setError('Error: ' + err.message);
     }
@@ -54,7 +54,7 @@ export default function OwnerLogin() {
     try {
       const res = await rpc('verify_mfa', { p_nrp: 'OWNER001', p_code: mfaCode });
       if (res?.ok) {
-        navigate('/admin');
+        navigate('/owner/dashboard');
       } else {
         setError('Kode MFA salah');
       }
