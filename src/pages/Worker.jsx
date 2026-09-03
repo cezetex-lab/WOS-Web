@@ -1,7 +1,7 @@
 // src/pages/Worker.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, clearSession, getSession } from '../lib/supabase-browser';
+import { supabase, clearSession, getSession, signOutAuth } from '../lib/supabase-browser';
 import { MetricCard, QuickTile, GlassCard, LoadingSpinner, SectionHeader, Badge, Button } from '../lib/design-system';
 import { getUserModules, getBusinessUnit } from '../lib/business-units';
 
@@ -12,7 +12,7 @@ export default function Worker() {
   const bu = getBusinessUnit();
   const [loading, setLoading] = useState(true);
 
-  function logout() { clearSession(); window.location.href = '/'; }
+  async function logout() { clearSession(); await signOutAuth(); window.location.href = '/'; }
   const [status, setStatus] = useState({});
   const [narrative, setNarrative] = useState(null);
   const [announcements, setAnnouncements] = useState([]);

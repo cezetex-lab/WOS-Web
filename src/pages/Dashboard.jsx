@@ -1,6 +1,6 @@
 // Dashboard.jsx — Manager Dashboard (design-system Tailwind)
 import { useState, useEffect, useRef } from 'react';
-import { rpc, getSession, clearSession } from '@/lib/supabase-browser';
+import { rpc, getSession, clearSession, signOutAuth } from '@/lib/supabase-browser';
 import { MetricCard, GlassCard, QuickTile, Badge, ActionItem, EmptyState, LoadingSpinner, Avatar, SectionHeader, useToast } from '@/lib/design-system';
 
 function greetingTime() {
@@ -54,7 +54,7 @@ export default function DashboardPage() {
     setActionLoading(null);
   }
 
-  function logout() { clearSession(); window.location.href = '/'; }
+  async function logout() { clearSession(); await signOutAuth(); window.location.href = '/'; }
   const pendingItems = (teamRequests || []).filter(r => r.status === 'Pending' || r.status === 'PENDING');
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat dashboard..." /></div>;

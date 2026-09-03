@@ -1,7 +1,7 @@
 // src/pages/Admin.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, clearSession, getSession } from '../lib/supabase-browser';
+import { supabase, clearSession, getSession, signOutAuth } from '../lib/supabase-browser';
 import { MetricCard, QuickTile, GlassCard, ActionItem, EmptyState, LoadingSpinner } from '../lib/design-system';
 
 // Role badges
@@ -65,7 +65,7 @@ export default function Admin() {
   const adminRole = session?.role || 'admin_pusat';
   const badge = ROLE_BADGES[adminRole] || ROLE_BADGES.admin_pusat;
 
-  function logout() { clearSession(); window.location.href = '/'; }
+  async function logout() { clearSession(); await signOutAuth(); window.location.href = '/'; }
   const [stats, setStats] = useState({});
   const [pending, setPending] = useState([]);
   const [autoHealing, setAutoHealing] = useState([]);
