@@ -1,12 +1,14 @@
 # insightWOS V6 — Progress & TODO
 
-## Status: Owner Dashboard 16/16 Features COMPLETE ✅
+## Status: Owner Dashboard 18/18 Tabs + Admin Route Guards COMPLETE ✅
 
 - Owner login via Supabase Auth ✅
-- 17 tabs operational ✅
-- 50+ RPCs backend ✅
-- 9 new tables ✅
-- All 3 waves complete ✅
+- 18 tabs operational (Wave 1-4) ✅
+- 60+ RPCs backend ✅
+- 11 new tables ✅
+- OwnerGuard + RoleGuard route protection ✅
+- 3 Industry Admin Dashboards (Mining/Estate/Mill) ✅
+- Logout fix (signOutAuth) ✅
 
 ---
 
@@ -85,16 +87,24 @@
 - [x] Role-based access verification
 
 ### DONE ✅
-- [x] **Owner Dashboard 16 Features** — ALL WAVES COMPLETE
+- [x] **Owner Dashboard 18 Features** — ALL WAVES COMPLETE
   - Wave 1 (P0): Overview, Audit Log, Security, BU Management ✅
   - Wave 2 (P1): Employee Mgmt, Announcements, Notification, System Announcements ✅
   - Wave 3 (P2): Activity, Integrations, Data Retention, System Log, Support, Analytics ✅
+  - Wave 4 (P3): Access Control (Admin Roles CRUD, Assign User) ✅
 - [x] **Migration 100** — Wave 1 RPCs (12 functions)
 - [x] **Migration 101** — Wave 2 RPCs (13 functions) + 2 tables
 - [x] **Migration 102** — Wave 3 RPCs (11 functions) + 5 tables
-- [x] **Frontend** — OwnerDashboard.jsx 17 tabs, 977 lines
-- [x] **Naming fix** — get_owner_security_settings → owner_get_security_settings
+- [x] **Migration 110** — Owner Identity + Admin Roles + Role Page Access (8 RPCs)
+- [x] **Migration 111** — Security Hardening (check_action_permission, log_owner_override, admin_pusat_manage_admin, get_industry_admin_stats)
+- [x] **Frontend** — OwnerDashboard.jsx 18 tabs, 1096 lines
+- [x] **OwnerGuard** — Protects /owner/* routes via check_owner_identity() RPC
+- [x] **RoleGuard** — Protects admin routes, checks role against allowedRoles
+- [x] **RoleGuard wired** — ALL admin routes wrapped with RoleGuard (7 admin roles + owner bypass)
+- [x] **3 Industry Admin Dashboards** — /admin/mining, /admin/estate, /admin/mill
+- [x] **Logout fix** — All 5 logout functions now call signOutAuth()
 - [x] **Empty state rule** — Added to AGENTS.md Section 13
+- [x] **Architecture V6 doc** — OWNER_ADMIN_ARCHITECTURE_V6.md
 
 ### MEDIUM (Next priorities)
 
