@@ -9,6 +9,8 @@ import LazyLoad from './components/LazyLoad';
 import ErrorBoundary from './components/ErrorBoundary';
 import PrivacyConsent from './components/PrivacyConsent';
 import SessionGuard from './components/SessionGuard';
+import OwnerGuard from './components/OwnerGuard';
+import RoleGuard from './components/RoleGuard';
 import SkipToContent from './components/SkipToContent';
 
 // Core pages (keep eager — loaded on every visit)
@@ -167,8 +169,8 @@ function AppContent() {
         {/* PUBLIC — no auth needed */}
         <Route path="/" element={<Home />} />
         <Route path="/owner" element={<OwnerLogin />} />
-        <Route path="/owner/dashboard" element={<OwnerDashboard />} />
-        <Route path="/owner/dashboard/config" element={<CompanyConfig />} />
+        <Route path="/owner/dashboard" element={<OwnerGuard><OwnerDashboard /></OwnerGuard>} />
+        <Route path="/owner/dashboard/config" element={<OwnerGuard><CompanyConfig /></OwnerGuard>} />
         {/* PROTECTED — wrapped in SessionGuard */}
         <Route path="/*" element={
           <SessionGuard>
