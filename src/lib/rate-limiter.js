@@ -1,57 +1,56 @@
-/**
- * Client-side Rate Limiter
- * Prevents excessive RPC calls per user session.
- * Configurable per-function limits.
- */
+// ============================================================
+// rate-limiter.js — Client-side rate limiting for RPC calls
+// ============================================================
 
-const callLog = new Map(); // key -> { count, windowStart }
-
-const DEFAULT_LIMITS = {
-  _default: { maxCalls: 30, windowMs: 60000 }, // 30 calls per minute
-  owner_toggle_lock: { maxCalls: 5, windowMs: 60000 }, // 5 toggles per minute
-  owner_set_tier: { maxCalls: 5, windowMs: 60000 },
-  check_module_access: { maxCalls: 20, windowMs: 60000 },
-  login_worker: { maxCalls: 5, windowMs: 300000 }, // 5 per 5 minutes
-  login_admin: { maxCalls: 5, windowMs: 300000 },
-  verify_worker_otp: { maxCalls: 5, windowMs: 300000 },
-};
+const rateLimits = {};
+const DEFAULT_WINDOW_MS = 60000; // 1 minute
+const DEFAULT_MAX_REQUESTS = 30;
 
 /**
- * Check if a call is allowed under rate limit
- * @param {string} fn - Function name
- * @returns {{ allowed: boolean, retryAfter?: number }}
+ * Check if a function call is rate-limited
+ * @param {string} fn - RPC function name
+ * @param {number} maxRequests - max calls per window
+ * @param {number} windowMs - time window in ms
+ * @returns {{ allowed: boolean, retryAfter: number }}
  */
-export function checkRateLimit(fn) {
-  const limits = DEFAULT_LIMITS[fn] || DEFAULT_LIMITS._default;
+export function checkRateLimit(fn, maxRequests = DEFAULT_MAX_REQUESTS, windowMs = DEFAULT_WINDOW_MS) {
   const now = Date.now();
-  const entry = callLog.get(fn);
-
-  if (!entry || now - entry.windowStart > limits.windowMs) {
-    // New window
-    callLog.set(fn, { count: 1, windowStart: now });
-    return { allowed: true };
+  
+  if (!rateLimits[fn]) {
+    rateLimits[fn] = { count: 1, windowStart: now };
+    return { allowed: true, retryAfter: 0 };
   }
 
-  if (entry.count >= limits.maxCalls) {
-    const retryAfter = Math.ceil((entry.windowStart + limits.windowMs - now) / 1000);
+  const entry = rateLimits[fn];
+
+  // Reset window if expired
+  if (now - entry.windowStart > windowMs) {
+    rateLimits[fn] = { count: 1, windowStart: now };
+    return { allowed: true, retryAfter: 0 };
+  }
+
+  // Increment count
+  entry.count++;
+
+  // Check limit
+  if (entry.count > maxRequests) {
+    const retryAfter = Math.ceil((windowMs - (now - entry.windowStart)) / 1000);
     return { allowed: false, retryAfter };
   }
 
-  entry.count++;
-  return { allowed: true };
+  return { allowed: true, retryAfter: 0 };
 }
 
 /**
- * Get rate limit status for display
+ * Reset rate limit for a specific function
  */
-export function getRateLimitStatus(fn) {
-  const limits = DEFAULT_LIMITS[fn] || DEFAULT_LIMITS._default;
-  const entry = callLog.get(fn);
-  if (!entry) return { used: 0, limit: limits.maxCalls, windowMs: limits.windowMs };
-  return {
-    used: entry.count,
-    limit: limits.maxCalls,
-    windowMs: limits.windowMs,
-    remaining: Math.max(0, limits.maxCalls - entry.count),
-  };
+export function resetRateLimit(fn) {
+  delete rateLimits[fn];
+}
+
+/**
+ * Reset all rate limits
+ */
+export function resetAllRateLimits() {
+  Object.keys(rateLimits).forEach(k => delete rateLimits[k]);
 }

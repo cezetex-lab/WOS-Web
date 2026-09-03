@@ -1,27 +1,42 @@
-/**
- * SessionGuard — Route-level authentication guard
- * Wraps all protected routes (admin/worker). Login page (/) is NOT protected.
- * Redirects to / if no valid session found.
- */
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { getSession } from '@/lib/supabase-browser';
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getSession, supabase } from '@/lib/supabase-browser';
 
-const PUBLIC_PATHS = ['/', '/mfa', '/health'];
+const PUBLIC_ROUTES = ['/', '/owner', '/owner/dashboard'];
 
 export default function SessionGuard({ children }) {
+  const navigate = useNavigate();
   const location = useLocation();
-  const session = getSession();
+  const [checking, setChecking] = useState(true);
 
-  // Public pages — always allow
-  if (PUBLIC_PATHS.includes(location.pathname)) {
-    return children;
+  useEffect(() => {
+    const session = getSession();
+    if (PUBLIC_ROUTES.includes(location.pathname)) {
+      setChecking(false);
+      return;
+    }
+    supabase.auth.getSession().then(({ data: { session: authSession } }) => {
+      if (!session?.nrp && !authSession) {
+        navigate('/', { replace: true });
+      }
+      setChecking(false);
+    }).catch(() => {
+      if (!session?.nrp) {
+        navigate('/', { replace: true });
+      }
+      setChecking(false);
+    });
+  }, [navigate, location.pathname]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="text-white text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-sm opacity-70">Memverifikasi sesi...</p>
+        </div>
+      </div>
+    );
   }
-
-  // No session -> redirect to login
-  if (!session || !session.nrp) {
-    return <Navigate to="/" replace />;
-  }
-
   return children;
 }

@@ -1,0 +1,473 @@
+insightWOS V6 — Development Roadmap & Analysis Report
+📊 Executive Summary
+Overall Grade: B+ (85/100)
+
+This analysis covers 14 major assessment areas across 350+ files. The application is functional and well-architected for a workforce intelligence platform but requires specific remediations for production deployment.
+
+🚨 CRITICAL — Must Fix Before Production
+1. DetailPageFactory Security Vulnerability ⚠️⚠️⚠️
+File: src/components/shared/DetailPageFactory.jsx:286-295
+
+Issue: Approve/reject RPC calls lack permission validation and crash on null config.rpc:
+
+if (config.rpc) {  // ← TypeError if config.rpc is falsy after check
+  const rpcMethod = config.rpc.replace('get', 'approve');
+  const { data } = await supabase.rpc(rpcMethod, { id: rowId });
+  // NO permission check — anyone can approve/reject
+}
+Impact: Unauthorized users can approve/reject critical HR actions (payroll, leave, etc.)
+
+Fix:
+
+if (!config.rpc) return null;  // Early return
+
+const rpcMethod = config.rpc.replace('get', 'approve');
+// ADD permission check before RPC call:
+// if (!canUserApprove(userRole)) return <AccessDenied />
+
+// Add user confirmation dialog before irreversible action
+if (!confirm('Yakin ingin mengapprove data ini?')) return;
+Owner: Feature team | Effort: 2 hours | Risk: HIGH if unaddressed
+
+2. No TypeScript Configuration 🚨
+File: src/types/ — EMPTY DIRECTORY
+
+Issue: Zero type safety across entire codebase. 100+ components, 87 RPC functions, all PropTypes disabled in ESLint.
+
+Impact:
+
+No autocomplete or type checking
+Refactoring breaks silently at runtime
+Enterprise-scale maintenance nightmare
+Violates international software engineering standards
+Fix:
+
+Initialize TypeScript: npx tsc --init
+Create src/types/index.ts with core types
+Gradually convert .jsx → .tsx
+Add RPC return types from Supabase migrations
+Owner: Lead Dev / DevOps | Effort: 1 week | Risk: CRITICAL for long-term maintenance
+
+3. DetailPageFactory Null RPC Crash
+Same file as #1 — the if (config.rpc) check exists but the code still assumes config.rpc.replace() will work. If config.rpc is an empty string, replace() throws.
+
+Fix: Add strict type guard:
+
+if (typeof config.rpc !== 'string' || !config.rpc.trim()) return null;
+⚠️ HIGH — Should Fix Before MVP Release
+4. React Query Not Utilized ⚠️
+File: src/main.jsx, src/lib/
+
+Issue: @tanstack/react-query@5.102.8 installed but not configured or used. All 100+ pages use manual useState + useEffect + supabase.rpc() patterns.
+
+Impact:
+
+Missing: stale-while-revalidating, refetch on window focus, retries, caching
+Double network requests on navigation
+No centralized error handling
+Poor offline experience
+Fix:
+
+Create src/lib/queryClient.ts with proper configuration
+Wrap all RPC calls with useQuery / useMutation
+Remove manual loading state management from pages
+Owner: Frontend Team | Effort: 3-5 days
+
+5. Incomplete i18n Coverage ⚠️
+File: src/lib/i18n/index.js
+
+Issue: Only ~40% of UI strings translated. Hardcoded English text in components.
+
+Impact:
+
+Limited to Indonesian/English markets only
+Poor UX for non-Indonesian speakers
+Inconsistent terminology across screens
+Fix:
+
+Complete translation files for all 6 feature categories (nav, common, employee, payroll, leave, industry)
+Add build-time linting for missing translations: vite-plugin-i18n or custom script
+Implement missing-key detection at compile time
+Owner: i18n Specialist | Effort: 2-3 days
+
+6. Validation Not Integrated with Forms ⚠️
+File: src/lib/security.js
+
+Issue: Comprehensive validation exists (password policy, NRP/NIK/email/phone/SQL injection) but not connected to any form library.
+
+Impact:
+
+Manual validation calls in every component
+Inconsistent error messaging
+No real-time validation on blur/type
+Higher risk of invalid data submission
+Fix:
+
+Choose form library: react-hook-form or formik
+Create Zod/Yup schemas mapping to security.js validators
+Integrate with all 20+ form pages (payroll, leave, employee, etc.)
+Owner: Frontend Team | Effort: 1 week
+
+7. SessionGuard Auth Gap ⚠️
+File: src/components/SessionGuard.jsx
+
+Issue: Only checks sessionStorage.getItem('wos_user') but doesn't validate Supabase auth token/session.
+
+Impact:
+
+Session fixation possible
+No token renewal/refresh logic
+Potential auth bypass if sessionStorage cleared
+Fix:
+
+// Add Supabase session validation:
+import { getAuthUser } from '@/lib/supabase-browser';
+
+export default function SessionGuard({ children }) {
+  const { data: { session } } = getAuthUser();
+  const stored = getSession();
+  
+  // Require BOTH stored session AND valid Supabase session
+  if (!session || !stored?.nrp) {
+    return <Navigate to="/" replace />;
+  }
+  // ... rest
+}
+Owner: Auth Specialist | Effort: 1 day
+
+8. Missing Production Scripts ⚠️
+File: package.json
+
+Issue: Only 8 scripts defined. Missing: start, deploy, build:analyze, check:types.
+
+Impact:
+
+Unclear how to run production server
+No standardized deploy process
+Can't analyze bundle size
+Type checking not automated
+Fix: Add to package.json:
+
+"scripts": {
+  "start": "vite --mode production",
+  "deploy": "vercel --prod",
+  "build:analyze": "vite build --mode analysis",
+  "check:types": "tsc --noEmit"
+}
+Owner: DevOps | Effort: 2 hours
+
+9. No Bundle Analysis ⚠️
+Issue: No tooling to visualize bundle size and optimization opportunities.
+
+Impact:
+
+Can't verify code splitting is effective
+No baseline for performance regressions
+Difficult to optimize critical rendering path
+Fix:
+
+Add vite-plugin-analyzer dependency
+Add npm run build:analyze script
+Review report and optimize largest chunks
+Owner: Frontend Team | Effort: 1 day
+
+10. Navigation Component Void ⚠️
+File: src/components/navigation/ — EMPTY
+
+Impact:
+
+No reusable sidebar/navbar
+Menu state duplicated across pages
+Inconsistent active route highlighting
+Fix: Create src/components/navigation/Sidebar.jsx with:
+
+useLocation for active route detection
+Collapsible menu for mobile
+User profile dropdown
+Language switcher
+Owner: Frontend Team | Effort: 2 days
+
+📌 MEDIUM — Important for Code Quality
+11. Rate Limiter Config Hardcoding ⚠️
+File: src/lib/rate-limiter.js
+
+Issue: Default limits hardcoded as magic numbers with no configuration externalization.
+
+Impact:
+
+Difficult to adjust without code changes
+No per-environment configuration
+Security team can't adjust limits without deployment
+Fix:
+
+Move to environment variables or config file
+Add type definitions for limit configs
+Add documentation for each limit purpose
+Owner: Backend Team | Effort: 1 day
+
+12. Circuit Breaker Not Integrated ⚠️
+File: src/lib/circuit-breaker.js
+
+Issue: supabaseBreaker and upstashBreaker instantiated but never used in the codebase.
+
+Impact:
+
+Pattern exists but not leveraged for resilience
+Wasted dependency
+False sense of fault tolerance
+Fix:
+
+Identify external service calls (Supabase, Upstash Redis, Gemini AI)
+Wrap each supabase.rpc() or API call with circuitBreaker.execute()
+Add UI feedback when circuit is open
+Owner: Senior Developer | Effort: 3 days
+
+13. No Error Boundary Coverage ⚠️
+File: src/components/ErrorBoundary.jsx, src/App.jsx
+
+Issue: ErrorBoundary exists but only wraps lazy-loaded routes. Critical components (forms, data tables) not protected.
+
+Impact:
+
+Unhandled errors crash entire page
+Poor user experience on edge cases
+No graceful degradation
+Fix:
+
+Wrap all feature page components with <ErrorBoundary>
+Add fallback UI with retry button
+Add error logging to external service (Sentry, PostHog)
+Owner: Frontend Team | Effort: 2-3 days
+
+14. Supabase Service Client Not Used ⚠️
+File: src/lib/supabase.js:14-19
+
+Issue: Service client comment exists but is never implemented. No server-side RPC calls.
+
+Impact:
+
+All data operations go through client-only RPCs
+Rate limits apply to all users equally
+No server-side validation or aggregation
+Fix:
+
+Implement service client with SUPABASE_SERVICE_KEY
+Create server-side endpoints for sensitive operations
+Use for: batch operations, aggregations, data exports
+Owner: Backend/DevOps | Effort: 3-5 days
+
+15. No Docker Configuration ⚠️
+Issue: No Dockerfile or docker-compose.yml for consistent development environments.
+
+Impact:
+
+"Works on my machine" issues
+Inconsistent node versions, dependencies
+Difficult CI/CD pipeline integration
+Fix: Create minimal Dockerfile:
+
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --production
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npx", "vite", "preview"]
+Owner: DevOps | Effort: 1 day
+
+📝 LOW — Nice-to-Have Improvements
+16. Prettier Configuration Expansion ✅
+File: .prettierrc (exists but only configured for .js, .jsx, .css)
+
+Issue: TypeScript files not formatted if adopted
+
+Fix: Update .prettierrc:
+
+{
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "semi": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "files": ["src/**/*.{js,jsx,ts,tsx,css,json}"]
+}
+Owner: Formatter Team | Effort: 30 minutes
+
+17. Git Hooks Not Configured 📝
+Issue: No Husky + lint-staged setup for pre-commit quality gates.
+
+Impact:
+
+Commit history may contain lint errors
+No automatic formatting on commit
+Team consistency harder to enforce
+Fix:
+
+npx husky init
+npx husky add .git-commit-msg "npx eslint --staged"
+npx lint-staged
+Owner: DevOps | Effort: 2 hours
+
+18. PostCSS Configuration 📝
+File: postcss.config.js — exists but minimal
+
+Issue: No autoprefixer configuration, no CSS nesting, no env() function support.
+
+Fix: Enhance postcss config with modern features:
+
+module.exports = {
+  plugins: {
+    autoprefixer: {},
+    tailwindcss: require('tailwindcss'),
+    postcssNested: {},
+    postcssPresetEnv: {}
+  }
+}
+Owner: Frontend Team | Effort: 1 day
+
+19. Component JSDoc Documentation 📝
+Issue: No JSDoc/TypeScript docs on 90+ design-system components.
+
+Impact:
+
+New developers can't understand component props
+Poor onboarding experience
+Inconsistent prop usage patterns
+Fix: Add JSDoc to key components:
+
+/**
+ * DataTable - Advanced table with sorting, filtering, pagination
+ * @param {Object} props - Component props
+ * @param {string} props.columns - Array of column configs
+ * @param {string} props.rpc - Supabase RPC function name
+ * @returns {JSX} Table component
+ */
+Owner: Docs Team | Effort: 1 week
+
+20. Performance Budget 📝
+Issue: No defined performance budgets (LCP < 2.5s, TTI < 3s, etc.)
+
+Impact:
+
+No regression detection
+Can't measure improvement vs. baseline
+Users on slow connections may have poor experience
+Fix:
+
+Set budgets in Vite/config:
+viteConfig.performance = {
+  maxAssetSize: 500 * 1024, // 500KB per asset
+  maxChunkSize: 1000 * 1024 // 1MB per chunk
+}
+Add Lighthouse CI to CI pipeline
+Monitor Core Web Vitals in production
+Owner: Performance Engineer | Effort: 3-5 days
+
+21. Accessibility WCAG 2.2 Audit 📝
+Issue: No formal audit against WCAG 2.2 AA standards.
+
+Impact:
+
+Potential legal compliance issues
+Excluded users with disabilities
+Missed usability improvements for all users
+Fix:
+
+Run automated audit with axe-core or eslint-plugin-jsx-a11y
+Fix color contrast ratios (verify Tailwind utilities meet 4.5:1 minimum)
+Add keyboard navigation testing
+Add ARIA labels where missing
+Owner: Accessibility Specialist | Effort: 1 week
+
+22. API Documentation 📝
+Issue: No OpenAPI/Swagger documentation for RPC endpoints.
+
+Impact:
+
+Hard to document API for other teams
+No contract testing possible
+Onboarding difficult for new developers
+Fix: Generate docs from Supabase types or maintain manual RPC registry.
+
+Owner: Technical Writer | Effort: 2-3 days
+
+23. Feature Flags Abstraction 📝
+Issue: FeatureFlagsPage exists but no centralized feature flag system.
+
+Impact:
+
+Feature toggles scattered across codebase
+No runtime configuration without deploy
+Technical debt accumulation
+Fix: Implement feature flag service using Upstash Redis or Supabase Remote Config.
+
+Owner: Product Team | Effort: 1 week
+
+24. Backup & Recovery Testing 📝
+Issue: 87 migrations exist but no backup/restore testing procedure.
+
+Impact:
+
+Data loss risk during migration errors
+No disaster recovery validation
+Compliance gaps for data governance
+Fix:
+
+Document restore procedure from each migration stage
+Test restore on staging environment
+Maintain database snapshots
+Owner: DBA/DevOps | Effort: 3-5 days
+
+25. Logging & Monitoring Strategy 📝
+Issue: PostHog initialized but no structured logging or error tracking configuration.
+
+Impact:
+
+Blind spots in production issue diagnosis
+No user behavior analytics configured
+Missing performance metrics
+Fix:
+
+Configure PostHog with distinct ID, session tracking
+Add Sentry for error tracking with source maps
+Set up custom events for critical business flows
+Owner: Product/Analytics | Effort: 1 week
+
+📋 Implementation Priority Matrix
+Priority	Effort	Impact	Order
+Critical	2 weeks	App can't launch securely	1-3
+High	3 weeks	Major UX/security gaps	4-10
+Medium	1 week	Code quality/maintainability	11-15
+Low	2-3 days	Polish & completeness	16-25
+🎯 Recommended Sprint Plan
+Sprint 1 (Week 1-2): Critical Stability
+Fix DetailPageFactory security bug + null check
+Add TypeScript initialization
+Add start script to package.json
+Fix SessionGuard Supabase validation
+Sprint 2 (Week 3-4): High Impact
+Integrate React Query
+Complete core i18n translations
+Connect security.js validation to forms
+Add production scripts
+Sprint 3 (Week 5-6): Medium Quality
+Implement circuit breaker integration
+Add ErrorBoundary to all pages
+Create navigation component
+Bundle analysis setup
+Sprint 4 (Week 7-8): Low Polish
+Set performance budgets
+WCAG 2.2 accessibility audit
+Git hooks pre-commit setup
+Documentation improvements
+📞 Contact & Ownership
+Area	Owner	ETA
+Security Critical	Lead Developer	2 days
+TypeScript Migration	Tech Lead	1 week
+React Query Integration	Frontend Team	3-5 days
+i18n Completion	i18n Specialist	2-3 days
+Form Validation Integration	Frontend Team	1 week
+CI/CD & Scripts	DevOps	2-3 days
+Accessibility Audit	Accessibility Team	1 week
+Full Roadmap Execution	Project Manager	8 weeks

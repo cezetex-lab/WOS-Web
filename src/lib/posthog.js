@@ -71,3 +71,28 @@ export const resetUser = () => {
     posthog.reset();
   }
 };
+
+// ── Custom Event Tracking ──
+export function trackPageView(pageName, properties = {}) {
+  try {
+    window.posthog?.capture('page_viewed', { page: pageName, ...properties });
+  } catch {}
+}
+
+export function trackRpcCall(rpcName, success, duration) {
+  try {
+    window.posthog?.capture('rpc_called', { rpc: rpcName, success, duration_ms: duration });
+  } catch {}
+}
+
+export function trackUserAction(action, target, properties = {}) {
+  try {
+    window.posthog?.capture('user_action', { action, target, ...properties });
+  } catch {}
+}
+
+export function trackError(error, context = {}) {
+  try {
+    window.posthog?.capture('error_occurred', { error: error.message || String(error), ...context });
+  } catch {}
+}

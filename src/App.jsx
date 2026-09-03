@@ -9,6 +9,7 @@ import LazyLoad from './components/LazyLoad';
 import ErrorBoundary from './components/ErrorBoundary';
 import PrivacyConsent from './components/PrivacyConsent';
 import SessionGuard from './components/SessionGuard';
+import SkipToContent from './components/SkipToContent';
 
 // Core pages (keep eager — loaded on every visit)
 import Home from './pages/Home';
@@ -337,7 +338,8 @@ if (typeof requestIdleCallback !== 'undefined') {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <SkipToContent />
+        <AppContent />
     </BrowserRouter>
   );
 }

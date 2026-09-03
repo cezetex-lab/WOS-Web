@@ -12,6 +12,12 @@ import {
   Tabs, LoadingSpinner, EmptyState, Button, Avatar, ActionItem, Divider
 } from '../../../lib/design-system';
 
+// ── PERMISSION CHECK ──
+const APPROVE_ROLES = ['admin_pusat', 'admin_hrd', 'manager', 'director', 'owner'];
+function canUserApprove(userRole) {
+  return APPROVE_ROLES.includes(userRole);
+}
+
 // ──────────────────────────────────────────────────────────────
 // PAGE CONFIGS — Definisi semua halaman admin
 // ──────────────────────────────────────────────────────────────
@@ -283,7 +289,13 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
           title={config?.title || pageKey}
           onClose={() => setSelected(null)}
           hasActions={config?.hasActions}
-          onApprove={config?.hasActions ? async () => {
+          onApprove={config?.hasActions && config.rpc ? async () => {
+            const session = getSession();
+            if (!canUserApprove(session?.role)) {
+              alert('Anda tidak memiliki hak untuk approve data ini.');
+              return;
+            }
+            if (!window.confirm('Yakin ingin mengapprove data ini?')) return;
             try {
               await rpc(`${config.rpc.replace('get', 'approve')}`, { p_id: selected.id, p_status: 'Approved' });
               setData(data.filter(r => r.id !== selected.id));

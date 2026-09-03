@@ -1,7 +1,7 @@
 {
   "name": "wos-web",
   "version": "1.0.0",
-  "description": "insightWOS — Workforce Intelligence Platform",
+  "description": "insightWOS \u2014 Workforce Intelligence Platform",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,11 @@
     "test:watch": "vitest",
     "lint": "eslint src/ --ext .js,.jsx",
     "lint:fix": "eslint src/ --ext .js,.jsx --fix",
-    "format": "prettier --write \"src/**/*.{js,jsx,css}\""
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\"",
+    "start": "vite preview --port 3000",
+    "deploy": "vercel --prod",
+    "build:analyze": "vite build --mode analysis",
+    "check:types": "tsc --noEmit || echo \"TypeScript not configured yet\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

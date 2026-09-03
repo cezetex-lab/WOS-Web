@@ -1,24 +1,26 @@
-/**
- * Circuit Breaker Pattern
- * Prevents cascading failures when external services are down.
- * States: CLOSED (normal) -> OPEN (blocked) -> HALF_OPEN (testing)
- */
+// ============================================================
+// circuit-breaker.js — Circuit breaker pattern for external services
+// ============================================================
+
 export class CircuitBreaker {
-  constructor(options = {}) {
-    this.failureThreshold = options.failureThreshold || 5;
-    this.resetTimeout = options.resetTimeout || 30000; // 30s
-    this.state = 'CLOSED';
+  constructor(name, options = {}) {
+    this.name = name;
+    this.state = "CLOSED"; // CLOSED = normal, OPEN = blocked, HALF_OPEN = testing
     this.failureCount = 0;
-    this.lastFailureTime = null;
     this.successCount = 0;
+    this.lastFailureTime = null;
+    this.threshold = options.threshold || 5;
+    this.resetTimeout = options.resetTimeout || 60000; // 1 minute
+    this.halfOpenMax = options.halfOpenMax || 3;
   }
 
   async execute(fn) {
-    if (this.state === 'OPEN') {
+    if (this.state === "OPEN") {
       if (Date.now() - this.lastFailureTime > this.resetTimeout) {
-        this.state = 'HALF_OPEN';
+        this.state = "HALF_OPEN";
+        this.successCount = 0;
       } else {
-        throw new Error('Circuit breaker is OPEN — service temporarily unavailable');
+        throw new Error();
       }
     }
 
@@ -34,10 +36,10 @@ export class CircuitBreaker {
 
   onSuccess() {
     this.failureCount = 0;
-    if (this.state === 'HALF_OPEN') {
+    if (this.state === "HALF_OPEN") {
       this.successCount++;
-      if (this.successCount >= 3) {
-        this.state = 'CLOSED';
+      if (this.successCount >= this.halfOpenMax) {
+        this.state = "CLOSED";
         this.successCount = 0;
       }
     }
@@ -46,34 +48,23 @@ export class CircuitBreaker {
   onFailure() {
     this.failureCount++;
     this.lastFailureTime = Date.now();
-    if (this.failureCount >= this.failureThreshold) {
-      this.state = 'OPEN';
+    if (this.failureCount >= this.threshold) {
+      this.state = "OPEN";
     }
   }
 
   getState() {
-    return {
-      state: this.state,
-      failureCount: this.failureCount,
-      lastFailureTime: this.lastFailureTime,
-    };
+    return { state: this.state, failureCount: this.failureCount, name: this.name };
   }
 
   reset() {
-    this.state = 'CLOSED';
+    this.state = "CLOSED";
     this.failureCount = 0;
-    this.lastFailureTime = null;
     this.successCount = 0;
+    this.lastFailureTime = null;
   }
 }
 
-// Pre-configured instances
-export const supabaseBreaker = new CircuitBreaker({
-  failureThreshold: 5,
-  resetTimeout: 30000,
-});
-
-export const upstashBreaker = new CircuitBreaker({
-  failureThreshold: 3,
-  resetTimeout: 60000,
-});
+// Pre-configured breakers
+export const supabaseBreaker = new CircuitBreaker("supabase", { threshold: 5, resetTimeout: 60000 });
+export const upstashBreaker = new CircuitBreaker("upstash", { threshold: 3, resetTimeout: 30000 });
