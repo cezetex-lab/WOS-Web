@@ -20,6 +20,19 @@ export default function OwnerDashboard() {
   const [loginStats, setLoginStats] = useState({});
   const [securitySettings, setSecuritySettings] = useState([]);
 
+  // Wave 2 states
+  const [employees, setEmployees] = useState({ data: [], total: 0 });
+  const [empFilter, setEmpFilter] = useState({ bu: '', search: '', page: 0 });
+  const [showEmpCreator, setShowEmpCreator] = useState(false);
+  const [newEmp, setNewEmp] = useState({ nrp: '', nama: '', email: '', divisi: '', posisi: '', bu_id: '', role: 'worker', role_level: 1 });
+  const [editEmp, setEditEmp] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [showAnnCreator, setShowAnnCreator] = useState(false);
+  const [newAnn, setNewAnn] = useState({ title: '', message: '', priority: 'NORMAL', target_audience: 'ALL' });
+  const [notifConfig, setNotifConfig] = useState([]);
+  const [sysAnnouncements, setSysAnnouncements] = useState([]);
+  const [showSysAnnCreator, setShowSysAnnCreator] = useState(false);
+  const [newSysAnn, setNewSysAnn] = useState({ title: '', message: '', type: 'info', dismissible: true });
   // Edit states
   const [editRole, setEditRole] = useState(null);
   const [editForm, setEditForm] = useState({ role: '', role_level: 1 });
@@ -66,11 +79,39 @@ export default function OwnerDashboard() {
     } catch (e) { /* silent */ }
   }, []);
 
+  const loadEmployees = useCallback(async () => {
+    try {
+      const r = await rpc('owner_get_employees', { p_bu_id: empFilter.bu || null, p_search: empFilter.search || null, p_limit: 50, p_offset: empFilter.page * 50 });
+      setEmployees(r || { data: [], total: 0 });
+    } catch (e) { /* silent */ }
+  }, [empFilter.bu, empFilter.search, empFilter.page]);
+
+  const loadAnnouncements = useCallback(async () => {
+    try {
+      const r = await rpc('owner_get_announcements');
+      setAnnouncements(Array.isArray(r) ? r : []);
+    } catch (e) { /* silent */ }
+  }, []);
+
+  const loadNotifConfig = useCallback(async () => {
+    try {
+      const r = await rpc('get_notification_config');
+      setNotifConfig(Array.isArray(r) ? r : []);
+    } catch (e) { /* silent */ }
+  }, []);
+
+  const loadSysAnnouncements = useCallback(async () => {
+    try {
+      const r = await rpc('owner_get_system_announcements');
+      setSysAnnouncements(Array.isArray(r) ? r : []);
+    } catch (e) { /* silent */ }
+  }, []);
+
   useEffect(() => {
     setLoading(true);
-    const loaders = { overview: loadOverview, modules: loadModules, tiers: loadModules, roles: loadModules, audit: loadAuditLog, security: loadSecurity, bu: loadModules };
+    const loaders = { overview: loadOverview, modules: loadModules, tiers: loadModules, roles: loadModules, audit: loadAuditLog, security: loadSecurity, bu: loadModules, employees: loadEmployees, announcements: loadAnnouncements, notifications: loadNotifConfig, sysann: loadSysAnnouncements };
     (loaders[activeTab] || loadModules)().finally(() => setLoading(false));
-  }, [activeTab, loadOverview, loadModules, loadAuditLog, loadSecurity]);
+  }, [activeTab, loadOverview, loadModules, loadAuditLog, loadSecurity, loadEmployees, loadAnnouncements, loadNotifConfig, loadSysAnnouncements]);
 
   // Actions
   async function toggleLock(code, current, buId) {
@@ -119,7 +160,10 @@ export default function OwnerDashboard() {
     { id: 'audit', label: 'Audit Log' },
     { id: 'security', label: 'Security' },
     { id: 'bu', label: 'Business Units' },
-  ];
+    { id: 'employees', label: 'Employees' },
+    { id: 'announcements', label: 'Announcements' },
+    { id: 'notifications', label: 'Notifications' },
+    { id: 'sysann', label: 'System Banner' },  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -481,6 +525,207 @@ export default function OwnerDashboard() {
                 )}
               </div>
             )}
+            {/* EMPLOYEES TAB */}
+            {activeTab === 'employees' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <input value={empFilter.search} onChange={e => setEmpFilter({ ...empFilter, search: e.target.value, page: 0 })} placeholder="Search NRP/Nama/Email..." className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm flex-1 min-w-[200px]" />
+                  <select value={empFilter.bu} onChange={e => setEmpFilter({ ...empFilter, bu: e.target.value, page: 0 })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
+                    <option value="">Semua BU</option>
+                    {businessUnits.map(bu => <option key={bu.id} value={bu.id}>{bu.unit_name}</option>)}
+                  </select>
+                  <span className="text-gray-500 text-xs">{employees.total} karyawan</span>
+                  <button onClick={() => setShowEmpCreator(true)} className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold ml-auto">+ Tambah</button>
+                </div>
+                <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
+                  <table className="w-full"><thead><tr className="border-b border-gray-700/50">
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">NRP</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Nama</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Divisi</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Posisi</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">BU</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Status</th>
+                    <th className="px-4 py-2 text-right text-gray-400 text-xs">Aksi</th>
+                  </tr></thead><tbody>
+                    {(employees.data || []).map((emp, i) => (
+                      <tr key={i} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                        <td className="px-4 py-2 text-white text-sm font-mono">{emp.nrp}</td>
+                        <td className="px-4 py-2 text-gray-300 text-sm">{emp.nama}</td>
+                        <td className="px-4 py-2 text-gray-400 text-sm">{emp.divisi || '-'}</td>
+                        <td className="px-4 py-2 text-gray-400 text-sm">{emp.posisi || '-'}</td>
+                        <td className="px-4 py-2 text-gray-400 text-sm">{emp.unit_name || '-'}</td>
+                        <td className="px-4 py-2"><span className={'px-2 py-1 rounded text-xs ' + (emp.status_kerja === 'PKWTT' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400')}>{emp.status_kerja}</span></td>
+                        <td className="px-4 py-2 text-right">
+                          <button onClick={() => setEditEmp(emp)} className="px-3 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600 mr-1">Edit</button>
+                          <button onClick={async () => { if (confirm('Deactivate ' + emp.nrp + '?')) { await rpc('owner_deactivate_employee', { p_nrp: emp.nrp }); loadEmployees(); } }} className="px-3 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30">Off</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {(!employees.data || employees.data.length === 0) && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">Tidak ada data</td></tr>}
+                  </tbody></table>
+                </div>
+                {employees.total > 50 && (
+                  <div className="flex justify-center gap-2">
+                    <button disabled={empFilter.page === 0} onClick={() => setEmpFilter({ ...empFilter, page: empFilter.page - 1 })} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm disabled:opacity-30">Prev</button>
+                    <span className="px-4 py-2 text-gray-400 text-sm">Page {empFilter.page + 1} / {Math.ceil(employees.total / 50)}</span>
+                    <button disabled={(empFilter.page + 1) * 50 >= employees.total} onClick={() => setEmpFilter({ ...empFilter, page: empFilter.page + 1 })} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm disabled:opacity-30">Next</button>
+                  </div>
+                )}
+                {showEmpCreator && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowEmpCreator(false)}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-[500px]" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-white font-bold mb-4">Tambah Karyawan</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><label className="text-gray-400 text-xs">NRP *</label><input value={newEmp.nrp} onChange={e => setNewEmp({...newEmp, nrp: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Nama *</label><input value={newEmp.nama} onChange={e => setNewEmp({...newEmp, nama: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Email</label><input value={newEmp.email} onChange={e => setNewEmp({...newEmp, email: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Divisi</label><input value={newEmp.divisi} onChange={e => setNewEmp({...newEmp, divisi: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Posisi</label><input value={newEmp.posisi} onChange={e => setNewEmp({...newEmp, posisi: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">BU</label><select value={newEmp.bu_id} onChange={e => setNewEmp({...newEmp, bu_id: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="">Pilih BU</option>{businessUnits.map(bu => <option key={bu.id} value={bu.id}>{bu.unit_name}</option>)}</select></div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <button onClick={() => setShowEmpCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
+                        <button onClick={async () => { if (!newEmp.nrp || !newEmp.nama) return; await rpc('owner_create_employee', { p_nrp: newEmp.nrp, p_nama: newEmp.nama, p_email: newEmp.email || null, p_divisi: newEmp.divisi || null, p_posisi: newEmp.posisi || null, p_bu_id: newEmp.bu_id || null }); setShowEmpCreator(false); setNewEmp({ nrp: '', nama: '', email: '', divisi: '', posisi: '', bu_id: '', role: 'worker', role_level: 1 }); loadEmployees(); loadOverview(); }} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Buat</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+
+            {/* ANNOUNCEMENTS TAB */}
+            {activeTab === 'announcements' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-white font-bold text-sm">Pengumuman ({announcements.length})</h3>
+                  <button onClick={() => setShowAnnCreator(true)} className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">+ Tambah</button>
+                </div>
+                {announcements.length === 0 ? <div className="text-gray-500 text-sm text-center py-10">Belum ada pengumuman</div> : announcements.map(a => (
+                  <div key={a.id} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-white font-semibold">{a.title}</h3>
+                          <span className={'px-2 py-0.5 rounded text-xs font-bold ' + (a.priority === 'CRITICAL' ? 'bg-red-500/20 text-red-400' : a.priority === 'HIGH' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400')}>{a.priority}</span>
+                          <span className="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400">{a.target_audience}</span>
+                        </div>
+                        <p className="text-gray-400 text-sm">{a.message || '-'}</p>
+                        <div className="text-gray-500 text-xs mt-2">
+                          {new Date(a.created_at).toLocaleString('id-ID')}
+                          {a.expiry_date && ' | Expired: ' + new Date(a.expiry_date).toLocaleDateString('id-ID')}
+                        </div>
+                      </div>
+                      <button onClick={async () => { if (confirm('Hapus pengumuman?')) { await rpc('owner_delete_announcement', { p_id: a.id }); loadAnnouncements(); } }} className="px-3 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 ml-2">Hapus</button>
+                    </div>
+                  </div>
+                ))}
+                {showAnnCreator && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowAnnCreator(false)}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-[500px]" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-white font-bold mb-4">Buat Pengumuman</h3>
+                      <div className="space-y-3">
+                        <div><label className="text-gray-400 text-xs">Title *</label><input value={newAnn.title} onChange={e => setNewAnn({...newAnn, title: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Message</label><textarea value={newAnn.message} onChange={e => setNewAnn({...newAnn, message: e.target.value})} rows={3} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="text-gray-400 text-xs">Priority</label><select value={newAnn.priority} onChange={e => setNewAnn({...newAnn, priority: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="NORMAL">Normal</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select></div>
+                          <div><label className="text-gray-400 text-xs">Target</label><select value={newAnn.target_audience} onChange={e => setNewAnn({...newAnn, target_audience: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="ALL">Semua</option><option value="ADMIN">Admin Only</option><option value="WORKER">Worker Only</option></select></div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <button onClick={() => setShowAnnCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
+                        <button onClick={async () => { if (!newAnn.title) return; await rpc('owner_create_announcement', { p_title: newAnn.title, p_message: newAnn.message || null, p_priority: newAnn.priority, p_target_audience: newAnn.target_audience }); setShowAnnCreator(false); setNewAnn({ title: '', message: '', priority: 'NORMAL', target_audience: 'ALL' }); loadAnnouncements(); }} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Buat</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+
+            {/* NOTIFICATIONS TAB */}
+            {activeTab === 'notifications' && (
+              <div className="space-y-4">
+                <h3 className="text-white font-bold text-sm">Notification Config ({notifConfig.length})</h3>
+                <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
+                  <table className="w-full"><thead><tr className="border-b border-gray-700/50">
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Event</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Label</th>
+                    <th className="px-4 py-2 text-center text-gray-400 text-xs">Email</th>
+                    <th className="px-4 py-2 text-center text-gray-400 text-xs">Push</th>
+                    <th className="px-4 py-2 text-right text-gray-400 text-xs">Aksi</th>
+                  </tr></thead><tbody>
+                    {notifConfig.map(nc => (
+                      <tr key={nc.id} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                        <td className="px-4 py-2 text-white text-sm font-mono">{nc.event_type}</td>
+                        <td className="px-4 py-2 text-gray-300 text-sm">{nc.label}</td>
+                        <td className="px-4 py-2 text-center">
+                          <button onClick={async () => { await rpc('update_notification_config', { p_id: nc.id, p_email_enabled: !nc.email_enabled }); loadNotifConfig(); }} className={'w-10 h-6 rounded-full transition-colors ' + (nc.email_enabled ? 'bg-green-500' : 'bg-gray-600')}>
+                            <div className={'w-4 h-4 bg-white rounded-full transition-transform mx-1 ' + (nc.email_enabled ? 'translate-x-4' : 'translate-x-0')} />
+                          </button>
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <button onClick={async () => { await rpc('update_notification_config', { p_id: nc.id, p_push_enabled: !nc.push_enabled }); loadNotifConfig(); }} className={'w-10 h-6 rounded-full transition-colors ' + (nc.push_enabled ? 'bg-green-500' : 'bg-gray-600')}>
+                            <div className={'w-4 h-4 bg-white rounded-full transition-transform mx-1 ' + (nc.push_enabled ? 'translate-x-4' : 'translate-x-0')} />
+                          </button>
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-500 text-xs">{new Date(nc.updated_at).toLocaleDateString('id-ID')}</td>
+                      </tr>
+                    ))}
+                    {notifConfig.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">Tidak ada config</td></tr>}
+                  </tbody></table>
+                </div>
+              </div>
+            )}
+
+            {/* SYSTEM ANNOUNCEMENTS TAB */}
+            {activeTab === 'sysann' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-white font-bold text-sm">System Banner ({sysAnnouncements.length})</h3>
+                  <button onClick={() => setShowSysAnnCreator(true)} className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">+ Tambah Banner</button>
+                </div>
+                {sysAnnouncements.length === 0 ? <div className="text-gray-500 text-sm text-center py-10">Belum ada system banner</div> : sysAnnouncements.map(sa => (
+                  <div key={sa.id} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-white font-semibold">{sa.title}</h3>
+                          <span className={'px-2 py-0.5 rounded text-xs font-bold ' + (sa.type === 'critical' ? 'bg-red-500/20 text-red-400' : sa.type === 'warning' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400')}>{sa.type}</span>
+                          {sa.dismissible && <span className="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400">Dismissible</span>}
+                        </div>
+                        <p className="text-gray-400 text-sm">{sa.message || '-'}</p>
+                        <div className="text-gray-500 text-xs mt-2">
+                          {new Date(sa.created_at).toLocaleString('id-ID')}
+                          {sa.end_at && ' | End: ' + new Date(sa.end_at).toLocaleString('id-ID')}
+                        </div>
+                      </div>
+                      <button onClick={async () => { if (confirm('Hapus banner?')) { await rpc('owner_delete_system_announcement', { p_id: sa.id }); loadSysAnnouncements(); } }} className="px-3 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 ml-2">Hapus</button>
+                    </div>
+                  </div>
+                ))}
+                {showSysAnnCreator && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowSysAnnCreator(false)}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-[500px]" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-white font-bold mb-4">Buat System Banner</h3>
+                      <div className="space-y-3">
+                        <div><label className="text-gray-400 text-xs">Title *</label><input value={newSysAnn.title} onChange={e => setNewSysAnn({...newSysAnn, title: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Message</label><textarea value={newSysAnn.message} onChange={e => setNewSysAnn({...newSysAnn, message: e.target.value})} rows={3} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="text-gray-400 text-xs">Type</label><select value={newSysAnn.type} onChange={e => setNewSysAnn({...newSysAnn, type: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option></select></div>
+                          <div><label className="text-gray-400 text-xs">Dismissible</label><button onClick={() => setNewSysAnn({...newSysAnn, dismissible: !newSysAnn.dismissible})} className={'w-full mt-1 px-3 py-2 rounded-lg text-sm border ' + (newSysAnn.dismissible ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-gray-700 border-gray-600 text-gray-400')}>{newSysAnn.dismissible ? 'Ya' : 'Tidak'}</button></div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <button onClick={() => setShowSysAnnCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
+                        <button onClick={async () => { if (!newSysAnn.title) return; await rpc('owner_create_system_announcement', { p_title: newSysAnn.title, p_message: newSysAnn.message || null, p_type: newSysAnn.type, p_dismissible: newSysAnn.dismissible }); setShowSysAnnCreator(false); setNewSysAnn({ title: '', message: '', type: 'info', dismissible: true }); loadSysAnnouncements(); }} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Buat</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
           </>
         )}
       </div>
