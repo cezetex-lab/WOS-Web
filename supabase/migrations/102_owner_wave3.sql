@@ -258,8 +258,6 @@ CREATE OR REPLACE FUNCTION owner_get_usage_analytics()
 RETURNS JSONB AS $$
 DECLARE
   v_ctx JSONB := get_current_user_context();
-  v_daily_ac
-  v_ctx JSONB := get_current_user_context();
   v_daily_actions JSONB;
   v_action_distribution JSONB;
 BEGIN

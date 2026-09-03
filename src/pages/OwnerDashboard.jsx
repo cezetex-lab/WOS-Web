@@ -872,6 +872,58 @@ export default function OwnerDashboard() {
               </div>
             )}
 
+
+            {/* SYSTEM LOG TAB */}
+            {activeTab === 'changelog' && (
+              <div className="space-y-4">
+                <h3 className="text-white font-bold text-sm">System Changelog ({changelog.length})</h3>
+                {changelog.length === 0 ? <div className="text-gray-500 text-sm text-center py-10">Belum ada changelog</div> : changelog.map(cl => (
+                  <div key={cl.id} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/20 text-amber-400">v{cl.version}</span>
+                      <h3 className="text-white font-semibold">{cl.title}</h3>
+                    </div>
+                    <p className="text-gray-400 text-sm">{cl.description || '-'}</p>
+                    <div className="text-gray-500 text-xs mt-2">{new Date(cl.created_at).toLocaleString('id-ID')} by {cl.created_by}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* SUPPORT TAB */}
+            {activeTab === 'support' && (
+              <div className="space-y-4">
+                <h3 className="text-white font-bold text-sm">Support Tickets ({tickets.length})</h3>
+                {tickets.length === 0 ? <div className="text-gray-500 text-sm text-center py-10">Belum ada ticket</div> : (
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
+                    <table className="w-full"><thead><tr className="border-b border-gray-700/50">
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">ID</th>
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">Subject</th>
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">Creator</th>
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">Priority</th>
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">Status</th>
+                      <th className="px-4 py-2 text-right text-gray-400 text-xs">Aksi</th>
+                    </tr></thead><tbody>
+                      {tickets.map(t => (
+                        <tr key={t.id} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                          <td className="px-4 py-2 text-white text-sm font-mono">{t.id.substring(0, 8)}</td>
+                          <td className="px-4 py-2 text-gray-300 text-sm">{t.subject}</td>
+                          <td className="px-4 py-2 text-gray-400 text-sm">{t.creator_nama || t.creator_nrp}</td>
+                          <td className="px-4 py-2"><span className={'px-2 py-0.5 rounded text-xs font-bold ' + (t.priority === 'CRITICAL' ? 'bg-red-500/20 text-red-400' : t.priority === 'HIGH' ? 'bg-amber-500/20 text-amber-400' : 'bg-gray-500/20 text-gray-400')}>{t.priority}</span></td>
+                          <td className="px-4 py-2"><span className={'px-2 py-0.5 rounded text-xs ' + (t.status === 'RESOLVED' || t.status === 'CLOSED' ? 'bg-green-500/20 text-green-400' : t.status === 'IN_PROGRESS' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400')}>{t.status}</span></td>
+                          <td className="px-4 py-2 text-right">
+                            <select value={t.status} onChange={async (e) => { await rpc('owner_update_ticket_status', { p_ticket_id: t.id, p_status: e.target.value }); loadTickets(); }} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
+                              <option value="OPEN">Open</option><option value="IN_PROGRESS">In Progress</option><option value="RESOLVED">Resolved</option><option value="CLOSED">Closed</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody></table>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ANALYTICS TAB */}
             {activeTab === 'analytics' && (
               <div className="space-y-6">
