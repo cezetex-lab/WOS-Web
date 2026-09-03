@@ -124,6 +124,11 @@ const IrrigationPage = lazy(() => import('./features/industry/estate/Irrigation'
 const FacilityRequest = lazy(() => import('./features/industry/estate/FacilityRequest'));
 const MedicalCheckup = lazy(() => import('./features/industry/estate/MedicalCheckup'));
 
+// ── INDUSTRY ADMIN DASHBOARDS ──
+const MiningAdminDashboard = lazy(() => import('./features/industry/mining/MiningAdminDashboard'));
+const EstateAdminDashboard = lazy(() => import('./features/industry/estate/EstateAdminDashboard'));
+const MillAdminDashboard = lazy(() => import('./features/industry/mill/MillAdminDashboard'));
+
 const WorkerChangePassword = lazy(() => import('./features/platform/auth/WorkerChangePassword'));
 const PerformanceTrend = lazy(() => import('./features/core/performance/PerformanceTrend'));
 const CompensationIntel = lazy(() => import('./features/core/payroll/CompensationIntel'));
@@ -238,6 +243,7 @@ function AppContent() {
         <Route path="/worker/facility" element={withNav(FacilityRequest)} />
         <Route path="/worker/medical" element={withNav(MedicalCheckup)} />
 
+        <RoleGuard allowedRoles={["admin_pusat","admin_hrd","admin_finance","admin_operasional","admin_mining","admin_mill","admin_estate"]}>
         {/* ═══════════ ADMIN — REKRUTMEN ═══════════ */}
         <Route path="/admin/recruitment" element={withNav(RecruitmentDashboard)} />
         <Route path="/admin/pipeline" element={withNav(PipelineKanban)} />
@@ -304,6 +310,12 @@ function AppContent() {
         <Route path="/admin/budget" element={withNav(BudgetPage)} />
         <Route path="/admin/referral" element={withNav(ReferralPage)} />
 
+        {/* ═══════════ INDUSTRY ADMIN DASHBOARDS ═══════════ */}
+        <Route path="/admin/mining" element={withNav(MiningAdminDashboard)} />
+        <Route path="/admin/estate" element={withNav(EstateAdminDashboard)} />
+        <Route path="/admin/mill" element={withNav(MillAdminDashboard)} />
+
+        </RoleGuard>
         {/* ═══════════ DASHBOARD (Manager) ═══════════ */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/*" element={<Dashboard />} />
