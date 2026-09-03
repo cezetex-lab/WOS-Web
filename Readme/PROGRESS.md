@@ -1,12 +1,12 @@
 # insightWOS V6 — Progress & TODO
 
-## Status: Owner Dashboard Working
+## Status: Owner Dashboard 16/16 Features COMPLETE ✅
 
 - Owner login via Supabase Auth ✅
-- Module Lock (on/off) ✅
-- Tier & Pricing ✅
-- Role Overview ✅
-- 61 modules registered in database ✅
+- 17 tabs operational ✅
+- 50+ RPCs backend ✅
+- 9 new tables ✅
+- All 3 waves complete ✅
 
 ---
 
@@ -84,23 +84,19 @@
 - [x] Route verification (mill/mining/estate admin)
 - [x] Role-based access verification
 
-### IN PROGRESS 🔄
-- [ ] **Owner Dashboard 16 Features** — See `Readme/OWNER_DASHBOARD_PLAN.md`
-  - Wave 1 (P0): Overview, Audit Log, Security, BU Management
-  - Wave 2 (P1): Employee Mgmt, Announcements, Notification, Security Policy, System Announcements
-  - Wave 3 (P2): Activity Dashboard, Integrations, Branding, Data Retention, System Log, Support, Analytics
-- [x] **Arahtikural Role-Based Analysis** — Owner, Admin roles, Worker, Manager
-- [x] **Cek availability admin mill/mining/estate di route App.jsx**
-- [x] **Verifikasi struktur role-based access** (pusat/hrd/finance/produksi)
-- [x] **Investigasi issue /owner not showing + deployment status**
+### DONE ✅
+- [x] **Owner Dashboard 16 Features** — ALL WAVES COMPLETE
+  - Wave 1 (P0): Overview, Audit Log, Security, BU Management ✅
+  - Wave 2 (P1): Employee Mgmt, Announcements, Notification, System Announcements ✅
+  - Wave 3 (P2): Activity, Integrations, Data Retention, System Log, Support, Analytics ✅
+- [x] **Migration 100** — Wave 1 RPCs (12 functions)
+- [x] **Migration 101** — Wave 2 RPCs (13 functions) + 2 tables
+- [x] **Migration 102** — Wave 3 RPCs (11 functions) + 5 tables
+- [x] **Frontend** — OwnerDashboard.jsx 17 tabs, 977 lines
+- [x] **Naming fix** — get_owner_security_settings → owner_get_security_settings
+- [x] **Empty state rule** — Added to AGENTS.md Section 13
 
-### IN PROGRESS
-- [ ] **Owner Dashboard 16 Features** — Global design plan created (OWNER_DASHBOARD_PLAN.md)
-  - Wave 1 (P0): Overview, Audit Log, Security, BU Management
-  - Wave 2 (P1): Employee Mgmt, Announcements, Notification, Security Policy, System Announcements
-  - Wave 3 (P2): Activity Dashboard, Integrations, Branding, Data Retention, System Log, Support, Analytics
-
-### MEDIUM (After Owner Dashboard 16 Features)
+### MEDIUM (Next priorities)
 
 - [ ] **Dynamic Route/Frontend** — App.jsx & menu-builder.js masih hardcoded
   - Saat ini: setiap module harus manual tambah route di App.jsx + path di menu-builder.js
@@ -169,6 +165,32 @@
 ---
 
 ## Log
+
+### 04 Sep 2026
+- **Wave 1 Complete** — Migration 100: 12 RPCs + OwnerDashboard 7 tabs
+  - Fix: get_modules_for_owner() now returns ALL modules (not just industry)
+  - Overview: 8 stat cards + employee by BU bar chart
+  - Module Lock: toggle ON/OFF per module per BU
+  - Tier & Pricing: T0-T4 pricing preview + set tier per BU
+  - Roles: table per BU + edit modal
+  - Audit Log: filterable table + pagination (50/page)
+  - Security: login stats + active sessions + force logout + security policy
+  - Business Units: CRUD with create/edit/delete modals
+- **Wave 2 Complete** — Migration 101: 13 RPCs + 2 tables + 4 tabs
+  - Employees: search/filter/pagination, create, edit, deactivate
+  - Announcements: create with priority/target, delete
+  - Notifications: toggle email/push per event type (12 events)
+  - System Banner: create info/warning/critical banners
+- **Wave 3 Complete** — Migration 102: 11 RPCs + 5 tables + 6 tabs
+  - Activity: stats cards + top actions bar chart
+  - Integrations: CRUD with status badges
+  - Data Retention: table with edit
+  - System Log: changelog display
+  - Support: ticket list with status dropdown
+  - Analytics: daily actions bar chart + action distribution
+- **Fixes**: RPC naming mismatch, duplicate SQL declarations, missing empty states
+- **Rules**: Added empty state rule to AGENTS.md Section 13
+- **Total**: 50+ RPCs, 9 new tables, 17 tabs, 977 lines
 
 ### 03 Sep 2026
 - Owner login fixed (get_current_user_context bypass employees_master)
