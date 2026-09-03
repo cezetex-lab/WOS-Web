@@ -33,6 +33,15 @@ export default function OwnerDashboard() {
   const [sysAnnouncements, setSysAnnouncements] = useState([]);
   const [showSysAnnCreator, setShowSysAnnCreator] = useState(false);
   const [newSysAnn, setNewSysAnn] = useState({ title: '', message: '', type: 'info', dismissible: true });
+  // Wave 3 states
+  const [activityStats, setActivityStats] = useState({});
+  const [integrations, setIntegrations] = useState([]);
+  const [showIntCreator, setShowIntCreator] = useState(false);
+  const [newInt, setNewInt] = useState({ name: '', type: 'webhook' });
+  const [retentionRules, setRetentionRules] = useState([]);
+  const [changelog, setChangelog] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [usageAnalytics, setUsageAnalytics] = useState({});
   // Edit states
   const [editRole, setEditRole] = useState(null);
   const [editForm, setEditForm] = useState({ role: '', role_level: 1 });
@@ -72,7 +81,7 @@ export default function OwnerDashboard() {
 
   const loadSecurity = useCallback(async () => {
     try {
-      const [s, ls, ss] = await Promise.all([rpc('get_active_sessions'), rpc('get_login_attempt_stats'), rpc('get_owner_security_settings')]);
+      const [s, ls, ss] = await Promise.all([rpc('get_active_sessions'), rpc('get_login_attempt_stats'), rpc('owner_get_security_settings')]);
       setSessions(Array.isArray(s) ? s : []);
       setLoginStats(ls || {});
       setSecuritySettings(Array.isArray(ss) ? ss : []);
@@ -107,11 +116,35 @@ export default function OwnerDashboard() {
     } catch (e) { /* silent */ }
   }, []);
 
+  const loadActivity = useCallback(async () => {
+    try { const r = await rpc('owner_get_activity_stats'); setActivityStats(r || {}); } catch (e) {}
+  }, []);
+
+  const loadIntegrations = useCallback(async () => {
+    try { const r = await rpc('owner_get_integrations'); setIntegrations(Array.isArray(r) ? r : []); } catch (e) {}
+  }, []);
+
+  const loadRetention = useCallback(async () => {
+    try { const r = await rpc('owner_get_retention_rules'); setRetentionRules(Array.isArray(r) ? r : []); } catch (e) {}
+  }, []);
+
+  const loadChangelog = useCallback(async () => {
+    try { const r = await rpc('owner_get_changelog'); setChangelog(Array.isArray(r) ? r : []); } catch (e) {}
+  }, []);
+
+  const loadTickets = useCallback(async () => {
+    try { const r = await rpc('owner_get_tickets'); setTickets(Array.isArray(r) ? r : []); } catch (e) {}
+  }, []);
+
+  const loadAnalytics = useCallback(async () => {
+    try { const r = await rpc('owner_get_usage_analytics'); setUsageAnalytics(r || {}); } catch (e) {}
+  }, []);
+
   useEffect(() => {
     setLoading(true);
-    const loaders = { overview: loadOverview, modules: loadModules, tiers: loadModules, roles: loadModules, audit: loadAuditLog, security: loadSecurity, bu: loadModules, employees: loadEmployees, announcements: loadAnnouncements, notifications: loadNotifConfig, sysann: loadSysAnnouncements };
+    const loaders = { overview: loadOverview, modules: loadModules, tiers: loadModules, roles: loadModules, audit: loadAuditLog, security: loadSecurity, bu: loadModules, employees: loadEmployees, announcements: loadAnnouncements, notifications: loadNotifConfig, sysann: loadSysAnnouncements, activity: loadActivity, integrations: loadIntegrations, retention: loadRetention, changelog: loadChangelog, support: loadTickets, analytics: loadAnalytics };
     (loaders[activeTab] || loadModules)().finally(() => setLoading(false));
-  }, [activeTab, loadOverview, loadModules, loadAuditLog, loadSecurity, loadEmployees, loadAnnouncements, loadNotifConfig, loadSysAnnouncements]);
+  }, [activeTab, loadOverview, loadModules, loadAuditLog, loadSecurity, loadEmployees, loadAnnouncements, loadNotifConfig, loadSysAnnouncements, loadActivity, loadIntegrations, loadRetention, loadChangelog, loadTickets, loadAnalytics]);
 
   // Actions
   async function toggleLock(code, current, buId) {
@@ -163,7 +196,14 @@ export default function OwnerDashboard() {
     { id: 'employees', label: 'Employees' },
     { id: 'announcements', label: 'Announcements' },
     { id: 'notifications', label: 'Notifications' },
-    { id: 'sysann', label: 'System Banner' },  ];
+    { id: 'sysann', label: 'System Banner' },
+    { id: 'activity', label: 'Activity' },
+    { id: 'integrations', label: 'Integrations' },
+    { id: 'retention', label: 'Data Retention' },
+    { id: 'changelog', label: 'System Log' },
+    { id: 'support', label: 'Support' },
+    { id: 'analytics', label: 'Analytics' },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -722,6 +762,156 @@ export default function OwnerDashboard() {
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+
+
+            {/* ACTIVITY TAB */}
+            {activeTab === 'activity' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+                    <div className="text-gray-400 text-xs mb-1">Actions Hari Ini</div>
+                    <div className="text-2xl font-bold text-blue-400">{activityStats.actions_today || 0}</div>
+                  </div>
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+                    <div className="text-gray-400 text-xs mb-1">Actions Minggu Ini</div>
+                    <div className="text-2xl font-bold text-green-400">{activityStats.actions_week || 0}</div>
+                  </div>
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+                    <div className="text-gray-400 text-xs mb-1">Tab Aktif</div>
+                    <div className="text-2xl font-bold text-amber-400">11</div>
+                  </div>
+                </div>
+                {activityStats.top_actions && activityStats.top_actions.length > 0 && (
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <h3 className="text-white font-bold text-sm mb-4">Top Actions (7 hari)</h3>
+                    <div className="space-y-2">
+                      {activityStats.top_actions.map((a, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-gray-400 text-xs w-4">{i + 1}</span>
+                          <span className="text-gray-200 text-sm font-mono flex-1">{a.action}</span>
+                          <div className="w-32 bg-gray-700/50 rounded-full h-4 overflow-hidden">
+                            <div className="bg-amber-500/60 h-full rounded-full" style={{ width: Math.max(10, (a.count / Math.max(...activityStats.top_actions.map(x => x.count), 1)) * 100) + '%' }} />
+                          </div>
+                          <span className="text-gray-400 text-xs w-8 text-right">{a.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* INTEGRATIONS TAB */}
+            {activeTab === 'integrations' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-white font-bold text-sm">Integrations ({integrations.length})</h3>
+                  <button onClick={() => setShowIntCreator(true)} className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">+ Tambah</button>
+                </div>
+                {integrations.length === 0 ? <div className="text-gray-500 text-sm text-center py-10">Belum ada integrasi</div> : integrations.map(intg => (
+                  <div key={intg.id} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-white font-semibold">{intg.name}</h3>
+                          <span className={'px-2 py-0.5 rounded text-xs ' + (intg.status === 'connected' ? 'bg-green-500/20 text-green-400' : intg.status === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-gray-500/20 text-gray-400')}>{intg.status}</span>
+                          <span className="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400">{intg.type}</span>
+                        </div>
+                        <div className="text-gray-500 text-xs mt-1">{new Date(intg.created_at).toLocaleDateString('id-ID')}</div>
+                      </div>
+                      <button onClick={async () => { if (confirm('Hapus integrasi?')) { await rpc('owner_delete_integration', { p_id: intg.id }); loadIntegrations(); } }} className="px-3 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30">Hapus</button>
+                    </div>
+                  </div>
+                ))}
+                {showIntCreator && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowIntCreator(false)}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-white font-bold mb-4">Tambah Integrasi</h3>
+                      <div className="space-y-3">
+                        <div><label className="text-gray-400 text-xs">Name *</label><input value={newInt.name} onChange={e => setNewInt({...newInt, name: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Type</label><select value={newInt.type} onChange={e => setNewInt({...newInt, type: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="webhook">Webhook</option><option value="api_key">API Key</option><option value="email">Email</option><option value="sms">SMS</option></select></div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <button onClick={() => setShowIntCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
+                        <button onClick={async () => { if (!newInt.name) return; await rpc('owner_create_integration', { p_name: newInt.name, p_type: newInt.type }); setShowIntCreator(false); setNewInt({ name: '', type: 'webhook' }); loadIntegrations(); }} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Buat</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* DATA RETENTION TAB */}
+            {activeTab === 'retention' && (
+              <div className="space-y-4">
+                <h3 className="text-white font-bold text-sm">Data Retention Rules ({retentionRules.length})</h3>
+                <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
+                  <table className="w-full"><thead><tr className="border-b border-gray-700/50">
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Table</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Retention (hari)</th>
+                    <th className="px-4 py-2 text-center text-gray-400 text-xs">Archive</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Last Cleanup</th>
+                    <th className="px-4 py-2 text-right text-gray-400 text-xs">Aksi</th>
+                  </tr></thead><tbody>
+                    {retentionRules.map(r => (
+                      <tr key={r.id} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                        <td className="px-4 py-2 text-white text-sm font-mono">{r.table_name}</td>
+                        <td className="px-4 py-2 text-gray-300 text-sm">{r.retention_days}</td>
+                        <td className="px-4 py-2 text-center"><span className={'px-2 py-0.5 rounded text-xs ' + (r.archive_enabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400')}>{r.archive_enabled ? 'ON' : 'OFF'}</span></td>
+                        <td className="px-4 py-2 text-gray-500 text-xs">{r.last_cleanup ? new Date(r.last_cleanup).toLocaleDateString('id-ID') : 'Never'}</td>
+                        <td className="px-4 py-2 text-right">
+                          <button onClick={async () => { const days = prompt('Retention days:', r.retention_days); if (days) { await rpc('owner_update_retention_rule', { p_id: r.id, p_retention_days: parseInt(days) }); loadRetention(); } }} className="px-3 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">Edit</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody></table>
+                </div>
+              </div>
+            )}
+
+            {/* ANALYTICS TAB */}
+            {activeTab === 'analytics' && (
+              <div className="space-y-6">
+                <h3 className="text-white font-bold text-sm">Usage Analytics (30 hari)</h3>
+                {usageAnalytics.daily_actions && usageAnalytics.daily_actions.length > 0 && (
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <h4 className="text-white font-bold text-xs mb-4">Daily Actions</h4>
+                    <div className="flex items-end gap-1 h-32">
+                      {usageAnalytics.daily_actions.map((d, i) => {
+                        const max = Math.max(...usageAnalytics.daily_actions.map(x => x.count), 1);
+                        return <div key={i} className="flex-1 bg-amber-500/60 rounded-t" style={{ height: Math.max(4, (d.count / max) * 100) + '%' }} title={d.date + ': ' + d.count} />;
+                      })}
+                    </div>
+                    <div className="flex justify-between mt-2">
+                      <span className="text-gray-500 text-xs">{usageAnalytics.daily_actions[0]?.date}</span>
+                      <span className="text-gray-500 text-xs">{usageAnalytics.daily_actions[usageAnalytics.daily_actions.length - 1]?.date}</span>
+                    </div>
+                  </div>
+                )}
+                {usageAnalytics.action_distribution && usageAnalytics.action_distribution.length > 0 && (
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <h4 className="text-white font-bold text-xs mb-4">Action Distribution</h4>
+                    <div className="space-y-2">
+                      {usageAnalytics.action_distribution.map((a, i) => {
+                        const max = Math.max(...usageAnalytics.action_distribution.map(x => x.count), 1);
+                        return (
+                          <div key={i} className="flex items-center gap-3">
+                            <span className="text-gray-200 text-sm font-mono flex-1 truncate">{a.action}</span>
+                            <div className="w-32 bg-gray-700/50 rounded-full h-4 overflow-hidden">
+                              <div className="bg-cyan-500/60 h-full rounded-full" style={{ width: Math.max(10, (a.count / max) * 100) + '%' }} />
+                            </div>
+                            <span className="text-gray-400 text-xs w-8 text-right">{a.count}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {(!usageAnalytics.daily_actions || usageAnalytics.daily_actions.length === 0) && (
+                  <div className="text-gray-500 text-sm text-center py-10">Belum ada data analytics</div>
                 )}
               </div>
             )}
