@@ -49,6 +49,14 @@ export default function OwnerDashboard() {
   const [newBU, setNewBU] = useState({ unit_code: '', unit_name: '', description: '' });
   const [editBU, setEditBU] = useState(null);
   const [editBUForm, setEditBUForm] = useState({ unit_name: '', description: '' });
+  // Wave 4 — Access Control states
+  const [adminRoles, setAdminRoles] = useState([]);
+  const [adminAccounts, setAdminAccounts] = useState([]);
+  const [showRoleCreator, setShowRoleCreator] = useState(false);
+  const [newRole, setNewRole] = useState({ role_code: '', role_name: '', scope_type: 'global', scope_id: '', permissions: '[]' });
+  const [editRoleAdmin, setEditRoleAdmin] = useState(null);
+  const [editRoleForm, setEditRoleForm] = useState({ role_name: '', permissions: '' });
+  const [assignUser, setAssignUser] = useState({ nrp: '', role_code: '' });
 
   // Loaders
   const loadOverview = useCallback(async () => {
@@ -140,11 +148,19 @@ export default function OwnerDashboard() {
     try { const r = await rpc('owner_get_usage_analytics'); setUsageAnalytics(r || {}); } catch (e) {}
   }, []);
 
+  const loadAccessControl = useCallback(async () => {
+    try {
+      const [r, a] = await Promise.all([rpc('owner_get_admin_roles'), rpc('owner_get_admin_accounts')]);
+      setAdminRoles(Array.isArray(r) ? r : []);
+      setAdminAccounts(Array.isArray(a) ? a : []);
+    } catch (e) { /* silent */ }
+  }, []);
+
   useEffect(() => {
     setLoading(true);
-    const loaders = { overview: loadOverview, modules: loadModules, tiers: loadModules, roles: loadModules, audit: loadAuditLog, security: loadSecurity, bu: loadModules, employees: loadEmployees, announcements: loadAnnouncements, notifications: loadNotifConfig, sysann: loadSysAnnouncements, activity: loadActivity, integrations: loadIntegrations, retention: loadRetention, changelog: loadChangelog, support: loadTickets, analytics: loadAnalytics };
+    const loaders = { overview: loadOverview, modules: loadModules, tiers: loadModules, roles: loadModules, audit: loadAuditLog, security: loadSecurity, bu: loadModules, employees: loadEmployees, announcements: loadAnnouncements, notifications: loadNotifConfig, sysann: loadSysAnnouncements, activity: loadActivity, integrations: loadIntegrations, retention: loadRetention, changelog: loadChangelog, support: loadTickets, analytics: loadAnalytics, access: loadAccessControl };
     (loaders[activeTab] || loadModules)().finally(() => setLoading(false));
-  }, [activeTab, loadOverview, loadModules, loadAuditLog, loadSecurity, loadEmployees, loadAnnouncements, loadNotifConfig, loadSysAnnouncements, loadActivity, loadIntegrations, loadRetention, loadChangelog, loadTickets, loadAnalytics]);
+  }, [activeTab, loadOverview, loadModules, loadAuditLog, loadSecurity, loadEmployees, loadAnnouncements, loadNotifConfig, loadSysAnnouncements, loadActivity, loadIntegrations, loadRetention, loadChangelog, loadTickets, loadAnalytics, loadAccessControl]);
 
   // Actions
   async function toggleLock(code, current, buId) {
@@ -184,6 +200,27 @@ export default function OwnerDashboard() {
     await rpc('owner_force_logout', { p_nrp: nrp });
     loadSecurity();
   }
+  async function createAdminRole() {
+    if (!newRole.role_code || !newRole.role_name) return;
+    await rpc('owner_create_admin_role', { p_role_code: newRole.role_code, p_role_name: newRole.role_name, p_scope_type: newRole.scope_type, p_scope_id: newRole.scope_id || null, p_permissions: JSON.parse(newRole.permissions || '[]') });
+    setNewRole({ role_code: '', role_name: '', scope_type: 'global', scope_id: '', permissions: '[]' });
+    setShowRoleCreator(false); loadAccessControl();
+  }
+  async function updateAdminRole() {
+    if (!editRoleAdmin) return;
+    await rpc('owner_update_admin_role', { p_role_id: editRoleAdmin.id, p_role_name: editRoleForm.role_name, p_permissions: JSON.parse(editRoleForm.permissions || '[]'), p_is_active: true });
+    setEditRoleAdmin(null); loadAccessControl();
+  }
+  async function deleteAdminRole(id) {
+    if (!confirm('Deactivate?')) return;
+    await rpc('owner_update_admin_role', { p_role_id: id, p_role_name: null, p_permissions: null, p_is_active: false });
+    loadAccessControl();
+  }
+  async function assignAdminUser() {
+    if (!assignUser.nrp || !assignUser.role_code) return;
+    await rpc('owner_assign_admin_user', { p_nrp: assignUser.nrp, p_role_code: assignUser.role_code });
+    setAssignUser({ nrp: '', role_code: '' }); loadAccessControl();
+  }
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -203,6 +240,7 @@ export default function OwnerDashboard() {
     { id: 'changelog', label: 'System Log' },
     { id: 'support', label: 'Support' },
     { id: 'analytics', label: 'Analytics' },
+    { id: 'access', label: 'Access Control' },
   ];
 
   return (
@@ -964,6 +1002,88 @@ export default function OwnerDashboard() {
                 )}
                 {(!usageAnalytics.daily_actions || usageAnalytics.daily_actions.length === 0) && (
                   <div className="text-gray-500 text-sm text-center py-10">Belum ada data analytics</div>
+                )}
+              </div>
+            )}
+
+            {/* ACCESS CONTROL TAB */}
+            {activeTab === 'access' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-white font-bold text-sm">Admin Roles ({adminRoles.length})</h3>
+                      <button onClick={() => setShowRoleCreator(true)} className="px-3 py-1 bg-amber-500 text-white rounded text-xs font-bold">+ Create Role</button>
+                    </div>
+                    <div className="space-y-2">
+                      {adminRoles.map(r => (
+                        <div key={r.id} className="flex items-center justify-between bg-gray-900/60 rounded-lg px-3 py-2">
+                          <div>
+                            <div className="text-white text-sm font-medium">{r.role_name}</div>
+                            <div className="text-gray-500 text-xs">{r.role_code} | {r.scope_type} {r.scope_id}</div>
+                          </div>
+                          <div className="flex gap-1">
+                            <button onClick={() => { setEditRoleAdmin(r); setEditRoleForm({ role_name: r.role_name, permissions: JSON.stringify(r.permissions || []) }); }} className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs">Edit</button>
+                            <button onClick={() => deleteAdminRole(r.id)} className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs">Off</button>
+                          </div>
+                        </div>
+                      ))}
+                      {adminRoles.length === 0 && <div className="text-gray-500 text-sm text-center py-4">Tidak ada admin role</div>}
+                    </div>
+                  </div>
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <h3 className="text-white font-bold text-sm mb-4">Assign User to Role</h3>
+                    <div className="space-y-3">
+                      <div><label className="text-gray-400 text-xs">NRP</label><input value={assignUser.nrp} onChange={e => setAssignUser({ ...assignUser, nrp: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                      <div><label className="text-gray-400 text-xs">Role</label><select value={assignUser.role_code} onChange={e => setAssignUser({ ...assignUser, role_code: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="">Pilih Role</option>{adminRoles.filter(r => r.is_active).map(r => <option key={r.role_code} value={r.role_code}>{r.role_name}</option>)}</select></div>
+                      <button onClick={assignAdminUser} className="w-full px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Assign</button>
+                    </div>
+                    <div className="mt-4">
+                      <h4 className="text-white font-bold text-xs mb-2">Admin Accounts ({adminAccounts.length})</h4>
+                      <div className="space-y-1">
+                        {adminAccounts.map(a => (
+                          <div key={a.nrp} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-300">{a.nrp} - {a.nama}</span>
+                            <span className="text-amber-400">{a.role_code}</span>
+                          </div>
+                        ))}
+                        {adminAccounts.length === 0 && <div className="text-gray-500 text-xs text-center py-2">Tidak ada admin account</div>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {showRoleCreator && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowRoleCreator(false)}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-white font-bold mb-4">Create Admin Role</h3>
+                      <div className="space-y-3">
+                        <div><label className="text-gray-400 text-xs">Role Code *</label><input value={newRole.role_code} onChange={e => setNewRole({ ...newRole, role_code: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Role Name *</label><input value={newRole.role_name} onChange={e => setNewRole({ ...newRole, role_name: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Scope Type</label><select value={newRole.scope_type} onChange={e => setNewRole({ ...newRole, scope_type: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="global">Global</option><option value="function">Function</option><option value="industry">Industry</option></select></div>
+                        <div><label className="text-gray-400 text-xs">Scope ID</label><input value={newRole.scope_id} onChange={e => setNewRole({ ...newRole, scope_id: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="e.g. hrd, mining" /></div>
+                        <div><label className="text-gray-400 text-xs">Permissions (JSON)</label><textarea value={newRole.permissions} onChange={e => setNewRole({ ...newRole, permissions: e.target.value })} rows={2} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder='["*"] or ["employees.*"]' /></div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <button onClick={() => setShowRoleCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
+                        <button onClick={createAdminRole} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Create</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {editRoleAdmin && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setEditRoleAdmin(null)}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-white font-bold mb-4">Edit Role - {editRoleAdmin.role_code}</h3>
+                      <div className="space-y-3">
+                        <div><label className="text-gray-400 text-xs">Role Name</label><input value={editRoleForm.role_name} onChange={e => setEditRoleForm({ ...editRoleForm, role_name: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Permissions (JSON)</label><textarea value={editRoleForm.permissions} onChange={e => setEditRoleForm({ ...editRoleForm, permissions: e.target.value })} rows={2} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <button onClick={() => setEditRoleAdmin(null)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
+                        <button onClick={updateAdminRole} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Update</button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
