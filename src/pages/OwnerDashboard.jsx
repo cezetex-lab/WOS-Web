@@ -1,46 +1,124 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { rpc, clearSession } from '@/lib/supabase-browser';
 import { useNavigate } from 'react-router-dom';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('modules');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+
+  // Data states
+  const [stats, setStats] = useState({});
+  const [employeesByBU, setEmployeesByBU] = useState([]);
   const [modules, setModules] = useState([]);
   const [businessUnits, setBusinessUnits] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [auditLog, setAuditLog] = useState({ data: [], total: 0 });
+  const [auditActions, setAuditActions] = useState([]);
+  const [auditFilter, setAuditFilter] = useState({ action: '', page: 0 });
+  const [sessions, setSessions] = useState([]);
+  const [loginStats, setLoginStats] = useState({});
+  const [securitySettings, setSecuritySettings] = useState([]);
 
-  useEffect(() => { loadData(); }, []);
+  // Edit states
+  const [editRole, setEditRole] = useState(null);
+  const [editForm, setEditForm] = useState({ role: '', role_level: 1 });
+  const [showBUCreator, setShowBUCreator] = useState(false);
+  const [newBU, setNewBU] = useState({ unit_code: '', unit_name: '', description: '' });
+  const [editBU, setEditBU] = useState(null);
+  const [editBUForm, setEditBUForm] = useState({ unit_name: '', description: '' });
 
-  async function loadData() {
-    setLoading(true);
+  // Loaders
+  const loadOverview = useCallback(async () => {
     try {
-      const [modRes, buRes, roleRes] = await Promise.all([
-        rpc('get_modules_for_owner'),
-        rpc('get_business_units_for_owner'),
-        rpc('get_role_overview'),
-      ]);
-      setModules(Array.isArray(modRes) ? modRes : []);
-      setBusinessUnits(Array.isArray(buRes) ? buRes : []);
-      setRoles(Array.isArray(roleRes) ? roleRes : []);
+      const [s, b] = await Promise.all([rpc('get_owner_overview_stats'), rpc('get_owner_employees_by_bu')]);
+      setStats(s || {});
+      setEmployeesByBU(Array.isArray(b) ? b : []);
     } catch (e) { /* silent */ }
-    setLoading(false);
-  }
+  }, []);
 
-  async function toggleLock(code, current) {
-    await rpc('owner_toggle_lock', { p_module_code: code, p_enable: !current });
-    loadData();
-  }
+  const loadModules = useCallback(async () => {
+    try {
+      const [m, bu, r] = await Promise.all([rpc('get_modules_for_owner'), rpc('get_business_units_for_owner'), rpc('get_role_overview')]);
+      setModules(Array.isArray(m) ? m : []);
+      setBusinessUnits(Array.isArray(bu) ? bu : []);
+      setRoles(Array.isArray(r) ? r : []);
+    } catch (e) { /* silent */ }
+  }, []);
 
+  const loadAuditLog = useCallback(async () => {
+    try {
+      const [log, actions] = await Promise.all([
+        rpc('get_audit_log_v2', { p_action_type: auditFilter.action || null, p_limit: 50, p_offset: auditFilter.page * 50 }),
+        rpc('get_audit_log_actions'),
+      ]);
+      setAuditLog(log || { data: [], total: 0 });
+      setAuditActions(Array.isArray(actions) ? actions : []);
+    } catch (e) { /* silent */ }
+  }, [auditFilter.action, auditFilter.page]);
+
+  const loadSecurity = useCallback(async () => {
+    try {
+      const [s, ls, ss] = await Promise.all([rpc('get_active_sessions'), rpc('get_login_attempt_stats'), rpc('get_owner_security_settings')]);
+      setSessions(Array.isArray(s) ? s : []);
+      setLoginStats(ls || {});
+      setSecuritySettings(Array.isArray(ss) ? ss : []);
+    } catch (e) { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    const loaders = { overview: loadOverview, modules: loadModules, tiers: loadModules, roles: loadModules, audit: loadAuditLog, security: loadSecurity, bu: loadModules };
+    (loaders[activeTab] || loadModules)().finally(() => setLoading(false));
+  }, [activeTab, loadOverview, loadModules, loadAuditLog, loadSecurity]);
+
+  // Actions
+  async function toggleLock(code, current, buId) {
+    await rpc('owner_toggle_lock', { p_module_code: code, p_enable: !current, p_bu_id: buId });
+    loadModules();
+  }
+  async function updateRole() {
+    if (!editRole) return;
+    await rpc('owner_update_role', { p_nrp: editRole.nrp, p_role: editForm.role, p_role_level: parseInt(editForm.role_level) });
+    setEditRole(null);
+    loadModules();
+  }
   async function setTier(buId, tier) {
     await rpc('owner_set_tier', { p_bu_id: buId, p_tier: tier });
-    loadData();
+    loadModules();
+  }
+  async function createBU() {
+    if (!newBU.unit_code || !newBU.unit_name) return;
+    await rpc('owner_create_bu', { p_unit_code: newBU.unit_code, p_unit_name: newBU.unit_name, p_description: newBU.description || null });
+    setNewBU({ unit_code: '', unit_name: '', description: '' });
+    setShowBUCreator(false);
+    loadModules();
+  }
+  async function updateBU() {
+    if (!editBU) return;
+    await rpc('owner_update_bu', { p_bu_id: editBU.id, p_unit_name: editBUForm.unit_name, p_description: editBUForm.description });
+    setEditBU(null);
+    loadModules();
+  }
+  async function deleteBU(id) {
+    if (!confirm('Hapus Business Unit ini?')) return;
+    await rpc('owner_delete_bu', { p_bu_id: id });
+    loadModules();
+  }
+  async function forceLogout(nrp) {
+    if (!confirm('Force logout ' + nrp + '?')) return;
+    await rpc('owner_force_logout', { p_nrp: nrp });
+    loadSecurity();
   }
 
   const tabs = [
+    { id: 'overview', label: 'Overview' },
     { id: 'modules', label: 'Module Lock' },
     { id: 'tiers', label: 'Tier & Pricing' },
-    { id: 'roles', label: 'Role Overview' },
+    { id: 'roles', label: 'Roles' },
+    { id: 'audit', label: 'Audit Log' },
+    { id: 'security', label: 'Security' },
+    { id: 'bu', label: 'Business Units' },
   ];
 
   return (
@@ -48,62 +126,358 @@ export default function OwnerDashboard() {
       <header className="bg-gray-800/80 border-b border-gray-700/50 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center"><span className="text-xl">⚙️</span></div>
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center"><span className="text-xl">*</span></div>
             <div><h1 className="text-white font-bold text-lg">Owner Dashboard</h1><p className="text-gray-400 text-xs">Platform Management</p></div>
           </div>
-          <button onClick={() => { clearSession(); navigate('/owner'); }} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">Logout</button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/owner/dashboard/config')} className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 text-sm font-medium">Config</button>
+            <button onClick={() => { clearSession(); navigate('/owner'); }} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">Logout</button>
+          </div>
         </div>
       </header>
       <div className="max-w-7xl mx-auto p-6">
-        <div className="flex gap-1 mb-6 bg-gray-800/50 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 mb-6 bg-gray-800/50 p-1 rounded-xl overflow-x-auto">
           {tabs.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={activeTab === tab.id ? "px-4 py-2 rounded-lg text-sm font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30" : "px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-300"}>{tab.label}</button>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={activeTab === tab.id ? "px-4 py-2 rounded-lg text-sm font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30 whitespace-nowrap" : "px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-300 whitespace-nowrap"}>{tab.label}</button>
           ))}
         </div>
         {loading ? <div className="text-center py-20 text-gray-400">Loading...</div> : (
           <>
-            {activeTab === 'modules' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {modules.length === 0 ? <div className="text-gray-400 py-10 col-span-full text-center">Tidak ada modul</div> : modules.map(m => (
-                  <div key={m.module_code} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
-                    <div className="flex items-center justify-between">
-                      <div><h3 className="text-white font-semibold">{m.module_name || m.module_code}</h3><p className="text-gray-400 text-xs mt-1">{m.description || 'Industry module'}</p></div>
-                      <button onClick={() => toggleLock(m.module_code, m.is_enabled)} className={m.is_enabled ? "px-4 py-2 rounded-lg text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30" : "px-4 py-2 rounded-lg text-sm font-bold bg-gray-600/20 text-gray-500 border border-gray-600/30"}>{m.is_enabled ? 'ON' : 'OFF'}</button>
+            {/* OVERVIEW TAB */}
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Total Karyawan', value: stats.total_employees || 0, color: 'blue' },
+                    { label: 'Karyawan Aktif', value: stats.active_employees || 0, color: 'green' },
+                    { label: 'Modul Aktif', value: (stats.enabled_modules || 0) + '/' + (stats.total_modules || 0), color: 'amber' },
+                    { label: 'Business Units', value: stats.total_business_units || 0, color: 'purple' },
+                    { label: 'Request Pending', value: stats.pending_requests || 0, color: 'red' },
+                    { label: 'Login 24h', value: stats.recent_logins_24h || 0, color: 'cyan' },
+                    { label: 'Departemen', value: stats.total_departments || 0, color: 'teal' },
+                    { label: 'DB Size', value: stats.db_size || '0', color: 'gray' },
+                  ].map((s, i) => (
+                    <div key={i} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+                      <div className="text-gray-400 text-xs mb-1">{s.label}</div>
+                      <div className={`text-2xl font-bold text-${s.color}-400`}>{s.value}</div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {activeTab === 'tiers' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {businessUnits.length === 0 ? <div className="text-gray-400 py-10 col-span-full text-center">Tidak ada business unit</div> : businessUnits.map(bu => (
-                  <div key={bu.id || bu.bu_id} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
-                    <h3 className="text-white font-semibold mb-3">{bu.name || bu.unit_name || bu.id}</h3>
-                    <div className="flex gap-2">
-                      {[0,1,2,3,4].map(t => (
-                        <button key={t} onClick={() => setTier(bu.id || bu.bu_id, t)} className={(bu.tier || 0) === t ? "w-12 h-12 rounded-lg text-sm font-bold bg-amber-500 text-white shadow-lg" : "w-12 h-12 rounded-lg text-sm font-bold bg-gray-700/50 text-gray-400 hover:bg-gray-600/50"}>T{t}</button>
+                  ))}
+                </div>
+                {employeesByBU.length > 0 && (
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <h3 className="text-white font-bold text-sm mb-4">Karyawan per Business Unit</h3>
+                    <div className="space-y-3">
+                      {employeesByBU.map((b, i) => (
+                        <div key={i} className="flex items-center gap-4">
+                          <div className="w-32 text-gray-300 text-sm">{b.unit_name}</div>
+                          <div className="flex-1 bg-gray-700/50 rounded-full h-6 overflow-hidden">
+                            <div className="bg-amber-500/60 h-full rounded-full flex items-center px-3" style={{ width: Math.max(10, (b.total_employees / Math.max(...employeesByBU.map(x => x.total_employees), 1)) * 100) + '%' }}>
+                              <span className="text-white text-xs font-bold">{b.total_employees}</span>
+                            </div>
+                          </div>
+                          <div className="text-gray-500 text-xs w-16 text-right">{b.active_employees} active</div>
+                        </div>
                       ))}
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+            {/* MODULE LOCK TAB */}
+            {activeTab === 'modules' && (
+              <div className="space-y-6">
+                {modules.length === 0 ? <div className="text-gray-400 py-10 text-center">Tidak ada modul</div> : (() => {
+                  const industryIcons = { mining: 'Mine', estate: 'Palm', mill: 'Factory' };
+                  const industryLabels = { mining: 'Tambang', estate: 'Perkebunan', mill: 'Pabrik' };
+                  const groups = {};
+                  modules.forEach(m => {
+                    const prefix = m.module_code.split('_')[0];
+                    const isIndustry = ['mining','estate','mill'].includes(prefix);
+                    const groupKey = isIndustry ? 'industry_' + prefix : m.module_group;
+                    if (!groups[groupKey]) groups[groupKey] = [];
+                    groups[groupKey].push(m);
+                  });
+                  const order = ['CORE','PLATFORM','GOVERNANCE','industry_mining','industry_estate','industry_mill'];
+                  const groupMeta = { CORE: { label: 'Core HR', color: 'blue' }, PLATFORM: { label: 'Platform', color: 'purple' }, GOVERNANCE: { label: 'Governance', color: 'yellow' } };
+                  return order.filter(k => groups[k]).map(groupKey => {
+                    const isIndustry = groupKey.startsWith('industry_');
+                    const prefix = groupKey.replace('industry_','');
+                    const meta = isIndustry ? { label: industryLabels[prefix] || prefix, color: 'emerald' } : groupMeta[groupKey] || { label: groupKey, color: 'gray' };
+                    return (
+                      <div key={groupKey} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <h3 className="text-white font-bold text-sm uppercase tracking-wide">{meta.label}</h3>
+                          <span className="text-gray-500 text-xs ml-auto">{groups[groupKey].length} modul</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {groups[groupKey].map(m => (
+                            <div key={m.module_code} className="flex items-center justify-between bg-gray-900/60 rounded-lg px-4 py-3">
+                              <span className="text-gray-200 text-sm">{m.module_name || m.module_code}</span>
+                              <button onClick={() => toggleLock(m.module_code, m.is_enabled, m.business_unit_id)} className={m.is_enabled ? "px-3 py-1 rounded-lg text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30" : "px-3 py-1 rounded-lg text-xs font-bold bg-gray-600/20 text-gray-500 border border-gray-600/30"}>{m.is_enabled ? 'ON' : 'OFF'}</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+            {/* TIER & PRICING TAB */}
+            {activeTab === 'tiers' && (
+              <div className="space-y-6">
+                <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                  <h3 className="text-white font-bold text-sm mb-4">Tier Pricing System</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                    {[
+                      { t: 0, label: 'Free', color: 'gray', mods: ['Profil','Absensi'] },
+                      { t: 1, label: 'Basic', color: 'green', mods: ['+ Cuti','+ Lembur','+ Gaji','+ Self-Service'] },
+                      { t: 2, label: 'Pro', color: 'blue', mods: ['+ KPI','+ Kinerja','+ Learning','+ Review 360'] },
+                      { t: 3, label: 'Enterprise', color: 'purple', mods: ['+ Talent','+ Recruitment','+ Engagement'] },
+                      { t: 4, label: 'Unlimited', color: 'amber', mods: ['+ CEO Dashboard','+ Analytics','+ AI'] },
+                    ].map(({ t, label, color, mods }) => (
+                      <div key={t} className={'rounded-lg p-3 border border-' + color + '-500/30 bg-' + color + '-500/10'}>
+                        <div className="text-white font-bold text-sm">T{t} - {label}</div>
+                        <div className="text-gray-400 text-xs mt-2 space-y-1">{mods.map((m, i) => <div key={i}>{m}</div>)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {businessUnits.length === 0 ? <div className="text-gray-400 py-10 text-center">Tidak ada business unit</div> : businessUnits.map(bu => (
+                  <div key={bu.id || bu.bu_id} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div><h3 className="text-white font-semibold">{bu.unit_name || bu.id}</h3><p className="text-gray-400 text-xs">Unit code: {bu.unit_code}</p></div>
+                      <div className="text-amber-400 font-bold text-lg">Tier {(bu.tier ?? 0)}</div>
+                    </div>
+                    <div className="flex gap-2 mb-4">
+                      {[0,1,2,3,4].map(t => (
+                        <button key={t} onClick={() => setTier(bu.id || bu.bu_id, t)} className={(bu.tier ?? 0) === t ? "w-12 h-12 rounded-lg text-sm font-bold bg-amber-500 text-white shadow-lg" : "w-12 h-12 rounded-lg text-sm font-bold bg-gray-700/50 text-gray-400 hover:bg-gray-600/50"}>T{t}</button>
+                      ))}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {(bu.tier ?? 0) === 0 && <span className="text-red-400">Tier 0 - Profil & Absensi only</span>}
+                      {(bu.tier ?? 0) === 1 && <span className="text-green-400">Tier 1 - + Cuti, Lembur, Gaji</span>}
+                      {(bu.tier ?? 0) === 2 && <span className="text-blue-400">Tier 2 - + KPI, Learning, Review 360</span>}
+                      {(bu.tier ?? 0) === 3 && <span className="text-purple-400">Tier 3 - + Talent, Recruitment</span>}
+                      {(bu.tier ?? 0) === 4 && <span className="text-amber-400">Tier 4 - All modules</span>}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
+            {/* ROLES TAB */}
             {activeTab === 'roles' && (
-              <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
-                {roles.length === 0 ? <div className="text-gray-400 py-10 text-center">Tidak ada data role</div> : (
+              <div className="space-y-4">
+                {roles.length === 0 ? <div className="text-gray-400 py-10 text-center">Tidak ada data role</div> : (() => {
+                  const byBU = {};
+                  roles.forEach(r => { const bu = r.business_unit || 'HQ'; if (!byBU[bu]) byBU[bu] = []; byBU[bu].push(r); });
+                  const lc = { 5: 'bg-red-500/20 text-red-400', 4: 'bg-purple-500/20 text-purple-400', 3: 'bg-blue-500/20 text-blue-400', 2: 'bg-green-500/20 text-green-400', 1: 'bg-gray-500/20 text-gray-400' };
+                  const ll = { 5: 'C-Suite', 4: 'Director', 3: 'Manager', 2: 'Admin', 1: 'Worker' };
+                  const ro = ['admin_pusat','admin_hrd','admin_produksi','admin_finance','manager','supervisor','worker'];
+                  return Object.entries(byBU).map(([bu, list]) => (
+                    <div key={bu} className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
+                      <div className="px-5 py-3 border-b border-gray-700/50 flex items-center justify-between">
+                        <h3 className="text-white font-bold text-sm">{bu}</h3>
+                        <span className="text-gray-500 text-xs">{list.length} karyawan</span>
+                      </div>
+                      <table className="w-full"><thead><tr className="border-b border-gray-700/50">
+                        <th className="px-4 py-2 text-left text-gray-400 text-xs">NRP</th>
+                        <th className="px-4 py-2 text-left text-gray-400 text-xs">Nama</th>
+                        <th className="px-4 py-2 text-left text-gray-400 text-xs">Role</th>
+                        <th className="px-4 py-2 text-left text-gray-400 text-xs">Level</th>
+                        <th className="px-4 py-2 text-right"></th>
+                      </tr></thead><tbody>
+                        {list.sort((a,b) => (b.role_level||1) - (a.role_level||1)).map((r, i) => (
+                          <tr key={i} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                            <td className="px-4 py-2 text-white text-sm font-mono">{r.nrp}</td>
+                            <td className="px-4 py-2 text-gray-300 text-sm">{r.nama || r.name}</td>
+                            <td className="px-4 py-2"><span className="px-2 py-1 bg-amber-500/10 text-amber-400 rounded text-xs">{r.role}</span></td>
+                            <td className="px-4 py-2"><span className={'px-2 py-1 rounded text-xs font-bold ' + (lc[r.role_level] || lc[1])}>L{r.role_level} - {ll[r.role_level]}</span></td>
+                            <td className="px-4 py-2 text-right"><button onClick={() => { setEditRole(r); setEditForm({ role: r.role, role_level: r.role_level }); }} className="px-3 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">Edit</button></td>
+                          </tr>
+                        ))}
+                      </tbody></table>
+                    </div>
+                  ));
+                })()}
+                {editRole && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setEditRole(null)}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-white font-bold mb-4">Edit Role - {editRole.nrp}</h3>
+                      <p className="text-gray-400 text-sm mb-4">{editRole.nama}</p>
+                      <div className="space-y-3">
+                        <div><label className="text-gray-400 text-xs">Role</label>
+                          <select value={editForm.role} onChange={e => setEditForm({...editForm, role: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
+                            {ro.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select></div>
+                        <div><label className="text-gray-400 text-xs">Level</label>
+                          <div className="flex gap-2 mt-1">{[1,2,3,4,5].map(l => (
+                            <button key={l} onClick={() => setEditForm({...editForm, role_level: l})} className={'w-10 h-10 rounded-lg text-sm font-bold ' + (parseInt(editForm.role_level) === l ? 'bg-amber-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600')}>{l}</button>
+                          ))}</div></div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <button onClick={() => setEditRole(null)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
+                        <button onClick={updateRole} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Simpan</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AUDIT LOG TAB */}
+            {activeTab === 'audit' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <select value={auditFilter.action} onChange={e => setAuditFilter({ ...auditFilter, action: e.target.value, page: 0 })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
+                    <option value="">Semua Aksi</option>
+                    {auditActions.map(a => <option key={a.action} value={a.action}>{a.action} ({a.count})</option>)}
+                  </select>
+                  <span className="text-gray-500 text-xs">{auditLog.total} total</span>
+                </div>
+                <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
                   <table className="w-full"><thead><tr className="border-b border-gray-700/50">
-                    <th className="px-4 py-3 text-left text-gray-400 text-sm">NRP</th>
-                    <th className="px-4 py-3 text-left text-gray-400 text-sm">Nama</th>
-                    <th className="px-4 py-3 text-left text-gray-400 text-sm">Role</th>
-                    <th className="px-4 py-3 text-left text-gray-400 text-sm">Level</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Waktu</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Aksi</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Target</th>
+                    <th className="px-4 py-2 text-left text-gray-400 text-xs">Detail</th>
                   </tr></thead><tbody>
-                    {roles.map((r, i) => (<tr key={i} className="border-b border-gray-700/30 hover:bg-gray-700/20">
-                      <td className="px-4 py-3 text-white text-sm">{r.nrp}</td>
-                      <td className="px-4 py-3 text-gray-300 text-sm">{r.nama || r.name}</td>
-                      <td className="px-4 py-3"><span className="px-2 py-1 bg-amber-500/10 text-amber-400 rounded text-xs">{r.role}</span></td>
-                      <td className="px-4 py-3 text-gray-300 text-sm">L{r.role_level || 1}</td>
-                    </tr>))}
+                    {(auditLog.data || []).map((log, i) => (
+                      <tr key={i} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                        <td className="px-4 py-2 text-gray-400 text-xs">{new Date(log.created_at).toLocaleString('id-ID')}</td>
+                        <td className="px-4 py-2"><span className="px-2 py-1 bg-amber-500/10 text-amber-400 rounded text-xs">{log.action}</span></td>
+                        <td className="px-4 py-2 text-gray-300 text-sm">{log.target_type}: {log.target_id}</td>
+                        <td className="px-4 py-2 text-gray-500 text-xs max-w-xs truncate">{log.new_value ? JSON.stringify(log.new_value) : '-'}</td>
+                      </tr>
+                    ))}
+                    {(!auditLog.data || auditLog.data.length === 0) && <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500">Tidak ada log</td></tr>}
                   </tbody></table>
+                </div>
+                {auditLog.total > 50 && (
+                  <div className="flex justify-center gap-2">
+                    <button disabled={auditFilter.page === 0} onClick={() => setAuditFilter({ ...auditFilter, page: auditFilter.page - 1 })} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm disabled:opacity-30">Prev</button>
+                    <span className="px-4 py-2 text-gray-400 text-sm">Page {auditFilter.page + 1} / {Math.ceil(auditLog.total / 50)}</span>
+                    <button disabled={(auditFilter.page + 1) * 50 >= auditLog.total} onClick={() => setAuditFilter({ ...auditFilter, page: auditFilter.page + 1 })} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm disabled:opacity-30">Next</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SECURITY TAB */}
+            {activeTab === 'security' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+                    <div className="text-gray-400 text-xs mb-1">Login Berhasil (24h)</div>
+                    <div className="text-2xl font-bold text-green-400">{loginStats.success_24h || 0}</div>
+                  </div>
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+                    <div className="text-gray-400 text-xs mb-1">Login Gagal (24h)</div>
+                    <div className="text-2xl font-bold text-red-400">{loginStats.failed_24h || 0}</div>
+                  </div>
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+                    <div className="text-gray-400 text-xs mb-1">Akun Terkunci</div>
+                    <div className="text-2xl font-bold text-amber-400">{loginStats.locked_accounts || 0}</div>
+                  </div>
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+                    <div className="text-gray-400 text-xs mb-1">User Aktif (24h)</div>
+                    <div className="text-2xl font-bold text-cyan-400">{loginStats.unique_users_24h || 0}</div>
+                  </div>
+                </div>
+                <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                  <h3 className="text-white font-bold text-sm mb-4">Active Sessions</h3>
+                  {sessions.length === 0 ? <div className="text-gray-500 text-sm">Tidak ada session aktif</div> : (
+                    <table className="w-full"><thead><tr className="border-b border-gray-700/50">
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">NRP</th>
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">Nama</th>
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">Divisi</th>
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">Type</th>
+                      <th className="px-4 py-2 text-left text-gray-400 text-xs">Login</th>
+                      <th className="px-4 py-2 text-right text-gray-400 text-xs">Aksi</th>
+                    </tr></thead><tbody>
+                      {sessions.map((s, i) => (
+                        <tr key={i} className="border-b border-gray-700/30 hover:bg-gray-700/20">
+                          <td className="px-4 py-2 text-white text-sm font-mono">{s.nrp}</td>
+                          <td className="px-4 py-2 text-gray-300 text-sm">{s.nama || '-'}</td>
+                          <td className="px-4 py-2 text-gray-400 text-sm">{s.divisi || '-'}</td>
+                          <td className="px-4 py-2"><span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-xs">{s.type}</span></td>
+                          <td className="px-4 py-2 text-gray-500 text-xs">{new Date(s.created_at).toLocaleString('id-ID')}</td>
+                          <td className="px-4 py-2 text-right">
+                            <button onClick={() => forceLogout(s.nrp)} className="px-3 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30">Force Logout</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody></table>
+                  )}
+                </div>
+                {securitySettings.length > 0 && (
+                  <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <h3 className="text-white font-bold text-sm mb-4">Security Policy</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {securitySettings.map((s, i) => (
+                        <div key={i} className="flex items-center justify-between bg-gray-900/60 rounded-lg px-4 py-3">
+                          <div><div className="text-gray-200 text-sm">{s.label}</div><div className="text-gray-500 text-xs">{s.description}</div></div>
+                          <div className="text-amber-400 font-bold text-sm">{typeof s.config_value === 'object' && s.config_value !== null ? (s.config_value.value !== undefined ? s.config_value.value : JSON.stringify(s.config_value)) : s.config_value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* BU MANAGEMENT TAB */}
+            {activeTab === 'bu' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-white font-bold text-sm">Business Units ({businessUnits.length})</h3>
+                  <button onClick={() => setShowBUCreator(true)} className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">+ Tambah BU</button>
+                </div>
+                {businessUnits.map(bu => (
+                  <div key={bu.id || bu.bu_id} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-semibold">{bu.unit_name || bu.id}</h3>
+                        <p className="text-gray-400 text-xs">Code: {bu.unit_code} | Tier: {bu.tier ?? 0} | Status: {bu.is_active !== false ? 'Active' : 'Inactive'}</p>
+                        {bu.description && <p className="text-gray-500 text-xs mt-1">{bu.description}</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => { setEditBU(bu); setEditBUForm({ unit_name: bu.unit_name, description: bu.description || '' }); }} className="px-3 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">Edit</button>
+                        <button onClick={() => deleteBU(bu.id || bu.bu_id)} className="px-3 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30">Hapus</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {showBUCreator && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowBUCreator(false)}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-white font-bold mb-4">Tambah Business Unit</h3>
+                      <div className="space-y-3">
+                        <div><label className="text-gray-400 text-xs">Unit Code</label><input value={newBU.unit_code} onChange={e => setNewBU({...newBU, unit_code: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="e.g. MINING" /></div>
+                        <div><label className="text-gray-400 text-xs">Unit Name</label><input value={newBU.unit_name} onChange={e => setNewBU({...newBU, unit_name: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="e.g. Unit Tambang" /></div>
+                        <div><label className="text-gray-400 text-xs">Description</label><input value={newBU.description} onChange={e => setNewBU({...newBU, description: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="Optional" /></div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <button onClick={() => setShowBUCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
+                        <button onClick={createBU} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Buat</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {editBU && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setEditBU(null)}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-white font-bold mb-4">Edit BU - {editBU.id}</h3>
+                      <div className="space-y-3">
+                        <div><label className="text-gray-400 text-xs">Unit Name</label><input value={editBUForm.unit_name} onChange={e => setEditBUForm({...editBUForm, unit_name: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Description</label><input value={editBUForm.description} onChange={e => setEditBUForm({...editBUForm, description: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <button onClick={() => setEditBU(null)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
+                        <button onClick={updateBU} className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Simpan</button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

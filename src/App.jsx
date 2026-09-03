@@ -15,6 +15,7 @@ import SkipToContent from './components/SkipToContent';
 import Home from './pages/Home';
 import OwnerLogin from './pages/OwnerLogin';
 import OwnerDashboard from './pages/OwnerDashboard';
+import CompanyConfig from './pages/CompanyConfig';
 import MfaSetup from './features/platform/auth/MfaSetup';
 
 // Lazy-loaded pages — loaded only when route is visited
@@ -167,6 +168,7 @@ function AppContent() {
         <Route path="/" element={<Home />} />
         <Route path="/owner" element={<OwnerLogin />} />
         <Route path="/owner/dashboard" element={<OwnerDashboard />} />
+        <Route path="/owner/dashboard/config" element={<CompanyConfig />} />
         {/* PROTECTED — wrapped in SessionGuard */}
         <Route path="/*" element={
           <SessionGuard>
