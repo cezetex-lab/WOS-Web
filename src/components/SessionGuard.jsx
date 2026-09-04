@@ -11,7 +11,14 @@ export default function SessionGuard({ children }) {
 
   useEffect(() => {
     // P2 FIX: Initialize session from backend RPC (not sessionStorage)
-    initSession().then((session) => {
+    initSession().then(async (session) => {
+      // Register session for concurrent session control
+      if (session) {
+        try {
+          const sid = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+          await supabase.rpc("register_session", { p_session_id: sid, p_ip: "", p_ua: navigator.userAgent });
+        } catch(e) { /* non-critical */ }
+      }
       if (PUBLIC_ROUTES.includes(location.pathname)) {
         setChecking(false);
         return;
