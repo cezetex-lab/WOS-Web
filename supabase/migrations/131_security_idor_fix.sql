@@ -100,6 +100,7 @@ BEGIN
   RETURN (SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(row_to_json(t)),'[]'::jsonb)) FROM (SELECT * FROM hr_medical_checkup WHERE nrp = p_nrp) t);
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP FUNCTION IF EXISTS submit_voice(TEXT,TEXT,TEXT,TEXT,BOOLEAN);
 CREATE OR REPLACE FUNCTION submit_voice(p_type TEXT, p_nrp TEXT, p_title TEXT, p_details TEXT, p_anonymous BOOLEAN DEFAULT TRUE) RETURNS JSONB AS $$
 DECLARE v_caller TEXT := _get_caller_nrp(); v_is_admin BOOLEAN := _is_admin_or_owner_caller();
 BEGIN
