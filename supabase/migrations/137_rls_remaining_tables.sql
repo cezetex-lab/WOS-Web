@@ -1,7 +1,7 @@
 -- Migration 137: Fix remaining USING(true) RLS policies
--- 58 tables (okrs + surveys dropped)
+-- 59 tables: 20 scope-based + 39 authenticated-only
 
--- PART 1: Scope-based policies (21 tables with nrp column)
+-- PART 1: Scope-based policies (20 tables with nrp column)
 DROP POLICY IF EXISTS "daftar_bar_authz" ON daftar_baru;
 CREATE POLICY "daftar_bar_authz" ON daftar_baru FOR SELECT USING (
   auth.uid() IS NOT NULL AND (
@@ -104,7 +104,6 @@ CREATE POLICY "incentives_authz" ON incentives FOR SELECT USING (
     authz_in_scope(incentives.nrp) OR authz_has_permission('employee.view_all')
   )
 );
-);
 DROP POLICY IF EXISTS "shift_assi_authz" ON shift_assignments;
 CREATE POLICY "shift_assi_authz" ON shift_assignments FOR SELECT USING (
   auth.uid() IS NOT NULL AND (
@@ -124,7 +123,7 @@ CREATE POLICY "workforce__authz" ON workforce_simulations FOR SELECT USING (
   )
 );
 
--- PART 2: Authenticated-only policies (40 tables without nrp column)
+-- PART 2: Authenticated-only policies (39 tables without nrp column)
 DROP POLICY IF EXISTS "assets_auth" ON assets;
 CREATE POLICY "assets_auth" ON assets FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "bu_divisio_auth" ON bu_divisions;
@@ -191,6 +190,9 @@ DROP POLICY IF EXISTS "simulation_auth" ON simulation_logs;
 CREATE POLICY "simulation_auth" ON simulation_logs FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "sso_provid_auth" ON sso_providers;
 CREATE POLICY "sso_provid_auth" ON sso_providers FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "timezone_m_auth" ON timezone_master;
+CREATE POLICY "timezone_m_auth" ON timezone_master FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "transport__auth" ON transport_dispatch;
 CREATE POLICY "transport__auth" ON transport_dispatch FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "vacancies_auth" ON vacancies;
 CREATE POLICY "vacancies_auth" ON vacancies FOR SELECT USING (auth.uid() IS NOT NULL);
