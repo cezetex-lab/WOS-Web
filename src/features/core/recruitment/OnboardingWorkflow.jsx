@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, Button, LoadingSpinner, EmptyState } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function OnboardingWorkflow() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState([]);
 

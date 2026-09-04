@@ -189,7 +189,7 @@ BEGIN
     RETURN jsonb_build_object('ok', FALSE, 'msg', 'Employee tidak ditemukan.');
   END IF;
   UPDATE employees_master SET status_kerja = 'RESIGN', updated_at = NOW() WHERE nrp = p_nrp;
-  INSERT INTO audit_log_owner (owner_nrp, action, target_type, tar
+  INSERT INTO audit_log_owner (owner_nrp, action, target_type, target_id, old_value)
   VALUES ('OWNER001', 'DEACTIVATE_EMPLOYEE', 'employee', p_nrp, v_old);
   RETURN jsonb_build_object('ok', TRUE, 'msg', 'Employee deactivated: ' || p_nrp);
 END;

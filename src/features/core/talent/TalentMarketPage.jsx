@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner, Tabs } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function TalentMarketPage() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
   const [tab, setTab] = useState('all');

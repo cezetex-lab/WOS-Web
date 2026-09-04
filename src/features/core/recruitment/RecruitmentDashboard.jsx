@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState, Tabs } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function RecruitmentDashboard() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const [loading, setLoading] = useState(true);
   const [vacancies, setVacancies] = useState([]);
   const [candidates, setCandidates] = useState([]);

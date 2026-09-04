@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, LoadingSpinner, Badge, Button } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 const SHIFT_COLORS = {
   'Pagi': { bg: 'bg-amber-500/10', border: 'border-amber-500/20', text: 'text-amber-400', icon: '🌅' },
@@ -16,6 +17,7 @@ const SHIFT_COLORS = {
 const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
 export default function ShiftSchedule() {
+  useAdminAuth(["admin_pusat", "admin_produksi"]);
   const [loading, setLoading] = useState(true);
   const [shifts, setShifts] = useState([]);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);

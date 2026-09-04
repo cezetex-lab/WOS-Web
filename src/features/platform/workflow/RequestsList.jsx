@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, getSession, rpc } from '../../../lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, Avatar
@@ -20,6 +21,7 @@ const STATUS_COLORS = {
 };
 
 export default function RequestsList() {
+  useAdminAuth(["admin_pusat", "admin_hrd", "admin_produksi"]);
   const session = getSession();
   const nrp = session?.nrp || 'ADMIN001';
   const [loading, setLoading] = useState(true);

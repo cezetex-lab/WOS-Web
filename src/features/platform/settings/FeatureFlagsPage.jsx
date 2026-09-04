@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, Button, LoadingSpinner, Toggle } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function FeatureFlagsPage() {
+  useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
   const [flags, setFlags] = useState([]);
 

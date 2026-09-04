@@ -6,12 +6,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { rpc } from '../../../lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Input, LoadingSpinner,
   Badge, EmptyState, Avatar
 } from '../../../lib/design-system';
 
 export default function ResetPassword() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const [searchParams] = useSearchParams();
   const preselectedNrp = searchParams.get('nrp') || '';
 

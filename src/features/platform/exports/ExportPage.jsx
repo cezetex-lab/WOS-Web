@@ -2,6 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, Button, LoadingSpinner } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 const EXPORT_OPTIONS = [
   { id: 'employees', label: 'Karyawan', icon: '👥', desc: 'Data master karyawan' },
@@ -16,6 +17,7 @@ const EXPORT_OPTIONS = [
 ];
 
 export default function ExportPage() {
+  useAdminAuth(["admin_pusat", "admin_finance"]);
   const [exporting, setExporting] = useState(null);
 
   const handleExport = useCallback(async (sheet) => {

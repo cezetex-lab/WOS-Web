@@ -5,12 +5,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, rpc } from '../../../lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
   LoadingSpinner, Button, Avatar, Tabs
 } from '../../../lib/design-system';
 
 export default function LeaveManagement() {
+  useAdminAuth(["admin_pusat", "admin_hrd", "admin_produksi"]);
   const [loading, setLoading] = useState(true);
   const [leaveData, setLeaveData] = useState([]);
   const [activeTab, setActiveTab] = useState('all');

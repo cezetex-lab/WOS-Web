@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, rpc } from '../../../lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, Avatar
@@ -26,6 +27,7 @@ const TABS = [
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────
 export default function Employees() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);

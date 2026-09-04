@@ -5,12 +5,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, getSession } from '../../../lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Badge, LoadingSpinner,
   EmptyState, Tabs, StatItem, Divider
 } from '../../../lib/design-system';
 
 function getRiskColor(score) {
+  useAdminAuth(["admin_pusat"]);
   if (score >= 70) return 'red';
   if (score >= 40) return 'yellow';
   return 'green';

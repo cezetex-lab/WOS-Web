@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, rpc } from '../../../lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, StatItem, Avatar, Divider
@@ -18,6 +19,7 @@ import {
 // HELPERS
 // ──────────────────────────────────────────────────────────────
 function getCurrentPeriod() {
+  useAdminAuth(["admin_pusat", "admin_hrd", "admin_finance", "admin_produksi"]);
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }

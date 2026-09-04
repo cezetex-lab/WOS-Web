@@ -8,16 +8,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // P3 FIX: RPC with rate limiting
 export async function rpc(fn, params = {}) {
+  console.log(`[RPC] Calling ${fn} with params:`, params);
+  
   // Rate limit check
   const { allowed, retryAfter } = checkRateLimit(fn);
   if (!allowed) {
+    console.error(`[RPC] Rate limited for ${fn}. Retry in ${retryAfter}s`);
     return { ok: false, msg: `Rate limited. Retry in ${retryAfter}s.` };
   }
 
   const { data, error } = await supabase.rpc(fn, params);
   if (error) {
+    console.error(`[RPC] Error calling ${fn}:`, error);
     return { ok: false, msg: error.message };
   }
+  console.log(`[RPC] Success ${fn}:`, data);
   return data || { ok: false, msg: 'No response' };
 }
 

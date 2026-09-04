@@ -10,6 +10,7 @@ import {
   Tabs, SectionHeader
 } from '../../../lib/design-system';
 import { useChart, CHART_DEFAULTS, COLORS } from '../../../lib/chart-config';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 const BU_COLORS = {
   MINING: '#f87171',
@@ -19,6 +20,7 @@ const BU_COLORS = {
 };
 
 export default function Analytics() {
+  useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
   const [teamKpi, setTeamKpi] = useState([]);

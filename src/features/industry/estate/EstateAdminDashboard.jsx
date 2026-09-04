@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { useNavigate } from 'react-router-dom';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function EstateAdminDashboard() {
+  useAdminAuth(["admin_pusat", "admin_estate"]);
   const navigate = useNavigate();
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);

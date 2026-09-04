@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { rpc, supabase } from '../../../lib/supabase-browser';
 import { PageLayout, SectionHeader } from '../../../lib/design-system';
 import { Button, Input, Badge, GlassCard, MetricCard, LoadingSpinner, EmptyState } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 const MFA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mfa-service`;
 
@@ -19,6 +20,7 @@ async function mfaAction(action, data = {}) {
 }
 
 export default function MfaSetup() {
+  useAdminAuth(["admin_pusat"]);
   const [step, setStep] = useState('loading'); // loading | status | enroll | verify | success
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [factorId, setFactorId] = useState('');

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 const ROLE_LEVELS = {
   1: { label: 'Worker', color: 'blue', icon: '👷' },
@@ -12,6 +13,7 @@ const ROLE_LEVELS = {
 };
 
 export default function RoleMatrixPage() {
+  useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState([]);
 

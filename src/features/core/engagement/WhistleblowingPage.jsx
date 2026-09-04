@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc, getSession } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, Tabs, Input } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function WhistleblowingPage() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const session = getSession();
   const role = session?.role || 'worker';
   const isAdmin = role.startsWith('admin_') || role === 'admin';

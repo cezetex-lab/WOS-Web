@@ -6,12 +6,14 @@
 import React, { useState, useEffect } from 'react';
 import LogoUploader from '@/components/LogoUploader';
 import { rpc } from '@/lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Input, LoadingSpinner, Badge,
   MetricCard, ActionItem, SectionHeader
 } from '@/lib/design-system';
 
 export default function Settings() {
+  useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
   const [pkwtAlerts, setPkwtAlerts] = useState([]);
   const [passwordForm, setPasswordForm] = useState({ old: '', new: '', confirm: '' });

@@ -48,11 +48,23 @@ AND (
 )
 ON CONFLICT (business_unit_id, module_code) DO NOTHING;
 
--- 9. RLS POLICIES
+-- 9. RLS POLICIES (idempotent - drop before create)
 ALTER TABLE module_definitions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE business_unit_modules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log_owner ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_bootstrap ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "md_select" ON module_definitions;
+DROP POLICY IF EXISTS "md_insert" ON module_definitions;
+DROP POLICY IF EXISTS "md_update" ON module_definitions;
+DROP POLICY IF EXISTS "bum_select" ON business_unit_modules;
+DROP POLICY IF EXISTS "bum_update" ON business_unit_modules;
+DROP POLICY IF EXISTS "bum_insert" ON business_unit_modules;
+DROP POLICY IF EXISTS "alo_select" ON audit_log_owner;
+DROP POLICY IF EXISTS "alo_insert" ON audit_log_owner;
+DROP POLICY IF EXISTS "sb_select" ON system_bootstrap;
+DROP POLICY IF EXISTS "sb_update" ON system_bootstrap;
+
 CREATE POLICY "md_select" ON module_definitions FOR SELECT USING (TRUE);
 CREATE POLICY "md_insert" ON module_definitions FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "md_update" ON module_definitions FOR UPDATE USING (TRUE);

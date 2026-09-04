@@ -8,8 +8,10 @@ import React, { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { useCurrentUserContext } from '@/hooks/useModuleAccess';
 import { ArrowLeft, Package, Lock, ToggleLeft, ToggleRight, Star, Shield, ChevronDown, ChevronRight } from 'lucide-react';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function ModuleManagement() {
+  useAdminAuth(["admin_pusat"]);
   const { data: ctx, isLoading: ctxLoading } = useCurrentUserContext();
   const [modules, setModules] = useState([]);
   const [auditLog, setAuditLog] = useState([]);

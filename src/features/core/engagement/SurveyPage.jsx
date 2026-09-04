@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, getSession } from '../../../lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Badge, LoadingSpinner,
   EmptyState, Tabs, StatItem, Divider
@@ -12,6 +13,7 @@ import {
 
 // Inline Modal
 function Modal({ onClose, title, children }) {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>

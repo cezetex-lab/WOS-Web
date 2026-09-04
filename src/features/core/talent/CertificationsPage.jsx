@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc, getSession } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function CertificationsPage() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const session = getSession();
   const role = session?.role || 'worker';
   const nrp = session?.nrp || '';

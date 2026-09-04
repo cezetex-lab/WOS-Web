@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, getSession } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, LoadingSpinner, Badge, Button, Tabs } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 const STATUS_COLORS = {
   Pending: 'warning',
@@ -19,6 +20,7 @@ const TYPE_ICONS = {
 };
 
 export default function ApprovalCenter() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const nrp = getSession()?.nrp;
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);

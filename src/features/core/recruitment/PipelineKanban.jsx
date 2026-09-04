@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, Badge, Button, LoadingSpinner, EmptyState } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 const STAGES = [
   { id: 'Applied', label: 'Applied', color: 'blue', icon: '📥' },
@@ -12,6 +13,7 @@ const STAGES = [
 ];
 
 export default function PipelineKanban() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState([]);
 

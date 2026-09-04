@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, rpc } from '../../../lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, Avatar, StatItem
@@ -15,6 +16,7 @@ import {
 // HELPERS
 // ──────────────────────────────────────────────────────────────
 function formatRupiah(n) {
+  useAdminAuth(["admin_pusat", "admin_finance"]);
   if (n == null || isNaN(n)) return '-';
   return 'Rp ' + Number(n).toLocaleString('id-ID');
 }

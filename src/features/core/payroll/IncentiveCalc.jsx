@@ -5,12 +5,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, getSession } from '../../../lib/supabase-browser';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Badge, LoadingSpinner,
   EmptyState, Tabs, StatItem, Input, Divider
 } from '../../../lib/design-system';
 
 function formatRupiah(n) {
+  useAdminAuth(["admin_pusat", "admin_finance"]);
   return 'Rp ' + (n || 0).toLocaleString('id-ID');
 }
 

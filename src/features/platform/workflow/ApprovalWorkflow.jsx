@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '../../../lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, Button, LoadingSpinner, EmptyState } from '../../../lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
 
 const WORKFLOW_STEPS = [
   { level: 1, label: 'Supervisor', icon: '👨‍💼', desc: 'Approval langsung' },
@@ -11,6 +12,7 @@ const WORKFLOW_STEPS = [
 ];
 
 export default function ApprovalWorkflow() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
   const [selected, setSelected] = useState(null);

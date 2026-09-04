@@ -105,6 +105,8 @@ export default function Home() {
     setError('');
     setLoading(true);
     try {
+      console.log('[Admin Login] Starting login for:', adminEmail);
+      
       // V6: Check lockout before attempting login
       const lockCheck = await rpc('check_login_lockout', { p_identifier: adminEmail, p_attempt_type: 'admin' });
       if (lockCheck?.locked) {
@@ -114,24 +116,33 @@ export default function Home() {
       }
 
       // V6: Use Supabase Auth directly for admin login
+      console.log('[Admin Login] Attempting Supabase auth...');
       const authResult = await syncSupabaseAuth(adminEmail, adminPass);
       if (!authResult) {
+        console.error('[Admin Login] Supabase auth failed');
         setError('Email atau password salah');
         setLoading(false);
         return;
       }
+      console.log('[Admin Login] Supabase auth success, user ID:', authResult.user.id);
       
       // Look up employee by auth_id
+      console.log('[Admin Login] Looking up user context by auth_id...');
       const ctx = await rpc('get_user_context_by_auth_id', { p_auth_id: authResult.user.id });
+      console.log('[Admin Login] User context result:', ctx);
       if (!ctx.ok) {
+        console.error('[Admin Login] User context lookup failed:', ctx.msg);
         setError(ctx.msg || 'Akun tidak ditemukan di sistem');
         setLoading(false);
         return;
       }
 
       // Check MFA
+      console.log('[Admin Login] Checking MFA status for NRP:', ctx.nrp);
       const mfaRes = await checkMfaStatus(ctx.nrp);
+      console.log('[Admin Login] MFA status:', mfaRes);
       if (mfaRes?.enabled) {
+        console.log('[Admin Login] MFA required, setting up MFA step');
         setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier });
         setMfaNrp(ctx.nrp);
         setMfaEmail(adminEmail);
@@ -142,9 +153,13 @@ export default function Home() {
       }
       
       // No MFA — direct login
-      setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier });
+      console.log('[Admin Login] No MFA required, setting session and redirecting to /admin');
+      const sessionData = { token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier };
+      console.log('[Admin Login] Session data being set:', sessionData);
+      setSession(sessionData);
       window.location.href = '/admin';
     } catch (err) {
+      console.error('[Admin Login] Exception during login:', err);
       setError('Koneksi error: ' + err.message);
     }
     setLoading(false);
