@@ -66,7 +66,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-DROP FUNCTION IF EXISTS admin_get_payroll(p_nrp TEXT DEFAULT NULL);
+DROP FUNCTION IF EXISTS admin_get_payroll(p_nrp TEXT);
 CREATE OR REPLACE FUNCTION admin_get_payroll(p_nrp TEXT DEFAULT NULL)
 RETURNS JSONB AS $$
 BEGIN
