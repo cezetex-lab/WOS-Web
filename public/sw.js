@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_NAME = 'insightwos-v1';
-const STATIC_CACHE = 'insightwos-static-v1';
+const STATIC_CACHE = 'insightwos-static-v2';
 const API_CACHE = 'insightwos-api-v1';
 
 // Assets to pre-cache on install
