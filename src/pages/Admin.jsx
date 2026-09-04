@@ -9,7 +9,10 @@ const ROLE_BADGES = {
   admin_pusat: { label: 'Admin Pusat', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: '👑' },
   admin_hrd: { label: 'Admin HRD', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: '👥' },
   admin_finance: { label: 'Admin Finance', color: 'bg-green-500/20 text-green-400 border-green-500/30', icon: '💰' },
-  admin_produksi: { label: 'Admin Produksi', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: '⚙️' },
+  admin_produksi: { label: 'Admin Operasional', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: '⚙️' },
+  admin_mining: { label: 'Admin Tambang', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: '⛏️' },
+  admin_mill: { label: 'Admin Pabrik', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30', icon: '🏭' },
+  admin_estate: { label: 'Admin Perkebunan', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: '🌴' },
 };
 
 // Quick tiles per admin role
@@ -54,6 +57,36 @@ const ADMIN_TILES = {
     { icon: '📊', label: 'KPI', color: 'purple', path: '/admin/kpi' },
     { icon: '📝', label: 'Pengajuan', color: 'blue', path: '/admin/requests' },
     { icon: '🏗️', label: 'Fasilitas', color: 'slate', path: '/admin/facility' },
+    { icon: '⚙️', label: 'Pengaturan', color: 'slate', path: '/admin/settings' },
+  ],
+  admin_mining: [
+    { icon: '⛏️', label: 'Dashboard', color: 'yellow', path: '/admin/mining' },
+    { icon: '📋', label: 'SIMPER', color: 'amber', path: '/worker/simper' },
+    { icon: '🚜', label: 'Heavy Equipment', color: 'orange', path: '/worker/heavy-equip' },
+    { icon: '😴', label: 'Fatigue Monitor', color: 'red', path: '/worker/fatigue' },
+    { icon: '📊', label: 'Produksi', color: 'green', path: '/worker/production' },
+    { icon: '🦺', label: 'Safety K3', color: 'teal', path: '/worker/safety' },
+    { icon: '📝', label: 'JSA', color: 'blue', path: '/worker/jsa' },
+    { icon: '⚙️', label: 'Pengaturan', color: 'slate', path: '/admin/settings' },
+  ],
+  admin_mill: [
+    { icon: '🏭', label: 'Dashboard', color: 'cyan', path: '/admin/mill' },
+    { icon: '🔥', label: 'Boiler', color: 'red', path: '/worker/boiler' },
+    { icon: '⚙️', label: 'Mesin Press', color: 'orange', path: '/worker/machines' },
+    { icon: '🔬', label: 'QC Lab', color: 'green', path: '/worker/qc' },
+    { icon: '📦', label: 'Packing', color: 'blue', path: '/worker/packing' },
+    { icon: '🔧', label: 'Maintenance', color: 'teal', path: '/worker/maintenance' },
+    { icon: '🚨', label: 'Breakdown', color: 'red', path: '/worker/breakdown' },
+    { icon: '⚙️', label: 'Pengaturan', color: 'slate', path: '/admin/settings' },
+  ],
+  admin_estate: [
+    { icon: '🌴', label: 'Dashboard', color: 'emerald', path: '/admin/estate' },
+    { icon: '🌾', label: 'Panen', color: 'green', path: '/worker/harvest' },
+    { icon: '🗺️', label: 'Block', color: 'teal', path: '/worker/blocks' },
+    { icon: '🚛', label: 'Transport TBS', color: 'blue', path: '/worker/transport' },
+    { icon: '🌱', label: 'Nursery', color: 'emerald', path: '/worker/nursery' },
+    { icon: '💧', label: 'Irigasi', color: 'cyan', path: '/worker/irrigation' },
+    { icon: '🏗️', label: 'Fasilitas', color: 'slate', path: '/worker/facility' },
     { icon: '⚙️', label: 'Pengaturan', color: 'slate', path: '/admin/settings' },
   ],
 };
