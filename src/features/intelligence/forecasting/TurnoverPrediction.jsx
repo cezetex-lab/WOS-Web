@@ -12,7 +12,6 @@ import {
 } from '../../../lib/design-system';
 
 function getRiskColor(score) {
-  useAdminAuth(["admin_pusat"]);
   if (score >= 70) return 'red';
   if (score >= 40) return 'yellow';
   return 'green';
@@ -31,6 +30,7 @@ function getRiskIcon(score) {
 }
 
 export default function TurnoverPrediction() {
+  useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('prediction');
   const [predictions, setPredictions] = useState([]);

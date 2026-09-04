@@ -16,7 +16,6 @@ import {
 // HELPERS
 // ──────────────────────────────────────────────────────────────
 function formatRupiah(n) {
-  useAdminAuth(["admin_pusat", "admin_finance"]);
   if (n == null || isNaN(n)) return '-';
   return 'Rp ' + Number(n).toLocaleString('id-ID');
 }
@@ -50,6 +49,7 @@ function getRecentPeriods(count = 6) {
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────
 export default function Payroll() {
+  useAdminAuth(["admin_pusat", "admin_finance"]);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [payroll, setPayroll] = useState([]);

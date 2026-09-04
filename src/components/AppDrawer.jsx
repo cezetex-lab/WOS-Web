@@ -1,5 +1,5 @@
 // src/components/AppDrawer.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { BU_MODULES } from '@/lib/business-units';

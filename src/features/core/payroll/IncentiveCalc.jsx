@@ -12,7 +12,6 @@ import {
 } from '../../../lib/design-system';
 
 function formatRupiah(n) {
-  useAdminAuth(["admin_pusat", "admin_finance"]);
   return 'Rp ' + (n || 0).toLocaleString('id-ID');
 }
 
@@ -24,6 +23,7 @@ const INCENTIVE_TYPES = [
 ];
 
 export default function IncentiveCalc() {
+  useAdminAuth(["admin_pusat", "admin_finance"]);
   const nrp = getSession()?.nrp;
   const [loading, setLoading] = useState(true);
   const [incentives, setIncentives] = useState([]);

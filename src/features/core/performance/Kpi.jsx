@@ -19,7 +19,6 @@ import {
 // HELPERS
 // ──────────────────────────────────────────────────────────────
 function getCurrentPeriod() {
-  useAdminAuth(["admin_pusat", "admin_hrd", "admin_finance", "admin_produksi"]);
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -56,6 +55,7 @@ function getKpiBadgeType(score) {
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────
 export default function Kpi() {
+  useAdminAuth(["admin_pusat", "admin_hrd", "admin_finance", "admin_produksi"]);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState({});
