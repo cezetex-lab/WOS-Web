@@ -1,3 +1,4 @@
+import { getSession } from './supabase-browser.js';
 import posthog from 'posthog-js';
 
 // PostHog — product analytics (manual events only)
@@ -21,7 +22,7 @@ if (POSTHOG_KEY) {
     
     // Performance
     loaded: (ph) => {
-      const session = JSON.parse(sessionStorage.getItem('wos_user') || '{}');
+      const session = getSession() || {};
       if (session.nrp) {
         ph.identify(session.nrp, { role: session.role });
       }
