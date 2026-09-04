@@ -30,7 +30,38 @@ serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const geminiKey = Deno.env.get("GEMINI_API_KEY") || "";
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // SECURITY FIX: Use user's JWT token, NOT service_role key
+    // This ensures RLS policies are enforced
+    const authHeader = req.headers.get("Authorization") || "";
+    const userToken = authHeader.replace("Bearer ", "");
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    // Get user's identity for BU filtering
+    let userBU: string | null = null;
+    let isOwnerOrAdminPusat = false;
+    try {
+      const { data: { user } } = await supabase.auth.getUser(userToken);
+      if (user) {
+        const { data: emp } = await supabase.from("employees_master")
+          .select("business_unit_id, role_level")
+          .eq("auth_id", user.id)
+          .single();
+        if (emp) {
+          userBU = emp.business_unit_id;
+          isOwnerOrAdminPusat = emp.role_level >= 4;
+        }
+        // Check if owner via system_owner_identity
+        const { data: ownerCheck } = await supabase.from("system_owner_identity")
+          .select("id")
+          .eq("auth_id", user.id)
+          .eq("is_active", true)
+          .single();
+        if (ownerCheck) isOwnerOrAdminPusat = true;
+      }
+    } catch (_e) {}
 
     // ── Step 1: Fetch relevant data from database ──
     const dbData = await fetchDatabaseData(supabase, message, context);
@@ -249,14 +280,20 @@ async function fetchDatabaseData(supabase: any, message: string, context: string
     }
 
     // 2. KPI — always fetch top 10 + bottom 10 + per division
-    const { data: topKpi } = await supabase.from("hr_performance")
-      .select("nrp, kpi_score, periode, employees_master(nama, divisi, business_unit)")
-      .order("kpi_score", { ascending: false })
-      .limit(10);
-    const { data: lowKpi } = await supabase.from("hr_performance")
-      .select("nrp, kpi_score, periode, employees_master(nama, divisi, business_unit)")
-      .order("kpi_score", { ascending: true })
-      .limit(10);
+    let kpiQuery = supabase.from("hr_performance")
+      .select("nrp, kpi_score, periode, employees_master(nama, divisi, business_unit_id)")
+      .order("kpi_score", { ascending: false });
+    if (!isOwnerOrAdminPusat && userBU) {
+      kpiQuery = kpiQuery.eq("employees_master.business_unit_id", userBU);
+    }
+    const { data: topKpi } = await kpiQuery.limit(10);
+    let lowKpiQuery = supabase.from("hr_performance")
+      .select("nrp, kpi_score, periode, employees_master(nama, divisi, business_unit_id)")
+      .order("kpi_score", { ascending: true });
+    if (!isOwnerOrAdminPusat && userBU) {
+      lowKpiQuery = lowKpiQuery.eq("employees_master.business_unit_id", userBU);
+    }
+    const { data: lowKpi } = await lowKpiQuery.limit(10);
 
     if (topKpi?.length) {
       const topList = topKpi.map((k: any) => {
@@ -294,14 +331,20 @@ async function fetchDatabaseData(supabase: any, message: string, context: string
     }
 
     // 4. PAYROLL — top 5 + bottom 5
-    const { data: topPay } = await supabase.from("hr_payroll")
-      .select("nrp, net_salary, base_salary, employees_master(nama, divisi, business_unit)")
-      .order("net_salary", { ascending: false })
-      .limit(5);
-    const { data: lowPay } = await supabase.from("hr_payroll")
-      .select("nrp, net_salary, base_salary, employees_master(nama, divisi, business_unit)")
-      .order("net_salary", { ascending: true })
-      .limit(5);
+    let payQuery = supabase.from("hr_payroll")
+      .select("nrp, net_salary, base_salary, employees_master(nama, divisi, business_unit_id)")
+      .order("net_salary", { ascending: false });
+    if (!isOwnerOrAdminPusat && userBU) {
+      payQuery = payQuery.eq("employees_master.business_unit_id", userBU);
+    }
+    const { data: topPay } = await payQuery.limit(5);
+    let lowPayQuery = supabase.from("hr_payroll")
+      .select("nrp, net_salary, base_salary, employees_master(nama, divisi, business_unit_id)")
+      .order("net_salary", { ascending: true });
+    if (!isOwnerOrAdminPusat && userBU) {
+      lowPayQuery = lowPayQuery.eq("employees_master.business_unit_id", userBU);
+    }
+    const { data: lowPay } = await lowPayQuery.limit(5);
     if (topPay?.length) {
       const totalPay = topPay.concat(lowPay || []).reduce((s: number, p: any) => s + Number(p.net_salary || 0), 0);
       const topList = topPay.map((p: any) => `${p.employees_master?.nama || p.nrp}: Rp ${Number(p.net_salary || 0).toLocaleString("id-ID")}`).join(", ");
@@ -311,10 +354,13 @@ async function fetchDatabaseData(supabase: any, message: string, context: string
 
     // 5. ATTENDANCE — today
     const today = new Date().toISOString().split("T")[0];
-    const { data: att } = await supabase.from("hr_attendance")
-      .select("nrp, status_hadir, employees_master(nama, business_unit)")
-      .eq("date", today)
-      .limit(200);
+    let attQuery = supabase.from("hr_attendance")
+      .select("nrp, status_hadir, employees_master(nama, business_unit_id)")
+      .eq("date", today);
+    if (!isOwnerOrAdminPusat && userBU) {
+      attQuery = attQuery.eq("employees_master.business_unit_id", userBU);
+    }
+    const { data: att } = await attQuery.limit(200);
     if (att?.length) {
       const hadir = att.filter((a: any) => a.status_hadir === "Hadir").length;
       const terlambat = att.filter((a: any) => a.status_hadir === "Terlambat").length;
@@ -334,10 +380,13 @@ async function fetchDatabaseData(supabase: any, message: string, context: string
 
     // 7. FLIGHT RISK
     try {
-      const { data: risk } = await supabase.from("hr_performance")
-        .select("nrp, kpi_score, employees_master(nama, divisi, business_unit)")
-        .lt("kpi_score", 60)
-        .limit(10);
+      let riskQuery = supabase.from("hr_performance")
+        .select("nrp, kpi_score, employees_master(nama, divisi, business_unit_id)")
+        .lt("kpi_score", 60);
+      if (!isOwnerOrAdminPusat && userBU) {
+        riskQuery = riskQuery.eq("employees_master.business_unit_id", userBU);
+      }
+      const { data: risk } = await riskQuery.limit(10);
       if (risk?.length) {
         const riskList = risk.map((r: any) => `${r.employees_master?.nama || r.nrp} (${r.employees_master?.divisi || "?"}): KPI ${r.kpi_score}`).join(", ");
         parts.push(`FLIGHT RISK (KPI<60): ${riskList}`);
