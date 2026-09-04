@@ -21,7 +21,7 @@ export async function getFeatureFlag(flagName, defaultValue = false) {
 
   try {
     const { data } = await supabase
-      .from('feature_flags')
+      .rpc('admin_get_feature_flags')
       .select('enabled')
       .eq('name', flagName)
       .single();

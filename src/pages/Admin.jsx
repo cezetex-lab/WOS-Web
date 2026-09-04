@@ -105,9 +105,6 @@ export default function Admin() {
   const [anomalies, setAnomalies] = useState([]);
 
   useEffect(() => {
-    console.log('[Admin Dashboard] Session data:', session);
-    console.log('[Admin Dashboard] Admin role:', adminRole);
-    
     if (!session || !session.nrp) {
       console.error('[Admin Dashboard] No valid session found, redirecting to login');
       window.location.href = '/';
@@ -122,44 +119,32 @@ export default function Admin() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        console.log('[Admin Dashboard] Starting data fetch...');
         const [s, p, h, a] = await Promise.allSettled([
           rpc('get_dashboard_stats'),
           rpc('admin_get_pending_requests'),
           rpc('get_auto_healing_actions'),
           rpc('get_anomaly_sentinel'),
         ]);
-        
-        console.log('[Admin Dashboard] RPC results:', { 
-          stats: s.status, 
-          pending: p.status, 
-          autoHealing: h.status, 
-          anomalies: a.status 
-        });
-        
+
         if (s.status === 'fulfilled' && s.value) {
-          console.log('[Admin Dashboard] Stats data:', s.value);
           setStats(s.value.ok !== false ? s.value : {});
         } else {
           console.warn('[Admin Dashboard] Stats RPC failed:', s.reason);
         }
         
         if (p.status === 'fulfilled' && p.value) {
-          console.log('[Admin Dashboard] Pending requests data:', p.value);
           setPending(toArray(p.value));
         } else {
           console.warn('[Admin Dashboard] Pending requests RPC failed:', p.reason);
         }
         
         if (h.status === 'fulfilled' && h.value) {
-          console.log('[Admin Dashboard] Auto-healing data:', h.value);
           setAutoHealing(toArray(h.value));
         } else {
           console.warn('[Admin Dashboard] Auto-healing RPC failed:', h.reason);
         }
         
         if (a.status === 'fulfilled' && a.value) {
-          console.log('[Admin Dashboard] Anomalies data:', a.value);
           setAnomalies(toArray(a.value));
         } else {
           console.warn('[Admin Dashboard] Anomalies RPC failed:', a.reason);

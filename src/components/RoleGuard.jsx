@@ -26,23 +26,15 @@ export default function RoleGuard({ children, allowedRoles = [], redirectTo = '/
     let cancelled = false;
     (async () => {
       try {
-        console.log('[RoleGuard] Checking authorization for roles:', allowedRoles);
-        
         // Check Supabase Auth session
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('[RoleGuard] Supabase session:', session ? 'exists' : 'none');
-        
         if (!session?.user) {
-          console.log('[RoleGuard] No Supabase session, redirecting to login');
           if (!cancelled) { navigate('/', { replace: true }); setChecking(false); }
           return;
         }
 
         // Get user context via RPC
-        console.log('[RoleGuard] Calling get_current_user_context RPC...');
         const { data: ctx, error } = await supabase.rpc('get_current_user_context');
-        console.log('[RoleGuard] RPC result:', { ctx, error });
-        
         if (!cancelled) {
           if (error || !ctx) {
             console.error('[RoleGuard] RPC failed or returned null:', error);
@@ -50,22 +42,16 @@ export default function RoleGuard({ children, allowedRoles = [], redirectTo = '/
           } else {
             const userRole = ctx.role;
             const isOwner = ctx.is_owner === true;
-            console.log('[RoleGuard] User context:', { userRole, isOwner, allowedRoles });
-
             // Owner bypasses all role checks
             if (isOwner) {
-              console.log('[RoleGuard] Owner detected, authorizing access');
               setAuthorized(true);
             } else if (allowedRoles.length === 0) {
               // No role restriction — any authenticated user can access
-              console.log('[RoleGuard] No role restrictions, authorizing access');
               setAuthorized(true);
             } else if (allowedRoles.includes(userRole)) {
-              console.log('[RoleGuard] User role matches allowed roles, authorizing access');
               setAuthorized(true);
             } else {
               // Unauthorized — redirect based on role
-              console.log('[RoleGuard] User role not in allowed roles, redirecting');
               if (isOwner) {
                 // Owner should never reach here (bypass above), but just in case
                 setAuthorized(true);
