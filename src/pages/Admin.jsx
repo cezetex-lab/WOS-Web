@@ -1,7 +1,7 @@
 // src/pages/Admin.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, clearSession, getSession, signOutAuth } from '../lib/supabase-browser';
+import { supabase, rpc, clearSession, getSession, signOutAuth } from '../lib/supabase-browser';
 import { MetricCard, QuickTile, GlassCard, ActionItem, EmptyState, LoadingSpinner } from '../lib/design-system';
 
 // Role badges
@@ -65,36 +65,74 @@ export default function Admin() {
   const adminRole = session?.role || 'admin_pusat';
   const badge = ROLE_BADGES[adminRole] || ROLE_BADGES.admin_pusat;
 
-  async function logout() { clearSession(); await signOutAuth(); window.location.href = '/'; }
+  async function logout() { clearSession(); try { await signOutAuth(); } catch(e) {} window.location.href = '/'; }
   const [stats, setStats] = useState({});
   const [pending, setPending] = useState([]);
   const [autoHealing, setAutoHealing] = useState([]);
   const [anomalies, setAnomalies] = useState([]);
 
   useEffect(() => {
+    console.log('[Admin Dashboard] Session data:', session);
+    console.log('[Admin Dashboard] Admin role:', adminRole);
+    
+    if (!session || !session.nrp) {
+      console.error('[Admin Dashboard] No valid session found, redirecting to login');
+      window.location.href = '/';
+      return;
+    }
+
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 1. Statistik Admin
-        const { data: statsData } = await supabase.rpc('get_dashboard_stats');
-        setStats(statsData || {});
+        console.log('[Admin Dashboard] Starting data fetch...');
+        const [s, p, h, a] = await Promise.allSettled([
+          rpc('get_dashboard_stats'),
+          rpc('admin_get_pending_requests'),
+          rpc('get_auto_healing_actions'),
+          rpc('get_anomaly_sentinel'),
+        ]);
         
-        // 2. Pending Requests
-        const { data: pendingData } = await supabase.rpc('admin_get_pending_requests');
-        setPending(pendingData?.data || []);
+        console.log('[Admin Dashboard] RPC results:', { 
+          stats: s.status, 
+          pending: p.status, 
+          autoHealing: h.status, 
+          anomalies: a.status 
+        });
         
-        // 3. Auto Healing
-        const { data: healingData } = await supabase.rpc('get_auto_healing_actions');
-        setAutoHealing(healingData?.data || []);
+        if (s.status === 'fulfilled' && s.value) {
+          console.log('[Admin Dashboard] Stats data:', s.value);
+          setStats(s.value.ok !== false ? s.value : {});
+        } else {
+          console.warn('[Admin Dashboard] Stats RPC failed:', s.reason);
+        }
         
-        // 4. Anomaly Sentinel
-        const { data: anomalyData } = await supabase.rpc('get_anomaly_sentinel');
-        setAnomalies(anomalyData?.data || []);
-      } catch (e) { }
+        if (p.status === 'fulfilled' && p.value) {
+          console.log('[Admin Dashboard] Pending requests data:', p.value);
+          setPending(p.value?.data || p.value || []);
+        } else {
+          console.warn('[Admin Dashboard] Pending requests RPC failed:', p.reason);
+        }
+        
+        if (h.status === 'fulfilled' && h.value) {
+          console.log('[Admin Dashboard] Auto-healing data:', h.value);
+          setAutoHealing(h.value?.data || h.value || []);
+        } else {
+          console.warn('[Admin Dashboard] Auto-healing RPC failed:', h.reason);
+        }
+        
+        if (a.status === 'fulfilled' && a.value) {
+          console.log('[Admin Dashboard] Anomalies data:', a.value);
+          setAnomalies(a.value?.data || a.value || []);
+        } else {
+          console.warn('[Admin Dashboard] Anomalies RPC failed:', a.reason);
+        }
+      } catch (e) { 
+        console.error('[Admin Dashboard] Data fetch error:', e); 
+      }
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [session]);
 
   if (loading) return <LoadingSpinner text="Memuat data admin..." />;
 

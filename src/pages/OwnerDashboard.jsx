@@ -253,7 +253,7 @@ export default function OwnerDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => navigate('/owner/dashboard/config')} className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 text-sm font-medium">Config</button>
-            <button onClick={() => { clearSession(); signOutAuth(); navigate('/owner'); }} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">Logout</button>
+            <button onClick={() => { clearSession(); signOutAuth().catch(()=>{}); navigate('/owner'); }} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">Logout</button>
           </div>
         </div>
       </header>

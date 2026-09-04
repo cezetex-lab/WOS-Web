@@ -24,3 +24,6 @@ scripts/bootstrap-admin.ts
 scripts/cleanup-bootstrap.sh
 .env.local
 .env.local.example
+
+# Duplicate/backup directories
+WOS-Web-fresh/

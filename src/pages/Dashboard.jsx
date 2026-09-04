@@ -54,7 +54,7 @@ export default function DashboardPage() {
     setActionLoading(null);
   }
 
-  async function logout() { clearSession(); await signOutAuth(); window.location.href = '/'; }
+  async function logout() { clearSession(); try { await signOutAuth(); } catch(e) {} window.location.href = '/'; }
   const pendingItems = (teamRequests || []).filter(r => r.status === 'Pending' || r.status === 'PENDING');
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat dashboard..." /></div>;

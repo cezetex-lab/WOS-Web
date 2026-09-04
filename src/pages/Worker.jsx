@@ -12,7 +12,7 @@ export default function Worker() {
   const bu = getBusinessUnit();
   const [loading, setLoading] = useState(true);
 
-  async function logout() { clearSession(); await signOutAuth(); window.location.href = '/'; }
+  async function logout() { clearSession(); try { await signOutAuth(); } catch(e) {} window.location.href = '/'; }
   const [status, setStatus] = useState({});
   const [narrative, setNarrative] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
