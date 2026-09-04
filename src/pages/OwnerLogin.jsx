@@ -69,6 +69,7 @@ export default function OwnerLogin() {
           <button type="submit" disabled={loading} className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-lg hover:from-amber-600 hover:to-orange-700 transition-all disabled:opacity-50">
             {loading ? 'Memverifikasi...' : 'Masuk sebagai Owner'}
           </button>
+        <div style={{textAlign:"center",marginTop:8}}><a href="/reset-password" style={{color:"#60a5fa",fontSize:13}}>Lupa Password?</a></div>
         </form>
 
         <div className="mt-6 text-center">

@@ -19,7 +19,9 @@ serve(async (req: Request) => {
   try {
     const { message, conversationHistory = [], context = "general" } = await req.json();
 
-    if (!message || typeof message !== "string") {
+    // SECURITY: Input sanitization — block prompt injection
+    const sanitized = message.replace(/[<>{}]/g, "").substring(0, 2000);
+    if (!sanitized || typeof sanitized !== "string") {
       return new Response(
         JSON.stringify({ error: "message is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -27,17 +29,20 @@ serve(async (req: Request) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const geminiKey = Deno.env.get("GEMINI_API_KEY") || "";
 
     // SECURITY FIX: Use user's JWT token, NOT service_role key
     // This ensures RLS policies are enforced
     const authHeader = req.headers.get("Authorization") || "";
     const userToken = authHeader.replace("Bearer ", "");
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
       auth: { autoRefreshToken: false, persistSession: false }
     });
+    // Service-role client ONLY for admin operations
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get user's identity for BU filtering
     let userBU: string | null = null;

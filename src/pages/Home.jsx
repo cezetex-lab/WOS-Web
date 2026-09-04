@@ -499,6 +499,7 @@ export default function Home() {
             <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Masukkan password" style={S.inp} required />
           </div>
           <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
+          <div style={{textAlign:"center",marginTop:8}}><a href="/reset-password" style={{color:"#60a5fa",fontSize:13}}>Lupa Password?</a></div>
           <div style={S.links}>
             <span style={S.link} onClick={() => alert('Form pendaftaran akan segera tersedia.')}>Daftar Baru</span>
             <span style={S.link} onClick={() => alert('Cek status pendaftaran akan segera tersedia.')}>Cek Daftar</span>
