@@ -1,23 +1,11 @@
 -- Migration 137: Fix remaining USING(true) RLS policies
--- 61 tables: 25 scope-based + 36 authenticated-only
+-- 61 tables: 21 scope-based + 40 authenticated-only
 
--- PART 1: Scope-based policies (25 tables with nrp column)
-DROP POLICY IF EXISTS "assets_authz" ON assets;
-CREATE POLICY "assets_authz" ON assets FOR SELECT USING (
-  auth.uid() IS NOT NULL AND (
-    authz_in_scope(assets.nrp) OR authz_has_permission('employee.view_all')
-  )
-);
+-- PART 1: Scope-based policies (21 tables with nrp column)
 DROP POLICY IF EXISTS "daftar_bar_authz" ON daftar_baru;
 CREATE POLICY "daftar_bar_authz" ON daftar_baru FOR SELECT USING (
   auth.uid() IS NOT NULL AND (
     authz_in_scope(daftar_baru.nrp) OR authz_has_permission('employee.view_all')
-  )
-);
-DROP POLICY IF EXISTS "harvest_re_authz" ON harvest_records;
-CREATE POLICY "harvest_re_authz" ON harvest_records FOR SELECT USING (
-  auth.uid() IS NOT NULL AND (
-    authz_in_scope(harvest_records.nrp) OR authz_has_permission('employee.view_all')
   )
 );
 DROP POLICY IF EXISTS "hr_capabil_authz" ON hr_capability;
@@ -110,12 +98,6 @@ CREATE POLICY "hr_skills_authz" ON hr_skills FOR SELECT USING (
     authz_in_scope(hr_skills.nrp) OR authz_has_permission('employee.view_all')
   )
 );
-DROP POLICY IF EXISTS "hr_success_authz" ON hr_succession;
-CREATE POLICY "hr_success_authz" ON hr_succession FOR SELECT USING (
-  auth.uid() IS NOT NULL AND (
-    authz_in_scope(hr_succession.nrp) OR authz_has_permission('employee.view_all')
-  )
-);
 DROP POLICY IF EXISTS "incentives_authz" ON incentives;
 CREATE POLICY "incentives_authz" ON incentives FOR SELECT USING (
   auth.uid() IS NOT NULL AND (
@@ -140,12 +122,6 @@ CREATE POLICY "timesheets_authz" ON timesheets FOR SELECT USING (
     authz_in_scope(timesheets.nrp) OR authz_has_permission('employee.view_all')
   )
 );
-DROP POLICY IF EXISTS "transport__authz" ON transport_dispatch;
-CREATE POLICY "transport__authz" ON transport_dispatch FOR SELECT USING (
-  auth.uid() IS NOT NULL AND (
-    authz_in_scope(transport_dispatch.nrp) OR authz_has_permission('employee.view_all')
-  )
-);
 DROP POLICY IF EXISTS "workforce__authz" ON workforce_simulations;
 CREATE POLICY "workforce__authz" ON workforce_simulations FOR SELECT USING (
   auth.uid() IS NOT NULL AND (
@@ -153,7 +129,9 @@ CREATE POLICY "workforce__authz" ON workforce_simulations FOR SELECT USING (
   )
 );
 
--- PART 2: Authenticated-only policies (36 tables without nrp column)
+-- PART 2: Authenticated-only policies (40 tables without nrp column)
+DROP POLICY IF EXISTS "assets_auth" ON assets;
+CREATE POLICY "assets_auth" ON assets FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "bu_divisio_auth" ON bu_divisions;
 CREATE POLICY "bu_divisio_auth" ON bu_divisions FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "currency_m_auth" ON currency_master;
@@ -166,6 +144,8 @@ DROP POLICY IF EXISTS "external_n_auth" ON external_notifications;
 CREATE POLICY "external_n_auth" ON external_notifications FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "feature_fl_auth" ON feature_flags;
 CREATE POLICY "feature_fl_auth" ON feature_flags FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "harvest_re_auth" ON harvest_records;
+CREATE POLICY "harvest_re_auth" ON harvest_records FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "hr_ai_task_auth" ON hr_ai_tasks;
 CREATE POLICY "hr_ai_task_auth" ON hr_ai_tasks FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "hr_benefit_auth" ON hr_benefit_catalog;
@@ -196,6 +176,8 @@ DROP POLICY IF EXISTS "hr_preview_auth" ON hr_preview_data;
 CREATE POLICY "hr_preview_auth" ON hr_preview_data FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "hr_shift_m_auth" ON hr_shift_master;
 CREATE POLICY "hr_shift_m_auth" ON hr_shift_master FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "hr_success_auth" ON hr_succession;
+CREATE POLICY "hr_success_auth" ON hr_succession FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "hr_talent__auth" ON hr_talent_catalog;
 CREATE POLICY "hr_talent__auth" ON hr_talent_catalog FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "hr_work_sc_auth" ON hr_work_schedule;
@@ -218,6 +200,8 @@ DROP POLICY IF EXISTS "surveys_auth" ON surveys;
 CREATE POLICY "surveys_auth" ON surveys FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "timezone_m_auth" ON timezone_master;
 CREATE POLICY "timezone_m_auth" ON timezone_master FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "transport__auth" ON transport_dispatch;
+CREATE POLICY "transport__auth" ON transport_dispatch FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "vacancies_auth" ON vacancies;
 CREATE POLICY "vacancies_auth" ON vacancies FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "webhook_co_auth" ON webhook_configs;
