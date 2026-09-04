@@ -10,7 +10,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import PrivacyConsent from './components/PrivacyConsent';
 import SessionGuard from './components/SessionGuard';
 import OwnerGuard from './components/OwnerGuard';
-import RoleGuard from './components/RoleGuard';
 import SkipToContent from './components/SkipToContent';
 
 // Core pages (keep eager — loaded on every visit)
@@ -243,7 +242,7 @@ function AppContent() {
         <Route path="/worker/facility" element={withNav(FacilityRequest)} />
         <Route path="/worker/medical" element={withNav(MedicalCheckup)} />
 
-        <RoleGuard allowedRoles={["admin_pusat","admin_hrd","admin_finance","admin_operasional","admin_mining","admin_mill","admin_estate"]}>
+        {/* RoleGuard removed — role check done inside admin components */}
         {/* ═══════════ ADMIN — REKRUTMEN ═══════════ */}
         <Route path="/admin/recruitment" element={withNav(RecruitmentDashboard)} />
         <Route path="/admin/pipeline" element={withNav(PipelineKanban)} />
@@ -315,7 +314,6 @@ function AppContent() {
         <Route path="/admin/estate" element={withNav(EstateAdminDashboard)} />
         <Route path="/admin/mill" element={withNav(MillAdminDashboard)} />
 
-        </RoleGuard>
         {/* ═══════════ DASHBOARD (Manager) ═══════════ */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/*" element={<Dashboard />} />
