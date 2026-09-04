@@ -81,6 +81,11 @@ export default function Admin() {
       return;
     }
 
+  const toArray = (v) => {
+    if (!v || v.ok === false) return [];
+    return Array.isArray(v) ? v : [];
+  };
+
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -108,21 +113,21 @@ export default function Admin() {
         
         if (p.status === 'fulfilled' && p.value) {
           console.log('[Admin Dashboard] Pending requests data:', p.value);
-          setPending(p.value?.data || p.value || []);
+          setPending(toArray(p.value));
         } else {
           console.warn('[Admin Dashboard] Pending requests RPC failed:', p.reason);
         }
         
         if (h.status === 'fulfilled' && h.value) {
           console.log('[Admin Dashboard] Auto-healing data:', h.value);
-          setAutoHealing(h.value?.data || h.value || []);
+          setAutoHealing(toArray(h.value));
         } else {
           console.warn('[Admin Dashboard] Auto-healing RPC failed:', h.reason);
         }
         
         if (a.status === 'fulfilled' && a.value) {
           console.log('[Admin Dashboard] Anomalies data:', a.value);
-          setAnomalies(a.value?.data || a.value || []);
+          setAnomalies(toArray(a.value));
         } else {
           console.warn('[Admin Dashboard] Anomalies RPC failed:', a.reason);
         }
