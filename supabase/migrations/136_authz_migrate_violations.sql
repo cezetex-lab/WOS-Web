@@ -41,8 +41,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-DROP FUNCTION IF EXISTS get_worker_payroll(TEXT);
-CREATE OR REPLACE FUNCTION get_worker_payroll(p_nrp TEXT)
+DROP FUNCTION IF EXISTS get_hr_payroll(TEXT);
+CREATE OR REPLACE FUNCTION get_hr_payroll(p_nrp TEXT)
 RETURNS JSONB AS $$
 DECLARE
   v_is_owner BOOLEAN;
@@ -54,12 +54,12 @@ BEGIN
   IF NOT v_is_owner AND NOT authz_has_permission('payroll.view_own') THEN
     RETURN jsonb_build_object('ok', FALSE, 'msg', 'Tidak ada hak akses payroll.');
   END IF;
-  RETURN (SELECT COALESCE(jsonb_build_object('ok', TRUE, 'data', jsonb_agg(p.*)), jsonb_build_object('ok', TRUE, 'data', '[]'::jsonb)) FROM (SELECT payroll_period, basic_salary, allowances, deductions, overtime_pay, net_salary, status FROM worker_payroll WHERE nrp = p_nrp ORDER BY created_at DESC LIMIT 12) p);
+  RETURN (SELECT COALESCE(jsonb_build_object('ok', TRUE, 'data', jsonb_agg(p.*)), jsonb_build_object('ok', TRUE, 'data', '[]'::jsonb)) FROM (SELECT payroll_period, basic_salary, allowances, deductions, overtime_pay, net_salary, status FROM hr_payroll WHERE nrp = p_nrp ORDER BY created_at DESC LIMIT 12) p);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-DROP FUNCTION IF EXISTS get_worker_leave(TEXT);
-CREATE OR REPLACE FUNCTION get_worker_leave(p_nrp TEXT)
+DROP FUNCTION IF EXISTS get_hr_leave(TEXT);
+CREATE OR REPLACE FUNCTION get_hr_leave(p_nrp TEXT)
 RETURNS JSONB AS $$
 DECLARE
   v_is_owner BOOLEAN;
@@ -68,7 +68,7 @@ BEGIN
   IF NOT v_is_owner AND NOT authz_in_scope(p_nrp) THEN
     RETURN jsonb_build_object('ok', FALSE, 'msg', 'Akses ditolak.');
   END IF;
-  RETURN (SELECT COALESCE(jsonb_build_object('ok', TRUE, 'data', jsonb_agg(l.*)), jsonb_build_object('ok', TRUE, 'data', '[]'::jsonb)) FROM (SELECT leave_type, start_date, end_date, status, reason FROM worker_leave WHERE nrp = p_nrp ORDER BY created_at DESC LIMIT 12) l);
+  RETURN (SELECT COALESCE(jsonb_build_object('ok', TRUE, 'data', jsonb_agg(l.*)), jsonb_build_object('ok', TRUE, 'data', '[]'::jsonb)) FROM (SELECT leave_type, start_date, end_date, status, reason FROM hr_leave WHERE nrp = p_nrp ORDER BY created_at DESC LIMIT 12) l);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
@@ -96,7 +96,7 @@ BEGIN
   IF NOT v_is_owner AND NOT authz_in_scope(p_nrp) THEN
     RETURN jsonb_build_object('ok', FALSE, 'msg', 'Akses ditolak.');
   END IF;
-  RETURN (SELECT COALESCE(jsonb_build_object('ok', TRUE, 'data', jsonb_agg(t.*)), jsonb_build_object('ok', TRUE, 'data', '[]'::jsonb)) FROM (SELECT course_name, status, completed_at FROM worker_training WHERE nrp = p_nrp ORDER BY created_at DESC LIMIT 12) t);
+  RETURN (SELECT COALESCE(jsonb_build_object('ok', TRUE, 'data', jsonb_agg(t.*)), jsonb_build_object('ok', TRUE, 'data', '[]'::jsonb)) FROM (SELECT course_name, status, completed_at FROM hr_training_catalog WHERE nrp = p_nrp ORDER BY created_at DESC LIMIT 12) t);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
@@ -128,8 +128,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-DROP FUNCTION IF EXISTS get_worker_overtime(TEXT);
-CREATE OR REPLACE FUNCTION get_worker_overtime(p_nrp TEXT)
+DROP FUNCTION IF EXISTS get_hr_overtime(TEXT);
+CREATE OR REPLACE FUNCTION get_hr_overtime(p_nrp TEXT)
 RETURNS JSONB AS $$
 DECLARE
   v_is_owner BOOLEAN;
@@ -138,7 +138,7 @@ BEGIN
   IF NOT v_is_owner AND NOT authz_in_scope(p_nrp) THEN
     RETURN jsonb_build_object('ok', FALSE, 'msg', 'Akses ditolak.');
   END IF;
-  RETURN (SELECT COALESCE(jsonb_build_object('ok', TRUE, 'data', jsonb_agg(o.*)), jsonb_build_object('ok', TRUE, 'data', '[]'::jsonb)) FROM (SELECT date, hours, reason, status FROM worker_overtime WHERE nrp = p_nrp ORDER BY created_at DESC LIMIT 12) o);
+  RETURN (SELECT COALESCE(jsonb_build_object('ok', TRUE, 'data', jsonb_agg(o.*)), jsonb_build_object('ok', TRUE, 'data', '[]'::jsonb)) FROM (SELECT date, hours, reason, status FROM hr_overtime WHERE nrp = p_nrp ORDER BY created_at DESC LIMIT 12) o);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
@@ -190,19 +190,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 -- PART 3: Override RLS policies to use authz
 DROP POLICY IF EXISTS ur_select ON user_roles;
 CREATE POLICY ur_select ON user_roles FOR SELECT USING (auth.uid() IS NOT NULL);
-DROP POLICY IF EXISTS eb_select ON employee_benefits;
-CREATE POLICY eb_select ON employee_benefits FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('employee.view_all')));
-DROP POLICY IF EXISTS tm_select ON training_materials;
-CREATE POLICY tm_select ON training_materials FOR SELECT USING (auth.uid() IS NOT NULL);
-DROP POLICY IF EXISTS te_select ON training_enrollments;
-CREATE POLICY te_select ON training_enrollments FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('training.manage')));
-DROP POLICY IF EXISTS kr_select ON kpi_records;
-CREATE POLICY kr_select ON kpi_records FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('kpi.view_team')));
-DROP POLICY IF EXISTS wo_select ON worker_overtime;
-CREATE POLICY wo_select ON worker_overtime FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('overtime.view_all')));
-DROP POLICY IF EXISTS wp_select ON worker_payroll;
-CREATE POLICY wp_select ON worker_payroll FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('payroll.view_all')));
-DROP POLICY IF EXISTS wl_select ON worker_leave;
-CREATE POLICY wl_select ON worker_leave FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('leave.approve')));
-DROP POLICY IF EXISTS wt_select ON worker_training;
-CREATE POLICY wt_select ON worker_training FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('training.manage')));
+DROP POLICY IF EXISTS hb_select ON hr_benefits;
+CREATE POLICY hb_select ON hr_benefits FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('employee.view_all')));
+DROP POLICY IF EXISTS htc1_select ON hr_training_catalog;
+CREATE POLICY htc1_select ON hr_training_catalog FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('training.manage')));
+DROP POLICY IF EXISTS hkc_select ON hr_kpi_config;
+CREATE POLICY hkc_select ON hr_kpi_config FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('kpi.view_team')));
+DROP POLICY IF EXISTS ho_select ON hr_overtime;
+CREATE POLICY ho_select ON hr_overtime FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('overtime.view_all')));
+DROP POLICY IF EXISTS hp_select ON hr_payroll;
+CREATE POLICY hp_select ON hr_payroll FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('payroll.view_all')));
+DROP POLICY IF EXISTS hl_select ON hr_leave;
+CREATE POLICY hl_select ON hr_leave FOR SELECT USING (auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('leave.approve')));
