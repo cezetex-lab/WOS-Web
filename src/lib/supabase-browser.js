@@ -26,30 +26,51 @@ export async function rpc(fn, params = {}) {
   return data || { ok: false, msg: 'No response' };
 }
 
-// Session helpers (P2 FIX: single source of truth)
+// P2 SECURITY FIX: In-memory session (not sessionStorage)
+// Session data fetched from backend RPC via initSession(), cached in memory
+// getSession() is SYNC (reads cache) — no callers need to change
+let _sessionCache = null;
+
 export function setSession(user) {
-  if (typeof window !== 'undefined') {
-    sessionStorage.setItem('wos_user', JSON.stringify(user));
-  }
+  _sessionCache = user;
 }
 
+// SYNC getter — reads from in-memory cache only
 export function getSession() {
-  if (typeof window !== 'undefined') {
-    try {
-      const raw = sessionStorage.getItem('wos_user');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      sessionStorage.removeItem('wos_user');
-      return null;
-    }
+  return _sessionCache;
+}
+
+// ASYNC initializer — call once at app startup
+// Fetches user context from backend using Supabase Auth JWT
+export async function initSession() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { _sessionCache = null; return null; }
+
+    const { data, error } = await supabase.rpc('get_current_user_context');
+    if (error || !data) { _sessionCache = null; return null; }
+
+    _sessionCache = {
+      nrp: data.nrp,
+      nama: data.nama,
+      role: data.role,
+      role_level: data.role_level,
+      business_unit_id: data.business_unit_id,
+      divisi: data.divisi,
+      posisi: data.posisi,
+      is_owner: data.is_owner,
+      email: data.email
+    };
+    return _sessionCache;
+  } catch {
+    _sessionCache = null;
+    return null;
   }
-  return null;
 }
 
 export function clearSession() {
-  if (typeof window !== 'undefined') {
-    sessionStorage.removeItem('wos_user');
-  }
+  _sessionCache = null;
+  supabase.auth.signOut().catch(() => {});
 }
 
 // V6: Sync login to Supabase Auth

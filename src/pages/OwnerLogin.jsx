@@ -24,14 +24,14 @@ export default function OwnerLogin() {
         throw new Error(result.msg || 'Akses ditolak');
       }
 
-      sessionStorage.setItem('wos_user', JSON.stringify({
+      setSession({
         nrp: 'OWNER001',
         nama: 'System Owner',
         role: 'owner',
         role_level: 5,
         is_owner: true,
         email: email,
-      }));
+      });
 
       navigate('/owner/dashboard');
     } catch (err) {

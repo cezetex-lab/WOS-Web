@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getSession, supabase } from '@/lib/supabase-browser';
+import { getSession, initSession, supabase } from '@/lib/supabase-browser';
 
 const PUBLIC_ROUTES = ['/', '/owner', '/owner/dashboard'];
 
@@ -10,18 +10,18 @@ export default function SessionGuard({ children }) {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const session = getSession();
-    if (PUBLIC_ROUTES.includes(location.pathname)) {
-      setChecking(false);
-      return;
-    }
-    supabase.auth.getSession().then(({ data: { session: authSession } }) => {
-      if (!session?.nrp && !authSession) {
+    // P2 FIX: Initialize session from backend RPC (not sessionStorage)
+    initSession().then((session) => {
+      if (PUBLIC_ROUTES.includes(location.pathname)) {
+        setChecking(false);
+        return;
+      }
+      if (!session?.nrp) {
         navigate('/', { replace: true });
       }
       setChecking(false);
     }).catch(() => {
-      if (!session?.nrp) {
+      if (!PUBLIC_ROUTES.includes(location.pathname)) {
         navigate('/', { replace: true });
       }
       setChecking(false);
