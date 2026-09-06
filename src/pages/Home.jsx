@@ -30,6 +30,8 @@ export default function Home() {
   const [adminEmail, setAdminEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpCode, setOtpCode] = useState('');
+  const [resetPass, setResetPass] = useState('');
+  const [resetConfirm, setResetConfirm] = useState('');
 
   const [loginStep, setLoginStep] = useState('credentials');
   const [mfaRequired, setMfaRequired] = useState(false);
@@ -38,6 +40,8 @@ export default function Home() {
   const [mfaContext, setMfaContext] = useState('worker'); // 'worker' or 'admin'
   const [validatedNrp, setValidatedNrp] = useState('');
   const [adminValidated, setAdminValidated] = useState(false);
+  const [brand, setBrand] = useState({ company_name: 'insightWOS', logo_url: '' });
+  const [mfaEmail, setMfaEmail] = useState('');
 
   useEffect(() => {
     rpc('get_branding', {}).then(d => {
@@ -71,6 +75,38 @@ export default function Home() {
     setNik('');
     setPass('');
     setAdminPass('');
+    setResetPass('');
+    setResetConfirm('');
+  }
+
+  // Redirect sesuai role (konsisten dengan useEffect pemulihan sesi di atas)
+  function redirectAfterLogin(role) {
+    const r = role || 'worker';
+    if (r.startsWith('admin_') || r === 'admin') window.location.href = '/admin';
+    else if (r === 'manager') window.location.href = '/dashboard';
+    else window.location.href = '/worker';
+  }
+
+  // Finalisasi sesi worker dari response login_worker (termasuk pengecekan MFA)
+  async function finalizeWorkerSession(d) {
+    if (!d || !d.ok) return;
+    const role = d.role || 'worker';
+    const sessionData = { token: d.token, role, nama: d.nama, nrp: d.nrp, role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: d.business_unit || 'HQ', tier: d.tier ?? 0 };
+    try {
+      const mfaRes = await checkMfaStatus(d.nrp);
+      if (mfaRes && mfaRes.mfa_enabled) {
+        setSession(sessionData);
+        setMfaNrp(d.nrp);
+        setMfaContext('worker');
+        setLoginStep('mfa');
+        return;
+      }
+    } catch (err) {
+      // MFA check gagal -> lanjut login (tidak memblokir user)
+    }
+    setSession(sessionData);
+    if (d.email) syncSupabaseAuth(d.email, 'auth-sync-' + d.nrp);
+    redirectAfterLogin(role);
   }
 
   async function submitWorkerCredentials(e) {
@@ -86,13 +122,52 @@ export default function Home() {
         return;
       }
 
-      const d = await rpc('generate_worker_otp', { p_nrp: nrp, p_nik: nik, p_password: pass });
-      if (d.ok) {
+      // Direct login via login_worker (return reset_required bila wajib ganti password)
+      const d = await rpc('login_worker', { p_nrp: nrp, p_nik: nik, p_password: pass });
+      if (!d.ok) {
+        setError(d.msg || 'Login gagal');
+        setLoading(false);
+        return;
+      }
+      if (d.reset_required) {
         setValidatedNrp(nrp);
-        setOtpCode(d.otp || '');
-        setLoginStep('otp');
+        setLoginStep('reset');
+        setLoading(false);
+        return;
+      }
+      await finalizeWorkerSession(d);
+    } catch (err) {
+      setError('Koneksi error: ' + err.message);
+    }
+    setLoading(false);
+  }
+
+  // Kirim password baru (reset_required) lalu finalisasi sesi login yang tertunda
+  async function submitResetPassword(e) {
+    e.preventDefault();
+    setError('');
+    if (!resetPass || resetPass.length < 8) {
+      setError('Password baru minimal 8 karakter');
+      return;
+    }
+    if (resetPass !== resetConfirm) {
+      setError('Konfirmasi password tidak cocok');
+      return;
+    }
+    setLoading(true);
+    try {
+      const d = await rpc('change_password', { p_nrp: validatedNrp, p_old_password: pass, p_new_password: resetPass });
+      if (d.ok) {
+        // change_password meng-invalidate semua session token lama -> login ulang untuk token baru
+        const d2 = await rpc('login_worker', { p_nrp: validatedNrp, p_nik: nik, p_password: resetPass });
+        if (d2 && d2.ok) {
+          setError('');
+          await finalizeWorkerSession(d2);
+        } else {
+          window.location.href = '/';
+        }
       } else {
-        setError(d.msg || 'Validasi gagal');
+        setError(d.msg || 'Gagal mengubah password');
       }
     } catch (err) {
       setError('Koneksi error: ' + err.message);
@@ -297,6 +372,8 @@ export default function Home() {
     setMfaRequired(false);
     setMfaNrp('');
     setMfaContext('worker');
+    setResetPass('');
+    setResetConfirm('');
   }
 
   const S = {
@@ -463,7 +540,7 @@ export default function Home() {
     }
   };
 
-  const btnLabel = loading ? '...' : (loginStep === 'otp' ? 'Verifikasi OTP' : 'Verifikasi & Minta OTP');
+  const btnLabel = loading ? '...' : (loginStep === 'otp' ? 'Verifikasi OTP' : 'Masuk');
 
   return (
     <div style={S.wrap}>
@@ -503,6 +580,28 @@ export default function Home() {
           <div style={S.links}>
             <span style={S.link} onClick={() => alert('Form pendaftaran akan segera tersedia.')}>Daftar Baru</span>
             <span style={S.link} onClick={() => alert('Cek status pendaftaran akan segera tersedia.')}>Cek Daftar</span>
+          </div>
+        </form>
+      )}
+
+      {/* Worker Reset Password (reset_required dari login_worker) */}
+      {tab === 'worker' && loginStep === 'reset' && (
+        <form onSubmit={submitResetPassword} style={S.form}>
+          <div style={S.otpInfo}>🔑 Password Wajib Diganti — NRP: <strong>{validatedNrp}</strong></div>
+          <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', marginBottom: '12px' }}>
+            Untuk keamanan, Anda harus membuat password baru sebelum masuk.
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>Password Baru (min. 8 karakter)</label>
+            <input type="password" value={resetPass} onChange={e => setResetPass(e.target.value)} placeholder="Password baru" style={S.inp} required />
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>Konfirmasi Password Baru</label>
+            <input type="password" value={resetConfirm} onChange={e => setResetConfirm(e.target.value)} placeholder="Ulangi password baru" style={S.inp} required />
+          </div>
+          <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : 'Simpan Password Baru'}</button>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+            <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
           </div>
         </form>
       )}
