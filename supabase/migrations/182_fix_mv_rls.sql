@@ -8,7 +8,7 @@
 -- Step 1: Revoke ALL from PUBLIC, anon, authenticated on all 5 MVs
 DO $$
 DECLARE
-  mv RECORD;
+  mv_name TEXT;
   mvs TEXT[] := ARRAY['mv_admin_summary','mv_attendance_daily','mv_flight_risk','mv_payroll_monthly','mv_team_kpi'];
 BEGIN
   FOREACH mv_name IN ARRAY mvs LOOP
