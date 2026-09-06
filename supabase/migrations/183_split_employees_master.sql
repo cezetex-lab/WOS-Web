@@ -153,6 +153,7 @@ ON CONFLICT (nrp) DO UPDATE SET
 -- Step 4: Drop old table, create VIEW for backward compat
 -- ════════════════════════════════════════════════════════════════
 
+DROP VIEW IF EXISTS employees_master CASCADE;
 DROP TABLE IF EXISTS employees_master CASCADE;
 
 CREATE VIEW employees_master AS
@@ -185,16 +186,21 @@ ALTER TABLE employees_core ENABLE ROW LEVEL SECURITY;
 ALTER TABLE employees_extended ENABLE ROW LEVEL SECURITY;
 
 -- Core: authenticated can read (needed for most functions)
-CREATE POLICY "core_select_auth" ON employees_core
-  FOR SELECT TO authenticated USING (true);
-
--- Core: service_role full access
-CREATE POLICY "core_all_service" ON employees_core
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
-
--- Extended: service_role only (PII protection)
-CREATE POLICY "extended_all_service" ON employees_extended
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname='core_select_auth' AND tablename='employees_core') THEN
+    CREATE POLICY "core_select_auth" ON employees_core
+      FOR SELECT TO authenticated USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname='core_all_service' AND tablename='employees_core') THEN
+    CREATE POLICY "core_all_service" ON employees_core
+      FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname='extended_all_service' AND tablename='employees_extended') THEN
+    CREATE POLICY "extended_all_service" ON employees_extended
+      FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- ════════════════════════════════════════════════════════════════
 -- Step 6: GRANT

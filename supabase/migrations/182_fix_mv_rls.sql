@@ -6,18 +6,21 @@
 -- ================================================================
 
 -- Step 1: Revoke ALL from PUBLIC, anon, authenticated on all 5 MVs
-REVOKE ALL ON mv_admin_summary FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON mv_attendance_daily FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON mv_flight_risk FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON mv_payroll_monthly FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON mv_team_kpi FROM PUBLIC, anon, authenticated;
-
--- Step 2: Only service_role can read (for refresh functions)
-GRANT SELECT ON mv_admin_summary TO service_role;
-GRANT SELECT ON mv_attendance_daily TO service_role;
-GRANT SELECT ON mv_flight_risk TO service_role;
-GRANT SELECT ON mv_payroll_monthly TO service_role;
-GRANT SELECT ON mv_team_kpi TO service_role;
+DO $$
+DECLARE
+  mv RECORD;
+  mvs TEXT[] := ARRAY['mv_admin_summary','mv_attendance_daily','mv_flight_risk','mv_payroll_monthly','mv_team_kpi'];
+BEGIN
+  FOREACH mv_name IN ARRAY mvs LOOP
+    IF EXISTS (SELECT 1 FROM pg_matviews WHERE matviewname = mv_name) THEN
+      EXECUTE format('REVOKE ALL ON %I FROM PUBLIC, anon, authenticated', mv_name);
+      EXECUTE format('GRANT SELECT ON %I TO service_role', mv_name);
+      RAISE LOG '182: secured %', mv_name;
+    ELSE
+      RAISE LOG '182: skip % (not found)', mv_name;
+    END IF;
+  END LOOP;
+END $$;
 
 -- Note: service_role (superuser) already has REFRESH privilege.
 -- REFRESH GRANT not supported on all PG versions — skip.
