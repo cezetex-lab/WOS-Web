@@ -6,9 +6,6 @@
 -- Fix: use NRP001 (CEO, exists in seed data)
 -- ================================================================
 
--- Use NRP001 for all tests that need a real NRP
-\set real_nrp '''NRP001'''
-
 -- Verify NRP001 exists
 SELECT 'VERIFY: NRP001 exists' AS test,
   CASE WHEN EXISTS(SELECT 1 FROM employees_master WHERE nrp='NRP001') THEN 'PASS' ELSE 'FAIL' END AS result;
