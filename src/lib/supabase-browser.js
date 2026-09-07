@@ -26,47 +26,97 @@ export async function rpc(fn, params = {}) {
 // P2 SECURITY FIX: In-memory session (not sessionStorage)
 // Session data fetched from backend RPC via initSession(), cached in memory
 // getSession() is SYNC (reads cache) — no callers need to change
+//
+// WORKER LOGIN FIX: sesi worker hanya RPC-token (bukan Supabase Auth), jadi
+// in-memory cache hilang saat full-page reload (window.location.href) dan user
+// terlempar balik ke halaman login. Karena itu sesi juga dipersist ke
+// sessionStorage (per-tab; key kontrak: 'wos_user') dan dipulihkan oleh
+// loadSessionCache()/initSession() saat app dimuat ulang. Sesi admin/owner
+// tetap lebih mengutamakan Supabase Auth.
 let _sessionCache = null;
+const SESSION_STORAGE_KEY = 'wos_user';
+
+function loadSessionCache() {
+  if (_sessionCache) return _sessionCache;
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s?.nrp && (!s.expires_at || new Date(s.expires_at) > new Date())) {
+        _sessionCache = s;
+        return _sessionCache;
+      }
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  } catch { /* ignore corrupt storage */ }
+  return null;
+}
 
 export function setSession(user) {
   _sessionCache = user;
+  try {
+    if (user) sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+    else sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch { /* storage full / private mode — sesi tetap jalan in-memory */ }
 }
 
-// SYNC getter — reads from in-memory cache only
+// SYNC getter — sessionStorage adalah source of truth (dibaca langsung setiap
+// panggilan, tanpa fallback ke cache in-memory agar tidak mengembalikan data
+// basi dari sesi lain). JSON korup dibersihkan dan dianggap tidak ada sesi.
 export function getSession() {
-  return _sessionCache;
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (s?.nrp && (!s.expires_at || new Date(s.expires_at) > new Date())) return s;
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    return null;
+  } catch {
+    try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch {}
+    return null;
+  }
 }
 
 // ASYNC initializer — call once at app startup
-// Fetches user context from backend using Supabase Auth JWT
+// Fetches user context from backend using Supabase Auth JWT.
+// Workers (login via RPC token, bukan Supabase Auth) dipulihkan dari
+// localStorage — tanpa ini setiap reload mengembalikan user ke halaman login.
 export async function initSession() {
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { _sessionCache = null; return null; }
+    if (session) {
+      const { data, error } = await supabase.rpc('get_current_user_context');
+      if (!error && data) {
+        _sessionCache = {
+          nrp: data.nrp,
+          nama: data.nama,
+          role: data.role,
+          role_level: data.role_level,
+          business_unit_id: data.business_unit_id,
+          divisi: data.divisi,
+          posisi: data.posisi,
+          is_owner: data.is_owner,
+          email: data.email
+        };
+        return _sessionCache;
+      }
+    }
 
-    const { data, error } = await supabase.rpc('get_current_user_context');
-    if (error || !data) { _sessionCache = null; return null; }
+    // Worker fallback: pulihkan sesi RPC-token dari sessionStorage
+    const restored = loadSessionCache();
+    if (restored?.token) return restored;
 
-    _sessionCache = {
-      nrp: data.nrp,
-      nama: data.nama,
-      role: data.role,
-      role_level: data.role_level,
-      business_unit_id: data.business_unit_id,
-      divisi: data.divisi,
-      posisi: data.posisi,
-      is_owner: data.is_owner,
-      email: data.email
-    };
-    return _sessionCache;
-  } catch {
     _sessionCache = null;
     return null;
+  } catch {
+    _sessionCache = loadSessionCache();
+    return _sessionCache;
   }
 }
 
 export function clearSession() {
   _sessionCache = null;
+  try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch {}
   supabase.auth.signOut().catch(() => {});
 }
 

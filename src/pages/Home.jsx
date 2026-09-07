@@ -91,7 +91,7 @@ export default function Home() {
   async function finalizeWorkerSession(d) {
     if (!d || !d.ok) return;
     const role = d.role || 'worker';
-    const sessionData = { token: d.token, role, nama: d.nama, nrp: d.nrp, role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: d.business_unit || 'HQ', tier: d.tier ?? 0 };
+    const sessionData = { token: d.token, role, nama: d.nama, nrp: d.nrp, role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: d.business_unit || 'HQ', tier: d.tier ?? 0, expires_at: d.expires_at };
     try {
       const mfaRes = await checkMfaStatus(d.nrp);
       if (mfaRes && mfaRes.mfa_enabled) {
