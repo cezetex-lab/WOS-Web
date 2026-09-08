@@ -28,7 +28,15 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    // Paksa satu instance React/react-router di seluruh app. Tanpa ini,
+    // lazy-loaded pages (DynamicRoutes) bisa mendapat salinan react-router-dom
+    // yang berbeda dari shell app → "Invalid hook call" / useContext null.
+    dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
+  },
+  optimizeDeps: {
+    // Pre-bundle router + react agar semua modul memakai instance yang sama.
+    include: ['react', 'react-dom', 'react-router', 'react-router-dom'],
   },
   server: {
     port: 3000,

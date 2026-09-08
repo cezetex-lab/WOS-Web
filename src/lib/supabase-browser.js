@@ -87,7 +87,7 @@ export async function initSession() {
     if (session) {
       const { data, error } = await supabase.rpc('get_current_user_context');
       if (!error && data) {
-        _sessionCache = {
+        const ctx = {
           nrp: data.nrp,
           nama: data.nama,
           role: data.role,
@@ -98,7 +98,12 @@ export async function initSession() {
           is_owner: data.is_owner,
           email: data.email
         };
-        return _sessionCache;
+        // Persist admin/owner context ke sessionStorage juga — tanpa ini
+        // getSession() (sync, baca storage) mengembalikan null untuk admin,
+        // sehingga useAdminAuth/RoleGuard menilai role kosong dan
+        // me-redirect semua sub-halaman admin balik ke /admin.
+        setSession(ctx);
+        return ctx;
       }
     }
 

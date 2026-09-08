@@ -6,7 +6,7 @@
  * No hardcoded routes — add modules from Owner Dashboard → Module Management.
  */
 import React, { Suspense, useState, useEffect } from 'react';
-import { Route } from 'react-router-dom';
+import { useLocation, Navigate } from 'react-router-dom';
 import { rpc } from '@/lib/supabase-browser';
 import { getComponent } from '@/lib/route-config';
 import LazyLoad from './LazyLoad';
@@ -23,33 +23,17 @@ function RouteWrapper({ Component, name }) {
 }
 
 /**
- * Fetches enabled modules with route config from DB,
- * returns array of { path, component, group }.
- */
-async function fetchRouteConfig() {
-  const { data, error } = await rpc('get_enabled_modules');
-  if (error || !data) return [];
-
-  return data
-    .filter(m => m.route_path && m.route_component)
-    .map(m => ({
-      path: m.route_path,
-      componentName: m.route_component,
-      group: m.route_group || 'worker',
-      code: m.module_code,
-    }));
-}
-
-/**
- * Also fetch ALL modules (not just enabled) for admin routes.
+ * Fetches ALL modules with route config from DB.
  * Admin routes should always be registered (access control is inside components).
  */
 async function fetchAllRouteConfig() {
-  const { data, error } = await rpc('get_enabled_modules');
-  if (error || !data) return [];
+  // NOTE: rpc() helper mengembalikan DATA MENTAH (array jsonb dari
+  // get_enabled_modules), bukan envelope {data, error}. Jangan destructure.
+  const res = await rpc('get_enabled_modules');
+  const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+  if (!list.length) console.warn('[DynamicRoutes] get_enabled_modules returned no rows');
 
-  // For now, return all modules with route config (enabled ones)
-  return data
+  return list
     .filter(m => m.route_path && m.route_component)
     .map(m => ({
       path: m.route_path,
@@ -58,10 +42,13 @@ async function fetchAllRouteConfig() {
       code: m.module_code,
     }));
 }
+
+const normalizePath = p => ((p || '').replace(/\/+$/, '') || '/');
 
 export default function DynamicRoutes({ withNav }) {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
     let cancelled = false;
@@ -75,45 +62,25 @@ export default function DynamicRoutes({ withNav }) {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading) return null; // or loading spinner
+  if (loading) return <div className="p-4 text-white">Loading routes...</div>;
+
+  // NOTE: route_path values from module_definitions are absolute paths (e.g. /admin/payroll).
+  // A nested <Routes> can never match here: this component renders inside <Route path="/*">,
+  // so the splat already consumes the whole location — match the current path manually instead.
+  const current = normalizePath(location.pathname);
+  const match = routes.find(r => normalizePath(r.path) === current);
+
+  if (!match) return <Navigate to="/" replace />;
+
+  const Component = getComponent(match.componentName);
+  if (!Component) {
+    console.warn(`[DynamicRoutes] Unknown component: ${match.componentName} for module ${match.code}`);
+    return <Navigate to="/" replace />;
+  }
 
   return (
-    <>
-      {routes.map(({ path, componentName, group, code }) => {
-        const Component = getComponent(componentName);
-        if (!Component) {
-          console.warn(`[DynamicRoutes] Unknown component: ${componentName} for module ${code}`);
-          return null;
-        }
-
-        // Worker routes need withNav wrapper
-        if (group === 'worker') {
-          return (
-            <Route
-              key={code}
-              path={path}
-              element={
-                <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400">Loading...</div>}>
-                  {withNav(Component)}
-                </Suspense>
-              }
-            />
-          );
-        }
-
-        // Admin routes — also with nav (role check is inside components)
-        return (
-          <Route
-            key={code}
-            path={path}
-            element={
-              <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400">Loading...</div>}>
-                {withNav(Component)}
-              </Suspense>
-            }
-          />
-        );
-      })}
-    </>
+    <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400">Loading...</div>}>
+      {withNav(Component)}
+    </Suspense>
   );
 }
