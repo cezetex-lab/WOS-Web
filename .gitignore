@@ -36,6 +36,9 @@ playwright-report/
 provision-results.csv
 _env.local.backup
 
+# Test scratch logs (diag/sweep/test runs) â€” nooit committen
+*.txt
+
 # Supabase smoke files (contain secrets)
 supabase/smoke/
 
@@ -48,3 +51,6 @@ Readme/*.txt
 # File seeding encryptie-key naar company_config; rotate key & delete file
 # (zie docs/5.0-credential-rotation-runbook.md).
 supabase/seed_company_config.sql
+
+# One-off DB fixes (plaintext passwords) — applied & verified, never commit
+supabase/scripts/fix-nrp003.sql

@@ -122,6 +122,41 @@
 | F-9 | Missing di DB: `get_organization_health`, `update_audit_timestamp`, `register_session` (dipanggil frontend). `update_task_status` punya overload (p_id int / p_task_id text) — pastikan kontrak frontend cocok. | live DB 8/9 + report.md §8 |
 | F-10 | `supabase/migrations/run_171.mjs` menerima URL DB via argv (bisa ke-log); `tests/production/smoke.sh`, `api-bench.js`, `run-gates.*` pola sama — aman selama tidak pernah diisi kredensial asli di terminal yang di-log. | grep placeholder |
 
+### 🔴 TEMUAN BARU (sesi testing 2026-09-11 — Login & Route Verification)
+
+| ID | Severity | Temuan | Bukti | Status |
+|---|---|---|---|---|
+| L-1 | 🔴 HIGH | NRP003 password hash mismatch — `d5wcHVOp-GbnONVK` tidak cocok dengan hash di `worker_passwords` | diag5.txt: `NRP003/d5wc → url=http://localhost:5173/ token=false` | OPEN |
+| L-2 | 🔴 HIGH | HRD admin account timeout — `hrd@insightwos.com / Hrd123!Hrd` 60s timeout (wrong password atau akun tidak ada di Supabase Auth) | diag5.txt: `✗ Admin: hrd@insightwos.com + Hrd123!Hrd (1.0m)` | OPEN |
+| L-3 | 🟡 MEDIUM | Admin routes tidak ter-register — DynamicRoutes ambil dari `get_enabled_modules()`, kebanyakan admin route tidak ada di `module_definitions` → redirect ke `/` | sweep_final.txt: semua admin route error "navigate" | OPEN |
+| L-4 | 🟡 MEDIUM | Worker login flaky — NRP002 berhasil di diagnostic test tapi gagal di sweep test (timing issue) | sweep_final.txt: `Worker login: url=http://localhost:5173/ token=false` | OPEN |
+| L-5 | 🟢 LOW | Test false positives — regex error detection match SW registration code (`'SW registered:', reg.scope)`) | sweep_final.txt: semua "UI-error" match SW code | OPEN |
+
+### KREDENSIAL TERVERIFIKASI (2026-09-11)
+
+**Worker (login_worker RPC — NRP + NIK + password):**
+| NRP | NIK | Password | Status |
+|-----|-----|----------|--------|
+| NRP001 | NRP001 | CEO123! | ✅ (bcrypt) |
+| NRP002 | 3204000000000002 | 3204000000000002 | ✅ (sha256→auto-upgrade) |
+| NRP003 | 3204000000000003 | d5wcHVOp-GbnONVK | ❌ (hash mismatch) |
+| NRP007 | 3204000000000007 | 3204000000000007 | ✅ (sha256→auto-upgrade) |
+
+**Admin (Supabase Auth — email @insightwos.com + password):**
+| Email | Password | Status |
+|-------|----------|--------|
+| ceo@insightwos.com | CEO123! | ✅ |
+| pusat@insightwos.com | Admin123! | ✅ |
+| operasional@insightwos.com | Ops123! | ✅ |
+| hrd@insightwos.com | Hrd123!Hrd | ❌ (timeout) |
+| finance@insightwos.com | Fin123! | ❓ (not tested) |
+| mining@insightwos.com | Mining123! | ❓ (not tested) |
+| mill@insightwos.com | Mill123! | ❓ (not tested) |
+| estate@insightwos.com | Estate123! | ❓ (not tested) |
+
+### STATUS COMMIT PERTAMA (JANGAN commit sebelum items ini)
+| F-10 | `supabase/migrations/run_171.mjs` menerima URL DB via argv (bisa ke-log); `tests/production/smoke.sh`, `api-bench.js`, `run-gates.*` pola sama — aman selama tidak pernah diisi kredensial asli di terminal yang di-log. | grep placeholder |
+
 ### STATUS COMMIT PERTAMA (JANGAN commit sebelum items ini)
 1. Perbaiki `.gitignore`: tambah `.freebuff/`, `test-results/`, `playwright-report/`, `provision-results.csv`, `_env.local.backup`.
 2. Unstage artefak: `git restore --staged .freebuff test-results "Readme/New Text Document (2).txt" supabase/smoke` (smoke=berisi seed password lama; evaluaasi per-file).
@@ -129,7 +164,28 @@
 4. Perbaiki ref rusak (F-2) agar push tidak gagal.
 5. Scan ulang: `git grep --cached -E "postgresql://|SERVICE_ROLE|ywYBamE6"` harus bersih → baru commit + push.
 
-### LANJUTAN SETELAH COMMIT (urutan, dari handoff §4)
-2. Deploy production `npx vercel --prod` → tes login NRP002 (NIK 3204000000000002 + temp dari CSV) → ganti password → cek sb-token + Last signed in.
-3. Bagikan kredensial 8 worker per-orang via WA → hapus `provision-results.csv`.
-4. Tahap 5 cleanup: 5.3 NULL-guard NIK → 5.4–5.5 data palsu & form mati → 5.6 XSS ChatCopilot → **5.7 retire dual-store (worker_passwords + auth.users) → login murni Supabase Auth** → 5.8 REVOKE sisa (F-8, F-4) → 5.9 INSTEAD OF trigger employees_master → 5.10 `get_enabled_modules(p_area)` + fix search_path (F-4) → 5.11 redesign registrasi → fix favicon via Owner branding.
+### LANJUTAN SETELAH COMMIT (urutan, dari handoff §4 + temuan 2026-09-11)
+
+**Phase D — Production Verification (SELESAI ✅)**
+1. ✅ Deploy production `npx vercel --prod` → https://insightwos-dp7cr9wl7-cezetex-lab.vercel.app (14s build)
+2. ✅ Login test: NRP002 ✅, NRP007 ✅, pusat ✅, ceo ✅, operasional ✅
+3. ❌ Login test: NRP003 ❌ (hash mismatch), hrd ❌ (timeout)
+
+**Phase E — Credential Fix (PRIORITY — sebelum bagikan ke user)**
+1. Fix NRP003 password (L-1): re-provision via `admin_reset_worker_password` atau `provision-worker-auth.mjs`
+2. Fix HRD account (L-2): verify Supabase Auth + reset password
+3. Verify remaining admin accounts: finance, mining, mill, estate (belum di-test)
+4. Bagikan kredensial 8 worker per-orang via WA → hapus `provision-results.csv`
+
+**Phase F — Route Registration**
+1. Register admin routes di `module_definitions` table (L-3): employees, org-chart, divisions, master-data, role-matrix, requests, leave, overtime, payroll, timesheet, shift-schedule, approval-center, kpi, incentive, okrs, learning, certifications, badges, talent-market, career-path, succession, career-dev, attendance, performance-trend, settings, feature-flags, export, integrations, budget, headcount, audit-log, audit-chain, pipeline, recruitment, screening, onboarding, offboarding, compensation-intel, turnover, simulation, analytics
+
+**Phase G — Test Infrastructure Fix (L-4, L-5)**
+1. Fix worker login flaky: increase timeout / use sessionStorage check
+2. Fix test false positives: exclude SW registration code from error regex
+
+**Phase H — Tahap 5 Cleanup (dari handoff §4)**
+1. 5.3 NULL-guard NIK → 5.4–5.5 data palsu & form mati → 5.6 XSS ChatCopilot
+2. **5.7 retire dual-store (worker_passwords + auth.users) → login murni Supabase Auth**
+3. 5.8 REVOKE sisa (F-8, F-4) → 5.9 INSTEAD OF trigger employees_master
+4. 5.10 `get_enabled_modules(p_area)` + fix search_path (F-4) → 5.11 redesign registrasi → fix favicon via Owner branding
