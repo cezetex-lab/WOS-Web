@@ -1,8 +1,8 @@
 // WorkerCareer.jsx — Jalur karir & peluang karyawan
 import { getSession } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '../../../lib/design-system';
+import { rpc } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';
 
 export default function WorkerCareer() {
   const [loading, setLoading] = useState(true);

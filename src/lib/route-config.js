@@ -89,6 +89,7 @@ const WorkforceSimulation = lazy(() => import('../features/intelligence/forecast
 const TurnoverPrediction = lazy(() => import('../features/intelligence/forecasting/TurnoverPrediction'));
 const ResetPassword = lazy(() => import('../features/platform/auth/ResetPassword'));
 const MfaSetup = lazy(() => import('../features/platform/auth/MfaSetup'));
+const WorkerChangePassword = lazy(() => import('../features/platform/auth/WorkerChangePassword'));
 const RecruitmentDashboard = lazy(() => import('../features/core/recruitment/RecruitmentDashboard'));
 const PipelineKanban = lazy(() => import('../features/core/recruitment/PipelineKanban'));
 const OnboardingWorkflow = lazy(() => import('../features/core/recruitment/OnboardingWorkflow'));
@@ -214,6 +215,7 @@ export const COMPONENT_MAP = {
   TurnoverPrediction,
   ResetPassword,
   MfaSetup,
+  WorkerChangePassword,
   RecruitmentDashboard,
   PipelineKanban,
   OnboardingWorkflow,

@@ -1,8 +1,8 @@
 // WorkerActivities.jsx — Riwayat aktivitas terkini karyawan
 import { getSession } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState, Tabs } from '../../../lib/design-system';
+import { rpc } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState, Tabs } from '@/lib/design-system';
 
 export default function WorkerActivities() {
   const [loading, setLoading] = useState(true);

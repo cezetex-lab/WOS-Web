@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import LogoUploader from '@/components/LogoUploader';
-import { rpc } from '@/lib/supabase-browser';
+import { rpc, getSession } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Input, LoadingSpinner, Badge,
@@ -13,7 +13,8 @@ import {
 } from '@/lib/design-system';
 
 export default function Settings() {
-  useAdminAuth(["admin_pusat"]);
+  const { role } = useAdminAuth(["admin_pusat"]);
+  const isOwner = role === 'owner';
   const [loading, setLoading] = useState(true);
   const [pkwtAlerts, setPkwtAlerts] = useState([]);
   const [passwordForm, setPasswordForm] = useState({ old: '', new: '', confirm: '' });
@@ -25,8 +26,11 @@ export default function Settings() {
   async function loadData() {
     setLoading(true);
     try {
-      const { data } = await rpc('get_pkwt_expiry_alert');
-      setPkwtAlerts(data?.data || []);
+      // rpc() helper sudah mengembalikan objek data (bukan envelope
+      // {data, error}) — double-unwrap `data?.data` membuat alert selalu kosong.
+      const res = await rpc('get_pkwt_expiry_alert');
+      const rows = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      setPkwtAlerts(rows);
     } catch (e) { }
     setLoading(false);
   }

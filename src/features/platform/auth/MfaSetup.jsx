@@ -1,22 +1,14 @@
 import { useState, useEffect } from 'react';
-import { rpc, supabase } from '../../../lib/supabase-browser';
-import { PageLayout, SectionHeader } from '../../../lib/design-system';
-import { Button, Input, Badge, GlassCard, MetricCard, LoadingSpinner, EmptyState } from '../../../lib/design-system';
+import { getSession } from '@/lib/supabase-browser';
+import { callEdgeFunctionAuth } from '@/lib/edge-functions';
+import { PageLayout, SectionHeader } from '@/lib/design-system';
+import { Button, Input, Badge, GlassCard, MetricCard, LoadingSpinner, EmptyState } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
-const MFA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mfa-service`;
-
-async function mfaAction(action, data = {}) {
-  const { data: { session } } = await supabase.auth.getSession();
-  const res = await fetch(MFA_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({ action, ...data }),
-  });
-  return res.json();
+function mfaAction(action, data = {}) {
+  // Hardened mfa-service butuh JWT user (auth.uid() harus map ke NRP) —
+  // bukan anon key. Tanpa JWT, enroll/disable akan ditolak 401.
+  return callEdgeFunctionAuth('mfa-service', { action, ...data });
 }
 
 export default function MfaSetup() {
@@ -112,7 +104,6 @@ export default function MfaSetup() {
     }
   }
 
-  // QR Code via Google Charts API (no library needed)
   const qrUrl = otpauthUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`
     : '';

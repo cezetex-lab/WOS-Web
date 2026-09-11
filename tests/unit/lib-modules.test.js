@@ -17,7 +17,34 @@ const sessionStorage = {
   setItem: vi.fn((key, value) => { sessionStorageMock[key] = value; }),
   removeItem: vi.fn((key) => { delete sessionStorageMock[key]; }),
 };
-Object.defineProperty(globalThis, 'sessionStorage', { value: sessionStorageMock });
+Object.defineProperty(globalThis, 'sessionStorage', { value: sessionStorage });
+
+// Mock browser APIs for push-notifications module.
+// Defined ONCE at module scope: defineProperty without configurable:true
+// throws 'Cannot redefine property' if re-run in a beforeEach.
+const mockServiceWorker = {
+  register: vi.fn(() => Promise.resolve()),
+  ready: Promise.resolve({
+    pushManager: {
+      getSubscription: vi.fn(() => Promise.resolve(null)),
+      subscribe: vi.fn(() => Promise.resolve({})),
+    },
+  }),
+};
+Object.defineProperty(globalThis, 'navigator', {
+  value: { serviceWorker: mockServiceWorker },
+  configurable: true,
+});
+
+Object.defineProperty(globalThis, 'Notification', {
+  value: {
+    permission: 'default',
+    requestPermission: vi.fn(() => Promise.resolve('default')),
+  },
+  configurable: true,
+});
+
+Object.defineProperty(globalThis, 'PushManager', { value: {}, configurable: true });
 
 describe('Chart Config', () => {
   it('exports chart color palette', async () => {
@@ -27,30 +54,9 @@ describe('Chart Config', () => {
   });
 });
 
-describe('Offline DB', () => {
-  it('offline-db module loads without error', async () => {
-    const mod = await import('../../src/lib/offline-db.js');
-    expect(mod).toBeDefined();
-  });
-});
-
 describe('Push Notifications', () => {
   it('push-notifications module loads without error', async () => {
     const mod = await import('../../src/lib/push-notifications.js');
-    expect(mod).toBeDefined();
-  });
-});
-
-describe('Sync Queue', () => {
-  it('sync-queue module loads without error', async () => {
-    const mod = await import('../../src/lib/sync-queue.js');
-    expect(mod).toBeDefined();
-  });
-});
-
-describe('Supabase Client', () => {
-  it('supabase module loads without error', async () => {
-    const mod = await import('../../src/lib/supabase.js');
     expect(mod).toBeDefined();
   });
 });

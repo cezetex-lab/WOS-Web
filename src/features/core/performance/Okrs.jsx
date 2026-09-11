@@ -4,12 +4,13 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '../../../lib/supabase-browser';
+import { supabase, rpc, getSession } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Badge, LoadingSpinner,
   EmptyState, Tabs, Input, StatItem, Divider
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
+import { getCurrentPeriod } from '@/lib/format';
 
 // Inline Modal
 function Modal({ onClose, title, children }) {
@@ -49,11 +50,6 @@ export default function Okrs() {
   const [newUnit, setNewUnit] = useState('pts');
   const [selectedOkr, setSelectedOkr] = useState(null);
   const [krList, setKrList] = useState([]);
-
-  function getCurrentPeriod() {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }
 
   const fetchMyOkrs = useCallback(async () => {
     setLoading(true);

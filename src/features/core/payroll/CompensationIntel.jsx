@@ -4,11 +4,11 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '../../../lib/supabase-browser';
+import { supabase, rpc, getSession } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Badge, LoadingSpinner, EmptyState,
   StatItem, SectionHeader
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 const fmt = (n) => Number(n || 0).toLocaleString('id-ID');
 

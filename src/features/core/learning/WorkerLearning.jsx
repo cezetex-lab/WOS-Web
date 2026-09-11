@@ -4,10 +4,10 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession, rpc } from '../../../lib/supabase-browser';
+import { supabase, getSession, rpc } from '@/lib/supabase-browser';
 import {
   PageLayout, MetricCard, GlassCard, Badge, LoadingSpinner, EmptyState, Button, Tabs
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 const TYPE_CONFIG = {
   Training:     { icon: '🎓', color: 'blue', label: 'Training' },

@@ -4,28 +4,15 @@
 // ============================================================
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import { callEdgeFunction } from '@/lib/edge-functions';
 
 // ── API call to AI Copilot Edge Function ──
-async function askCopilot(message, conversationHistory = [], context = 'general') {
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-copilot`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({ message, conversationHistory, context }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Network error' }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-
-  return res.json();
+function askCopilot(message, conversationHistory = [], context = 'general') {
+  return callEdgeFunction(
+    'ai-copilot',
+    { message, conversationHistory, context },
+    { throwOnError: true }
+  );
 }
 
 // ── Quick action suggestions ──

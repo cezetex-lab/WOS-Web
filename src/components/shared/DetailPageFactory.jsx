@@ -29,11 +29,14 @@ export const ADMIN_PAGE_CONFIGS = {
   roles:        { title: 'Role Matrix', desc: 'Mapping role & permission', icon: '🔑', rpc: null, fallbackTable: 'user_roles' },
 
   // OPERASIONAL HR
-  requests:     { title: 'Pengajuan', desc: 'Kelola semua pengajuan karyawan', icon: '📝', rpc: 'admin_get_pending_requests', fallbackTable: 'hr_requests', hasActions: true, statusField: 'status' },
-  leave:        { title: 'Cuti', desc: 'Manajemen cuti karyawan', icon: '🌴', rpc: 'admin_get_leave', fallbackTable: 'leave_requests', hasActions: true, statusField: 'status' },
-  overtime:     { title: 'Lembur', desc: 'Pengajuan & persetujuan lembur', icon: '⏰', rpc: 'get_overtime_data', fallbackTable: 'hr_overtime', hasActions: true, statusField: 'status' },
+  // NOTE: approveRpc/rejectRpc adalah pemetaan EKSPLISIT (tidak lagi
+  // derive dari config.rpc.replace('get','approve') yang menghasilkan
+  // nama RPC hantu). Backend: migration 191 (admin_approve_leave, dst).
+  requests:     { title: 'Pengajuan', desc: 'Kelola semua pengajuan karyawan', icon: '📝', rpc: 'admin_get_pending_requests', fallbackTable: 'hr_requests', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_request', rejectRpc: 'admin_reject_request' },
+  leave:        { title: 'Cuti', desc: 'Manajemen cuti karyawan', icon: '🌴', rpc: 'admin_get_leave', fallbackTable: 'hr_leave', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_leave', rejectRpc: 'admin_reject_leave' },
+  overtime:     { title: 'Lembur', desc: 'Pengajuan & persetujuan lembur', icon: '⏰', rpc: 'get_overtime_data', fallbackTable: 'hr_overtime', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_overtime', rejectRpc: 'admin_reject_overtime' },
   timesheet:    { title: 'Timesheet', desc: 'Catatan jam kerja harian', icon: '⏱️', rpc: 'admin_get_timesheet', fallbackTable: 'timesheet' },
-  'shift-swap': { title: 'Shift Swap', desc: 'Tukar jadwal shift', icon: '🔄', rpc: 'get_shift_schedule', fallbackTable: 'hr_shift_master', hasActions: true, statusField: 'status' },
+  'shift-swap': { title: 'Shift Swap', desc: 'Tukar jadwal shift', icon: '🔄', rpc: 'get_shift_schedule', fallbackTable: 'hr_shift_master', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_shift_swap', rejectRpc: 'admin_reject_shift_swap' },
 
   // TALENT & PERFORMANCE
   okr:          { title: 'OKR', desc: 'Objectives & Key Results', icon: '🎯', rpc: 'admin_get_okr', fallbackTable: 'okr' },
@@ -47,7 +50,7 @@ export const ADMIN_PAGE_CONFIGS = {
   assets:       { title: 'Inventaris', desc: 'Inventaris aset perusahaan', icon: '🛠️', rpc: 'admin_get_assets', fallbackTable: 'assets' },
   'asset-assign': { title: 'Check-in/out', desc: 'Peminjaman & pengembalian aset', icon: '📦', rpc: 'admin_get_asset_assignments', fallbackTable: 'asset_assignments' },
   estate:       { title: 'Estate Blocks', desc: 'Blok perumahan & fasilitas', icon: '🌳', rpc: 'admin_get_estate_blocks', fallbackTable: 'estate_blocks' },
-  facility:     { title: 'Facility Request', desc: 'Permintaan fasilitas kerja', icon: '🏗️', rpc: 'admin_get_facility_requests', fallbackTable: 'facility_requests', hasActions: true, statusField: 'status' },
+  facility:     { title: 'Facility Request', desc: 'Permintaan fasilitas kerja', icon: '🏗️', rpc: 'admin_get_facility_requests', fallbackTable: 'facility_requests', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_facility_request', rejectRpc: 'admin_reject_facility_request' },
 
   // ENGAGEMENT & BUDAYA
   surveys:      { title: 'Survei (eNPS)', desc: 'Employee Net Promoter Score', icon: '📋', rpc: 'get_worker_engagement', fallbackTable: 'hr_engagement' },
@@ -220,6 +223,31 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
     });
   }, [data, activeTab, config]);
 
+  // ── ACTION HANDLER (approve/reject) ──
+  // Pakai config.approveRpc/rejectRpc (pemetaan eksplisit, bukan derive
+  // rapuh dari nama RPC get). Jangan update UI kalau result.ok !== true —
+  // supaya tidak ada lagi "sukses palsu" ketika RPC gagal / akses ditolak.
+  function buildActionHandler(kind) {
+    if (!config?.hasActions) return null;
+    const rpcName = kind === 'approve' ? config.approveRpc : config.rejectRpc;
+    if (!rpcName) return null;
+    return async () => {
+      const session = getSession();
+      if (!canUserApprove(session?.role)) {
+        alert('Anda tidak memiliki hak untuk memproses data ini.');
+        return;
+      }
+      if (!window.confirm(`Yakin ingin ${kind} data ini?`)) return;
+      const result = await rpc(rpcName, { p_id: selected.id, p_note: null });
+      if (result?.ok === false) {
+        alert(result?.msg || `Gagal ${kind} data.`);
+        return;
+      }
+      setData(data.filter(r => r.id !== selected.id));
+      setSelected(null);
+    };
+  }
+
   // ── STATIC PAGES ──
   if (config?.static) {
     return (
@@ -289,26 +317,8 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
           title={config?.title || pageKey}
           onClose={() => setSelected(null)}
           hasActions={config?.hasActions}
-          onApprove={config?.hasActions && config.rpc ? async () => {
-            const session = getSession();
-            if (!canUserApprove(session?.role)) {
-              alert('Anda tidak memiliki hak untuk approve data ini.');
-              return;
-            }
-            if (!window.confirm('Yakin ingin mengapprove data ini?')) return;
-            try {
-              await rpc(`${config.rpc.replace('get', 'approve')}`, { p_id: selected.id, p_status: 'Approved' });
-              setData(data.filter(r => r.id !== selected.id));
-              setSelected(null);
-            } catch (e) { }
-          } : null}
-          onReject={config?.hasActions ? async () => {
-            try {
-              await rpc(`${config.rpc.replace('get', 'approve')}`, { p_id: selected.id, p_status: 'Rejected' });
-              setData(data.filter(r => r.id !== selected.id));
-              setSelected(null);
-            } catch (e) { }
-          } : null}
+          onApprove={buildActionHandler('approve')}
+          onReject={buildActionHandler('reject')}
         />
       )}
     </PageLayout>

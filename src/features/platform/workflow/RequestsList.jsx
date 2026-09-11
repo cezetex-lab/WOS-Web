@@ -4,12 +4,12 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession, rpc } from '../../../lib/supabase-browser';
+import { supabase, getSession, rpc } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, Avatar
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 const TYPE_ICONS = {
   Cuti: '✈️', Izin: '📌', Sakit: '🏥', Lembur: '⏰',
@@ -48,10 +48,11 @@ export default function RequestsList() {
   const handleApprove = async (requestId) => {
     setProcessing(true);
     try {
+      // p_approver dihapus dari kontrak RPC (migration 194): approver
+      // diambil dari authz_current_nrp() di backend, bukan param client.
       await rpc('process_request', {
         p_request_id: requestId,
         p_action: 'approve',
-        p_approver: nrp,
       });
       setSelected(null);
       fetchRequests();
@@ -65,7 +66,6 @@ export default function RequestsList() {
       await rpc('process_request', {
         p_request_id: requestId,
         p_action: 'reject',
-        p_approver: nrp,
         p_note: rejectNote || 'Ditolak oleh admin',
       });
       setSelected(null);

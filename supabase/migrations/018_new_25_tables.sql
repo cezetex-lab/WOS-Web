@@ -277,15 +277,16 @@ CREATE TABLE IF NOT EXISTS simulations (
 -- I. INTEGRASI
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS webhook_logs (
-  id SERIAL PRIMARY KEY,
-  event_type TEXT,
-  payload TEXT,
-  target_url TEXT,
-  status TEXT DEFAULT 'PENDING',
-  response_code INTEGER,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- DIPINDAHKAN KE 045_wave8_integrations.sql (dengan struktur yang lebih lengkap)
+-- CREATE TABLE IF NOT EXISTS webhook_logs (
+--   id SERIAL PRIMARY KEY,
+--   event_type TEXT,
+--   payload TEXT,
+--   target_url TEXT,
+--   status TEXT DEFAULT 'PENDING',
+--   response_code INTEGER,
+--   created_at TIMESTAMPTZ DEFAULT NOW()
+-- );
 
 -- ============================================================
 -- J. KEAMANAN & KEPATUHAN (tambahan)

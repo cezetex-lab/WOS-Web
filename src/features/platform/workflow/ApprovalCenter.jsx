@@ -4,8 +4,8 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, LoadingSpinner, Badge, Button, Tabs } from '../../../lib/design-system';
+import { supabase, getSession } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, LoadingSpinner, Badge, Button, Tabs } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
 const STATUS_COLORS = {
@@ -43,10 +43,11 @@ export default function ApprovalCenter() {
   const handleApprove = async (requestId) => {
     setProcessing(true);
     try {
+      // p_approver dihapus dari kontrak RPC (migration 194): approver
+      // diambil dari authz_current_nrp() di backend, bukan param client.
       await supabase.rpc('process_request', {
         p_request_id: requestId,
         p_action: 'approve',
-        p_approver: nrp,
       });
       fetchRequests();
       setSelectedRequest(null);
@@ -60,7 +61,6 @@ export default function ApprovalCenter() {
       await supabase.rpc('process_request', {
         p_request_id: requestId,
         p_action: 'reject',
-        p_approver: nrp,
         p_note: note || 'Ditolak oleh admin',
       });
       fetchRequests();

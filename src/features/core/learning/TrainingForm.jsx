@@ -3,11 +3,11 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '../../../lib/supabase-browser';
+import { supabase, rpc, getSession } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Input, Badge, DataTable,
   LoadingSpinner, EmptyState, Tabs, useToast
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 export default function TrainingForm() {
   const toast = useToast();

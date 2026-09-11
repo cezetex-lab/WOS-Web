@@ -67,10 +67,10 @@
 ---
 
 ## E2E Testing (Playwright)
-- [ ] Setup Playwright config for Supabase local
-- [ ] Auth flow tests (login, logout, session expiry)
+- [x] Setup Playwright config for Supabase local
+- [x] Auth flow tests (login, logout, session expiry) -- login-flow.spec.js
 - [ ] Dashboard rendering tests (stats, charts, tables)
-- [ ] RBAC navigation tests (admin sees correct menu, worker sees correct menu)
+- [x] RBAC navigation tests (admin sees correct menu, worker sees correct menu) -- role-change.spec.js
 - [ ] PWA offline mode tests (Service Worker caching)
 
 ---
@@ -81,12 +81,12 @@
 - [ ] **N4**: AI query rate limit tuning (currently 50/day, adjust based on usage)
 - [x] **I5**: Split `employees_master` God Table into `employees_core` + `employees_extended` (migration 183)
 - [ ] **I1**: Resolve duplicate tables (mill_boiler 052 vs 074, okrs vs hr_okrs)
-- [ ] **P1**: Implement data retention cleanup job (pg_cron)
+- [x] **P1**: Implement data retention cleanup job (pg_cron) -- migration 186
 - [ ] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash)
-- [ ] **M3**: Auto-refresh materialized view (035) via pg_cron
+- [x] **M3**: Auto-refresh materialized view (035) via pg_cron -- migration 186
 - [ ] **R4**: Write rollback scripts for all critical migrations
 
 ---
 
-*Last updated: 2026-09-04*
-*Migration 141 + 143 deployed, smoke tests pending*
+*Last updated: 2026-09-07*
+*Migration 186 deployed (pg_cron), DynamicRoutes enabled, E2E tests written*

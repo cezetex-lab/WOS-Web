@@ -8,6 +8,10 @@ export default defineConfig({
     setupFiles: ['./tests/setup.js'],
     css: false,
     include: ['tests/**/*.test.{js,jsx,ts,tsx}'],
+    // pool=threads: default 'forks' spawns a full Node process per worker —
+    // on Windows aangenaam flaky ("Timeout waiting for worker to respond")
+    // onder resource contention. Threads = 1 process, stabiel.
+    pool: 'threads',
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary'],
@@ -17,7 +21,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
 });

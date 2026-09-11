@@ -4,12 +4,12 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc } from '../../../lib/supabase-browser';
+import { supabase, rpc } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, LoadingSpinner, EmptyState, Badge,
   Input, Tabs, DataTable, Button
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 export default function AuditLog() {
   useAdminAuth(["admin_pusat", "admin_finance"]);

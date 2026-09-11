@@ -1,8 +1,8 @@
 // ForumDiskusi.jsx — Forum diskusi karyawan
 import { getSession } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, Badge, Button, LoadingSpinner, EmptyState, Input } from '../../../lib/design-system';
+import { rpc } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, Badge, Button, LoadingSpinner, EmptyState, Input } from '@/lib/design-system';
 
 export default function ForumDiskusi() {
   const [loading, setLoading] = useState(true);

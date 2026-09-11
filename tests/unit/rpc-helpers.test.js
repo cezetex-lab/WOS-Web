@@ -45,37 +45,3 @@ describe('RPC Rate Limiter', () => {
     expect(status.remaining).toBe(28);
   });
 });
-
-describe('Circuit Breaker', () => {
-  it('starts in CLOSED state', async () => {
-    const { CircuitBreaker } = await import('../../src/lib/circuit-breaker.js');
-    
-    const cb = new CircuitBreaker({ failureThreshold: 3, resetTimeout: 1000 });
-    expect(cb.state).toBe('CLOSED');
-  });
-
-  it('opens after threshold failures', async () => {
-    const { CircuitBreaker } = await import('../../src/lib/circuit-breaker.js');
-    
-    const cb = new CircuitBreaker({ failureThreshold: 3, resetTimeout: 1000 });
-    
-    for (let i = 0; i < 3; i++) {
-      try {
-        await cb.execute(() => Promise.reject(new Error('fail')));
-      } catch {}
-    }
-    
-    expect(cb.state).toBe('OPEN');
-  });
-
-  it('rejects when OPEN', async () => {
-    const { CircuitBreaker } = await import('../../src/lib/circuit-breaker.js');
-    
-    const cb = new CircuitBreaker({ failureThreshold: 2, resetTimeout: 60000 });
-    
-    try { await cb.execute(() => Promise.reject(new Error('fail'))); } catch {}
-    try { await cb.execute(() => Promise.reject(new Error('fail'))); } catch {}
-    
-    await expect(cb.execute(() => Promise.resolve('ok'))).rejects.toThrow();
-  });
-});

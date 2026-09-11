@@ -1,15 +1,8 @@
 import { useState } from "react";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { callEdgeFunctionApiKey } from "@/lib/edge-functions";
 
 async function callReset(action, data) {
-  const res = await fetch("${SUPABASE_URL}/functions/v1/password-reset", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
-    body: JSON.stringify({ action, ...data }),
-  });
-  return res.json();
+  return callEdgeFunctionApiKey("password-reset", { action, ...data });
 }
 
 export default function PasswordReset() {

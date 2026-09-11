@@ -1,102 +1,60 @@
 // src/components/AppDrawer.jsx
+// Drawer navigasi: sumber utama = menu dinamis dari module_definitions
+// (buildMenu, A12). Konstanta di bawah HANYA fallback saat menu dinamis
+// gagal/belum termuat — cukup "gerbang" ke area, bukan salinan penuh menu.
+// Otoritas akses sesungguhnya tetap di DynamicRoutes guard + RLS database.
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { rpc, getSession } from '@/lib/supabase-browser';
-import { BU_MODULES } from '@/lib/business-units';
+import { buildMenu, areaFromPath, drawerPathInArea } from '@/lib/menu-builder';
 
-// Admin Pusat: ALL modules
-const ADMIN_PUSAT_GROUPS = [
+// ── Grup fallback bersama (dipakai ulang antar role — mengakhiri copy-paste) ──
+const G_OPS = {
+  title: 'OPERASIONAL',
+  items: [
+    { icon: '⏱️', label: 'Timesheet', path: '/admin/timesheet' },
+    { icon: '🔄', label: 'Shift Swap', path: '/admin/shift-swap' },
+    { icon: '⏰', label: 'Lembur', path: '/admin/overtime' },
+    { icon: '📝', label: 'Pengajuan', path: '/admin/requests' },
+  ],
+};
+
+const G_PERF = {
+  title: 'KINERJA & ASET',
+  items: [
+    { icon: '📊', label: 'KPI', path: '/admin/kpi' },
+    { icon: '🛠️', label: 'Inventaris', path: '/admin/assets' },
+    { icon: '📦', label: 'Check-in/out', path: '/admin/asset-assign' },
+  ],
+};
+
+const G_SYS = {
+  title: 'SISTEM',
+  items: [
+    { icon: '📋', label: 'Audit Log', path: '/admin/audit' },
+    { icon: '🔐', label: 'Pengaturan', path: '/admin/settings' },
+  ],
+};
+
+// Fallback admin "gerbang": inti navigasi admin. Saat menu dinamis hidup,
+// grup ini selalu tertimpa daftar lengkap dari module_definitions.
+const ADMIN_FALLBACK_GROUPS = [
   {
-    title: 'KELOLA DATA',
+    title: 'MENU ADMIN',
     items: [
       { icon: '👥', label: 'Karyawan', path: '/admin/employees' },
-      { icon: '🏢', label: 'Organisasi', path: '/admin/org' },
-      { icon: '📂', label: 'Divisi', path: '/admin/divisions' },
-      { icon: '🗄️', label: 'Master Data', path: '/admin/master' },
-      { icon: '🔑', label: 'Role Matrix', path: '/admin/roles' },
-    ]
-  },
-  {
-    title: 'OPERASIONAL HR',
-    items: [
       { icon: '📝', label: 'Pengajuan', path: '/admin/requests' },
-      { icon: '🌴', label: 'Cuti', path: '/admin/leave' },
-      { icon: '⏰', label: 'Lembur', path: '/admin/overtime' },
       { icon: '💰', label: 'Payroll', path: '/admin/payroll' },
-      { icon: '⏱️', label: 'Timesheet', path: '/admin/timesheet' },
-      { icon: '🔄', label: 'Shift Swap', path: '/admin/shift-swap' },
-    ]
-  },
-  {
-    title: 'TALENT & PERFORMANCE',
-    items: [
       { icon: '📊', label: 'KPI', path: '/admin/kpi' },
-      { icon: '🎯', label: 'OKR', path: '/admin/okr' },
-      { icon: '📚', label: 'Learning', path: '/admin/learning' },
-      { icon: '📜', label: 'Sertifikasi', path: '/admin/certifications' },
-      { icon: '🏅', label: 'Badge & Gamifikasi', path: '/admin/badges' },
-      { icon: '🎯', label: 'Talent Market', path: '/admin/talent' },
-      { icon: '🧭', label: 'Career Path', path: '/admin/career' },
-    ]
-  },
-  {
-    title: 'REKRUTMEN',
-    items: [
-      { icon: '📋', label: 'Rekrutmen', path: '/admin/recruitment' },
-      { icon: '🔀', label: 'Pipeline', path: '/admin/pipeline' },
-      { icon: '🚀', label: 'Onboarding', path: '/admin/onboarding' },
-      { icon: '🔍', label: 'Screening', path: '/admin/screening' },
-    ]
-  },
-  {
-    title: 'ASET & FASILITAS',
-    items: [
-      { icon: '🛠️', label: 'Inventaris', path: '/admin/assets' },
-      { icon: '📦', label: 'Check-in/out', path: '/admin/asset-assign' },
-      { icon: '🌳', label: 'Estate Blocks', path: '/admin/estate' },
-      { icon: '🏗️', label: 'Facility Request', path: '/admin/facility' },
-    ]
-  },
-  {
-    title: 'ENGAGEMENT & BUDAYA',
-    items: [
-      { icon: '📋', label: 'Survei (eNPS)', path: '/admin/surveys' },
-      { icon: '💡', label: 'Ide & Voice', path: '/admin/voice' },
-      { icon: '🕊️', label: 'Whistleblowing', path: '/admin/whistleblower' },
-      { icon: '💬', label: 'Forum', path: '/admin/forum' },
-    ]
-  },
-  {
-    title: 'OFFBOARDING',
-    items: [
-      { icon: '🚪', label: 'Exit Interview', path: '/admin/exit' },
-      { icon: '📄', label: 'Final Settlement', path: '/admin/settlement' },
-      { icon: '✅', label: 'Clearance', path: '/admin/clearance' },
-    ]
-  },
-  {
-    title: 'SISTEM & KEAMANAN',
-    items: [
+      { icon: '🏢', label: 'Organisasi', path: '/admin/org' },
       { icon: '📋', label: 'Audit Log', path: '/admin/audit' },
-      { icon: '📤', label: 'Export Data', path: '/admin/export' },
-      { icon: '⚙️', label: 'Feature Flags', path: '/admin/features' },
       { icon: '🔐', label: 'Pengaturan', path: '/admin/settings' },
-      { icon: '🔗', label: 'Audit Chain', path: '/admin/chain' },
-    ]
+    ],
   },
-  {
-    title: 'PERENCANAAN & ANALITIK',
-    items: [
-      { icon: '📊', label: 'Headcount Plan', path: '/admin/headcount' },
-      { icon: '💰', label: 'Budget Allocation', path: '/admin/budget' },
-      { icon: '🤝', label: 'Referral Program', path: '/admin/referral' },
-      { icon: '🧪', label: 'Simulasi', path: '/admin/simulation' },
-      { icon: '🤖', label: 'AI Tasks', path: '/admin/ai-tasks' },
-    ]
-  }
 ];
 
-// Admin HRD: People + Talent + Engagement + Recruitment
+// Fallback per-role admin (menu dinamis gagal). Grup bersama direferensikan,
+// bukan disalin. Item /worker/* di sini akan disaring oleh inArea di area admin.
 const ADMIN_HRD_GROUPS = [
   {
     title: 'KELOLA DATA',
@@ -104,17 +62,7 @@ const ADMIN_HRD_GROUPS = [
       { icon: '👥', label: 'Karyawan', path: '/admin/employees' },
       { icon: '🏢', label: 'Organisasi', path: '/admin/org' },
       { icon: '📂', label: 'Divisi', path: '/admin/divisions' },
-      { icon: '🔑', label: 'Role Matrix', path: '/admin/roles' },
-    ]
-  },
-  {
-    title: 'REKRUTMEN & ONBOARDING',
-    items: [
-      { icon: '📋', label: 'Rekrutmen', path: '/admin/recruitment' },
-      { icon: '🔀', label: 'Pipeline', path: '/admin/pipeline' },
-      { icon: '🚀', label: 'Onboarding', path: '/admin/onboarding' },
-      { icon: '🔍', label: 'Screening', path: '/admin/screening' },
-    ]
+    ],
   },
   {
     title: 'TALENT & PERFORMANCE',
@@ -122,160 +70,43 @@ const ADMIN_HRD_GROUPS = [
       { icon: '📊', label: 'KPI', path: '/admin/kpi' },
       { icon: '🎯', label: 'OKR', path: '/admin/okr' },
       { icon: '📚', label: 'Learning', path: '/admin/learning' },
-      { icon: '📜', label: 'Sertifikasi', path: '/admin/certifications' },
-      { icon: '🏅', label: 'Badge & Gamifikasi', path: '/admin/badges' },
-      { icon: '🎯', label: 'Talent Market', path: '/admin/talent' },
-      { icon: '🧭', label: 'Career Path', path: '/admin/career' },
-    ]
+    ],
   },
-  {
-    title: 'SELF-SERVICE & ENGAGEMENT',
-    items: [
-      { icon: '📝', label: 'Pengajuan', path: '/admin/requests' },
-      { icon: '🌴', label: 'Cuti', path: '/admin/leave' },
-      { icon: '📋', label: 'Survei (eNPS)', path: '/admin/surveys' },
-      { icon: '💡', label: 'Ide & Voice', path: '/admin/voice' },
-      { icon: '💬', label: 'Forum', path: '/admin/forum' },
-    ]
-  },
-  {
-    title: 'OFFBOARDING & PERENCANAAN',
-    items: [
-      { icon: '🚪', label: 'Exit Interview', path: '/admin/exit' },
-      { icon: '📊', label: 'Headcount Plan', path: '/admin/headcount' },
-      { icon: '🔐', label: 'Pengaturan', path: '/admin/settings' },
-    ]
-  }
+  G_OPS,
+  G_SYS,
 ];
 
-// Admin Finance: Payroll + Budget + Financial
 const ADMIN_FINANCE_GROUPS = [
   {
     title: 'PAYROLL & KOMPENSASI',
     items: [
       { icon: '💰', label: 'Payroll', path: '/admin/payroll' },
-      { icon: '📊', label: 'KPI', path: '/admin/kpi' },
       { icon: '🎁', label: 'Insentif', path: '/admin/incentive' },
-    ]
-  },
-  {
-    title: 'ANGGARAN & LAPORAN',
-    items: [
       { icon: '💰', label: 'Budget Allocation', path: '/admin/budget' },
-      { icon: '📤', label: 'Export Data', path: '/admin/export' },
-      { icon: '⏱️', label: 'Timesheet', path: '/admin/timesheet' },
-    ]
+    ],
   },
-  {
-    title: 'OPERASIONAL',
-    items: [
-      { icon: '⏰', label: 'Lembur', path: '/admin/overtime' },
-      { icon: '📝', label: 'Pengajuan', path: '/admin/requests' },
-      { icon: '🛠️', label: 'Inventaris', path: '/admin/assets' },
-    ]
-  },
-  {
-    title: 'SISTEM',
-    items: [
-      { icon: '📋', label: 'Audit Log', path: '/admin/audit' },
-      { icon: '🔐', label: 'Pengaturan', path: '/admin/settings' },
-    ]
-  }
+  G_OPS,
+  G_SYS,
 ];
 
-// Admin Produksi: Operations + Assets + Attendance
-const ADMIN_PRODUKSI_GROUPS = [
-  {
-    title: 'OPERASIONAL',
-    items: [
-      { icon: '⏱️', label: 'Timesheet', path: '/admin/timesheet' },
-      { icon: '🔄', label: 'Shift Swap', path: '/admin/shift-swap' },
-      { icon: '⏰', label: 'Lembur', path: '/admin/overtime' },
-      { icon: '📝', label: 'Pengajuan', path: '/admin/requests' },
-    ]
-  },
-  {
-    title: 'KINERJA & ASET',
-    items: [
-      { icon: '📊', label: 'KPI', path: '/admin/kpi' },
-      { icon: '🛠️', label: 'Inventaris', path: '/admin/assets' },
-      { icon: '📦', label: 'Check-in/out', path: '/admin/asset-assign' },
-      { icon: '🌳', label: 'Estate Blocks', path: '/admin/estate' },
-    ]
-  },
-  {
-    title: 'FASILITAS & KESELAMATAN',
-    items: [
-      { icon: '🏗️', label: 'Facility Request', path: '/admin/facility' },
-      { icon: '🌴', label: 'Cuti', path: '/admin/leave' },
-      { icon: '📜', label: 'Sertifikasi', path: '/admin/certifications' },
-    ]
-  },
-  {
-    title: 'SISTEM',
-    items: [
-      { icon: '📋', label: 'Audit Log', path: '/admin/audit' },
-      { icon: '🔐', label: 'Pengaturan', path: '/admin/settings' },
-    ]
-  }
-];
+const ADMIN_PRODUKSI_GROUPS = [G_OPS, G_PERF, G_SYS];
 
-// Map admin role to menu groups
+const ADMIN_MINING_GROUPS = [G_OPS, G_PERF, G_SYS];
+
+const ADMIN_MILL_GROUPS = [G_OPS, G_PERF, G_SYS];
+
+const ADMIN_ESTATE_GROUPS = [G_OPS, G_PERF, G_SYS];
+
 const ADMIN_ROLE_MAP = {
-  admin_pusat: ADMIN_PUSAT_GROUPS,
   admin_hrd: ADMIN_HRD_GROUPS,
   admin_finance: ADMIN_FINANCE_GROUPS,
   admin_produksi: ADMIN_PRODUKSI_GROUPS,
+  admin_mining: ADMIN_MINING_GROUPS,
+  admin_mill: ADMIN_MILL_GROUPS,
+  admin_estate: ADMIN_ESTATE_GROUPS,
 };
 
-const CEO_GROUPS = [
-  {
-    title: 'OPERASI TAMBANG',
-    items: [
-      { icon: '⛏️', label: 'SIMPER', path: '/worker/simper' },
-      { icon: '🏗️', label: 'Alat Berat', path: '/worker/heavy-equip' },
-      { icon: '⚠️', label: 'Fatigue', path: '/worker/fatigue' },
-      { icon: '🪨', label: 'Produksi Harian', path: '/worker/production' },
-      { icon: '🛡️', label: 'Safety K3', path: '/worker/safety' },
-      { icon: '🔥', label: 'Emergency', path: '/worker/emergency' },
-      { icon: '📋', label: 'JSA', path: '/worker/jsa' },
-    ],
-  },
-  {
-    title: 'PERKEBUNAN',
-    items: [
-      { icon: '🌾', label: 'Panen', path: '/worker/harvest' },
-      { icon: '🗺️', label: 'Blok Kebun', path: '/worker/blocks' },
-      { icon: '💧', label: 'Irigrasi', path: '/worker/irrigation' },
-      { icon: '🌱', label: 'Nursery', path: '/worker/nursery' },
-      { icon: '🚛', label: 'Transport TBS', path: '/worker/transport' },
-      { icon: '🌿', label: 'Field Activity', path: '/worker/field' },
-      { icon: '📊', label: 'Yield', path: '/worker/yield' },
-    ],
-  },
-  {
-    title: 'PABRIK PKS',
-    items: [
-      { icon: '🔥', label: 'Boiler', path: '/worker/boiler' },
-      { icon: '⚙️', label: 'Mesin Press', path: '/worker/machines' },
-      { icon: '🔬', label: 'QC Lab', path: '/worker/qc' },
-      { icon: '📦', label: 'Packing', path: '/worker/packing' },
-      { icon: '🔧', label: 'Maintenance', path: '/worker/maintenance' },
-      { icon: '🚨', label: 'Breakdown', path: '/worker/breakdown' },
-      { icon: '🔄', label: 'Shift', path: '/worker/shift' },
-    ],
-  },
-  {
-    title: 'HR & AKTIVITAS',
-    items: [
-      { icon: '📍', label: 'Kehadiran', path: '/worker/attendance' },
-      { icon: '🌴', label: 'Cuti', path: '/worker/leave' },
-      { icon: '💰', label: 'Slip Gaji', path: '/worker/payroll' },
-      { icon: '👤', label: 'Profil Saya', path: '/worker/profile' },
-    ],
-  },
-];
-
+// Fallback worker (self-service pribadi)
 const WORKER_GROUPS = [
   {
     title: 'AKTIVITAS',
@@ -285,7 +116,7 @@ const WORKER_GROUPS = [
       { icon: '💼', label: 'Lembur', path: '/worker/overtime' },
       { icon: '✅', label: 'Task Saya', path: '/worker/tasks' },
       { icon: '📋', label: 'Aktivitas', path: '/worker/activities' },
-    ]
+    ],
   },
   {
     title: 'PENGEMBANGAN DIRI',
@@ -293,17 +124,19 @@ const WORKER_GROUPS = [
       { icon: '📚', label: 'Learning', path: '/worker/learning' },
       { icon: '🚀', label: 'Karir', path: '/worker/career' },
       { icon: '📊', label: 'KPI Saya', path: '/worker/kpi' },
-    ]
+    ],
   },
   {
     title: 'KOMPENSASI',
     items: [
       { icon: '💰', label: 'Slip Gaji', path: '/worker/payroll' },
       { icon: '👤', label: 'Profil Saya', path: '/worker/profile' },
-    ]
+    ],
   },
 ];
 
+// Fallback manager/dashboard. Item menunjuk '/dashboard' (bukan '/dashboard/x')
+// agar lolos filter inArea — dahulu fallback ini menghasilkan drawer kosong.
 const MANAGER_GROUPS = [
   {
     title: 'DASHBOARD',
@@ -312,48 +145,87 @@ const MANAGER_GROUPS = [
       { icon: '👥', label: 'Tim Saya', path: '/dashboard' },
       { icon: '📈', label: 'KPI Divisi', path: '/dashboard' },
       { icon: '💰', label: 'Keuangan', path: '/dashboard' },
-    ]
-  },
-  {
-    title: 'RISK & ANALYTICS',
-    items: [
       { icon: '⚠️', label: 'Flight Risk', path: '/dashboard' },
-      { icon: '🔄', label: 'Turnover', path: '/dashboard' },
       { icon: '🏢', label: 'Exec Summary', path: '/dashboard' },
-      { icon: '🏗️', label: 'Health Score', path: '/dashboard' },
-    ]
+    ],
   },
 ];
 
-// Convert BU modules sidebarGroups to AppDrawer format
-function getWorkerGroups(bu, roleLevel) {
-  // CEO/Director sees ALL industry modules
-  if (roleLevel >= 4) return CEO_GROUPS;
-  const modules = BU_MODULES[bu] || BU_MODULES.HQ;
-  return modules.sidebarGroups || WORKER_GROUPS;
-}
+// Fallback area owner — menu lengkap owner datang dari module_definitions.
+const OWNER_FALLBACK_GROUPS = ADMIN_FALLBACK_GROUPS;
 
 export function AppDrawer({ isOpen, onClose }) {
-  if (!isOpen) return null;
-  const session = getSession();
-  const role = session?.role || 'worker';
-  const bu = session?.business_unit || 'HQ';
-
-  let groups;
-  if (role.startsWith('admin_')) {
-    groups = ADMIN_ROLE_MAP[role] || ADMIN_PUSAT_GROUPS;
-  } else if (role === 'manager') {
-    groups = MANAGER_GROUPS;
-  } else {
-    groups = getWorkerGroups(bu, session?.role_level || 1);
-  }
+  const location = useLocation();
   const [brand, setBrand] = useState({ company_name: 'insightWOS', logo_url: '' });
-  
+  const [dynamicGroups, setDynamicGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     rpc('get_branding', {}).then(d => {
       if (d && d.company_name) setBrand(d);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const drawerArea = areaFromPath(location.pathname);
+    buildMenu(drawerArea).then(menu => {
+      // Group dynamic menu items by module_group
+      const grouped = {};
+      menu.forEach(item => {
+        const group = item.group || 'LAINNYA';
+        if (!grouped[group]) grouped[group] = [];
+        grouped[group].push({ icon: item.icon, label: item.name, path: item.path });
+      });
+
+      // Convert to AppDrawer format
+      const groups = Object.entries(grouped).map(([title, items]) => ({ title, items }));
+      setDynamicGroups(groups);
+      setLoading(false);
+    }).catch(err => {
+      console.error('[AppDrawer] Failed to build menu:', err);
+      setLoading(false);
+    });
+  }, [isOpen, location.pathname]);
+
+  if (!isOpen) return null;
+  const session = getSession();
+  const role = session?.role || 'worker';
+  const path = location.pathname;
+  const isOwner = session?.is_owner || role === 'owner';
+
+  // Use dynamic menu if available, otherwise fallback to hardcoded
+  let groups = dynamicGroups;
+
+  // Fallback to hardcoded groups if dynamic menu empty or still loading
+  if (!groups.length || loading) {
+    if (path.startsWith('/dashboard')) {
+      groups = MANAGER_GROUPS;
+    } else if (path.startsWith('/owner')) {
+      groups = OWNER_FALLBACK_GROUPS;
+    } else if (path.startsWith('/admin')) {
+      // Owner (GOD mode) dan admin_pusat dapat fallback admin lengkap;
+      // menu penuh mereka tetap datang dari module_definitions.
+      if (isOwner || role === 'admin_pusat') {
+        groups = ADMIN_FALLBACK_GROUPS;
+      } else {
+        groups = ADMIN_ROLE_MAP[role] || ADMIN_FALLBACK_GROUPS;
+      }
+    } else {
+      // Semua user di area worker hanya melihat self-service pribadi.
+      // Role admin/direktur tidak mengubah isi drawer worker.
+      groups = WORKER_GROUPS;
+    }
+  }
+
+  // Safety net: item di luar area aktif dibuang, grup kosong disembunyikan.
+  // Memakai drawerPathInArea() dari menu-builder.js — satu implementasi filter
+  // area yang sama dengan buildMenu (plus klausa dashboard-di-area-worker).
+  const area = areaFromPath(path);
+  const inArea = (p) => drawerPathInArea(p, area);
+  groups = groups
+    .map(g => ({ ...g, items: g.items.filter(i => inArea(i.path)) }))
+    .filter(g => g.items.length > 0);
 
   return (
     <>

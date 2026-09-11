@@ -1,13 +1,16 @@
 -- ============================================================
--- 050_wave_final_missing_features.sql
--- FIX: candidate_pipeline & vacancies already exist from 018
--- Only add NEW tables + fix RPC functions + seed data
+-- 050_wave_final_missing_features.sql (FIXED)
+-- FIX: Safe onboarding_tasks & reviews_360 creation (rename old)
 -- ============================================================
 
--- ── 1. DROP + CREATE TABLES (ensure correct schema) ──
+-- ── 1. Safe create/recreate onboarding_tasks ──
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'onboarding_tasks' AND table_schema = 'public') THEN
+    ALTER TABLE onboarding_tasks RENAME TO onboarding_tasks_old;
+  END IF;
+END $$;
 
-DROP TABLE IF EXISTS onboarding_tasks CASCADE;
-CREATE TABLE onboarding_tasks (
+CREATE TABLE IF NOT EXISTS onboarding_tasks (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   nrp text,
   task_name text NOT NULL,
@@ -19,8 +22,14 @@ CREATE TABLE onboarding_tasks (
   created_at timestamptz DEFAULT now()
 );
 
-DROP TABLE IF EXISTS reviews_360 CASCADE;
-CREATE TABLE reviews_360 (
+-- ── 2. Safe create/recreate reviews_360 ──
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'reviews_360' AND table_schema = 'public') THEN
+    ALTER TABLE reviews_360 RENAME TO reviews_360_old;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS reviews_360 (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   reviewee_nrp text NOT NULL,
   reviewer_nrp text NOT NULL,
@@ -36,9 +45,14 @@ CREATE TABLE reviews_360 (
   created_at timestamptz DEFAULT now()
 );
 
-DROP TABLE IF EXISTS forum_replies CASCADE;
-DROP TABLE IF EXISTS forum_posts CASCADE;
-CREATE TABLE forum_posts (
+-- ── 3. Safe create/recreate forum tables ──
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'forum_posts' AND table_schema = 'public') THEN
+    ALTER TABLE forum_posts RENAME TO forum_posts_old;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS forum_posts (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   nrp text NOT NULL,
   title text NOT NULL,
@@ -50,7 +64,13 @@ CREATE TABLE forum_posts (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE TABLE forum_replies (
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'forum_replies' AND table_schema = 'public') THEN
+    ALTER TABLE forum_replies RENAME TO forum_replies_old;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS forum_replies (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   post_id uuid REFERENCES forum_posts(id) ON DELETE CASCADE,
   nrp text NOT NULL,
@@ -58,8 +78,14 @@ CREATE TABLE forum_replies (
   created_at timestamptz DEFAULT now()
 );
 
-DROP TABLE IF EXISTS screening_results CASCADE;
-CREATE TABLE screening_results (
+-- ── 4. Safe create/recreate screening_results ──
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'screening_results' AND table_schema = 'public') THEN
+    ALTER TABLE screening_results RENAME TO screening_results_old;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS screening_results (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   candidate_name text NOT NULL,
   check_type text NOT NULL,
@@ -70,10 +96,10 @@ CREATE TABLE screening_results (
 );
 
 -- ══════════════════════════════════════════════════════════════
--- RPC FUNCTIONS (FIX: use existing table columns)
+-- RPC FUNCTIONS (FIX: use existing table columns) — SAME AS BEFORE
 -- ══════════════════════════════════════════════════════════════
 
--- ── RECRUITMENT: Vacancies (use existing table: id TEXT, position, department, quota) ──
+-- ── RECRUITMENT: Vacancies ──
 CREATE OR REPLACE FUNCTION get_vacancy_list()
 RETURNS jsonb AS $$
   SELECT COALESCE(jsonb_agg(
@@ -166,7 +192,7 @@ RETURNS jsonb AS $$
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ══════════════════════════════════════════════════════════════
--- SEED DATA — Forum Posts (10)
+-- SEED DATA (SAMA — KEEP)
 -- ══════════════════════════════════════════════════════════════
 INSERT INTO forum_posts (nrp, title, content, category, replies_count, likes_count, pinned) VALUES
 ('NRP001', 'Selamat Datang di Forum Diskusi!', 'Forum ini untuk diskusi internal karyawan. Silakan berbagi ide, saran, dan pertanyaan.', 'Umum', 5, 12, true),
@@ -179,11 +205,8 @@ INSERT INTO forum_posts (nrp, title, content, category, replies_count, likes_cou
 ('NRP057', 'Workshop K3 untuk Tim Estate', 'Workshop K3 dijadwalkan 15 Sept. Attendance wajib untuk semua mandor.', 'K3', 2, 9, false),
 ('NRP088', 'Forum: Bagaimana Cara Meningkatkan KPI?', 'Yuk diskusi strategi untuk meningkatkan KPI divisi masing-masing.', 'KPI', 8, 14, false),
 ('NRP002', 'Pengumuman: Libur Nasional 17 Agustus', 'Seluruh karyawan libur 17 Agustus. Cuti bersama tidak perlu approval.', 'Kebijakan', 1, 25, false)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
--- ══════════════════════════════════════════════════════════════
--- SEED DATA — Forum Replies (15)
--- ══════════════════════════════════════════════════════════════
 INSERT INTO forum_replies (post_id, nrp, content) VALUES
 ((SELECT id FROM forum_posts WHERE title LIKE 'Selamat Datang%' LIMIT 1), 'NRP010', 'Terima kasih! Senang bisa diskusi di sini.'),
 ((SELECT id FROM forum_posts WHERE title LIKE 'Selamat Datang%' LIMIT 1), 'NRP025', 'Semoga forum ini bermanfaat untuk semua.'),
@@ -197,9 +220,6 @@ INSERT INTO forum_replies (post_id, nrp, content) VALUES
 ((SELECT id FROM forum_posts WHERE title LIKE 'Hasil Survei%' LIMIT 1), 'NRP088', 'Semoga terus naik di Q3.')
 ON CONFLICT DO NOTHING;
 
--- ══════════════════════════════════════════════════════════════
--- SEED DATA — 360° Review (20)
--- ══════════════════════════════════════════════════════════════
 INSERT INTO reviews_360 (reviewee_nrp, reviewer_nrp, relationship, leadership_score, communication_score, teamwork_score, innovation_score, overall_score, comments, period) VALUES
 ('NRP010', 'NRP001', 'Manager', 85, 80, 90, 75, 83, 'Pemimpin tim yang baik, komunikatif.', 'Q2-2026'),
 ('NRP010', 'NRP015', 'Peer', 78, 82, 88, 70, 80, 'Kolaboratif dan supportive.', 'Q2-2026'),
@@ -223,9 +243,6 @@ INSERT INTO reviews_360 (reviewee_nrp, reviewer_nrp, relationship, leadership_sc
 ('NRP100', 'NRP001', 'Manager', 86, 84, 88, 82, 85, 'Sangat appreciate kerja kerasnya.', 'Q2-2026')
 ON CONFLICT DO NOTHING;
 
--- ══════════════════════════════════════════════════════════════
--- SEED DATA — Screening Results (10)
--- ══════════════════════════════════════════════════════════════
 INSERT INTO screening_results (candidate_name, check_type, status, notes) VALUES
 ('Ahmad Rizki', 'Background', 'Passed', 'Clean record, referensi positif dari universitas.'),
 ('Siti Nurhaliza', 'Background', 'Passed', 'Tidak ada catatan kriminal.'),
@@ -239,9 +256,6 @@ INSERT INTO screening_results (candidate_name, check_type, status, notes) VALUES
 ('Julia Rahmawati', 'Education', 'Failed', 'Ijazah tidak terverifikasi.')
 ON CONFLICT DO NOTHING;
 
--- ══════════════════════════════════════════════════════════════
--- SEED DATA — Onboarding Tasks (15)
--- ══════════════════════════════════════════════════════════════
 INSERT INTO onboarding_tasks (nrp, task_name, category, status, due_date, assigned_to) VALUES
 ('NRP001', 'Setup email & akun sistem', 'IT', 'Completed', '2026-08-01', 'IT Helpdesk'),
 ('NRP001', 'Orientation kantor pusat', 'HR', 'Completed', '2026-08-02', 'HRD'),
@@ -258,4 +272,4 @@ INSERT INTO onboarding_tasks (nrp, task_name, category, status, due_date, assign
 ('NRP042', 'Setup email & akun sistem', 'IT', 'InProgress', '2026-09-10', 'IT Helpdesk'),
 ('NRP042', 'Jadwal training produk', 'Training', 'Pending', '2026-09-15', 'Product Team'),
 ('NRP057', 'Semua onboarding selesai', 'General', 'Completed', '2026-05-01', 'HRD')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;

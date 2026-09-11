@@ -4,12 +4,12 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc } from '../../../lib/supabase-browser';
+import { supabase, rpc } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
   LoadingSpinner, Button, Avatar, Tabs
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 export default function LeaveManagement() {
   useAdminAuth(["admin_pusat", "admin_hrd", "admin_produksi"]);

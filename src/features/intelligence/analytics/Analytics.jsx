@@ -4,12 +4,12 @@
 // ============================================================
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase, rpc } from '../../../lib/supabase-browser';
+import { supabase, rpc } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, LoadingSpinner, EmptyState, StatItem,
   Tabs, SectionHeader
-} from '../../../lib/design-system';
-import { useChart, CHART_DEFAULTS, COLORS } from '../../../lib/chart-config';
+} from '@/lib/design-system';
+import { useChart, CHART_DEFAULTS, COLORS } from '@/lib/chart-config';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
 const BU_COLORS = {

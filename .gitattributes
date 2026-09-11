@@ -1,0 +1,33 @@
+# .gitattributes — kebijakan EOL permanen (mengakhiri ambiguitas CRLF/LF)
+#
+# Model: LF di dalam repo (index), CRLF di working tree Windows.
+# Ini mengunci perilaku tanpa bergantung core.autocrlf tiap kontributor,
+# sehingga tool (sed/perl/editor) tidak lagi menimbulkan diff derau CR.
+# Build (Vercel/Vite) membaca blob LF dari git — tidak terpengaruh.
+
+* text=auto eol=crlf
+
+# ── Script shell WAJIB LF — CRLF membuat bash gagal ('\r': command not found)
+*.sh text eol=lf
+*.bash text eol=lf
+
+# ── Script Windows: CRLF eksplisit
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# ── Aset biner: jangan pernah dikonversi
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+*.gz binary

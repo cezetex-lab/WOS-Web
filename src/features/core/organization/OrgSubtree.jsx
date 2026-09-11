@@ -4,11 +4,11 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '../../../lib/supabase-browser';
+import { supabase, rpc, getSession } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, LoadingSpinner, EmptyState, Avatar, Badge, Input, Button
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 export default function OrgSubtree() {
   useAdminAuth(["admin_pusat"]);

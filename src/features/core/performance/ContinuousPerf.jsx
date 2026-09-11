@@ -4,11 +4,11 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '../../../lib/supabase-browser';
+import { supabase, rpc, getSession } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Input, Badge, LoadingSpinner,
   EmptyState, StatItem, SectionHeader, useToast
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 export default function ContinuousPerf() {
   const toast = useToast();

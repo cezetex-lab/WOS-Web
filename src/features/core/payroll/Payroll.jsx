@@ -5,45 +5,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, rpc } from '../../../lib/supabase-browser';
+import { supabase, rpc } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, Avatar, StatItem
-} from '../../../lib/design-system';
-
-// ──────────────────────────────────────────────────────────────
-// HELPERS
-// ──────────────────────────────────────────────────────────────
-function formatRupiah(n) {
-  if (n == null || isNaN(n)) return '-';
-  return 'Rp ' + Number(n).toLocaleString('id-ID');
-}
-
-function getCurrentPeriod() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function getPeriodLabel(period) {
-  if (!period) return '-';
-  const [y, m] = period.split('-');
-  const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  return `${months[parseInt(m) - 1] || m} ${y}`;
-}
-
-// Generate last 6 months for period filter
-function getRecentPeriods(count = 6) {
-  const periods = [];
-  const now = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const label = `${['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][d.getMonth()]} ${d.getFullYear()}`;
-    periods.push({ id: key, label });
-  }
-  return periods;
-}
+} from '@/lib/design-system';
+import { formatRupiah, getCurrentPeriod, getPeriodLabel, getRecentPeriods } from '@/lib/format';
 
 // ──────────────────────────────────────────────────────────────
 // MAIN COMPONENT

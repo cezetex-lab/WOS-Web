@@ -4,16 +4,13 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession } from '../../../lib/supabase-browser';
+import { supabase, getSession } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Badge, LoadingSpinner,
   EmptyState, Tabs, StatItem, Input, Divider
-} from '../../../lib/design-system';
-
-function formatRupiah(n) {
-  return 'Rp ' + (n || 0).toLocaleString('id-ID');
-}
+} from '@/lib/design-system';
+import { formatRupiah, getCurrentPeriod } from '@/lib/format';
 
 const INCENTIVE_TYPES = [
   { key: 'kpi', label: '🎯 KPI Bonus', desc: 'Berdasarkan skor KPI bulanan', color: 'green' },
@@ -31,11 +28,6 @@ export default function IncentiveCalc() {
   const [targetNrp, setTargetNrp] = useState('');
   const [period, setPeriod] = useState(getCurrentPeriod());
   const [tab, setTab] = useState('list');
-
-  function getCurrentPeriod() {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }
 
   const fetchIncentives = useCallback(async () => {
     setLoading(true);

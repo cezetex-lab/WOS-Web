@@ -1,8 +1,8 @@
 // WorkerPayroll.jsx — Slip gaji bulanan karyawan
 import { getSession } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState, Button } from '../../../lib/design-system';
+import { rpc } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState, Button } from '@/lib/design-system';
 
 export default function WorkerPayroll() {
   const [loading, setLoading] = useState(true);

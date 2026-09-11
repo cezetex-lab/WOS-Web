@@ -95,7 +95,7 @@ export async function initSession() {
           business_unit_id: data.business_unit_id,
           divisi: data.divisi,
           posisi: data.posisi,
-          is_owner: data.is_owner,
+          is_owner: data.is_owner || data.role === 'owner',
           email: data.email
         };
         // Persist admin/owner context ke sessionStorage juga — tanpa ini

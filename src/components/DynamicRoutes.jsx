@@ -13,8 +13,10 @@ import LazyLoad from './LazyLoad';
 import ErrorBoundary from './ErrorBoundary';
 
 function RouteWrapper({ Component, name }) {
+  // key by component name: remounts ErrorBoundary on route change so an
+  // error caught on one page isn't shown on every later page.
   return (
-    <ErrorBoundary fallbackName={name || 'Page'}>
+    <ErrorBoundary key={name || 'Page'} fallbackName={name || 'Page'}>
       <LazyLoad>
         <Component />
       </LazyLoad>

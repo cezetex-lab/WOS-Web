@@ -1,7 +1,7 @@
 // RoleMatrixPage.jsx — Mapping Role & Permission
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '../../../lib/design-system';
+import { rpc } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
 const ROLE_LEVELS = {

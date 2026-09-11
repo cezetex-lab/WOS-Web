@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, rpc, clearSession, getSession, signOutAuth } from '../lib/supabase-browser';
 import { MetricCard, QuickTile, GlassCard, ActionItem, EmptyState, LoadingSpinner } from '../lib/design-system';
+import { createPageErrorLogger } from '../lib/log-error';
+
+const logError = createPageErrorLogger('Admin');
 
 // Role badges
 const ROLE_BADGES = {
@@ -129,28 +132,28 @@ export default function Admin() {
         if (s.status === 'fulfilled' && s.value) {
           setStats(s.value.ok !== false ? s.value : {});
         } else {
-          console.warn('[Admin Dashboard] Stats RPC failed:', s.reason);
+          logError('loadData.stats', s.reason || new Error('empty response'));
         }
         
         if (p.status === 'fulfilled' && p.value) {
           setPending(toArray(p.value));
         } else {
-          console.warn('[Admin Dashboard] Pending requests RPC failed:', p.reason);
+          logError('loadData.pending', p.reason || new Error('empty response'));
         }
         
         if (h.status === 'fulfilled' && h.value) {
           setAutoHealing(toArray(h.value));
         } else {
-          console.warn('[Admin Dashboard] Auto-healing RPC failed:', h.reason);
+          logError('loadData.autoHealing', h.reason || new Error('empty response'));
         }
         
         if (a.status === 'fulfilled' && a.value) {
           setAnomalies(toArray(a.value));
         } else {
-          console.warn('[Admin Dashboard] Anomalies RPC failed:', a.reason);
+          logError('loadData.anomalies', a.reason || new Error('empty response'));
         }
       } catch (e) { 
-        console.error('[Admin Dashboard] Data fetch error:', e); 
+        logError('loadData', e); 
       }
       setLoading(false);
     };

@@ -1,9 +1,17 @@
 import { defineConfig } from '@playwright/test';
+import dotenv from 'dotenv';
+
+// Load .env.local so VITE_SUPABASE_URL is available to the E2E mock helper.
+dotenv.config({ path: '.env.local' });
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 30000,
+  // Generous timeout: cold Vite compiles the import graph lazily per page.
+  timeout: 60000,
   retries: 1,
+  expect: {
+    timeout: 10000,
+  },
   use: {
     baseURL: 'http://localhost:5173',
     headless: true,
@@ -17,6 +25,7 @@ export default defineConfig({
     command: 'npm run dev',
     port: 5173,
     reuseExistingServer: true,
-    timeout: 30000,
+    // Cold Vite start on this project (Windows, large import graph) needs ~45s.
+    timeout: 120000,
   },
 });

@@ -5,10 +5,10 @@
 
 import { getSession } from '@/lib/supabase-browser';
 import React, { useState } from 'react';
-import { rpc } from '../../../lib/supabase-browser';
+import { rpc } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Input
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 export default function WorkerChangePassword() {
   const session = getSession();

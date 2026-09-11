@@ -51,11 +51,12 @@ export function useFormValidation(schema = {}) {
         valid = validatePhone(value);
         errMsg = 'Format telepon tidak valid';
         break;
-      case 'password':
+      case 'password': {
         const pwResult = validatePassword(value);
         valid = pwResult.valid;
         errMsg = pwResult.errors.join(', ');
         break;
+      }
     }
 
     if (!valid) {

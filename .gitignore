@@ -17,7 +17,8 @@ dist
 # Logs
 logs
 *.log
-npm-debug.log*Readme/supa.txt
+npm-debug.log*
+Readme/supa.txt
 
 # INSIGHTWOS V6 — Bootstrap (zero-trace)
 scripts/bootstrap-admin.ts
@@ -27,3 +28,23 @@ scripts/cleanup-bootstrap.sh
 
 # Duplicate/backup directories
 WOS-Web-fresh/
+
+# Audit and test artifacts (should not be committed)
+.freebuff/
+test-results/
+playwright-report/
+provision-results.csv
+_env.local.backup
+
+# Supabase smoke files (contain secrets)
+supabase/smoke/
+
+# Local scratch / one-off scripts / backups — nooit committen
+*.bak
+deploy_verification.py
+Readme/*.txt
+
+# ⚠️ REAL PII encryption key (plaintext) — NEVER commit.
+# File seeding encryptie-key naar company_config; rotate key & delete file
+# (zie docs/5.0-credential-rotation-runbook.md).
+supabase/seed_company_config.sql

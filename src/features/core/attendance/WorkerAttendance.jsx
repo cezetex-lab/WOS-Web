@@ -4,10 +4,10 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession, rpc } from '../../../lib/supabase-browser';
+import { supabase, getSession, rpc } from '@/lib/supabase-browser';
 import {
   PageLayout, MetricCard, GlassCard, Badge, LoadingSpinner, EmptyState, Button
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 const STATUS_CONFIG = {
   Hadir:     { icon: '✅', color: 'green', label: 'Hadir' },

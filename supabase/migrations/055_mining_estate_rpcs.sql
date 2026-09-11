@@ -1,6 +1,53 @@
 -- ============================================================
--- 055_mining_estate_rpcs.sql — RPC functions for Mining & Estate
+-- 055_mining_estate_rpcs.sql — RPC functions for Mining & Estate (FIXED)
+-- FIX: Added CREATE TABLE IF NOT EXISTS for dependencies (mining_simper, etc.)
 -- ============================================================
+
+-- ════════════════════════════════════════════════════════════
+-- FIX DEPENDENCY: Create required tables if missing (from 140)
+-- ════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS mining_simper (
+  id SERIAL PRIMARY KEY,
+  simper_no TEXT NOT NULL,
+  applicant_name TEXT NOT NULL,
+  company TEXT,
+  commodity TEXT DEFAULT 'COAL',
+  area_hectare NUMERIC DEFAULT 0,
+  status TEXT DEFAULT 'PENDING' CHECK (status IN ('PENDING','ACTIVE','EXPIRED','REVOKED')),
+  issue_date DATE,
+  expiry_date DATE,
+  notes TEXT,
+  business_unit_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS mining_equipment (
+  id SERIAL PRIMARY KEY,
+  equipment_code TEXT NOT NULL UNIQUE,
+  equipment_name TEXT NOT NULL,
+  category TEXT DEFAULT 'HEAVY',
+  status TEXT DEFAULT 'OFFLINE' CHECK (status IN ('RUNNING','STANDBY','MAINTENANCE','OFFLINE')),
+  location TEXT,
+  hours_run NUMERIC DEFAULT 0,
+  fuel_level NUMERIC DEFAULT 100,
+  last_maintenance DATE,
+  next_maintenance DATE,
+  business_unit_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS estate_harvest (
+  id SERIAL PRIMARY KEY,
+  block_name TEXT NOT NULL,
+  harvest_date DATE DEFAULT CURRENT_DATE,
+  tonnage NUMERIC DEFAULT 0,
+  harvester_nrp TEXT,
+  harvester_nama TEXT,
+  quality TEXT DEFAULT 'GOOD',
+  status TEXT DEFAULT 'PENDING' CHECK (status IN ('PENDING','LOADED','TRANSPORTED','REJECTED')),
+  business_unit_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- ==================== MINING RPCs ====================
 
@@ -201,4 +248,12 @@ BEGIN
         (ARRAY['Blasting Operation','Hauling Coal','Excavation Level 3','Crusher Maintenance','Night Shift Patrol','Fuel Delivery'])[1 + ROW_NUMBER() % 6] as job_name,
         (ARRAY['Falling rocks','Equipment collision','Dust exposure','Noise exposure','Heat stress','Ground instability'])[1 + ROW_NUMBER() % 6] as hazard,
         (ARRAY['LOW','MEDIUM','HIGH','CRITICAL'])[1 + ROW_NUMBER() % 4] as risk_level,
-        (ARRAY['Use PPE + spotters','Speed limit + mirrors','Respirator required','Ear plugs mandatory','Hydration break every 
+        (ARRAY['Use PPE + spotters','Speed limit + mirrors','Respirator required','Ear plugs mandatory','Hydration break every 30min'])[1 + ROW_NUMBER() % 5] as control_measure,
+        'MNG' || LPAD(((ROW_NUMBER() * 5) % 500 + 1)::TEXT, 4, '0') as reviewed_by,
+        NOW() + interval '6 months' as valid_until,
+        'ACTIVE' as status
+      FROM generate_series(1, 6) s
+    ) jsa
+  ), '[]'::jsonb);
+END;
+$$ LANGUAGE plpgsql;

@@ -2,6 +2,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { rpc, getSession, clearSession, signOutAuth } from '@/lib/supabase-browser';
 import { MetricCard, GlassCard, QuickTile, Badge, ActionItem, EmptyState, LoadingSpinner, Avatar, SectionHeader, useToast } from '@/lib/design-system';
+import { createPageErrorLogger } from '@/lib/log-error';
+
+const logError = createPageErrorLogger('Dashboard');
 
 function greetingTime() {
   const h = new Date().getHours();
@@ -40,7 +43,7 @@ export default function DashboardPage() {
       const r = await Promise.all([rpc('get_dashboard_stats'), rpc('get_team_data', { p_nrp: nrp }), rpc('get_team_requests', { p_nrp: nrp }), rpc('get_executive_summary'), rpc('get_team_narrative', { p_nrp: nrp }), rpc('get_early_warning')]);
       const [s, t, tr, es, tn, ew] = r;
       if (s?.ok) setStats(s); if (t?.ok && t.data) setTeam(t.data); if (tr?.ok && tr.data) setTeamRequests(tr.data); if (es?.ok) setExecSummary(es); if (tn?.ok) setTeamNarrative(tn); if (ew?.ok && ew.data) setEarlyWarning(ew.data);
-    } catch (e) { }
+    } catch (e) { logError('loadData', e); }
     setLoading(false);
   }
 
@@ -50,7 +53,7 @@ export default function DashboardPage() {
 
   async function handleRequestAction(id, status) {
     setActionLoading(id);
-    try { await rpc('approve_team_request', { p_id: id, p_status: status, p_note: status }); setTeamRequests(teamRequests.filter(r => r.id !== id)); toast.success('Request ' + status); } catch (e) { toast.error('Gagal memproses request'); }
+    try { await rpc('approve_team_request', { p_id: id, p_status: status, p_note: status }); setTeamRequests(teamRequests.filter(r => r.id !== id)); toast.success('Request ' + status); } catch (e) { logError('handleRequestAction', e); toast.error('Gagal memproses request'); }
     setActionLoading(null);
   }
 

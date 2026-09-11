@@ -4,11 +4,11 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession } from '../../../lib/supabase-browser';
+import { supabase, getSession } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Badge, LoadingSpinner,
   EmptyState, Input, Divider
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 // Inline Modal
 function Modal({ onClose, title, children }) {

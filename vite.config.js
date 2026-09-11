@@ -26,7 +26,7 @@ export default defineConfig({
   publicDir: 'public',
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
     // Paksa satu instance React/react-router di seluruh app. Tanpa ini,
     // lazy-loaded pages (DynamicRoutes) bisa mendapat salinan react-router-dom
@@ -39,7 +39,7 @@ export default defineConfig({
     include: ['react', 'react-dom', 'react-router', 'react-router-dom'],
   },
   server: {
-    port: 3000,
+    port: 5173,
     open: true,
   },
   build: {

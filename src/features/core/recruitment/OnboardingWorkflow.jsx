@@ -1,7 +1,7 @@
 // OnboardingWorkflow.jsx — Alur onboarding karyawan baru
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, MetricCard, Badge, Button, LoadingSpinner, EmptyState } from '../../../lib/design-system';
+import { rpc } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, MetricCard, Badge, Button, LoadingSpinner, EmptyState } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function OnboardingWorkflow() {

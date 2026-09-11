@@ -142,6 +142,7 @@ export async function initPushNotifications() {
     // Already subscribed — check
     const existing = await registration.pushManager.getSubscription();
     if (existing) {
+      // Subscription already exists — sudah ter-subscribe, tidak perlu re-subscribe.
     }
   }
 

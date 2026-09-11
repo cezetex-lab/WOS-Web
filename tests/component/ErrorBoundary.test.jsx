@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
+import { render } from '@testing-library/react';
 
 // ErrorBoundary implementation (same as src/components/ErrorBoundary.jsx)
 class ErrorBoundary extends React.Component {
@@ -26,7 +27,6 @@ function SafeComponent() {
 
 describe('L4: ErrorBoundary Component', () => {
   it('renders children when no error', () => {
-    // Suppress console.error for this test
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { container } = render(
       <ErrorBoundary fallbackName="Test">

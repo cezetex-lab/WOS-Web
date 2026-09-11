@@ -1,7 +1,7 @@
 // ReferralPage.jsx — Program rekomendasi karyawan (role-aware)
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc, getSession } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '../../../lib/design-system';
+import { rpc, getSession } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function ReferralPage() {

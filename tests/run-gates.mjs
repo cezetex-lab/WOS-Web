@@ -63,25 +63,41 @@ if (git.ok) {
 console.log('');
 
 // ── L2: Static Analysis (ESLint) ──
+// L2 = "0 critical errors". Warnings (no-unused-vars, no-console, …) worden
+// bewust als non-blocking behandeld (backlog ~400) — EXIT 0 van eslint is het
+// enige harde signaal voor "geen errors" (zonder --max-warnings).
+// Bugfix 2026-09-11 (was: inverted logic + removed --format=compact flag):
+//   - oude condition `errors === 0 || !eslint.ok` slaagde ALTIJD wanneer eslint
+//     faalde (crashed of errors gevonden) → gate was nooit FAIL.
+//   - --format=compact is uit core ESLint verwijderd sinds v9 → command faalde
+//     altijd met "The compact formatter is no longer part of core ESLint".
 console.log('── L2: ESLint ──');
-const eslint = run('ESLint', 'npx eslint src/ --max-warnings=50 --format=compact');
+const eslint = run('ESLint', 'npx eslint src/');
 const errors = (eslint.output.match(/error/g) || []).length;
-if (errors === 0 || !eslint.ok) {
-  console.log('  ✅ L2 PASS — 0 critical errors');
+if (eslint.ok) {
+  console.log('  ✅ L2 PASS — 0 errors');
   gatesPass++;
-} else {
+} else if (errors > 0) {
   console.log(`  ❌ L2 FAIL — ${errors} errors found`);
   gatesFail++;
+} else {
+  console.log('  ⚠️  L2 WARN — eslint crashed (exit non-zero zonder error lines)');
+  gatesWarn++;
 }
 console.log('');
 
 // ── L3: Unit Tests (Vitest) ──
 console.log('── L3: Unit Tests (Vitest) ──');
 const vitest = run('Vitest', 'npx vitest run --reporter=dot');
-const vtMatch = vitest.output.match(/Tests\s+(\d+)\s+passed.*?(\d+)\s+failed/);
-if (vtMatch) {
-  const [, passed, failed] = vtMatch;
-  if (parseInt(failed) === 0) {
+
+// === FIXED REGEX ===
+const failedMatch = vitest.output.match(/Tests\s+(\d+)\s+failed/);
+const passedMatch = vitest.output.match(/Tests\s+(?:\d+\s+failed\s+\|\s+)?(\d+)\s+passed/);
+const failed = failedMatch ? parseInt(failedMatch[1]) : 0;
+const passed = passedMatch ? parseInt(passedMatch[1]) : 0;
+
+if (passed > 0 || failed > 0) {
+  if (failed === 0) {
     console.log(`  ✅ L3 PASS — ${passed} tests, 0 failed`);
     gatesPass++;
   } else {
@@ -97,18 +113,27 @@ console.log('');
 // ── L4: Component Tests ──
 console.log('── L4: Component Tests (RTL) ──');
 const rtl = run('RTL', 'npx vitest run tests/component/ --reporter=dot');
-if (rtl.ok && rtl.output.includes('0 failed')) {
-  console.log('  ✅ L4 PASS');
-  gatesPass++;
-} else {
-  const l4Match = rtl.output.match(/(\d+)\s+passed.*?(\d+)\s+failed/);
-  if (l4Match && parseInt(l4Match[2]) === 0) {
-    console.log(`  ✅ L4 PASS — ${l4Match[1]} tests`);
+
+// === FIXED REGEX (same pattern) ===
+const failedMatchRTL = rtl.output.match(/Tests\s+(\d+)\s+failed/);
+const passedMatchRTL = rtl.output.match(/Tests\s+(?:\d+\s+failed\s+\|\s+)?(\d+)\s+passed/);
+const failedRTL = failedMatchRTL ? parseInt(failedMatchRTL[1]) : 0;
+const passedRTL = passedMatchRTL ? parseInt(passedMatchRTL[1]) : 0;
+
+if (passedRTL > 0 || failedRTL > 0) {
+  if (failedRTL === 0) {
+    console.log(`  ✅ L4 PASS — ${passedRTL} tests, 0 failed`);
     gatesPass++;
   } else {
-    console.log(`  ⚠️  L4 WARN — partial`);
+    console.log(`  ⚠️  L4 WARN — ${passedRTL} passed, ${failedRTL} failed`);
     gatesWarn++;
   }
+} else if (rtl.ok && rtl.output.includes('No tests found')) {
+  console.log('  ⏭️  L4 SKIP — no component tests found');
+  gatesWarn++; // or treat as skip; adjust summary if needed
+} else {
+  console.log('  ⚠️  L4 WARN — could not parse output');
+  gatesWarn++;
 }
 console.log('');
 

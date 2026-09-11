@@ -1,7 +1,7 @@
 // DivisionsManagement.jsx — Manajemen Divisi & Departemen
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState, Avatar } from '../../../lib/design-system';
+import { rpc } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState, Avatar } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function DivisionsManagement() {
@@ -31,7 +31,7 @@ export default function DivisionsManagement() {
       map[div].employees++;
       if (row.departemen || row.department) map[div].departments.add(row.departemen || row.department);
     });
-    return Object.values(map).map(d => ({ ...d, departments: Array.from(d.departements) }));
+    return Object.values(map).map(d => ({ ...d, departments: Array.from(d.departments) }));
   }, [data]);
 
   const columns = [

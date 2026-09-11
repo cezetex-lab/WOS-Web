@@ -136,9 +136,13 @@ export function BottomNav({ onMenuClick }) {
   const location = useLocation();
   const session = getSession();
   const role = session?.role || 'worker';
-  const config = role === 'worker'
-    ? { home: '/worker', items: WORKER_NAV[session?.business_unit || 'HQ'] || WORKER_NAV.HQ }
-    : ROLE_CONFIG[role] || ROLE_CONFIG.worker;
+  const path = location.pathname;
+  // Nav mengikuti AREA tempat user berada (bukan role) — admin di /worker = nav worker
+  const config = path.startsWith('/admin')
+    ? (ROLE_CONFIG[role] || ROLE_CONFIG.admin)
+    : path.startsWith('/dashboard')
+      ? ROLE_CONFIG.manager
+      : { home: '/worker', items: WORKER_NAV[session?.business_unit || 'HQ'] || WORKER_NAV.HQ };
   const isActive = (path) => location.pathname === path;
 
   return (

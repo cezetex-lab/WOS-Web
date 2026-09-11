@@ -4,8 +4,8 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../../lib/supabase-browser';
-import { PageLayout, GlassCard, LoadingSpinner, Badge, Button } from '../../../lib/design-system';
+import { supabase } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, LoadingSpinner, Badge, Button } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
 const SHIFT_COLORS = {

@@ -1,22 +1,47 @@
 import { useState, useEffect } from 'react';
 import { rpc, setSession, getSession, supabase, syncSupabaseAuth } from '@/lib/supabase-browser';
+import { callEdgeFunction } from '@/lib/edge-functions';
 
-const MFA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mfa-service`;
-async function checkMfaStatus(nrp) {
-  const res = await fetch(MFA_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-    body: JSON.stringify({ action: 'check', nrp }),
-  });
-  return res.json();
+// Root-cause fix (audit): worker tidak pernah punya akun Supabase Auth →
+// auth.uid() NULL → authz_current_nrp()/get_enabled_modules() menolak
+// akses → DynamicRoutes me-redirect balik ke /. 
+// Tahap 4C FAST PATH: akun yang sudah diprovisi → signInWithPassword langsung
+// (email sintetis satu sumber: lower(trim(nrp)) + '@insightwos.internal').
+// Fallback: edge function worker-auth-sync (provisioning/rotasi + temp password).
+// Non-fatal: gagal hanya me-log warning (login RPC tetap jalan).
+async function provisionWorkerAuth(nrp, nik, password) {
+  try {
+    // FAST PATH — akun Supabase Auth sudah ada → sign-in langsung
+    const syntheticEmail = String(nrp).toLowerCase().trim() + '@insightwos.internal';
+    const direct = await syncSupabaseAuth(syntheticEmail, password);
+    if (direct) {
+      console.info('[auth-sync] fast path OK');
+      return true;
+    }
+    console.info('[auth-sync] fast path gagal → fallback edge');
+
+    // Timeout 5s: auth-sync bersifat best-effort — edge function yang hang
+    // tidak boleh memblokir redirect login (fetch default tidak pernah timeout).
+    const d = await callEdgeFunction('worker-auth-sync', { nrp, nik, password }, { timeoutMs: 5000 });
+    if (!d?.ok || !d.email || !d.temp_password) {
+      console.warn('[auth-sync] tidak berhasil:', d?.msg || 'respons tidak lengkap');
+      return false;
+    }
+    const signed = await syncSupabaseAuth(d.email, d.temp_password);
+    if (!signed) console.warn('[auth-sync] signInWithPassword gagal untuk', d.email);
+    return !!signed;
+  } catch (err) {
+    console.warn('[auth-sync] error:', err?.message);
+    return false;
+  }
 }
-async function verifyMfaLogin(nrp, code) {
-  const res = await fetch(MFA_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-    body: JSON.stringify({ action: 'verify_login', nrp, code }),
-  });
-  return res.json();
+
+
+function checkMfaStatus(nrp) {
+  return callEdgeFunction('mfa-service', { action: 'check', nrp });
+}
+function verifyMfaLogin(nrp, code) {
+  return callEdgeFunction('mfa-service', { action: 'verify_login', nrp, code });
 }
 
 export default function Home() {
@@ -79,16 +104,16 @@ export default function Home() {
     setResetConfirm('');
   }
 
-  // Redirect sesuai role (konsisten dengan useEffect pemulihan sesi di atas)
-  function redirectAfterLogin(role) {
-    const r = role || 'worker';
-    if (r.startsWith('admin_') || r === 'admin') window.location.href = '/admin';
-    else if (r === 'manager') window.location.href = '/dashboard';
+  // Redirect sesuai TAB ASAL LOGIN — bukan role.
+  // Admin juga bisa jadi worker: login lewat tab Pekerja → area pekerja.
+  function redirectAfterLogin(entry) {
+    if (entry === 'dashboard') window.location.href = '/dashboard';
+    else if (entry === 'admin') window.location.href = '/admin';
     else window.location.href = '/worker';
   }
 
   // Finalisasi sesi worker dari response login_worker (termasuk pengecekan MFA)
-  async function finalizeWorkerSession(d) {
+  async function finalizeWorkerSession(d, creds, entry) {
     if (!d || !d.ok) return;
     const role = d.role || 'worker';
     const sessionData = { token: d.token, role, nama: d.nama, nrp: d.nrp, role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: d.business_unit || 'HQ', tier: d.tier ?? 0, expires_at: d.expires_at };
@@ -105,8 +130,11 @@ export default function Home() {
       // MFA check gagal -> lanjut login (tidak memblokir user)
     }
     setSession(sessionData);
-    if (d.email) syncSupabaseAuth(d.email, 'auth-sync-' + d.nrp);
-    redirectAfterLogin(role);
+    // Provision akun Supabase Auth supaya auth.uid() tersedia (authz/RLS)
+    if (creds?.nik && creds?.password) {
+      await provisionWorkerAuth(d.nrp, creds.nik, creds.password);
+    }
+    redirectAfterLogin(entry);
   }
 
   async function submitWorkerCredentials(e) {
@@ -135,7 +163,7 @@ export default function Home() {
         setLoading(false);
         return;
       }
-      await finalizeWorkerSession(d);
+      await finalizeWorkerSession(d, { nik, password: pass }, tab);
     } catch (err) {
       setError('Koneksi error: ' + err.message);
     }
@@ -162,7 +190,7 @@ export default function Home() {
         const d2 = await rpc('login_worker', { p_nrp: validatedNrp, p_nik: nik, p_password: resetPass });
         if (d2 && d2.ok) {
           setError('');
-          await finalizeWorkerSession(d2);
+          await finalizeWorkerSession(d2, { nik, password: resetPass }, tab);
         } else {
           window.location.href = '/';
         }
@@ -208,7 +236,7 @@ export default function Home() {
       // Check MFA
       const mfaRes = await checkMfaStatus(ctx.nrp);
       if (mfaRes?.enabled) {
-        setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier });
+        setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' });
         setMfaNrp(ctx.nrp);
         setMfaEmail(adminEmail);
         setMfaContext('admin');
@@ -218,7 +246,7 @@ export default function Home() {
       }
       
       // No MFA — direct login
-      const sessionData = { token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier };
+      const sessionData = { token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' };
       setSession(sessionData);
       window.location.href = '/admin';
     } catch (err) {
@@ -263,11 +291,10 @@ export default function Home() {
           setLoginStep('mfa');
           return;
         }
-        // No MFA — direct to worker
+        // No MFA — direct sesuai tab asal login
         setSession({ ...d, role: 'worker' });
-        // V6: sync Supabase Auth for gatekeeper RPCs
-        if (d.email) syncSupabaseAuth(d.email, 'auth-sync-' + d.nrp);
-        window.location.href = '/worker';
+        if (nik && pass) await provisionWorkerAuth(validatedNrp, nik, pass);
+        redirectAfterLogin(tab);
       } else {
         setError(d.msg || 'OTP salah');
       }
@@ -294,10 +321,14 @@ export default function Home() {
         // V6: For admin, Supabase Auth session already established in submitAdminCredentials
         // For worker, sync now with the worker's Supabase Auth credentials
         if (mfaContext === 'worker') {
-          const workerEmail = (mfaNrp || '') + '@insightwos.local';
-          syncSupabaseAuth(workerEmail, 'mfa-sync-' + mfaNrp);
+          // Provision akun auth dengan kredensial asli (nik/pass state masih
+          // memegang nilai dari form login) — bukan email sintetis + password
+          // tebak-tebakan 'mfa-sync-'+nrp yang selalu gagal.
+          await provisionWorkerAuth(mfaNrp, nik, pass);
+          redirectAfterLogin(tab);
+        } else {
+          window.location.href = '/admin';
         }
-        window.location.href = mfaContext === 'admin' ? '/admin' : '/worker';
       } else {
         setError(d.msg || 'Kode TOTP salah');
       }

@@ -1,6 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { rpc, clearSession, signOutAuth } from '@/lib/supabase-browser';
 import { useNavigate } from 'react-router-dom';
+import { createPageErrorLogger } from '@/lib/log-error';
+
+// Factory per halaman: console.error (dev) + PostHog trackError (prod).
+// Lihat src/lib/log-error.js — plugin strip-console membuang console.*
+// di build production, sehingga trackError satu-satunya jalur pantau di prod.
+const logError = createPageErrorLogger('OwnerDashboard');
+
+// Option list untuk role workerd/divisi (shared: roles tab + modal Edit Role).
+// Bugfix 2026-09-11: `const ro` sebelum ini di-declare dalam IIFE (roles tab)
+// sehingga modal Edit Role (di luar scope) selalu ReferenceError 'ro is not defined'.
+const ROLE_OPTIONS = ['admin_pusat', 'admin_hrd', 'admin_produksi', 'admin_finance', 'manager', 'supervisor', 'worker'];
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
@@ -64,7 +75,7 @@ export default function OwnerDashboard() {
       const [s, b] = await Promise.all([rpc('get_owner_overview_stats'), rpc('get_owner_employees_by_bu')]);
       setStats(s || {});
       setEmployeesByBU(Array.isArray(b) ? b : []);
-    } catch (e) { /* silent */ }
+    } catch (e) { logError('loadOverview', e); }
   }, []);
 
   const loadModules = useCallback(async () => {
@@ -73,7 +84,7 @@ export default function OwnerDashboard() {
       setModules(Array.isArray(m) ? m : []);
       setBusinessUnits(Array.isArray(bu) ? bu : []);
       setRoles(Array.isArray(r) ? r : []);
-    } catch (e) { /* silent */ }
+    } catch (e) { logError('loadModules', e); }
   }, []);
 
   const loadAuditLog = useCallback(async () => {
@@ -84,7 +95,7 @@ export default function OwnerDashboard() {
       ]);
       setAuditLog(log || { data: [], total: 0 });
       setAuditActions(Array.isArray(actions) ? actions : []);
-    } catch (e) { /* silent */ }
+    } catch (e) { logError('loadAuditLog', e); }
   }, [auditFilter.action, auditFilter.page]);
 
   const loadSecurity = useCallback(async () => {
@@ -93,59 +104,59 @@ export default function OwnerDashboard() {
       setSessions(Array.isArray(s) ? s : []);
       setLoginStats(ls || {});
       setSecuritySettings(Array.isArray(ss) ? ss : []);
-    } catch (e) { /* silent */ }
+    } catch (e) { logError('loadSecurity', e); }
   }, []);
 
   const loadEmployees = useCallback(async () => {
     try {
       const r = await rpc('owner_get_employees', { p_bu_id: empFilter.bu || null, p_search: empFilter.search || null, p_limit: 50, p_offset: empFilter.page * 50 });
       setEmployees(r || { data: [], total: 0 });
-    } catch (e) { /* silent */ }
+    } catch (e) { logError('loadEmployees', e); }
   }, [empFilter.bu, empFilter.search, empFilter.page]);
 
   const loadAnnouncements = useCallback(async () => {
     try {
       const r = await rpc('owner_get_announcements');
       setAnnouncements(Array.isArray(r) ? r : []);
-    } catch (e) { /* silent */ }
+    } catch (e) { logError('loadAnnouncements', e); }
   }, []);
 
   const loadNotifConfig = useCallback(async () => {
     try {
       const r = await rpc('get_notification_config');
       setNotifConfig(Array.isArray(r) ? r : []);
-    } catch (e) { /* silent */ }
+    } catch (e) { logError('loadNotifConfig', e); }
   }, []);
 
   const loadSysAnnouncements = useCallback(async () => {
     try {
       const r = await rpc('owner_get_system_announcements');
       setSysAnnouncements(Array.isArray(r) ? r : []);
-    } catch (e) { /* silent */ }
+    } catch (e) { logError('loadSysAnnouncements', e); }
   }, []);
 
   const loadActivity = useCallback(async () => {
-    try { const r = await rpc('owner_get_activity_stats'); setActivityStats(r || {}); } catch (e) {}
+    try { const r = await rpc('owner_get_activity_stats'); setActivityStats(r || {}); } catch (e) { logError('loadActivity', e); }
   }, []);
 
   const loadIntegrations = useCallback(async () => {
-    try { const r = await rpc('owner_get_integrations'); setIntegrations(Array.isArray(r) ? r : []); } catch (e) {}
+    try { const r = await rpc('owner_get_integrations'); setIntegrations(Array.isArray(r) ? r : []); } catch (e) { logError('loadIntegrations', e); }
   }, []);
 
   const loadRetention = useCallback(async () => {
-    try { const r = await rpc('owner_get_retention_rules'); setRetentionRules(Array.isArray(r) ? r : []); } catch (e) {}
+    try { const r = await rpc('owner_get_retention_rules'); setRetentionRules(Array.isArray(r) ? r : []); } catch (e) { logError('loadRetention', e); }
   }, []);
 
   const loadChangelog = useCallback(async () => {
-    try { const r = await rpc('owner_get_changelog'); setChangelog(Array.isArray(r) ? r : []); } catch (e) {}
+    try { const r = await rpc('owner_get_changelog'); setChangelog(Array.isArray(r) ? r : []); } catch (e) { logError('loadChangelog', e); }
   }, []);
 
   const loadTickets = useCallback(async () => {
-    try { const r = await rpc('owner_get_tickets'); setTickets(Array.isArray(r) ? r : []); } catch (e) {}
+    try { const r = await rpc('owner_get_tickets'); setTickets(Array.isArray(r) ? r : []); } catch (e) { logError('loadTickets', e); }
   }, []);
 
   const loadAnalytics = useCallback(async () => {
-    try { const r = await rpc('owner_get_usage_analytics'); setUsageAnalytics(r || {}); } catch (e) {}
+    try { const r = await rpc('owner_get_usage_analytics'); setUsageAnalytics(r || {}); } catch (e) { logError('loadAnalytics', e); }
   }, []);
 
   const loadAccessControl = useCallback(async () => {
@@ -153,7 +164,7 @@ export default function OwnerDashboard() {
       const [r, a] = await Promise.all([rpc('owner_get_admin_roles'), rpc('owner_get_admin_accounts')]);
       setAdminRoles(Array.isArray(r) ? r : []);
       setAdminAccounts(Array.isArray(a) ? a : []);
-    } catch (e) { /* silent */ }
+    } catch (e) { logError('loadAccessControl', e); }
   }, []);
 
   useEffect(() => {
@@ -395,7 +406,6 @@ export default function OwnerDashboard() {
                   roles.forEach(r => { const bu = r.business_unit || 'HQ'; if (!byBU[bu]) byBU[bu] = []; byBU[bu].push(r); });
                   const lc = { 5: 'bg-red-500/20 text-red-400', 4: 'bg-purple-500/20 text-purple-400', 3: 'bg-blue-500/20 text-blue-400', 2: 'bg-green-500/20 text-green-400', 1: 'bg-gray-500/20 text-gray-400' };
                   const ll = { 5: 'C-Suite', 4: 'Director', 3: 'Manager', 2: 'Admin', 1: 'Worker' };
-                  const ro = ['admin_pusat','admin_hrd','admin_produksi','admin_finance','manager','supervisor','worker'];
                   return Object.entries(byBU).map(([bu, list]) => (
                     <div key={bu} className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
                       <div className="px-5 py-3 border-b border-gray-700/50 flex items-center justify-between">
@@ -430,7 +440,7 @@ export default function OwnerDashboard() {
                       <div className="space-y-3">
                         <div><label className="text-gray-400 text-xs">Role</label>
                           <select value={editForm.role} onChange={e => setEditForm({...editForm, role: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
-                            {ro.map(r => <option key={r} value={r}>{r}</option>)}
+                            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                           </select></div>
                         <div><label className="text-gray-400 text-xs">Level</label>
                           <div className="flex gap-2 mt-1">{[1,2,3,4,5].map(l => (

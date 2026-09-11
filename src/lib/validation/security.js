@@ -33,7 +33,7 @@ export function validatePassword(password) {
     errors.push('Harus ada huruf kecil (a-z)');
   if (PASSWORD_POLICY.requireNumber && !/[0-9]/.test(password))
     errors.push('Harus ada angka (0-9)');
-  if (PASSWORD_POLICY.requireSpecial && !/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password))
+  if (PASSWORD_POLICY.requireSpecial && !/[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password))
     errors.push('Harus ada karakter spesial (!@#$%^&*)');
   return { valid: errors.length === 0, errors };
 }

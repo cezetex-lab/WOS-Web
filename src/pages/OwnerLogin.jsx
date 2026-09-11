@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase-browser';
-import { rpc } from '@/lib/supabase-browser';
+import { supabase, rpc, setSession } from '@/lib/supabase-browser';
 
 export default function OwnerLogin() {
   const navigate = useNavigate();

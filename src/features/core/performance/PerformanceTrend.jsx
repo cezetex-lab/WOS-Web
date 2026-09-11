@@ -4,11 +4,11 @@
 // ============================================================
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase, rpc, getSession } from '../../../lib/supabase-browser';
+import { supabase, rpc, getSession } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Badge, LoadingSpinner, EmptyState, StatItem, SectionHeader
-} from '../../../lib/design-system';
-import { useChart, CHART_DEFAULTS, COLORS as THEME_COLORS } from '../../../lib/chart-config';
+} from '@/lib/design-system';
+import { useChart, CHART_DEFAULTS, COLORS as THEME_COLORS } from '@/lib/chart-config';
 
 const COLORS = {
   blue: '#38bdf8',

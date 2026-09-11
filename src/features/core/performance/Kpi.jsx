@@ -5,30 +5,21 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, rpc } from '../../../lib/supabase-browser';
+import { supabase, rpc } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, StatItem, Avatar, Divider
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 import {
   useChart, buildBarChart, buildDoughnutChart, buildLineChart, COLORS
-} from '../../../lib/chart-config';
+} from '@/lib/chart-config';
+import { getCurrentPeriod, getPeriodLabel } from '@/lib/format';
 
 // ──────────────────────────────────────────────────────────────
 // HELPERS
-// ──────────────────────────────────────────────────────────────
-function getCurrentPeriod() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
 
-function getPeriodLabel(period) {
-  if (!period) return '-';
-  const [y, m] = period.split('-');
-  const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  return `${months[parseInt(m) - 1] || m} ${y}`;
-}
+// ──────────────────────────────────────────────────────────────
 
 function getKpiColor(score) {
   if (score >= 90) return COLORS.success;

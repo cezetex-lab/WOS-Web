@@ -4,11 +4,11 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '../../../lib/supabase-browser';
+import { supabase, rpc, getSession } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Input, Badge, DataTable,
   LoadingSpinner, EmptyState, Tabs, SectionHeader, useToast
-} from '../../../lib/design-system';
+} from '@/lib/design-system';
 
 const RATE_MULTIPLIERS = {
   weekday:   { label: 'Hari Kerja',   rate: 1.5, color: 'blue' },
