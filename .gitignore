@@ -42,6 +42,9 @@ _env.local.backup
 # Supabase smoke files (contain secrets)
 supabase/smoke/
 
+# Plaintext credential sheets — NEVER commit (bagikan per-orang via WA lalu hapus)
+supabase/akun/
+
 # Local scratch / one-off scripts / backups — nooit committen
 *.bak
 deploy_verification.py
@@ -52,5 +55,5 @@ Readme/*.txt
 # (zie docs/5.0-credential-rotation-runbook.md).
 supabase/seed_company_config.sql
 
-# One-off DB fixes (plaintext passwords) � applied & verified, never commit
+# One-off DB fixes (plaintext passwords) � applied & verified, never commit
 supabase/scripts/fix-nrp003.sql

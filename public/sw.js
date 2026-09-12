@@ -3,8 +3,10 @@
 // Network-first for API, Cache-first for static assets
 // ============================================================
 
-const CACHE_NAME = 'insightwos-v1';
-const STATIC_CACHE = 'insightwos-static-v2';
+// Cache names — bump STATIC_CACHE setiap ada perubahan strategi caching agar
+// cache lama (termasuk precache index.html + bundle hash lama) dibersihkan
+// oleh handler 'activate' di bawah.
+const STATIC_CACHE = 'insightwos-static-v3';
 const API_CACHE = 'insightwos-api-v1';
 
 // Assets to pre-cache on install
@@ -16,12 +18,15 @@ const PRE_CACHE_ASSETS = [
   '/icons/icon-512.png',
 ];
 
-// Install: pre-cache critical assets
+// Install: pre-cache critical assets.
+// SENGAJA tanpa self.skipWaiting(): SW baru harus masuk state 'waiting'
+// agar PwaUpdater bisa menampilkan prompt "Update Tersedia!" dan user yang
+// memutuskan kapan reload. skipWaiting otomatis = prompt tidak pernah muncul
+// (registration.waiting selalu null) + reload tiba-tiba via controllerchange.
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => cache.addAll(PRE_CACHE_ASSETS))
-      .then(() => self.skipWaiting())
   );
 });
 

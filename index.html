@@ -6,6 +6,9 @@
 
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="/manifest.json" />
+    <!-- Favicon: tidak ada favicon.ico di public/ — pakai PNG 192 agar browser
+         tidak me-request /favicon.ico (jatuh ke SPA rewrite → index.html) -->
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <meta name="theme-color" content="#38bdf8" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -22,7 +25,8 @@
     <meta property="og:url" content="https://insightwos.vercel.app" />
 
     <title>insightWOS — Workforce Intelligence</title>
-    <!-- Suppress harmless Vite internal warnings -->
+    <!-- Suppress harmless Vite internal warnings.
+         JANGAN tambah pola suppress baru di sini — menyembunyikan bug asli. -->
     <script>
       window.addEventListener('error', function(e) {
         // Suppress web-vitals startTime TypeError (browser API issue)
@@ -34,6 +38,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#fff;font-family:system-ui,sans-serif;text-align:center;padding:24px;">
+        <div>
+          <p style="font-size:18px;font-weight:600;margin-bottom:8px;">insightWOS membutuhkan JavaScript</p>
+          <p style="font-size:14px;color:#94a3b8;">Aktifkan JavaScript di browser Anda lalu muat ulang halaman ini.</p>
+        </div>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
     <!-- Register PWA Service Worker -->
     <script>

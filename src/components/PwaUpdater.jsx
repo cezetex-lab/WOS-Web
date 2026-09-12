@@ -15,10 +15,22 @@ export default function PwaUpdater() {
     navigator.serviceWorker.ready.then((reg) => {
       setRegistration(reg);
 
-      // Check for updates every 60 minutes
-      const checkUpdate = () => reg.update();
+      // SW baru bisa SUDAH dalam state 'waiting' sebelum komponen ini mount
+      // (mis. update selesai didownload saat splash screen) — tanpa cek ini
+      // prompt "Update Tersedia!" tidak pernah muncul sampai update BERIKUTNYA.
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        setUpdateAvailable(true);
+      }
+
+      // Check for updates every 60 minutes + tiap tab kembali fokus
+      // (user yang kembali dari background = momen tepat menawarkan update).
+      const checkUpdate = () => reg.update().catch(() => {});
       checkUpdate();
       const interval = setInterval(checkUpdate, 60 * 60 * 1000);
+      const onVisible = () => {
+        if (document.visibilityState === 'visible') checkUpdate();
+      };
+      document.addEventListener('visibilitychange', onVisible);
 
       // Listen for new service worker waiting
       reg.addEventListener('updatefound', () => {
@@ -32,7 +44,10 @@ export default function PwaUpdater() {
         });
       });
 
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', onVisible);
+      };
     });
 
     // Listen for controlling service worker change
