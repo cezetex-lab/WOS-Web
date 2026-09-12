@@ -72,7 +72,22 @@ export default function DynamicRoutes({ withNav }) {
   const current = normalizePath(location.pathname);
   const match = routes.find(r => normalizePath(r.path) === current);
 
-  if (!match) return <Navigate to="/" replace />;
+  if (!match) {
+    // If routes array is empty, auth context is missing (no Supabase Auth session)
+    // — don't bounce to / which causes a login loop. Show a minimal state instead.
+    if (routes.length === 0) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+          <div className="text-center">
+            <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-white text-sm">Memuat modul...</p>
+            <p className="text-slate-400 text-xs mt-2">Jika pesan ini terus muncul, silakan login ulang.</p>
+          </div>
+        </div>
+      );
+    }
+    return <Navigate to="/" replace />;
+  }
 
   const Component = getComponent(match.componentName);
   if (!Component) {

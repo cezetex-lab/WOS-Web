@@ -2,7 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-// P1: Strip console.log/error/warn in production builds
+// P1: Strip console.log/error/warn in production builds.
+// PENTING: jangan MENGHAPUS keseluruhan panggilan dengan regex. Jika call-nya
+// jadi if-body tanpa kurung kurawal (mis. `if (!x) console.warn(...)`),
+// penghapusan membuat STATEMENT BERIKUTNYA menjadi if-body — bug prod
+// 2026-09-12: DynamicRoutes.fetchAllRouteConfig kehilangan return-nya dan
+// mengembalikan undefined → crash `routes.find`. Solusi aman: ganti prefix
+// `console.xxx(` dengan `void(` — seimbang di posisi mana pun, tanpa perlu
+// match kurung tutup (nested parens tidak jadi masalah).
 function stripConsole() {
   return {
     name: 'strip-console',
@@ -10,12 +17,11 @@ function stripConsole() {
     transform(code, id) {
       if (id.includes('node_modules') || !id.match(/\.(js|jsx|ts|tsx)$/)) return null;
       if (process.env.NODE_ENV !== 'production') return null;
-      // Remove console.log, console.warn, console.error, console.info
-      const stripped = code
-        .replace(/console\.\s*log\s*\([^)]*\)\s*;?/g, '')
-        .replace(/console\.\s*warn\s*\([^)]*\)\s*;?/g, '')
-        .replace(/console\.\s*error\s*\([^)]*\)\s*;?/g, '')
-        .replace(/console\.\s*info\s*\([^)]*\)\s*;?/g, '');
+      // Neuter console.log/warn/info/error: prefix → `void(`. Hasil:
+      // `if (!x) void(args);` — valid di if-body, preseden aman untuk
+      // short-circuit (`a && void(b)`), dan tetap menghasilkan undefined
+      // seperti console call asli. Kurung tutup call asli menutup `void(`.
+      const stripped = code.replace(/\bconsole\.(?:log|warn|info|error)\s*\(/g, 'void(');
       return { code: stripped, map: null };
     },
   };

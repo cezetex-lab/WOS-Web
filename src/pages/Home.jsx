@@ -235,7 +235,7 @@ export default function Home() {
 
       // Check MFA
       const mfaRes = await checkMfaStatus(ctx.nrp);
-      if (mfaRes?.enabled) {
+      if (mfaRes?.mfa_enabled) {
         setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' });
         setMfaNrp(ctx.nrp);
         setMfaEmail(adminEmail);

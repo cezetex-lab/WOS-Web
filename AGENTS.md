@@ -154,15 +154,32 @@
 | mill@insightwos.com | Mill123! | ❓ (not tested) |
 | estate@insightwos.com | Estate123! | ❓ (not tested) |
 
-### STATUS COMMIT PERTAMA (JANGAN commit sebelum items ini)
-| F-10 | `supabase/migrations/run_171.mjs` menerima URL DB via argv (bisa ke-log); `tests/production/smoke.sh`, `api-bench.js`, `run-gates.*` pola sama — aman selama tidak pernah diisi kredensial asli di terminal yang di-log. | grep placeholder |
+### CHECKLIST COMMIT PERTAMA — SEMUA BERES ✅ (terverifikasi 2026-09-12)
+| # | Item | Status | Bukti |
+|---|---|---|---|
+| 1 | `.gitignore` menutup `.freebuff/`, `test-results/`, `playwright-report/`, `provision-results.csv`, `_env.local.backup`, `supabase/smoke/`, `*.txt`, `supabase/seed_company_config.sql`, `fix-nrp003.sql` | ✅ | isi `.gitignore`; `git ls-files` bersih dari artefak (0 match) |
+| 2 | Artefak audit/test tidak ter-track | ✅ | `git ls-files \| grep -iE '.freebuff\|test-results\|provision-results\|smoke/'` = kosong |
+| 3 | F-6: `patch/002.sql` impersonasi dipisah ke `002_test_verification.sql` | ✅ | isi file: blok sudah dipindah |
+| 4 | F-2: ref rusak `refs/heads/master` sudah tidak ada; `git fsck --full` 0 error | ✅ | hanya `refs/heads/migrasi-vite`; fsck hanya dangling objects (normal) |
+| 5 | Scan secret `postgresql://\|SERVICE_ROLE\|ywYBamE6` | ✅ | hanya match di AGENTS.md (dokumentasi temuan F-3), bukan secret; password lama sudah dirotasi |
+| 6 | Commit pertama + push: `49a2e9a` "fix(audit): close L-1..L-5..." → `origin/migrasi-vite` | ✅ | `git log`, reflog |
 
-### STATUS COMMIT PERTAMA (JANGAN commit sebelum items ini)
-1. Perbaiki `.gitignore`: tambah `.freebuff/`, `test-results/`, `playwright-report/`, `provision-results.csv`, `_env.local.backup`.
-2. Unstage artefak: `git restore --staged .freebuff test-results "Readme/New Text Document (2).txt" supabase/smoke` (smoke=berisi seed password lama; evaluaasi per-file).
-3. Rapikan `supabase/patch/002.sql` (F-6) — pisahkan blok test impersonasi.
-4. Perbaiki ref rusak (F-2) agar push tidak gagal.
-5. Scan ulang: `git grep --cached -E "postgresql://|SERVICE_ROLE|ywYBamE6"` harus bersih → baru commit + push.
+### CHECKLIST COMMIT — PROD FIX 2026-09-12 (stripConsole crash) — COMMIT SEKARANG
+| # | Item | Status | Bukti |
+|---|---|---|---|
+| 1 | Bug prod "Cannot read properties of undefined (reading 'find')" — plugin `stripConsole` di `vite.config.js` menghapus `console.warn(...)` yang jadi if-body sehingga `return` berikutnya jadi if-body → `fetchAllRouteConfig` return `undefined` → crash. Fix: regex penghapusan diganti prefix `void(` (AST-statement-preserving) | ✅ fixed + live | bundle live `index-DiajxkOf.js` = `return t.length,t.filter(...)...` di level fungsi; hanya kena prod karena plugin aktif hanya `NODE_ENV=production` |
+| 2 | Verifikasi: lint 0 error (398 warning lama, pre-existing) | ✅ | `npm run lint` |
+| 3 | Verifikasi: unit tests 100/100 lulus (14 files) | ✅ | `npm test` |
+| 4 | Secret scan file yang di-commit | ✅ | bersih (lihat checklist atas) |
+| 5 | File di-commit: `vite.config.js`, `src/components/DynamicRoutes.jsx`, `src/pages/Home.jsx` (mfa_enabled), `supabase/migrations/197_fix_route_components.sql`, `supabase/scripts/register-routes.mjs`, `AGENTS.md` ini | ✅ | `git show --stat` |
+| 6 | Deployment production: `npx vercel --prod` ×2 (bundle fix + verify) → https://insightwos.vercel.app | ✅ | alias OK, smoke API: login_worker NRP002 200, get_enabled_modules 131 rows |
+
+### STATUS COMMIT PERTAMA (ARSIP — sudah tidak berlaku, lihat checklist ✅ di atas)
+1. ~~Perbaiki `.gitignore`~~ ✅ selesai.
+2. ~~Unstage artefak audit/test~~ ✅ selesai (commit pertama sudah jalan tanpa artefak).
+3. ~~Rapikan `supabase/patch/002.sql` (F-6)~~ ✅ selesai.
+4. ~~Perbaiki ref rusak (F-2)~~ ✅ selesai (master ref hilang, fsck bersih).
+5. ~~Scan ulang sebelum commit + push~~ ✅ selesai.
 
 ### LANJUTAN SETELAH COMMIT (urutan, dari handoff §4 + temuan 2026-09-11)
 
