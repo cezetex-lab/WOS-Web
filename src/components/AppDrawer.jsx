@@ -156,7 +156,7 @@ const OWNER_FALLBACK_GROUPS = ADMIN_FALLBACK_GROUPS;
 
 export function AppDrawer({ isOpen, onClose }) {
   const location = useLocation();
-  const [brand, setBrand] = useState({ company_name: 'insightWOS', logo_url: '' });
+  const [brand, setBrand] = useState({ company_name: 'insightWIP', logo_url: '' });
   const [dynamicGroups, setDynamicGroups] = useState([]);
   const [loading, setLoading] = useState(true);
 

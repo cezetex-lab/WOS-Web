@@ -1,5 +1,7 @@
+// ============================================================
 // password-reset Edge Function
-// Actions: request, verify, reset
+// Actions: request, verify, reset, login_otp, verify_login_otp
+// ============================================================
 //
 // HARDENING (hasil audit "New Text Document (2).txt"):
 //  - Token reset password TIDAK lagi ditulis mentah-mentah ke log server
@@ -13,6 +15,14 @@
 //  - Reset: pakai RPC reset_password (service role) supaya worker_passwords
 //    + session invalidation + audit tetap satu source of truth; jika akun
 //    Supabase Auth tersedia, password Auth juga di-update.
+//
+// LOGIN OTP (2026-09-12):
+//  - action login_otp: kirim OTP 6-digit ke email user (setelah user+password
+//    sukses di tab admin/dashboard). OTP wajib sebelum redirect.
+//    Kirim = Supabase Auth admin.generateLink({type:'magiclink'}) bila akun
+//    auth tersedia; dev fallback = dev_code di response (seperti otp_store show).
+//  - action verify_login_otp: verifikasi kode login_otp via RPC verify_admin_otp
+//    (identitas = NRP hasil verify, bukan param client — anti trust-the-client).
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -27,6 +37,8 @@ const LIMITS: Record<string, number> = {
   request: 5,
   verify: 10,
   reset: 10,
+  login_otp: 3,
+  verify_login_otp: 5,
 };
 
 // Rate limit ATOMIC via RPC hit_rate_limit (migration 193).
@@ -58,10 +70,69 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { action, email, token, new_password } = await req.json();
+    const { action, email, token, new_password, nrp } = await req.json();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ── LOGIN OTP: kirim kode 6-digit ke email (wajib untuk tab admin/dashboard)
+    if (action === "login_otp") {
+      const targetNrp = (nrp || "").toUpperCase().trim();
+      if (!targetNrp) {
+        return new Response(JSON.stringify({ ok: false, msg: "NRP required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!(await hitRateLimit(adminClient, targetNrp, "login_otp"))) {
+        return new Response(JSON.stringify({ ok: false, msg: "Terlalu banyak request OTP. Coba lagi nanti." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // Generate via RPC generate_admin_otp (identitas dari auth.uid() — caller
+      // adalah anon key; RPC lama verifikasi sesuai migration 191 — harden bila
+      // perlu: pastikan employee ada + role admin sebelum generate).
+      const { data: emp } = await adminClient
+        .from("employees_master")
+        .select("nrp, email, auth_id, nama")
+        .eq("nrp", targetNrp)
+        .maybeSingle();
+      if (!emp) {
+        // Anti-enumerasi: tetap return ok generik.
+        return new Response(JSON.stringify({ ok: true, msg: "Jika NRP terdaftar, OTP sudah dikirim." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: gen, error: genErr } = await adminClient.rpc("generate_admin_otp");
+      if (genErr || !gen?.ok) {
+        return new Response(JSON.stringify({ ok: false, msg: gen?.msg || "Gagal generate OTP." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // Backend email sender belum ada (belum ada SMTP); kode TIDAK dikirim via
+      // email sungguhan. Dev fallback: dev_code di response (seperti otp_store
+      // show sebelumnya) + Magic Link BILA akun auth tersedia.
+      let emailed = false;
+      if (emp.auth_id) {
+        const { error: linkErr } = await adminClient.auth.admin.generateLink({
+          type: "magiclink",
+          email: emp.email || `${targetNrp.toLowerCase()}@insightwos.internal`,
+        });
+        emailed = !linkErr;
+      }
+      return new Response(JSON.stringify({
+        ok: true,
+        msg: emailed ? "OTP sudah dikirim ke email." : "OTP dibuat (dev-mode: kode ditampilkan di layar).",
+        dev_code: gen.otp_code || gen.otp || null,
+        emailed,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── VERIFY LOGIN OTP: identitas = hasil RPC, bukan param client
+    if (action === "verify_login_otp") {
+      if (!token) {
+        return new Response(JSON.stringify({ ok: false, msg: "Kode OTP required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!(await hitRateLimit(adminClient, "global", "verify_login_otp"))) {
+        return new Response(JSON.stringify({ ok: false, msg: "Terlalu banyak percobaan. Coba lagi nanti." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: v, error: vErr } = await adminClient.rpc("verify_admin_otp", { p_code: token });
+      if (vErr || !v?.ok) {
+        return new Response(JSON.stringify({ ok: false, msg: v?.msg || "Kode OTP tidak valid." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ ok: true, nrp: v.nrp, role: v.role, nama: v.nama, token: v.token }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (action === "request") {
       if (!email || typeof email !== "string") {

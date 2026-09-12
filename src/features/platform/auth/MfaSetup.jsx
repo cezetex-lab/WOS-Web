@@ -3,7 +3,6 @@ import { getSession } from '@/lib/supabase-browser';
 import { callEdgeFunctionAuth } from '@/lib/edge-functions';
 import { PageLayout, SectionHeader } from '@/lib/design-system';
 import { Button, Input, Badge, GlassCard, MetricCard, LoadingSpinner, EmptyState } from '@/lib/design-system';
-import useAdminAuth from '@/hooks/useAdminAuth';
 
 function mfaAction(action, data = {}) {
   // Hardened mfa-service butuh JWT user (auth.uid() harus map ke NRP) —
@@ -12,7 +11,11 @@ function mfaAction(action, data = {}) {
 }
 
 export default function MfaSetup() {
-  useAdminAuth(["admin_pusat"]);
+  // MFA Setup diakses dari link login (pre-login) maupun post-login.
+  // Guard admin lama dihapus: siapa pun yang sudah login via tab mana pun
+  // boleh enroll/disable MFA untuk NRP-nya sendiri. Proteksi ownership
+  // tetap di backend (mfa-service assertOwner: JWT auth.uid() harus map
+  // ke NRP target via employees_master.auth_id).
   const [step, setStep] = useState('loading'); // loading | status | enroll | verify | success
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [factorId, setFactorId] = useState('');
@@ -109,6 +112,20 @@ export default function MfaSetup() {
     : '';
 
   if (step === 'loading') return <PageLayout><LoadingSpinner /></PageLayout>;
+
+  if (step === 'error') return (
+    <PageLayout>
+      <SectionHeader title="🔐 Multi-Factor Authentication" desc="Keamanan tambahan untuk akun Anda" />
+      <GlassCard>
+        <div className="text-center py-8">
+          <p className="text-4xl mb-4">🔒</p>
+          <p className="text-white text-lg font-bold mb-2">Login Diperlukan</p>
+          <p className="text-slate-400 text-sm mb-6">Silakan login dulu (tab Worker / Admin / Dashboard), lalu buka MFA Setup dari halaman login.</p>
+          <a href="/" className="inline-block px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-all">Kembali ke Login</a>
+        </div>
+      </GlassCard>
+    </PageLayout>
+  );
 
   return (
     <PageLayout>

@@ -20,6 +20,7 @@ const MENU_CATEGORIES = [
 export default function DashboardPage() {
   const toast = useToast();
   const [user, setUser] = useState(null);
+  const [noAccess, setNoAccess] = useState(false);
   const [activeTab, setActiveTab] = useState('beranda');
   const [menuDetail, setMenuDetail] = useState(null);
   const [menuSearch, setMenuSearch] = useState('');
@@ -35,7 +36,20 @@ export default function DashboardPage() {
   const [refreshY, setRefreshY] = useState(0);
   const pullStartY = useRef(0);
 
-  useEffect(() => { const u = getSession(); if (!u) { window.location.href = '/'; return; } setUser(u); loadData(u.nrp); }, []);
+  useEffect(() => {
+    // Isolasi 3 page: dashboard HANYA menerima sesi dari tab login dashboard
+    // (session.entry === 'dashboard'). Sesi worker/admin yang mencoba buka
+    // /dashboard langsung dikembalikan ke login (bukan auto-redirect).
+    const u = getSession();
+    if (!u) { window.location.href = '/'; return; }
+    if (u.entry && u.entry !== 'dashboard' && u.role !== 'owner') {
+      console.warn('[Dashboard] Session entry mismatch:', u.entry, '→ login ulang');
+      window.location.href = '/';
+      return;
+    }
+    if (u.role === 'worker') { setNoAccess(true); setLoading(false); return; }
+    setUser(u); loadData(u.nrp);
+  }, []);
 
   async function loadData(nrp) {
     setLoading(true);
@@ -61,6 +75,9 @@ export default function DashboardPage() {
   const pendingItems = (teamRequests || []).filter(r => r.status === 'Pending' || r.status === 'PENDING');
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat dashboard..." /></div>;
+
+  // Role worker tidak punya akses dashboard — arahkan login ulang via tab dashboard.
+  if (noAccess) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><div className="text-center max-w-sm px-6"><p className="text-4xl mb-4">🔒</p><p className="text-white text-lg font-bold mb-2">Akses Dashboard Ditolak</p><p className="text-slate-400 text-sm mb-6">Akun worker tidak punya akses dashboard. Silakan login ulang via tab Dashboard.</p><button onClick={logout} className="px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-all">Kembali ke Login</button></div></div>;
 
   if (menuDetail) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900"><div className="max-w-7xl mx-auto px-4 py-4 pb-24"><button onClick={() => setMenuDetail(null)} className="text-teal-400 text-sm font-semibold mb-4 hover:text-teal-300 transition-colors">← Kembali ke Menu</button><GlassCard title={menuDetail.charAt(0).toUpperCase() + menuDetail.slice(1)} icon="📄" accent="blue"><EmptyState icon="🚧" title="Halaman dalam pengembangan" subtitle={`Detail ${menuDetail} segera tersedia`} /></GlassCard></div></div>;
 

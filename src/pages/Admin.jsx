@@ -97,6 +97,7 @@ const ADMIN_TILES = {
 export default function Admin() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [noAccess, setNoAccess] = useState(false);
   const session = getSession();
   const adminRole = session?.role || 'admin_pusat';
   const badge = ROLE_BADGES[adminRole] || ROLE_BADGES.admin_pusat;
@@ -108,11 +109,20 @@ export default function Admin() {
   const [anomalies, setAnomalies] = useState([]);
 
   useEffect(() => {
+    // Isolasi 3 page: admin HANYA menerima sesi dari tab login admin
+    // (session.entry === 'admin'). Sesi worker/dashboard yang mencoba buka
+    // /admin langsung dikembalikan ke login (bukan auto-redirect).
     if (!session || !session.nrp) {
       console.error('[Admin Dashboard] No valid session found, redirecting to login');
       window.location.href = '/';
       return;
     }
+    if (session.entry && session.entry !== 'admin' && session.role !== 'owner') {
+      console.warn('[Admin] Session entry mismatch:', session.entry, '→ login ulang');
+      window.location.href = '/';
+      return;
+    }
+    if (session.role === 'worker') { setNoAccess(true); setLoading(false); return; }
 
   const toArray = (v) => {
     if (!v || v.ok === false) return [];
@@ -161,6 +171,9 @@ export default function Admin() {
   }, [session?.nrp]);
 
   if (loading) return <LoadingSpinner text="Memuat data admin..." />;
+
+  // Role worker tidak punya akses admin — arahkan login ulang via tab admin.
+  if (noAccess) return <div className="max-w-7xl mx-auto px-4 py-6 pb-28 flex items-center justify-center min-h-[60vh]"><div className="text-center max-w-sm"><p className="text-4xl mb-4">🔒</p><p className="text-white text-lg font-bold mb-2">Akses Admin Ditolak</p><p className="text-slate-400 text-sm mb-6">Akun worker tidak punya akses admin. Silakan login ulang via tab Admin.</p><button onClick={logout} className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all">Kembali ke Login</button></div></div>;
 
   const quickTiles = ADMIN_TILES[adminRole] || ADMIN_TILES.admin_pusat;
 

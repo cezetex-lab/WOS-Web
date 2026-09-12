@@ -10,6 +10,7 @@
    - `.freebuff/audit/report.md` (forensik DB live vs migrasi repo)
    - `.freebuff/audit/AUDIT_TRUST_CLIENT_REPORT.md` (audit RPC trust-the-client)
    - `docs/5.0-credential-rotation-runbook.md`
+   - `docs/migration-gap-inventory.md` (gap GAS → Supabase: field + RPC yang belum migration — bukan bug, tapi perlu keputusan user sebelum pekerjaan lanjutan)
 3. **IKUTI analisa user** — jangan bikin rencana remediasi sendiri, jangan mengubah urutan tahap, jangan mengerjakan item di luar daftar.
 4. Analisa masih bertahap (1A, 1B, 2, …). Mode kerja hanya dimulai setelah semua bagian diterima DAN user bilang GO.
 5. Pengecualian tunggal: **P0-8 (.gitignore)** karena memblokir commit pertama — kerjakan segera setelah GO, sebelum apa pun di-commit.
@@ -74,8 +75,12 @@
 
 | File | Isi |
 |---|---|
-| `src/pages/Home.jsx` | Login semua tab; `provisionWorkerAuth` (fast path+fallback); `redirectAfterLogin(entry)` per-tab |
-| `src/App.jsx` | BrowserRouter future flags v7 |
+| `src/pages/Home.jsx` | Login semua tab; `provisionWorkerAuth` (fast path+fallback); `redirectAfterLogin(entry)` per-tab; OTP wajib admin/dashboard (edge) | 
+| `src/App.jsx` | BrowserRouter future flags v7; route `/admin` `/worker` `/dashboard` masing dibungkus `RoleGuard` (`entry`+`allowedRoles`) → isolasi 3 page |
+| `src/components/RoleGuard.jsx` | Role + login-entry check (`session.entry`); mismatch → redirect login (jangan auto-lempar) |
+| `src/pages/Admin.jsx`, `Worker.jsx`, `Dashboard.jsx` | Cec `session.entry` mismatch → `window.location.href='/'`; role-worker → screen "Akses Ditolak" |
+| `src/features/platform/auth/MfaSetup.jsx` | TOTP enroll/disable; guard admin dihapus (ownership tetap di edge `mfa-service`) |
+| `supabase/functions/password-reset/index.ts` | Action baru: `login_otp` + `verify_login_otp` (OTP wajib login admin/dashboard) |
 | `src/lib/menu-builder.js` | `buildMenu(area)` + `areaFromPath` + filter per-area + dedup |
 | `src/lib/supabase-browser.js` | Session cache (sessionStorage `wos_user`), rpc() rate-limited |
 | `supabase/functions/worker-auth-sync/index.ts` | Edge v2 (provision/rotate) |
@@ -206,3 +211,33 @@
 2. **5.7 retire dual-store (worker_passwords + auth.users) → login murni Supabase Auth**
 3. 5.8 REVOKE sisa (F-8, F-4) → 5.9 INSTEAD OF trigger employees_master
 4. 5.10 `get_enabled_modules(p_area)` + fix search_path (F-4) → 5.11 redesign registrasi → fix favicon via Owner branding
+---
+
+## 8. AUTH REFACTOR 2026-09-12 — 3-PAGE ISOLATION + OTP + BRANDING
+
+### 8.1 Isolasi 3 page (Worker / Admin / Dashboard)
+- **Keputusan user:** siapa pun TIDAK bisa pindah page tanpa login ulang dari tab yang sesuai.
+- Implementasi (2 lapis):
+  1. **Route guard** — `src/App.jsx` bungkus `/admin` `/worker` `/dashboard` dengan `RoleGuard` prop `entry`+`allowedRoles`. `RoleGuard` cek `getSession()` + `session.entry === entry` (sesi lama tanpa `entry` = legacy tetap diizinkan) + role; mismatch → redirect `'/'`.
+  2. **Page useEffect** — `Admin.jsx`/`Worker.jsx`/`Dashboard.jsx` cek `session.entry` mismatch → `window.location.href='/'`; role worker ke /admin|/dashboard → screen "Akses Ditolak" (button login ulang).
+- Session field `entry` diset saat login (`finalizeWorkerSession` / submitAdminCredentials → `setSession({..., entry})`).
+
+### 8.2 OTP wajib — Admin & Dashboard (kirim OTP email)
+- **Keputusan user:** setelah user+password sukses di tab admin/dashboard, TIDAK langsung redirect — wajib input OTP email.
+- Implementasi:
+  - `supabase/functions/password-reset/index.ts` → action **`login_otp`** (generate via RPC `generate_admin_otp`, kirim Magic Link bila auth tersedia, `dev_code` fallback) + **`verify_login_otp`** (verify via RPC `verify_admin_otp`; identitas dari hasil verify, bukan param client → anti trust-the-client).
+  - `Home.jsx`: admin step-1 sukses → setelah MFA-check → kirim OTP → step `otp`; dashboard step-1 sukses → kirim OTP → step `otp`. `submitWorkerOtp` branch tab `admin` (verify RPC `verify_admin_otp`) / tab `dashboard` (verify edge) → finalisasi → redirect.
+- **Nota:** backend email sender (SMTP) BELUM ADA — kode OTP dev-mode ditampilkan via `dev_code` + Magic Link bila akun auth tersedia. Untuk kirim email sungguhan butuh email gateway (petugas turan).
+
+### 8.3 Branding — OWNER-configurable (JANGAN hardcode JS)
+- Branding (`branding` table + `update_branding` RPC + Owner Config UI via `LogoUploader.jsx`) = konfigurasi OWNER. **Jangan hardcode nama/logo di JS** — itu ma-buka Owner.
+- Migration **`198_branding_insightwip.sql`** ubah default `branding.company_name` → `insightWIP` (idempotent; jangan ubah owner-set setelah). Home/AppDrawer fallback default = `insightWIP` (only wenn `get_branding()` return kosong).
+- Login page bica `get_branding()` (public) → render `insightWIP` dari DB (non-hardcoded source of truth).
+
+### 8.4 Checklist verifikasi
+| # | Item | Status | Bukti |
+|---|---|---|---|
+| 1 | `vite build` EXIT 0 | ✅ | build log |
+| 2 | Unit tests 100/100 (14 files) | ✅ | `npm test` |
+| 3 | Migration 198 applied live → `branding.company_name='insightWIP'` | ✅ | probe pg8000 |
+| 4 | Secret scan pre-commit bersih | ✅ | scan `postgresql://\|SERVICE_ROLE\|ywYBamE6` |

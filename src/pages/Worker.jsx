@@ -8,6 +8,7 @@ import { getUserModules, getBusinessUnit } from '../lib/business-units';
 export default function Worker() {
   const navigate = useNavigate();
   const [nrp] = useState(() => getSession()?.nrp || 'NRP001');
+  const [noAccess, setNoAccess] = useState(false);
   const modules = getUserModules();
   const bu = getBusinessUnit();
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,17 @@ export default function Worker() {
   const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
+    // Isolasi 3 page: worker HANYA menerima sesi dari tab login worker
+    // (session.entry === 'worker'). Sesi admin/dashboard yang mencoba buka
+    // /worker langsung dikembalikan ke login (bukan auto-redirect).
+    const s = getSession();
+    if (!s?.nrp) { window.location.href = '/'; return; }
+    if (s.entry && s.entry !== 'worker' && s.role !== 'owner') {
+      console.warn('[Worker] Session entry mismatch:', s.entry, '→ login ulang');
+      window.location.href = '/';
+      return;
+    }
+    if (s.role && s.role !== 'worker' && s.role !== 'owner') { setNoAccess(true); setLoading(false); return; }
     const fetchData = async () => {
       setLoading(true);
       // 1. Status Worker
@@ -37,6 +49,9 @@ export default function Worker() {
   }, [nrp]);
 
   if (loading) return <LoadingSpinner text="Memuat data..." />;
+
+  // Role admin tidak punya akses worker — arahkan login ulang via tab worker.
+  if (noAccess) return <div className="max-w-7xl mx-auto px-4 py-6 pb-28 flex items-center justify-center min-h-[60vh]"><div className="text-center max-w-sm"><p className="text-4xl mb-4">🔒</p><p className="text-white text-lg font-bold mb-2">Akses Worker Ditolak</p><p className="text-slate-400 text-sm mb-6">Akun ini tidak punya akses worker. Silakan login ulang via tab yang sesuai.</p><button onClick={logout} className="px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-all">Kembali ke Login</button></div></div>;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 pb-28">

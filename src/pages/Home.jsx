@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { rpc, setSession, getSession, supabase, syncSupabaseAuth } from '@/lib/supabase-browser';
 import { callEdgeFunction } from '@/lib/edge-functions';
 
@@ -45,6 +46,7 @@ function verifyMfaLogin(nrp, code) {
 }
 
 export default function Home() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState('worker');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -65,7 +67,7 @@ export default function Home() {
   const [mfaContext, setMfaContext] = useState('worker'); // 'worker' or 'admin'
   const [validatedNrp, setValidatedNrp] = useState('');
   const [adminValidated, setAdminValidated] = useState(false);
-  const [brand, setBrand] = useState({ company_name: 'insightWOS', logo_url: '' });
+  const [brand, setBrand] = useState({ company_name: 'insightWIP', logo_url: '' });
   const [mfaEmail, setMfaEmail] = useState('');
 
   useEffect(() => {
@@ -116,7 +118,7 @@ export default function Home() {
   async function finalizeWorkerSession(d, creds, entry) {
     if (!d || !d.ok) return;
     const role = d.role || 'worker';
-    const sessionData = { token: d.token, role, nama: d.nama, nrp: d.nrp, role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: d.business_unit || 'HQ', tier: d.tier ?? 0, expires_at: d.expires_at };
+    const sessionData = { token: d.token, role, nama: d.nama, nrp: d.nrp, entry: entry || tab, role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: d.business_unit || 'HQ', tier: d.tier ?? 0, expires_at: d.expires_at };
     try {
       const mfaRes = await checkMfaStatus(d.nrp);
       if (mfaRes && mfaRes.mfa_enabled) {
@@ -160,6 +162,14 @@ export default function Home() {
       if (d.reset_required) {
         setValidatedNrp(nrp);
         setLoginStep('reset');
+        setLoading(false);
+        return;
+      }
+      // OTP wajib untuk tab dashboard: setelah user+password sukses, kirim OTP
+      // via edge (password-reset) lalu input OTP sebelum redirect ke /dashboard.
+      if (tab === 'dashboard') {
+        setValidatedNrp(d.nrp || nrp);
+        await requestAdminOtpForEntry(d.nrp || nrp, 'dashboard');
         setLoading(false);
         return;
       }
@@ -236,7 +246,7 @@ export default function Home() {
       // Check MFA
       const mfaRes = await checkMfaStatus(ctx.nrp);
       if (mfaRes?.mfa_enabled) {
-        setSession({ token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' });
+        setSession({ token: authResult.session?.access_token, entry: 'admin', role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' });
         setMfaNrp(ctx.nrp);
         setMfaEmail(adminEmail);
         setMfaContext('admin');
@@ -245,10 +255,13 @@ export default function Home() {
         return;
       }
       
-      // No MFA — direct login
-      const sessionData = { token: authResult.session?.access_token, role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' };
+      // No MFA — Kirim OTP via email (edge password-reset) sebelum redirect ke /admin.
+      // OTP wajib untuk tab admin (keputusan user: "admin dan dashboard = setelah
+      // sukses user+passwd, harus kirim OTP email dan input OTP baru diarahkan").
+      const sessionData = { token: authResult.session?.access_token, entry: 'admin', role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' };
       setSession(sessionData);
-      window.location.href = '/admin';
+      setValidatedNrp(ctx.nrp);
+      await requestAdminOtpForEntry(ctx.nrp, 'admin');
     } catch (err) {
       console.error('[Admin Login] Exception during login:', err);
       setError('Koneksi error: ' + err.message);
@@ -273,18 +286,74 @@ export default function Home() {
     setLoading(false);
   }
 
+  // Kirim OTP login via edge password-reset (action login_otp) setelah
+  // user+password sukses (tab admin & dashboard). OTP wajib sebelum redirect.
+  async function requestAdminOtpForEntry(nrp, entry) {
+    setError('');
+    setLoading(true);
+    try {
+      const r = await callEdgeFunction('password-reset', { action: 'login_otp', nrp });
+      if (r?.ok) {
+        if (r.dev_code) setOtpCode(r.dev_code);
+        setLoginStep('otp');
+      } else {
+        setError(r?.msg || 'Gagal mengirim OTP ke email');
+      }
+    } catch (err) {
+      setError('Koneksi error: ' + err.message);
+    }
+    setLoading(false);
+  }
+
   async function submitWorkerOtp(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
+      if (tab === 'admin') {
+        // OTP admin: verifikasi via RPC verify_admin_otp (identitas = NRP hasil
+        // verify; bukan dari input user) — lalu cek MFA, finalisasi sesi.
+        const d = await rpc('verify_admin_otp', { p_code: otp });
+        if (d.ok) {
+          const s = { token: d.token, entry: tab, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: d.nrp || validatedNrp };
+          const mfaRes = await checkMfaStatus(s.nrp);
+          if (mfaRes?.mfa_enabled) {
+            setSession(s);
+            setMfaNrp(s.nrp);
+            setMfaContext('admin');
+            setLoginStep('mfa');
+            setLoading(false);
+            return;
+          }
+          setSession(s);
+          if (adminEmail && adminPass) await syncSupabaseAuth(adminEmail, adminPass);
+          redirectAfterLogin('admin');
+        } else {
+          setError(d.msg || 'OTP salah');
+        }
+        setLoading(false);
+        return;
+      }
+      // OTP dashboard: kode dari edge password-reset (action login_otp) —
+      // verify via edge (verify_login_otp) → identitas dari hasil verify.
+      if (tab === 'dashboard') {
+        const v = await callEdgeFunction('password-reset', { action: 'verify_login_otp', token: otp });
+        if (v?.ok) {
+          finalizeWorkerSession({ ...v, role: v.role || 'manager' }, {}, 'dashboard');
+          setLoading(false);
+          return;
+        }
+        setError(v?.msg || 'OTP salah');
+        setLoading(false);
+        return;
+      }
       const d = await rpc('verify_worker_otp', { p_nrp: validatedNrp, p_code: otp });
       if (d.ok) {
         // Check if MFA is enabled for this user
         const mfaRes = await checkMfaStatus(validatedNrp);
         if (mfaRes.mfa_enabled) {
           // MFA required — store OTP data, show MFA input
-          setSession({ ...d, role: 'worker' });
+          setSession({ ...d, role: 'worker', entry: tab });
           setMfaRequired(true);
           setMfaNrp(validatedNrp);
           setMfaContext('worker');
@@ -292,7 +361,7 @@ export default function Home() {
           return;
         }
         // No MFA — direct sesuai tab asal login
-        setSession({ ...d, role: 'worker' });
+        setSession({ ...d, role: 'worker', entry: tab });
         if (nik && pass) await provisionWorkerAuth(validatedNrp, nik, pass);
         redirectAfterLogin(tab);
       } else {
@@ -349,7 +418,7 @@ export default function Home() {
         // Check MFA for admin
         const mfaRes = await checkMfaStatus(adminNrp);
         if (mfaRes.mfa_enabled) {
-          setSession({ token: d.token, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
+          setSession({ token: d.token, entry: tab, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
           setMfaRequired(true);
           setMfaNrp(adminNrp);
           setMfaContext('admin');
@@ -357,7 +426,7 @@ export default function Home() {
           setLoading(false);
           return;
         }
-        setSession({ token: d.token, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
+        setSession({ token: d.token, entry: tab, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
         // V6: sync Supabase Auth for gatekeeper RPCs
         if (adminEmail) syncSupabaseAuth(adminEmail, adminPass);
         window.location.href = '/admin';
@@ -377,6 +446,9 @@ export default function Home() {
       let res;
       if (tab === 'admin') {
         res = await rpc('generate_admin_otp', {});
+      } else if (tab === 'dashboard') {
+        res = await callEdgeFunction('password-reset', { action: 'login_otp', nrp: validatedNrp });
+        if (res?.ok && res.dev_code) res = { ...res, otp: res.dev_code };
       } else {
         res = await rpc('generate_worker_otp', { p_nrp: validatedNrp, p_nik: nik, p_password: pass });
       }
@@ -577,7 +649,7 @@ export default function Home() {
     <div style={S.wrap}>
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
         <div style={S.logo}>{'\u{1F4CA}'}</div>
-        <h1 style={S.brand}>insightWOS</h1>
+        <h1 style={S.brand}>{brand.company_name || 'insightWIP'}</h1>
         <p style={S.sub}>Workforce Intelligence Platform</p>
       </div>
 
@@ -603,14 +675,18 @@ export default function Home() {
             <input value={nik} onChange={e => setNik(e.target.value)} placeholder="Masukkan NIK" style={S.inp} required />
           </div>
           <div style={S.field}>
-            <label style={S.label}>Password</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label style={S.label}>Password</label>
+              <a href="/reset-password" style={{ color: "#60a5fa", fontSize: 13 }}>Lupa Password?</a>
+            </div>
             <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Masukkan password" style={S.inp} required />
           </div>
           <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
-          <div style={{textAlign:"center",marginTop:8}}><a href="/reset-password" style={{color:"#60a5fa",fontSize:13}}>Lupa Password?</a></div>
+
           <div style={S.links}>
             <span style={S.link} onClick={() => alert('Form pendaftaran akan segera tersedia.')}>Daftar Baru</span>
             <span style={S.link} onClick={() => alert('Cek status pendaftaran akan segera tersedia.')}>Cek Daftar</span>
+            <span style={S.link} onClick={() => alert('MFA Setup akan segera tersedia.')}>MFA Setup</span>
           </div>
         </form>
       )}
@@ -681,12 +757,41 @@ export default function Home() {
         <form onSubmit={submitAdminCredentials} style={S.form}>
           <div style={S.field}>
             <label style={S.label}>Email Admin</label>
-            <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="owner@insightwos.com" style={S.inp} required />
-            <label style={S.label}>Password Admin</label>
+            <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="Masukkan email" style={S.inp} required />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label style={S.label}>Password</label>
+              <a href="/reset-password" style={{ color: "#60a5fa", fontSize: 13 }}>Lupa Password?</a>
+            </div>
             <input type="password" value={adminPass} onChange={e => setAdminPass(e.target.value)} placeholder="Masukkan password admin" style={S.inp} required />
           </div>
 
           <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : 'Verifikasi Password'}</button>
+          <div style={S.links}>
+            <span style={S.link} onClick={() => alert('MFA Setup akan segera tersedia.')}>MFA Setup</span>
+          </div>
+        </form>
+      )}
+
+      {/* OTP Wajib — tab admin & dashboard (setelah user+password sukses).
+          Worker tab memakai OTP hanya via requestAdminOtp (1-click flow). */}
+      {(tab === 'admin' || tab === 'dashboard') && loginStep === 'otp' && (
+        <form onSubmit={submitWorkerOtp} style={S.form}>
+          <div style={S.otpInfo}>Kode OTP dikirim ke email untuk NRP: <strong>{validatedNrp}</strong></div>
+          {otpCode && (
+            <div style={S.otpShow}>
+              <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Kode OTP (dev-mode):</div>
+              <div style={S.otpNumber}>{otpCode}</div>
+              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>Berlaku 5 menit</div>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <input value={otp} onChange={e => setOtp(e.target.value)} placeholder="000000" style={S.otpInp} maxLength={6} required autoFocus />
+          </div>
+          <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '4px' }}>
+            <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
+            <button type="button" style={S.btnSmall} onClick={resendOtp} disabled={loading}>Kirim Ulang OTP</button>
+          </div>
         </form>
       )}
 
@@ -724,33 +829,21 @@ export default function Home() {
             <input value={nik} onChange={e => setNik(e.target.value)} placeholder="Masukkan NIK" style={S.inp} required />
           </div>
           <div style={S.field}>
-            <label style={S.label}>Password</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label style={S.label}>Password</label>
+              <a href="/reset-password" style={{ color: "#60a5fa", fontSize: 13 }}>Lupa Password?</a>
+            </div>
             <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Masukkan password" style={S.inp} required />
           </div>
           <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
+          <div style={S.links}>
+            <span style={S.link} onClick={() => alert('MFA Setup akan segera tersedia.')}>MFA Setup</span>
+          </div>
         </form>
       )}
 
-      {tab === 'dashboard' && loginStep === 'otp' && (
-        <form onSubmit={submitWorkerOtp} style={S.form}>
-          <div style={S.otpInfo}>Kode OTP untuk NRP: <strong>{validatedNrp}</strong></div>
-          {otpCode && (
-            <div style={S.otpShow}>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Kode OTP Anda:</div>
-              <div style={S.otpNumber}>{otpCode}</div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>Berlaku 5 menit</div>
-            </div>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <input value={otp} onChange={e => setOtp(e.target.value)} placeholder="000000" style={S.otpInp} maxLength={6} required autoFocus />
-          </div>
-          <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '4px' }}>
-            <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
-            <button type="button" style={S.btnSmall} onClick={resendOtp} disabled={loading}>Kirim Ulang OTP</button>
-          </div>
-        </form>
-      )}
+      {/* NOTE: langkah OTP khusus dashboard dihapus — blok OTP admin serve
+          kedua tab admin & dashboard (kondisi tab === 'admin' || 'dashboard'). */}
 
       <p style={{ marginTop: '32px', fontSize: '11px', color: '#475569' }}>{'\u00A9'} 2026 insightWOS</p>
 
@@ -759,3 +852,4 @@ export default function Home() {
     </div>
   );
 }
+

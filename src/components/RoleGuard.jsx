@@ -1,23 +1,27 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase-browser';
+import { getSession } from '@/lib/supabase-browser';
 
 /**
- * RoleGuard — Wraps protected routes, verifies user role.
+ * RoleGuard — Wraps protected routes, verifies user role + login entry.
  * Props:
  *   allowedRoles: string[] — e.g. ['admin_pusat','admin_hrd','admin_finance']
+ *   entry: string — 'worker' | 'admin' | 'dashboard' — tab login yang dipakai.
+ *     Sesi hanya valid bila session.entry === entry (isolasi 3 page:
+ *     login via tab lain TIDAK bisa pindah page tanpa login ulang).
  *   redirectTo: string — where to redirect if unauthorized (default: '/')
  *
  * Usage:
- *   <RoleGuard allowedRoles={['admin_pusat']}>
+ *   <RoleGuard allowedRoles={['admin_pusat']} entry="admin">
  *     <AdminDashboard />
  *   </RoleGuard>
  *
- *   <RoleGuard allowedRoles={['worker','admin_mining','admin_mill','admin_estate']}>
+ *   <RoleGuard allowedRoles={['worker','admin_mining','admin_mill','admin_estate']} entry="worker">
  *     <WorkerPages />
  *   </RoleGuard>
  */
-export default function RoleGuard({ children, allowedRoles = [], redirectTo = '/' }) {
+
+export default function RoleGuard({ children, allowedRoles = [], entry = null, redirectTo = '/' }) {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -26,43 +30,36 @@ export default function RoleGuard({ children, allowedRoles = [], redirectTo = '/
     let cancelled = false;
     (async () => {
       try {
-        // Check Supabase Auth session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
+        // Check local app session (Supabase Auth JWT tidak dipakai untuk worker —
+        // mereka login via RPC token + sessionStorage 'wos_user').
+        const s = getSession();
+        if (!s?.nrp) {
           if (!cancelled) { navigate('/', { replace: true }); setChecking(false); }
           return;
         }
 
-        // Get user context via RPC
-        const { data: ctx, error } = await supabase.rpc('get_current_user_context');
+        // Isolasi entry: sesi yang dibuat dari tab login lain tidak berlaku.
+        // Sesi lama (sebelum field entry ada) bersifat legacy → tetap diizinkan
+        // agar tidak mengunci user yang sudah login.
+        if (entry && s.entry && s.entry !== entry && s.role !== 'owner') {
+          if (!cancelled) { navigate(redirectTo, { replace: true }); setChecking(false); }
+          return;
+        }
+
+        // Role check: owner bypass semua.
+        const userRole = s.role;
+        const isOwner = s.is_owner === true || userRole === 'owner';
         if (!cancelled) {
-          if (error || !ctx) {
-            console.error('[RoleGuard] RPC failed or returned null:', error);
-            navigate(redirectTo, { replace: true });
+          if (isOwner) {
+            setAuthorized(true);
+          } else if (allowedRoles.length === 0) {
+            setAuthorized(true);
+          } else if (allowedRoles.includes(userRole)) {
+            setAuthorized(true);
           } else {
-            const userRole = ctx.role;
-            const isOwner = ctx.is_owner === true;
-            // Owner bypasses all role checks
-            if (isOwner) {
-              setAuthorized(true);
-            } else if (allowedRoles.length === 0) {
-              // No role restriction — any authenticated user can access
-              setAuthorized(true);
-            } else if (allowedRoles.includes(userRole)) {
-              setAuthorized(true);
-            } else {
-              // Unauthorized — redirect based on role
-              if (isOwner) {
-                // Owner should never reach here (bypass above), but just in case
-                setAuthorized(true);
-              } else if (userRole === 'worker') {
-                navigate('/worker', { replace: true });
-              } else if (userRole?.startsWith('admin_')) {
-                navigate('/admin', { replace: true });
-              } else {
-                navigate(redirectTo, { replace: true });
-              }
-            }
+            // Role tidak diizinkan → kembalikan ke login (isolasi 3 page:
+            // tidak auto-lempar ke page lain, user harus login ulang dari tab yang benar).
+            navigate(redirectTo, { replace: true });
           }
           setChecking(false);
         }
@@ -72,7 +69,8 @@ export default function RoleGuard({ children, allowedRoles = [], redirectTo = '/
       }
     })();
     return () => { cancelled = true; };
-  }, [navigate, redirectTo, JSON.stringify(allowedRoles)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate, redirectTo, entry, JSON.stringify(allowedRoles)]);
 
   if (checking) {
     return (

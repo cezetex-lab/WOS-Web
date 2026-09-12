@@ -11,6 +11,7 @@ import OfflineIndicator from './components/OfflineIndicator';
 import PrivacyConsent from './components/PrivacyConsent';
 import SessionGuard from './components/SessionGuard';
 import OwnerGuard from './components/OwnerGuard';
+import RoleGuard from './components/RoleGuard';
 import SkipToContent from './components/SkipToContent';
 import ErrorBoundary from './components/ErrorBoundary';
 import DynamicRoutes from './components/DynamicRoutes';
@@ -22,6 +23,7 @@ import OwnerDashboard from './pages/OwnerDashboard';
 import CompanyConfig from './pages/CompanyConfig';
 import Admin from './pages/Admin';
 import Worker from './pages/Worker';
+import Dashboard from './pages/Dashboard';
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -50,9 +52,12 @@ function AppContent() {
           <Route path="/owner/dashboard" element={<OwnerGuard><OwnerDashboard /></OwnerGuard>} />
           <Route path="/owner/dashboard/config" element={<OwnerGuard><CompanyConfig /></OwnerGuard>} />
 
-          {/* PROTECTED — direct routes */}
-          <Route path="/admin" element={withNav(Admin)} />
-          <Route path="/worker" element={withNav(Worker)} />
+          {/* PROTECTED — role-isolated: worker / admin / dashboard punya guard sendiri.
+              SessionGuard hanya cek login; RoleGuard cek role + login-entry.
+              Worker yang login via tab lain TIDAK bisa buka /admin atau /dashboard tanpa login ulang. */}
+          <Route path="/admin" element={<RoleGuard allowedRoles={['admin_pusat','admin_hrd','admin_finance','admin_produksi','admin_mining','admin_mill','admin_estate','owner']} entry="admin" redirectTo="/">{withNav(Admin)}</RoleGuard>} />
+          <Route path="/worker" element={<RoleGuard allowedRoles={['worker','owner']} entry="worker" redirectTo="/">{withNav(Worker)}</RoleGuard>} />
+          <Route path="/dashboard" element={<RoleGuard allowedRoles={['manager','admin_pusat','admin_hrd','admin_finance','admin_produksi','owner']} entry="dashboard" redirectTo="/">{withNav(Dashboard)}</RoleGuard>} />
           {/* DYNAMIC ROUTES from module_definitions */}
           <Route path="/*" element={<DynamicRoutes withNav={withNav} />} />
         </Routes>
