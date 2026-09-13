@@ -141,6 +141,17 @@
 **Butuh keputusan user** sebelum dikerjakan: mana yang jadi kolom `employees_extended` /
 `hr_payroll`, mana ke `employee_documents`.
 
+> **KEPUTUSAN 2026-09-14 (locked, DONE via migration 215):**
+> bank/BPJS keanggotaan = kolom statis di `employees_extended`
+> (rekomendasi terpilih; `Payroll.jsx` baca dari join karyawan).
+> Mapping lengkap: §7 → core: `lokasi_penempatan`, `updated_by`, `status_kerja_internal`;
+> extended: +11 kolom (`agama`, `media_sosial` JSONB, `jenjang_pendidikan`,
+> `no_bpjs_kesehatan`, `no_bpjs_ketenagakerjaan`, `riwayat_penyakit`, `komorbid`,
+> `alergi`, `nama_bank`, `no_rekening`, `nama_rekening`); upload → seed 12
+> `hr_document_types` + `employee_documents`; `fileLinksJSON` = join;
+> pernyataan kebenaran = `user_consents`. Sisa OPEN: tidak ada (UI input form
+> kolom baru = pekerjaan terpisah, belum diputuskan).
+
 ## 8. JEBAKAN LINGKUNGAN (Windows / PowerShell / Supabase)
 
 1. SQL Editor: hanya statement terakhir tampil → pecah blok multi-statement; agregat

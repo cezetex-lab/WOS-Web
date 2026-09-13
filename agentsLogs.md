@@ -19,6 +19,18 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 `git log --oneline` (640 commit di semua ref).
 
 ---
+## [2026-09-14] §7 Migration Gap Inventory (karyawan) — DONE
+- Status: DONE
+- Commit: ccb89c2 (deploy: https://insightwos.vercel.app ✓ Ready in 22s; migration 215 applied live, ALL OK)
+- Ringkasan:
+  - 14 kolom baru: `employees_core` +3 (`lokasi_penempatan`, `updated_by`, `status_kerja_internal`), `employees_extended` +11 (`agama`, `media_sosial` JSONB, `jenjang_pendidikan`, `no_bpjs_kesehatan`, `no_bpjs_ketenagakerjaan`, `riwayat_penyakit`, `komorbid`, `alergi`, `nama_bank`, `no_rekening`, `nama_rekening`); sesuai keputusan user (bank statis di extended, bukan snapshot payroll).
+  - Seed 12 kategori `hr_document_types` menggantikan 10 kolom upload GAS; `fileLinksJSON` diwakili `employee_documents`.
+  - `employees_master` VIEW + INSTEAD OF INSERT/UPDATE (+DELETE ter-restore) disinkronkan; `admin_get_payroll` LEFT JOIN karyawan (nama/divisi/jenis/bank); `Payroll.jsx` fallback `no_rekening`; mock E2E `PAYROLL_ROWS` +bank.
+- Bukti: lint 0 error, unit 100/100, build EXIT 0; apply live 35 statements 0 fail + post-verify ALL OK; smoke rollback-write VIEW (insert/update/delete via view) OK; `hr_payroll` 0 rows sehingga join sample kosong.
+- Catatan: koreksi desain saat apply — `CREATE OR REPLACE VIEW` menolak ganti nama kolom (42P16) → DROP+CREATE CASCADE (aman: tidak ada view turunan/policy; DELETE trigger di-restore); splitter apply diganti pola dollar-quote-aware 208 ($function$).
+- Rollback: `supabase/migrations/rollback/215_rollback.sql`.
+
+---
 
 ## [2026-09-05..07] Migrations 141–168 (audit remediation + industry + auth) — ringkasan
 - Status: DONE (all applied live; lihat commit history)
