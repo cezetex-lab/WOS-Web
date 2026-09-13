@@ -87,7 +87,6 @@
 |---|---|---|
 | 5.5 | A11 form mati tanpa handler | lapor K3, panen, fasilitas |
 | 5.6 | A9 ChatCopilot | DOMPurify + guard auth.uid() di edge function |
-| 5.8 | REVOKE sisa (F-8 + formalitas A1/A2) | 5 RPC industri anon: get_field_status, get_irrigation_status, get_maintenance_schedule, get_mill_production, get_yield_data; + change_password, check_login_lockout, get_branding, cleanup_rate_limits |
 | 5.9 | A5 `employees_master` VIEW non-updatable | write-path permanen (INSTEAD OF trigger) |
 | 5.11 | Redesign registrasi + favicon via Owner branding | |
 | — | F-7 | pg_cron tidak terinstal (available 1.6.4); cron (otp cleanup dll.) tidak jalan |

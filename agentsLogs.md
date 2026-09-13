@@ -269,7 +269,8 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   FatigueMonitor, SimperPage). 6 RPCs lain sudah benar (estate_blocks,
   estate_field, estate_irrigation, estate_yield, mill_maintenance, mill_shift).
 - Bukti: pre-flight probe live DB (read-only), post-verify RPC calls,
-  gates: lint 0 errors, tests 100/100, build EXIT 0.
+  gates: lint 0 errors, tests 100/100, build EXIT 0.
+
 
 ## [2026-09-13] Tahap 5.7 — Retire dual-store password (partial)
 - Status: PARTIAL (provisioning blocked by wrong service key)
@@ -279,4 +280,14 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   Provisioning butuh service key yang benar (SUPABASE_SERVICE_KEY di .env.local
   salah project). Jalankan `provision-worker-auth.mjs --run` dengan key yang benar
   untuk menyelesaikan.
-- Bukti: preflight probe live DB, grep codebase (authgrant text tidak ditemukan).
+- Bukti: preflight probe live DB, grep codebase (authgrant text tidak ditemukan).
+
+## [2026-09-13] Tahap 5.8 — REVOKE anon/PUBLIC from 9 RPCs (migration 210)
+- Status: DONE
+- Commit: pending
+- Ringkasan: REVOKE anon/PUBLIC EXECUTE dari 9 RPCs:
+  get_field_status, get_irrigation_status, get_maintenance_schedule,
+  get_mill_production, get_yield_data, change_password,
+  check_login_lockout(p_identifier,p_attempt_type), get_branding, cleanup_rate_limits.
+  Semua sudah di-REVOKE di live DB. Migration 210 merekam untuk audit trail.
+- Bukti: post-verify anon grants = 0 pada semua 9 RPCs.
