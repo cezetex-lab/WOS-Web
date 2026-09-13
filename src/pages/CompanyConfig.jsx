@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { rpc, clearSession, signOutAuth } from '@/lib/supabase-browser';
 import { useNavigate } from 'react-router-dom';
 import LogoUploader from '@/components/LogoUploader';
+import { GlassCard } from '@/lib/design-system';
 
 export default function CompanyConfig() {
   const navigate = useNavigate();
@@ -95,9 +96,10 @@ export default function CompanyConfig() {
         </div>
 
         {/* Search */}
-        <div className="mb-6">
+        <div className="mb-6 flex flex-col md:flex-row md:items-center gap-3">
           <input type="text" placeholder="Cari config..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full md:w-96 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500" />
+            className="md:w-96 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500" />
+          <p className="text-gray-500 text-xs">Logo, nama perusahaan, tagline &amp; warna diatur di kartu <span className="text-gray-300 font-semibold">Branding</span> paling bawah — bukan kategori 🎨 (kategori itu KPI color bands &amp; label).</p>
         </div>
 
         {loading ? <div className="text-center py-20 text-gray-400">Loading...</div> : (
@@ -138,6 +140,14 @@ export default function CompanyConfig() {
             )}
           </>
         )}
+      </div>
+
+      {/* Branding — OWNER-configurable (branding table, BUKAN company_config 🎨) */}
+      <div className="mb-6">
+        <GlassCard title="Branding" icon="🏷️" accent="blue">
+          <p className="text-gray-400 text-xs mb-4">Nama perusahaan, tagline, logo & warna primer — dipakai di halaman login dan drawer. Sumber data: tabel <code className="text-cyan-400">branding</code> (RPC <code className="text-cyan-400">update_branding</code>), terpisah dari Company Configuration.</p>
+          <LogoUploader />
+        </GlassCard>
       </div>
 
       {/* Edit Modal */}
