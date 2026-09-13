@@ -280,7 +280,8 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   Provisioning butuh service key yang benar (SUPABASE_SERVICE_KEY di .env.local
   salah project). Jalankan `provision-worker-auth.mjs --run` dengan key yang benar
   untuk menyelesaikan.
-- Bukti: preflight probe live DB, grep codebase (authgrant text tidak ditemukan).
+- Bukti: preflight probe live DB, grep codebase (authgrant text tidak ditemukan).
+
 
 ## [2026-09-13] Tahap 5.8 — REVOKE anon/PUBLIC from 9 RPCs (migration 210)
 - Status: DONE
@@ -290,4 +291,15 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   get_mill_production, get_yield_data, change_password,
   check_login_lockout(p_identifier,p_attempt_type), get_branding, cleanup_rate_limits.
   Semua sudah di-REVOKE di live DB. Migration 210 merekam untuk audit trail.
-- Bukti: post-verify anon grants = 0 pada semua 9 RPCs.
+- Bukti: post-verify anon grants = 0 pada semua 9 RPCs.
+
+## [2026-09-13] Tahap 5.9 — employees_master VIEW write-path (migration 211)
+- Status: DONE
+- Commit: pending
+- Ringkasan: INSTEAD OF INSERT/UPDATE/DELETE triggers pada employees_master VIEW.
+  Write delegasi ke employees_core (core cols) + employees_extended (PII cols).
+  Smoke test: INSERT via VIEW → employees_core row created → ROLLBACK clean.
+  Migration 206 (5.3) sudah fix approve RPCs ke base table; trigger ini menjamin
+  write-path permanen untuk semua kode yang masih refer ke VIEW.
+- Bukti: preflight probe (admin_approve_pending INSERT ke VIEW = error 55000),
+  migration 211 post-verify (3 triggers + smoke test PASS).
