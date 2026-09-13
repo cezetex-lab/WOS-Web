@@ -242,7 +242,20 @@
 | 3 | Migration 198 applied live → `branding.company_name='insightWIP'` | ✅ | probe pg8000 |
 | 4 | Secret scan pre-commit bersih | ✅ | scan `postgresql://\|SERVICE_ROLE\|ywYBamE6` |
 
-## 9. LOGIN OTP FIX 2026-09-13 — 500 Error Admin/Dashboard
+## 9. ROUTE FIX 2026-09-13 — get_enabled_modules(p_area) + search_path
+
+### 9.1 F-4 FIX: get_enabled_modules() SECURITY DEFINER tanpa SET search_path
+- **Pelanggaran:** Rule §6.3 — 1 pelanggaran (sebelumnya 0).
+- **Fix:** Migration 202 — tambah `SET search_path TO 'public', extensions`.
+- **Verifikasi:** `proconfig = [search_path=public, extensions]` ✅
+
+### 9.2 5.10: get_enabled_modules(p_area)
+- **Gejala:** DynamicRoutes load semua modules tanpa filter area — inefficient, dan A12 tidak jalan.
+- **Fix:** Migration 202 — tambah parameter `p_area text DEFAULT NULL`. Filter `route_group = p_area` jika tidak NULL.
+- **Frontend:** `DynamicRoutes.jsx` — `areaFromPath(pathname)` tentukan admin/worker/dashboard dari URL, pass ke `get_enabled_modules`.
+- **Verifikasi:** `vite build` EXIT 0, deploy production ✅
+
+## 10. LOGIN OTP FIX 2026-09-13 — 500 Error Admin/Dashboard
 
 ### 9.1 Bug: edge function password-reset 500 saat login admin/dashboard
 - **Gejala:** `POST .../functions/v1/password-reset 500 (Internal Server Error)` saat kredensial admin/dashboard benar. User tidak pernah sampai ke step MFA/OTP.
