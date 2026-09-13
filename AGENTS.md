@@ -85,8 +85,6 @@
 
 | Tahap | Item | Catatan |
 |---|---|---|
-| 5.3 | P0-6 guard permanen NIK NULL | constraint + NULL-check di RPC |
-| 5.4 | A10 data palsu/fallback | SafetyK3, JSA, ProductionDaily, Transport, Simper, Block, Irrigation |
 | 5.5 | A11 form mati tanpa handler | lapor K3, panen, fasilitas |
 | 5.6 | A9 ChatCopilot | DOMPurify + guard auth.uid() di edge function |
 | 5.7 | Retire dual-store password | `worker_passwords` + auth.users → login murni Supabase Auth; menghilangkan notice "authgrant" |

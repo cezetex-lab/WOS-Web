@@ -251,7 +251,21 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 | `docs/migration-gap-inventory.md` | Gap karyawan B1–B17 masih OPEN → `AGENTS.md` §7 (file dihapus) |
 | `docs/5.0-credential-rotation-runbook.md` | Sudah dieksekusi → history (entri di atas; file dihapus) |
 | `Readme/`, `files/` (arsip GAS, forensik, CSV lampiran) | Dipindah user ke `supabase/GAS sebelum refaktor/` → tetap TIDAK di-commit (kredensial legacy, lihat AGENTS.md §9). Catatan: 3 file SQL duplikat (`191_remove_hardcoded_password`, `192_revoke_anon_access`, `193_fix_sql_injection`) yang pernah ada di `supabase/migrations/` **di-DELETE** (stale duplicate dari 2026-09-08; live DB sudah memenuhi tujuannya via migrasi 191-194 yang committed — bukti probe `.freebuff/audit/probe_untracked_191_193.py`). |
-| `_b.txt`, `_t.txt`, `_test_out.txt` | Sampah log build/test → dihapus |
+| `_b.txt`, `_t.txt`, `_test_out.txt` | Sampah log build/test → dihapus |
 
-
-
+## [2026-09-13] Tahap 5.4 (A10) — industry fake-data → real tables (migrations 208)
+- Status: DONE
+- Commit: `0fc63c1` (DB-only, no frontend deploy)
+- Ringkasan: 6 RPCs (get_safety_incidents, get_jsa_list, get_production_daily,
+  get_heavy_equipment, get_fatigue_data, get_simper_list) mengembalikan data
+  palsu/fallback (hardcoded ARRAY + generate_series). Diperbaiki:
+  CREATE 6 backing tables (safety_incidents, jsa_data, production_daily,
+  heavy_equipment, fatigue_data, simper_data) dengan CHECK constraints,
+  RLS + GRANTS sesuai pola existing. RPC di-CREATE OR REPLACE dengan
+  subquery pattern (jsonb_agg(sub) FROM (...)) — semua return
+  {ok:true, data:[] saat tabel kosong (fail-closed). Frontend field
+  contracts terjaga (SafetyK3, JSA, ProductionDaily, HeavyEquipment,
+  FatigueMonitor, SimperPage). 6 RPCs lain sudah benar (estate_blocks,
+  estate_field, estate_irrigation, estate_yield, mill_maintenance, mill_shift).
+- Bukti: pre-flight probe live DB (read-only), post-verify RPC calls,
+  gates: lint 0 errors, tests 100/100, build EXIT 0.
