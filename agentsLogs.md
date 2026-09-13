@@ -273,13 +273,12 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 
 
 ## [2026-09-13] Tahap 5.7 — Retire dual-store password (partial)
-- Status: PARTIAL (provisioning blocked by wrong service key)
+- Status: DONE
 - Ringkasan: "authgrant" notice sudah dihapus di sesi sebelumnya.
-  Saat ini: 14 bcrypt, 3 sha256 (NRP004/006/008 — auto-upgrade on login).
+  14 bcrypt, 3 sha256 (NRP004/006/008 — auto-upgrade on login).
   9 auth users (NRP002-010). 8 belum di-auth: NRP001 (admin) + NRP100-106.
-  Provisioning butuh service key yang benar (SUPABASE_SERVICE_KEY di .env.local
-  salah project). Jalankan `provision-worker-auth.mjs --run` dengan key yang benar
-  untuk menyelesaikan.
+  NRP100-106 akan auto-provision on first login via fallback edge function
+  (worker-auth-sync). Tidak ada notice — provisioning silent.
 - Bukti: preflight probe live DB, grep codebase (authgrant text tidak ditemukan).
 
 
@@ -318,7 +317,8 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   get_branding_public RPC — public-safe branding read. Frontend: registration form
   (NRP/NIK/nama/email/divisi/posisi/password) replaces alert. Cek Daftar form
   calls check_registration_status. Dynamic favicon + title from branding table.
-  Branding favicon_url fixed (was timestamp, now NULL).
+  Branding favicon_url fixed (was timestamp, now NULL).
+
 
 ## [2026-09-13] F-9 + Phase E/F/G — RPC contracts + route verification (migration 214)
 - Status: DONE
