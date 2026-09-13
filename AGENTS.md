@@ -85,8 +85,6 @@
 
 | Tahap | Item | Catatan |
 |---|---|---|
-| 5.5 | A11 form mati tanpa handler | lapor K3, panen, fasilitas |
-| 5.6 | A9 ChatCopilot | DOMPurify + guard auth.uid() di edge function |
 | 5.11 | Redesign registrasi + favicon via Owner branding | |
 | — | F-7 | pg_cron tidak terinstal (available 1.6.4); cron (otp cleanup dll.) tidak jalan |
 | — | F-9 | RPC missing/kontrak: get_organization_health, update_audit_timestamp, register_session; update_task_status overload (p_id int / p_task_id text) |
