@@ -255,6 +255,12 @@
 - **Frontend:** `DynamicRoutes.jsx` — `areaFromPath(pathname)` tentukan admin/worker/dashboard dari URL, pass ke `get_enabled_modules`.
 - **Verifikasi:** `vite build` EXIT 0, deploy production ✅
 
+### 9.3 F-4 RESIDUE: overload legacy 0-arg get_enabled_modules() (2026-09-13)
+- **Temuan (verifikasi live):** overload 0-arg `get_enabled_modules()` masih ada di DB — SECURITY DEFINER **tanpa SET search_path** (pelanggaran Rule §6.3). Frontend (`DynamicRoutes.jsx`) selalu memanggil versi 1-arg (`p_area`), jadi 0-arg tidak terpakai.
+- **Fix:** Migration 205 — RENAME `get_enabled_modules()` → `get_enabled_modules_legacy_noarg()` (Rule §6.4, bukan DROP) + `SET search_path TO 'public', extensions` + REVOKE dari `anon, PUBLIC` (keep authenticated; fungsi fail-closed via `get_current_user_context()`).
+- **Verifikasi live:** 1-arg utuh (secdef + search_path ✅); legacy_noarg ACL = postgres/service_role/authenticated saja; anon REST smoke: 1-arg → `200 []` (fail-closed), legacy_noarg → `401 permission denied`. Build EXIT 0, tests 100/100.
+
+
 ## 10. LOGIN OTP FIX 2026-09-13 — 500 Error Admin/Dashboard
 
 ### 9.1 Bug: edge function password-reset 500 saat login admin/dashboard
