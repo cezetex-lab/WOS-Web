@@ -55,9 +55,9 @@ function AppContent() {
           {/* PROTECTED — role-isolated: worker / admin / dashboard punya guard sendiri.
               SessionGuard hanya cek login; RoleGuard cek role + login-entry.
               Worker yang login via tab lain TIDAK bisa buka /admin atau /dashboard tanpa login ulang. */}
-          <Route path="/admin" element={<RoleGuard allowedRoles={['admin_pusat','admin_hrd','admin_finance','admin_produksi','admin_mining','admin_mill','admin_estate','owner']} entry="admin" redirectTo="/">{withNav(Admin)}</RoleGuard>} />
+          <Route path="/admin" element={<RoleGuard allowedRoles={['admin_pusat','admin_hrd','admin_finance','admin_operasional','admin_mining','admin_mill','admin_estate','owner']} entry="admin" redirectTo="/">{withNav(Admin)}</RoleGuard>} />
           <Route path="/worker" element={<RoleGuard allowedRoles={['worker','owner']} entry="worker" redirectTo="/">{withNav(Worker)}</RoleGuard>} />
-          <Route path="/dashboard" element={<RoleGuard allowedRoles={['manager','admin_pusat','admin_hrd','admin_finance','admin_produksi','owner']} entry="dashboard" redirectTo="/">{withNav(Dashboard)}</RoleGuard>} />
+          <Route path="/dashboard" element={<RoleGuard allowedRoles={['manager','admin_pusat','admin_hrd','admin_finance','admin_operasional','owner']} entry="dashboard" redirectTo="/">{withNav(Dashboard)}</RoleGuard>} />
           {/* DYNAMIC ROUTES from module_definitions */}
           <Route path="/*" element={<DynamicRoutes withNav={withNav} />} />
         </Routes>

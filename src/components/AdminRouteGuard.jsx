@@ -15,7 +15,7 @@ const ROLE_ACCESS = {
 
   '/admin/approvals': ["admin_pusat", "admin_hrd"],
 
-  '/admin/assets': ["admin_pusat", "admin_produksi"],
+  '/admin/assets': ["admin_pusat", "admin_operasional"],
 
   '/admin/audit': ["admin_pusat", "admin_finance"],
 
@@ -39,7 +39,7 @@ const ROLE_ACCESS = {
 
   '/admin/export': ["admin_pusat", "admin_finance"],
 
-  '/admin/facility': ["admin_pusat", "admin_produksi"],
+  '/admin/facility': ["admin_pusat", "admin_operasional"],
 
   '/admin/features': ["admin_pusat"],
 
@@ -49,11 +49,11 @@ const ROLE_ACCESS = {
 
   '/admin/integrations': ["admin_pusat"],
 
-  '/admin/kpi': ["admin_pusat", "admin_hrd", "admin_finance", "admin_produksi"],
+  '/admin/kpi': ["admin_pusat", "admin_hrd", "admin_finance", "admin_operasional"],
 
   '/admin/learning': ["admin_pusat", "admin_hrd"],
 
-  '/admin/leave': ["admin_pusat", "admin_hrd", "admin_produksi"],
+  '/admin/leave': ["admin_pusat", "admin_hrd", "admin_operasional"],
 
   '/admin/master': ["admin_pusat"],
 
@@ -73,7 +73,7 @@ const ROLE_ACCESS = {
 
   '/admin/org-subtree': ["admin_pusat"],
 
-  '/admin/overtime': ["admin_pusat", "admin_finance", "admin_produksi"],
+  '/admin/overtime': ["admin_pusat", "admin_finance", "admin_operasional"],
 
   '/admin/payroll': ["admin_pusat", "admin_finance"],
 
@@ -83,7 +83,7 @@ const ROLE_ACCESS = {
 
   '/admin/referral': ["admin_pusat", "admin_hrd"],
 
-  '/admin/requests': ["admin_pusat", "admin_hrd", "admin_produksi"],
+  '/admin/requests': ["admin_pusat", "admin_hrd", "admin_operasional"],
 
   '/admin/reset-password': ["admin_pusat", "admin_hrd"],
 
@@ -95,7 +95,7 @@ const ROLE_ACCESS = {
 
   '/admin/settings': ["admin_pusat"],
 
-  '/admin/shift-swap': ["admin_pusat", "admin_produksi"],
+  '/admin/shift-swap': ["admin_pusat", "admin_operasional"],
 
   '/admin/simulation': ["admin_pusat"],
 
@@ -103,7 +103,7 @@ const ROLE_ACCESS = {
 
   '/admin/talent': ["admin_pusat", "admin_hrd"],
 
-  '/admin/timesheet': ["admin_pusat", "admin_finance", "admin_produksi"],
+  '/admin/timesheet': ["admin_pusat", "admin_finance", "admin_operasional"],
 
   '/admin/turnover': ["admin_pusat"],
 
@@ -111,7 +111,7 @@ const ROLE_ACCESS = {
 
   '/admin/whistleblower': ["admin_pusat", "admin_hrd"],
 
-  '/admin': ['admin_pusat','admin_hrd','admin_finance','admin_produksi','admin_mining','admin_mill','admin_estate'],
+  '/admin': ['admin_pusat','admin_hrd','admin_finance','admin_operasional','admin_mining','admin_mill','admin_estate'],
 
 };
 
@@ -134,3 +134,4 @@ export default function AdminRouteGuard({ children }) {
 
   return children;
 }
+

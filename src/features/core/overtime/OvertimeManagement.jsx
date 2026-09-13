@@ -5,7 +5,7 @@ import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpi
 import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function OvertimeManagement() {
-  useAdminAuth(["admin_pusat", "admin_finance", "admin_produksi"]);
+  useAdminAuth(["admin_pusat", "admin_finance", "admin_operasional"]);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -88,3 +88,4 @@ export default function OvertimeManagement() {
     </PageLayout>
   );
 }
+

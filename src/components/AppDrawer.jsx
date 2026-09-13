@@ -89,7 +89,7 @@ const ADMIN_FINANCE_GROUPS = [
   G_SYS,
 ];
 
-const ADMIN_PRODUKSI_GROUPS = [G_OPS, G_PERF, G_SYS];
+const admin_operasional_GROUPS = [G_OPS, G_PERF, G_SYS];
 
 const ADMIN_MINING_GROUPS = [G_OPS, G_PERF, G_SYS];
 
@@ -100,7 +100,7 @@ const ADMIN_ESTATE_GROUPS = [G_OPS, G_PERF, G_SYS];
 const ADMIN_ROLE_MAP = {
   admin_hrd: ADMIN_HRD_GROUPS,
   admin_finance: ADMIN_FINANCE_GROUPS,
-  admin_produksi: ADMIN_PRODUKSI_GROUPS,
+  admin_operasional: admin_operasional_GROUPS,
   admin_mining: ADMIN_MINING_GROUPS,
   admin_mill: ADMIN_MILL_GROUPS,
   admin_estate: ADMIN_ESTATE_GROUPS,
@@ -271,3 +271,4 @@ export function AppDrawer({ isOpen, onClose }) {
     </>
   );
 }
+

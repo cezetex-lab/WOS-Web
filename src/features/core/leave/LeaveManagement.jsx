@@ -12,7 +12,7 @@ import {
 } from '@/lib/design-system';
 
 export default function LeaveManagement() {
-  useAdminAuth(["admin_pusat", "admin_hrd", "admin_produksi"]);
+  useAdminAuth(["admin_pusat", "admin_hrd", "admin_operasional"]);
   const [loading, setLoading] = useState(true);
   const [leaveData, setLeaveData] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
@@ -205,3 +205,4 @@ export default function LeaveManagement() {
     </PageLayout>
   );
 }
+

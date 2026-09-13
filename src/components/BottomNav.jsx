@@ -64,7 +64,7 @@ const ROLE_CONFIG = {
     ],
   },
   // Admin Produksi: operations + assets
-  admin_produksi: {
+  admin_operasional: {
     home: '/admin',
     items: [
       { to: '/admin', icon: '🏠', label: 'Beranda' },

@@ -12,7 +12,7 @@ const ROLE_BADGES = {
   admin_pusat: { label: 'Admin Pusat', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: '👑' },
   admin_hrd: { label: 'Admin HRD', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: '👥' },
   admin_finance: { label: 'Admin Finance', color: 'bg-green-500/20 text-green-400 border-green-500/30', icon: '💰' },
-  admin_produksi: { label: 'Admin Operasional', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: '⚙️' },
+  admin_operasional: { label: 'Admin Operasional', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: '⚙️' },
   admin_mining: { label: 'Admin Tambang', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: '⛏️' },
   admin_mill: { label: 'Admin Pabrik', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30', icon: '🏭' },
   admin_estate: { label: 'Admin Perkebunan', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: '🌴' },
@@ -52,7 +52,7 @@ const ADMIN_TILES = {
     { icon: '📋', label: 'Audit', color: 'slate', path: '/admin/audit' },
     { icon: '⚙️', label: 'Pengaturan', color: 'slate', path: '/admin/settings' },
   ],
-  admin_produksi: [
+  admin_operasional: [
     { icon: '⏱️', label: 'Timesheet', color: 'blue', path: '/admin/timesheet' },
     { icon: '🔄', label: 'Shift', color: 'teal', path: '/admin/shift-swap' },
     { icon: '⏰', label: 'Lembur', color: 'orange', path: '/admin/overtime' },

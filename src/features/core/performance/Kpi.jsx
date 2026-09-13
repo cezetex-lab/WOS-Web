@@ -46,7 +46,7 @@ function getKpiBadgeType(score) {
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────
 export default function Kpi() {
-  useAdminAuth(["admin_pusat", "admin_hrd", "admin_finance", "admin_produksi"]);
+  useAdminAuth(["admin_pusat", "admin_hrd", "admin_finance", "admin_operasional"]);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState({});
@@ -337,3 +337,4 @@ export default function Kpi() {
     </PageLayout>
   );
 }
+

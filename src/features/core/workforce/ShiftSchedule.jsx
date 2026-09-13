@@ -17,7 +17,7 @@ const SHIFT_COLORS = {
 const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
 export default function ShiftSchedule() {
-  useAdminAuth(["admin_pusat", "admin_produksi"]);
+  useAdminAuth(["admin_pusat", "admin_operasional"]);
   const [loading, setLoading] = useState(true);
   const [shifts, setShifts] = useState([]);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
@@ -119,3 +119,4 @@ export default function ShiftSchedule() {
     </PageLayout>
   );
 }
+

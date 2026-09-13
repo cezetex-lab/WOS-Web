@@ -21,7 +21,7 @@ const STATUS_COLORS = {
 };
 
 export default function RequestsList() {
-  useAdminAuth(["admin_pusat", "admin_hrd", "admin_produksi"]);
+  useAdminAuth(["admin_pusat", "admin_hrd", "admin_operasional"]);
   const session = getSession();
   const nrp = session?.nrp || 'ADMIN001';
   const [loading, setLoading] = useState(true);
@@ -260,3 +260,4 @@ export default function RequestsList() {
     </PageLayout>
   );
 }
+

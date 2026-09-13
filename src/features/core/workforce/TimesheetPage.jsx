@@ -5,7 +5,7 @@ import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } f
 import useAdminAuth from '@/hooks/useAdminAuth';
 
 export default function TimesheetPage() {
-  useAdminAuth(["admin_pusat", "admin_finance", "admin_produksi"]);
+  useAdminAuth(["admin_pusat", "admin_finance", "admin_operasional"]);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
 
@@ -48,3 +48,4 @@ export default function TimesheetPage() {
     </PageLayout>
   );
 }
+

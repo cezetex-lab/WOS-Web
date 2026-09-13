@@ -12,7 +12,7 @@ const logError = createPageErrorLogger('OwnerDashboard');
 // Option list untuk role workerd/divisi (shared: roles tab + modal Edit Role).
 // Bugfix 2026-09-11: `const ro` sebelum ini di-declare dalam IIFE (roles tab)
 // sehingga modal Edit Role (di luar scope) selalu ReferenceError 'ro is not defined'.
-const ROLE_OPTIONS = ['admin_pusat', 'admin_hrd', 'admin_produksi', 'admin_finance', 'manager', 'supervisor', 'worker'];
+const ROLE_OPTIONS = ['admin_pusat', 'admin_hrd', 'admin_operasional', 'admin_finance', 'manager', 'supervisor', 'worker'];
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
@@ -1114,3 +1114,4 @@ export default function OwnerDashboard() {
     </div>
   );
 }
+
