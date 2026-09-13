@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { rpc, clearSession, signOutAuth } from '@/lib/supabase-browser';
 import { useNavigate } from 'react-router-dom';
 import { createPageErrorLogger } from '@/lib/log-error';
+import LogoUploader from '@/components/LogoUploader';
 
 // Factory per halaman: console.error (dev) + PostHog trackError (prod).
 // Lihat src/lib/log-error.js — plugin strip-console membuang console.*
@@ -264,6 +265,7 @@ export default function OwnerDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => navigate('/owner/dashboard/config')} className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 text-sm font-medium">Config</button>
+            <button onClick={() => setActiveTab('branding')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'branding' ? 'bg-amber-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>🎨 Branding</button>
             <button onClick={() => { clearSession(); signOutAuth().catch(()=>{}); navigate('/owner'); }} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">Logout</button>
           </div>
         </div>
@@ -276,6 +278,14 @@ export default function OwnerDashboard() {
         </div>
         {loading ? <div className="text-center py-20 text-gray-400">Loading...</div> : (
           <>
+            {/* BRANDING TAB — Owner-configurable via update_branding RPC */}
+            {activeTab === 'branding' && (
+              <div className="max-w-xl">
+                <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-6">
+                  <LogoUploader />
+                </div>
+              </div>
+            )}
             {/* OVERVIEW TAB */}
             {activeTab === 'overview' && (
               <div className="space-y-6">

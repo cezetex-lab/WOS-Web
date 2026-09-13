@@ -231,6 +231,8 @@
 
 ### 8.3 Branding — OWNER-configurable (JANGAN hardcode JS)
 - Branding (`branding` table + `update_branding` RPC + Owner Config UI via `LogoUploader.jsx`) = konfigurasi OWNER. **Jangan hardcode nama/logo di JS** — itu ma-buka Owner.
+- UI Owner: (1) OwnerDashboard → tab **🎨 Branding** (header button), (2) `/owner/dashboard/config` → kartu **Logo & Branding** di atas daftar company_config. Keduanya pakai `LogoUploader` (prefill dari `get_branding`, save via `update_branding` owner-only).
+- Catatan: halaman `/owner/dashboard/config` (CompanyConfig) = company_config umum (KPI bands, labels, dst.) — **bukan** tempat branding sebelumnya; kartu branding ditambahkan 2026-09-12 setelah owner tidak menemukannya.
 - Migration **`198_branding_insightwip.sql`** ubah default `branding.company_name` → `insightWIP` (idempotent; jangan ubah owner-set setelah). Home/AppDrawer fallback default = `insightWIP` (only wenn `get_branding()` return kosong).
 - Login page bica `get_branding()` (public) → render `insightWIP` dari DB (non-hardcoded source of truth).
 

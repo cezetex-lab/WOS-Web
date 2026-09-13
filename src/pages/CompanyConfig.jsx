@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { rpc, clearSession, signOutAuth } from '@/lib/supabase-browser';
 import { useNavigate } from 'react-router-dom';
+import LogoUploader from '@/components/LogoUploader';
 
 export default function CompanyConfig() {
   const navigate = useNavigate();
   const [configs, setConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [expandedCat, setExpandedCat] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -19,7 +21,16 @@ export default function CompanyConfig() {
     try {
       const res = await rpc('get_company_config');
       setConfigs(Array.isArray(res) ? res : []);
-    } catch {}
+      // fail-closed di RPC: owner tanpa row config → 0 item; non-owner → 0 item.
+      // Bedakan keduanya supaya owner tidak mengira menu Config "salah atur".
+      if (!Array.isArray(res) || res.length === 0) {
+        setError('Tidak ada config yang bisa ditampilkan. Jika Anda Owner, periksa kembali login Owner Anda (halaman ini hanya untuk Owner).');
+      } else {
+        setError('');
+      }
+    } catch (e) {
+      setError('Gagal memuat config: ' + (e?.message || 'unknown'));
+    }
     setLoading(false);
   }
 
@@ -69,6 +80,19 @@ export default function CompanyConfig() {
 
       <div className="max-w-7xl mx-auto p-6">
         {msg && <div className={`p-3 rounded-lg mb-4 text-sm ${msg.startsWith('✅') ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>{msg}</div>}
+        {error && !loading && <div className="p-3 rounded-lg mb-4 text-sm bg-amber-900/40 text-amber-200 border border-amber-700/40">{error}</div>}
+
+        {/* Branding — OWNER-configurable (branding table via update_branding RPC) */}
+        <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center"><span className="text-lg">🎨</span></div>
+            <div>
+              <div className="text-white font-bold text-sm">Logo & Branding</div>
+              <div className="text-gray-500 text-xs">Nama & logo perusahaan — tampil di login, drawer, header</div>
+            </div>
+          </div>
+          <LogoUploader />
+        </div>
 
         {/* Search */}
         <div className="mb-6">
