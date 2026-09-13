@@ -235,7 +235,7 @@
 - Catatan: halaman `/owner/dashboard/config` (CompanyConfig) = company_config umum (KPI bands, labels, dst.) — **bukan** tempat branding sebelumnya; kartu branding ditambahkan 2026-09-12 setelah owner tidak menemukannya.
 - Migration **`198_branding_insightwip.sql`** ubah default `branding.company_name` → `insightWIP` (idempotent; jangan ubah owner-set setelah). Home/AppDrawer fallback default = `insightWIP` (only wenn `get_branding()` return kosong).
 - Login page bica `get_branding()` (public) → render `insightWIP` dari DB (non-hardcoded source of truth).
-- **UI Owner Config** (`/owner/dashboard/config` → `CompanyConfig.jsx`): kategori 🎨 "Tampilan & Label" HANYA berisi `company_config` (KPI color bands + KPI labels ID/EN) — branding TIDAK ada di sana. Kartu **Branding** (LogoUploader: logo URL, nama, tagline, warna primer) ditambahkan di halaman yang sama (sumber: tabel `branding` via `update_branding`), plus hint di search bar supaya Owner tidak salah cari.
+- **UI Owner Config** (`/owner/dashboard/config` → `CompanyConfig.jsx`): kategori 🎨 "Tampilan & Label" HANYA berisi `company_config` (KPI color bands + KPI labels ID/EN) — branding TIDAK ada di sana. Kartu **Branding** (LogoUploader) HANYA di tab **🎨 Branding** OwnerDashboard header (hapus dobel dari Config page 2026-09-13: kartu atas + GlassCard bawah di Config dihapus, search hint diarahkan ke tab). Sumber: tabel `branding` via `update_branding` owner-only.
 
 ### 8.4 Checklist verifikasi
 | # | Item | Status | Bukti |

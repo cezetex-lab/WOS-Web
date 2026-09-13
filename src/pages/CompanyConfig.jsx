@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { rpc, clearSession, signOutAuth } from '@/lib/supabase-browser';
 import { useNavigate } from 'react-router-dom';
-import LogoUploader from '@/components/LogoUploader';
-import { GlassCard } from '@/lib/design-system';
 
 export default function CompanyConfig() {
   const navigate = useNavigate();
@@ -83,23 +81,11 @@ export default function CompanyConfig() {
         {msg && <div className={`p-3 rounded-lg mb-4 text-sm ${msg.startsWith('✅') ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>{msg}</div>}
         {error && !loading && <div className="p-3 rounded-lg mb-4 text-sm bg-amber-900/40 text-amber-200 border border-amber-700/40">{error}</div>}
 
-        {/* Branding — OWNER-configurable (branding table via update_branding RPC) */}
-        <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4 mb-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center"><span className="text-lg">🎨</span></div>
-            <div>
-              <div className="text-white font-bold text-sm">Logo & Branding</div>
-              <div className="text-gray-500 text-xs">Nama & logo perusahaan — tampil di login, drawer, header</div>
-            </div>
-          </div>
-          <LogoUploader />
-        </div>
-
-        {/* Search */}
+        {/* Search — branding ada di OwnerDashboard tab 🎨, bukan di halaman ini */}
         <div className="mb-6 flex flex-col md:flex-row md:items-center gap-3">
           <input type="text" placeholder="Cari config..." value={search} onChange={e => setSearch(e.target.value)}
             className="md:w-96 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500" />
-          <p className="text-gray-500 text-xs">Logo, nama perusahaan, tagline &amp; warna diatur di kartu <span className="text-gray-300 font-semibold">Branding</span> paling bawah — bukan kategori 🎨 (kategori itu KPI color bands &amp; label).</p>
+          <p className="text-gray-500 text-xs">Logo, nama perusahaan, tagline &amp; warna diatur di tab <span className="text-gray-300 font-semibold">🎨 Branding</span> di OwnerDashboard — bukan di sini (kategori 🎨 di bawah = KPI color bands &amp; label).</p>
         </div>
 
         {loading ? <div className="text-center py-20 text-gray-400">Loading...</div> : (
@@ -140,14 +126,6 @@ export default function CompanyConfig() {
             )}
           </>
         )}
-      </div>
-
-      {/* Branding — OWNER-configurable (branding table, BUKAN company_config 🎨) */}
-      <div className="mb-6">
-        <GlassCard title="Branding" icon="🏷️" accent="blue">
-          <p className="text-gray-400 text-xs mb-4">Nama perusahaan, tagline, logo & warna primer — dipakai di halaman login dan drawer. Sumber data: tabel <code className="text-cyan-400">branding</code> (RPC <code className="text-cyan-400">update_branding</code>), terpisah dari Company Configuration.</p>
-          <LogoUploader />
-        </GlassCard>
       </div>
 
       {/* Edit Modal */}
