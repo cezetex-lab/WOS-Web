@@ -1,7 +1,7 @@
 # agentsLogs.md — LOG RIWAYAT PEKERJAAN (insightWOS / WOS-Web)
 
 > **ONE SINGLE TRUTH — LOG.** Semua riwayat/history pekerjaan yang sudah SELESAI dicatat di sini.
-> Aturan (lihat `AGENTS.md` §0.11): setiap perubahan harus **commit → push → deploy**; setelah sukses,
+> Aturan (lihat `AGENTS.md` §0.3-4): setiap perubahan harus **commit → push → deploy**; setelah sukses,
 > hasilnya ditulis ke file ini dan **dikeluarkan dari `AGENTS.md`**.
 > Rencana/bug yang masih OPEN tetap tinggal di `AGENTS.md`.
 
@@ -19,6 +19,70 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 `git log --oneline` (640 commit di semua ref).
 
 ---
+
+## [2026-09-05..07] Migrations 141–168 (audit remediation + industry + auth) — ringkasan
+- Status: DONE (all applied live; lihat commit history)
+- Ringkasan (asal: `Readme/CHANGELOG.md`):
+  - **141** COMPREHENSIVE AUDIT FIX (B7/B8/H1/H2/M1/M2/O1/O2/O4/P2/P3/A4): logout RPC,
+    session-fixation fix, input validation, error leakage, LIMIT on 8 RPCs, audit triggers
+    (role+payroll), access-denial logging, GDPR export_my_data + delete_my_data, auth.uid()
+    required on catalog RPCs, IDOR fix via authz_in_scope().
+  - **131–140** Security Architecture: IDOR helpers, admin BU filter, RLS tightening (13 tables),
+    authz engine v2, audit_log schema, rate limiting, encryption helpers.
+  - **142–143** (GAS Pilar 2/3): self-service + platform tables/RPCs.
+  - **144** Smoke-test fixes: 338 legacy SECDEF tanpa search_path, 17 USING(true) policies,
+    export whitelist, password_reset_tokens, NRP001 bcrypt reseed.
+  - **145** Performance: 16 functions (consents, rate-limit, MV refresh, data retention, cache),
+    4 tables (user_consents, api_keys, api_rate_limits, dashboard_cache).
+  - **146** Critical Audit Fixes v2: 12 admin functions rewritten, admin_get_budget consolidated,
+    admin_get_certifications fixed, generic audit trigger filters secrets, admin_reset_mfa,
+    cleanup_ai_rate_limits + cleanup_audit_log.
+  - **147** Configurable Cleanup: 4 retention config keys + cleanup_expired_data() (pg_cron-ready).
+  - **148** Partitioning + Encryption: hr_attendance_partitioned (48 partitions), pgcrypto PII
+    (encrypt/decrypt/mask), encrypt_existing_pii(), get_employee_pii().
+  - **149** PILAR 1 Payroll Compliance: 10 bpjs/tapera/pph21 columns + calculate_payroll_components.
+  - **150–168** GAS Pilar 4–7 + Fase 1–7 (AI, flexibility, employees master 33 kolom, master data,
+    HR engine, narrative intelligence, preview data, workforce simulation, auth OTP).
+- Bukti: `npm test` 100/100, `npm run build` EXIT 0, lint 0 error; deploy production OK.
+
+## [2026-09-08] Audit forensik full (read-only) — F-1..F-10 + P0-P3 remediation plan
+- Status: DONE (temuan dicatat; remediasi via migrasi 191-205, lihat entri masing-masing)
+- Ringkasan: Audit 47 issues (8 critical). P0 = 191 remove hardcoded password, 192 revoke anon,
+  193 fix SQL injection — **ketiganya GUGUR (sudah ada di DB via migrasi 191-194 yang committed)**;
+  file duplikat 191/192/193 di-DELETE (probe `.freebuff/audit/probe_untracked_191_193.py`).
+  P1-P3 templates (FK, NOT NULL, CHECK, rollback) sebagian sudah diisi oleh 194-205; sisa OPEN
+  → AGENTS.md §9.
+- Script: `.freebuff/audit/live_audit_20260910.py`, `live_audit2_20260910.py` (gitignored).
+
+## [2026-09-05] HANDOFF insightWOS V6 (Buffy) — ringkasan
+- Status: DONE (histori; file di-delete, isinya di-merge)
+- Ringkasan: Backend production-ready (migrasi 000–164). Arsitektur 5 lapis: Owner
+  (system_owner_identity, bukan role) → Admin role-based → Worker NRP+NIK+bcrypt scoped BU →
+  Authz Engine (authz_current_nrp/authz_check_admin/authz_in_scope) → RLS FORCE pada semua tabel.
+  Auth: Supabase Auth + session_tokens + MFA TOTP + Gemini Flash RAG.
+- 13 Aturan migrasi (RULE 1–13): jangan pakai CLEAN.sql, urutan sequential, idempotent,
+  SECDEF + SET search_path, auth via auth.uid(), RLS pada semua tabel, no hardcoded role,
+  tier = subscription bukan authorization, no duplicate function, test sebelum production,
+  config-driven, encryption key di company_config, audit_log kolom (action, detail, timestamp).
+- Urutan migrasi: Foundation 000-005 → Core 011/018 → Waves 033-048 → Industry 050-065 →
+  Owner+Admin 071-095 → Owner Dash 100-120 → Security 130-140 → Audit Fix 141-153 → GAS 154-168.
+- File status: 006-010,012-013,017,019-032,037,056,064,074,085,094 + CLEAN.sql +
+  debug_ceo_auth.sql = DELETED (superseded/conflict).
+- Catatan: kredensial dev (NRP001/CEO123! dll.) HANYA di `supabase/akun/akun.txt` (gitignored),
+  TIDAK pernah di-commit. Jangan salin ke file manapun.
+
+## [2026-09-13] ONE SINGLE TRUTH — restructure AGENTS.md + agentsLogs.md, cleanup stale dupes
+- Status: DONE
+- Commit: pending (see below)
+- Ringkasan: Restrukturisasi state: `AGENTS.md` (aturan + state OPEN saja) vs `agentsLogs.md`
+  (LOG selesai). Di-delete: `docs/5.0-credential-rotation-runbook.md`, `docs/TundaPlanLogin.md`,
+  `docs/migration-gap-inventory.md` (isinya dipindah ke AGENTS.md §6/§7). `.gitignore` +
+  `Readme/`+`files/` (arsip lokal GAS/forensik, jangan commit). **Di-DELETE 6 file SQL stale
+  duplicate** (191_remove_hardcoded_password ±rollback, 192_revoke_anon_access ±rollback,
+  193_fix_sql_injection ±rollback) — bukti live DB: `login_admin` deprecated (495 char, no
+  `Admin123`), `settings` kosong (0 rows), `anon` grants = 0, `get_people_search` sudah ada
+  injection guard (854 char). Probe: `.freebuff/audit/probe_untracked_191_193.py`.
+- Catatan: `supabase/GAS sebelum refaktor/` (62 file GAS legacy) TIDAK di-commit (kredensial).
 
 ## [2026-09-13] F-4 RESIDUE — retire overload legacy 0-arg get_enabled_modules()
 - Status: DONE
@@ -170,7 +234,7 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   Vercel → verifikasi prod; service_role ikut dirotasi bersama DB password (1 aturan emas).
 
 ### ✅ DITUTUP — Kredensial terverifikasi (2026-09-11..12)
-- Worker (login_worker NRP+NIK+password): NRP001 `CEO123!` ✅; NRP002 ✅ (sha256→auto-upgrade);
+- Worker (login_worker NRP+NIK+password): NRP001 ✅; NRP002 ✅ (sha256→auto-upgrade);
   NRP003 ✅ (setelah fix L-1); NRP007 ✅. Password lengkap: `supabase/akun/akun.txt` (gitignored).
 - Admin (Supabase Auth @insightwos.com): ceo ✅, pusat ✅, operasional ✅, hrd ✅ (post-fix L-2);
   finance/mining/mill/estate tercantum di `supabase/akun/akun.txt`.
@@ -186,7 +250,7 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 | `docs/TundaPlanLogin.md` | PLAN masih aktif → dipindah ke `AGENTS.md` §6 (file dihapus) |
 | `docs/migration-gap-inventory.md` | Gap karyawan B1–B17 masih OPEN → `AGENTS.md` §7 (file dihapus) |
 | `docs/5.0-credential-rotation-runbook.md` | Sudah dieksekusi → history (entri di atas; file dihapus) |
-| `Readme/`, `files/` (arsip GAS, forensik, CSV lampiran) | Untracked → tetap di luar repo (gitignored via aturan folder), jangan commit |
+| `Readme/`, `files/` (arsip GAS, forensik, CSV lampiran) | Dipindah user ke `supabase/GAS sebelum refaktor/` → tetap TIDAK di-commit (kredensial legacy, lihat AGENTS.md §9). Catatan: 3 file SQL duplikat (`191_remove_hardcoded_password`, `192_revoke_anon_access`, `193_fix_sql_injection`) yang pernah ada di `supabase/migrations/` **di-DELETE** (stale duplicate dari 2026-09-08; live DB sudah memenuhi tujuannya via migrasi 191-194 yang committed — bukti probe `.freebuff/audit/probe_untracked_191_193.py`). |
 | `_b.txt`, `_t.txt`, `_test_out.txt` | Sampah log build/test → dihapus |
 
 

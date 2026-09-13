@@ -175,6 +175,56 @@
 6. Apply migration live: pola `.freebuff/audit/apply_mig*.py` (split on `;`, per-statement
    OK/FAIL), lalu probe post-verify read-only.
 
+## 9. STATE OPEN — TODO backlog (asal: `Readme/TODO.md`, di-merge 2026-09-13)
+
+> Semua item di bawah masih OPEN (bukan blocker untuk deploy). Diurutkan prioritas.
+
+### Q5: E2E Tests (Playwright) — HIGH
+- [ ] Login → Dashboard load → Logout flow
+- [ ] Admin login → Payroll view → Filter by BU
+- [ ] Worker login → Check attendance → Request leave
+- [ ] Role change → Verify new permissions active immediately
+- [ ] Concurrent session limit test
+- [ ] Dashboard rendering tests (stats, charts, tables)
+- [ ] PWA offline mode tests (Service Worker caching)
+
+### A7: Migration Versioning System
+- [ ] Add `schema_migrations` table tracking version + checksum
+- [ ] Each migration file gets `-- VERSION: xxx` header
+- [ ] Startup check: detect unapplied / duplicate migrations
+- [ ] Rollback scripts for critical migrations (131–143)
+
+### TypeScript Migration
+- [ ] Convert SQL RPCs to TypeScript edge functions (Supabase Edge Functions)
+- [ ] Type-safe RPC calls with generated Supabase types
+- [ ] Shared validation library (Zod) for input validation
+- [ ] Remove raw SQL from frontend, use typed client
+
+### Other TODOs (OPEN)
+- [ ] **B2**: `login_admin` migration to Supabase Auth (bcrypt via `auth.users`)
+- [ ] **N1**: AI RAG document access filtering (extend to all modules)
+- [ ] **N4**: AI query rate limit tuning (currently 50/day, adjust based on usage)
+- [ ] **I1**: Resolve duplicate tables (mill_boiler 052 vs 074, okrs vs hr_okrs)
+- [ ] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash)
+- [ ] **R4**: Write rollback scripts for all critical migrations
+
+### DONE (catat di agentsLogs.md, jangan di sini)
+- [x] **I5**: Split `employees_master` God Table → `employees_core` + `employees_extended` (migration 183)
+- [x] **P1**: Data retention cleanup job (pg_cron) — migration 186
+- [x] **M3**: Auto-refresh materialized view (035) via pg_cron — migration 186
+- [x] Q1–Q4: Automated RPC / IDOR / RLS / PrivEsc tests (migration 184, 47/47 pass)
+- [x] E2E setup: Playwright config + login-flow.spec.js + role-change.spec.js
+
+## 10. STATE OPEN — Disaster Recovery (operasi; asal: `Readme/DR_PLAN.md`)
+
+- Backup: Supabase automated daily (30d retention Pro), pg_dump weekly core tables (90d), git = permanent.
+- **RPO 24h / RTO 4h.** Scenario: data corruption → PITR; mass delete → PITR; full restore → new project + migrations + backup; security breach → force logout all + rotate api_keys.
+- Monitoring: backup status daily, RLS policies weekly, audit_log growth weekly, failed login spikes daily, session count anomaly daily.
+- Testing: smoke test after each migration, backup restore monthly, DR drill quarterly, security audit bi-annually.
+- Escalation: P1 1hr / P2 4hr / P3 24hr / P4 1wk.
+
+## 11. JEBAKAN LINGKUNGAN (Windows / PowerShell / Supabase)
+
 
 
 
