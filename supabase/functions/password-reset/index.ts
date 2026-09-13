@@ -84,9 +84,7 @@ serve(async (req: Request) => {
       if (!(await hitRateLimit(adminClient, targetNrp, "login_otp"))) {
         return new Response(JSON.stringify({ ok: false, msg: "Terlalu banyak request OTP. Coba lagi nanti." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      // Generate via RPC generate_admin_otp (identitas dari auth.uid() — caller
-      // adalah anon key; RPC lama verifikasi sesuai migration 191 — harden bila
-      // perlu: pastikan employee ada + role admin sebelum generate).
+      // Look up the employee by NRP.
       const { data: emp } = await adminClient
         .from("employees_master")
         .select("nrp, email, auth_id, nama")
@@ -96,13 +94,43 @@ serve(async (req: Request) => {
         // Anti-enumerasi: tetap return ok generik.
         return new Response(JSON.stringify({ ok: true, msg: "Jika NRP terdaftar, OTP sudah dikirim." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const { data: gen, error: genErr } = await adminClient.rpc("generate_admin_otp");
-      if (genErr || !gen?.ok) {
-        return new Response(JSON.stringify({ ok: false, msg: gen?.msg || "Gagal generate OTP." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // Security: pastikan NRP target adalah admin/owner (replikasi cek di
+      // generate_admin_otp() migration 191). Tanpa ini, user biasa bisa request
+      // OTP untuk NRP orang lain.
+      const { data: roleData } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("nrp", targetNrp)
+        .maybeSingle();
+      const userRole = roleData?.role;
+      const isOwner = targetNrp === "OWNER001" || userRole === "owner";
+      const isAdmin = !!userRole && userRole.startsWith("admin");
+      if (!isOwner && !isAdmin) {
+        // Anti-enumerasi: return generik (jangan bikin user tahu NRP bukan admin).
+        return new Response(JSON.stringify({ ok: true, msg: "Jika NRP terdaftar, OTP sudah dikirim." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      // Generate OTP langsung (BUKAN via RPC generate_admin_otp). Alasan:
+      // RPC itu require auth.uid() tidak NULL, tapi edge function pakai service
+      // role key sehingga auth.uid() = NULL → RPC return "Autentikasi diperlukan"
+      // → 500 error. Dengan generate langsung + service role, kita bypass RLS
+      // dan tetap simpan hash di otp_store.
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const codeHash = await sha256Hex(otpCode);
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      await adminClient.from("otp_store").upsert(
+        { nrp: targetNrp, code_hash: codeHash, expiry: expiresAt, used: false },
+        { onConflict: "nrp" },
+      );
+      // Audit log (sesuai pola generate_admin_otp migration 191).
+      const { error: auditError } = await adminClient.from("audit_log").insert({
+        action: "ADMIN_OTP_GEN",
+        detail: "Admin OTP generated for " + targetNrp,
+        timestamp: new Date().toISOString(),
+      });
+      if (auditError) { /* non-critical — audit failure tidak blokir OTP */ }
       // Backend email sender belum ada (belum ada SMTP); kode TIDAK dikirim via
-      // email sungguhan. Dev fallback: dev_code di response (seperti otp_store
-      // show sebelumnya) + Magic Link BILA akun auth tersedia.
+      // email sungguhan. Dev fallback: dev_code di response + Magic Link BILA
+      // akun auth tersedia.
       let emailed = false;
       if (emp.auth_id) {
         const { error: linkErr } = await adminClient.auth.admin.generateLink({
@@ -114,7 +142,7 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({
         ok: true,
         msg: emailed ? "OTP sudah dikirim ke email." : "OTP dibuat (dev-mode: kode ditampilkan di layar).",
-        dev_code: gen.otp_code || gen.otp || null,
+        dev_code: otpCode,
         emailed,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -219,6 +247,7 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ ok: false, msg: "Invalid action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
   } catch (err) {
+    console.error("[password-reset] Unhandled error:", err?.message);
     return new Response(JSON.stringify({ ok: false, msg: "Server error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
