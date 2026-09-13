@@ -20,13 +20,13 @@ export default function MiningAdminDashboard() {
   }, []);
 
   const modules = [
-    { name: 'SIMPER', path: '/worker/simper', icon: '📋', desc: 'Surat Izin Memimpin Pekerjaan' },
-    { name: 'Heavy Equipment', path: '/worker/heavy-equip', icon: '🚛', desc: 'Monitor Alat Berat' },
-    { name: 'Fatigue Monitor', path: '/worker/fatigue', icon: '😴', desc: 'Pemantauan Kelelahan' },
-    { name: 'Production Daily', path: '/worker/production', icon: '⛏️', desc: 'Laporan Produksi Harian' },
-    { name: 'Safety K3', path: '/worker/safety', icon: '🛡️', desc: 'Keselamatan & Kesehatan Kerja' },
-    { name: 'Emergency', path: '/worker/emergency', icon: '🚨', desc: 'Prosedur Darurat' },
-    { name: 'JSA', path: '/worker/jsa', icon: '📝', desc: 'Job Safety Analysis' },
+    { name: 'SIMPER', path: '/admin/mining/simper', icon: '📋', desc: 'Surat Izin Memimpin Pekerjaan' },
+    { name: 'Heavy Equipment', path: '/admin/mining/heavy-equip', icon: '🚛', desc: 'Monitor Alat Berat' },
+    { name: 'Fatigue Monitor', path: '/admin/mining/fatigue', icon: '😴', desc: 'Pemantauan Kelelahan' },
+    { name: 'Production Daily', path: '/admin/mining/production', icon: '⛏️', desc: 'Laporan Produksi Harian' },
+    { name: 'Safety K3', path: '/admin/mining/safety', icon: '🛡️', desc: 'Keselamatan & Kesehatan Kerja' },
+    { name: 'Emergency', path: '/admin/mining/emergency', icon: '🚨', desc: 'Prosedur Darurat' },
+    { name: 'JSA', path: '/admin/mining/jsa', icon: '📝', desc: 'Job Safety Analysis' },
   ];
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full"></div></div>;

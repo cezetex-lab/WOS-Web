@@ -63,3 +63,4 @@ supabase/scripts/fix-nrp003.sql
 !/.wrongstack/
 /.wrongstack/*
 !/.wrongstack/project.json
+.env*

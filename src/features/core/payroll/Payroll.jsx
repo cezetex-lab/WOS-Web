@@ -391,7 +391,7 @@ function PayrollDetail({ data, onClose, onNavigate }) {
               color="teal"
               size="sm"
               className="flex-1"
-              onClick={() => onNavigate(`/worker/payroll?nrp=${d.nrp}`)}
+              onClick={() => onNavigate(`/admin/payroll?nrp=${d.nrp}`)}
             >
               💰 Slip Gaji
             </Button>

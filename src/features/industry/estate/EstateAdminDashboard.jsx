@@ -20,13 +20,13 @@ export default function EstateAdminDashboard() {
   }, []);
 
   const modules = [
-    { name: 'Harvest Record', path: '/worker/harvest', icon: '🌴', desc: 'Catatan Panen TBS' },
-    { name: 'Block Management', path: '/worker/blocks', icon: '🗺️', desc: 'Pengelolaan Blok Kebun' },
-    { name: 'Transport TBS', path: '/worker/transport', icon: '🚛', desc: 'Transportasi TBS ke PKS' },
-    { name: 'Nursery', path: '/worker/nursery', icon: '🌱', desc: 'Pembibitan Sawit' },
-    { name: 'Irrigation', path: '/worker/irrigation', icon: '💧', desc: 'Sistem Irigasi' },
-    { name: 'Facility Request', path: '/worker/facility', icon: '🏗️', desc: 'Pengajuan Fasilitas' },
-    { name: 'Medical Checkup', path: '/worker/medical', icon: '🏥', desc: 'Pemeriksaan Kesehatan' },
+    { name: 'Harvest Record', path: '/admin/estate/harvest', icon: '🌴', desc: 'Catatan Panen TBS' },
+    { name: 'Block Management', path: '/admin/estate/blocks', icon: '🗺️', desc: 'Pengelolaan Blok Kebun' },
+    { name: 'Transport TBS', path: '/admin/estate/transport', icon: '🚛', desc: 'Transportasi TBS ke PKS' },
+    { name: 'Nursery', path: '/admin/estate/nursery', icon: '🌱', desc: 'Pembibitan Sawit' },
+    { name: 'Irrigation', path: '/admin/estate/irrigation', icon: '💧', desc: 'Sistem Irigasi' },
+    { name: 'Facility Request', path: '/admin/estate/facility', icon: '🏗️', desc: 'Pengajuan Fasilitas' },
+    { name: 'Medical Checkup', path: '/admin/estate/medical', icon: '🏥', desc: 'Pemeriksaan Kesehatan' },
   ];
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-green-400 border-t-transparent rounded-full"></div></div>;

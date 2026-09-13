@@ -284,7 +284,7 @@ function EmployeeDetail({ employee, onClose, onNavigate, onDeactivate }) {
               color="blue"
               size="sm"
               className="flex-1"
-              onClick={() => onNavigate(`/worker/kpi?nrp=${emp.nrp}`)}
+              onClick={() => onNavigate(`/admin/kpi?nrp=${emp.nrp}`)}
             >
               📊 Lihat KPI
             </Button>
@@ -292,7 +292,7 @@ function EmployeeDetail({ employee, onClose, onNavigate, onDeactivate }) {
               color="teal"
               size="sm"
               className="flex-1"
-              onClick={() => onNavigate(`/worker/profile?nrp=${emp.nrp}`)}
+              onClick={() => onNavigate(`/admin/employees`)}
             >
               👤 Profil Lengkap
             </Button>

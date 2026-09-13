@@ -20,13 +20,13 @@ export default function MillAdminDashboard() {
   }, []);
 
   const modules = [
-    { name: 'Boiler Monitor', path: '/worker/boiler', icon: '🔥', desc: 'Pemantauan Boiler PKS' },
-    { name: 'Mesin Press', path: '/worker/machines', icon: '⚙️', desc: 'Mesin Press & Pemipahan' },
-    { name: 'QC Lab', path: '/worker/qc', icon: '🔬', desc: 'Quality Control Laboratorium' },
-    { name: 'Packing Log', path: '/worker/packing', icon: '📦', desc: 'Log Pengemasan CPO' },
-    { name: 'Preventive Maintenance', path: '/worker/maintenance', icon: '🔧', desc: 'Pemeliharaan Berkala' },
-    { name: 'Breakdown Log', path: '/worker/breakdown', icon: '⚠️', desc: 'Log Kerusakan Mesin' },
-    { name: 'Shift Schedule', path: '/worker/shift', icon: '📅', desc: 'Jadwal Shift Pabrik' },
+    { name: 'Boiler Monitor', path: '/admin/mill/boiler', icon: '🔥', desc: 'Pemantauan Boiler PKS' },
+    { name: 'Mesin Press', path: '/admin/mill/machines', icon: '⚙️', desc: 'Mesin Press & Pemipahan' },
+    { name: 'QC Lab', path: '/admin/mill/qc', icon: '🔬', desc: 'Quality Control Laboratorium' },
+    { name: 'Packing Log', path: '/admin/mill/packing', icon: '📦', desc: 'Log Pengemasan CPO' },
+    { name: 'Preventive Maintenance', path: '/admin/mill/maintenance', icon: '🔧', desc: 'Pemeliharaan Berkala' },
+    { name: 'Breakdown Log', path: '/admin/mill/breakdown', icon: '⚠️', desc: 'Log Kerusakan Mesin' },
+    { name: 'Shift Schedule', path: '/admin/mill/shift', icon: '📅', desc: 'Jadwal Shift Pabrik' },
   ];
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full"></div></div>;

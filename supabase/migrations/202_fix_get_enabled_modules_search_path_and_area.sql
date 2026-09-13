@@ -16,7 +16,6 @@ AS $function$
 DECLARE
   v_ctx JSONB := get_current_user_context();
   v_bu_tier INT := 0;
-  v_is_admin BOOLEAN := FALSE;
   v_result JSONB;
 BEGIN
   IF v_ctx IS NULL THEN RETURN '[]'::JSONB; END IF;
@@ -36,27 +35,7 @@ BEGIN
     RETURN COALESCE(v_result, '[]'::JSONB);
   END IF;
 
-  -- Check if user is admin (exists in admin_roles)
-  SELECT EXISTS (
-    SELECT 1 FROM admin_roles WHERE role_code = (v_ctx->>'role')
-  ) INTO v_is_admin;
-
-  -- Admin: akses semua modul aktif (tanpa filter business unit)
-  IF v_is_admin THEN
-    SELECT jsonb_agg(jsonb_build_object(
-      'module_code', module_code, 'module_name', module_name,
-      'module_group', module_group, 'menu_icon', menu_icon,
-      'menu_order', menu_order, 'is_industry_module', is_industry_module,
-      'route_path', route_path, 'route_component', route_component,
-      'route_group', route_group))
-    INTO v_result
-    FROM module_definitions
-    WHERE is_active = TRUE
-      AND (p_area IS NULL OR route_group = p_area);
-    RETURN COALESCE(v_result, '[]'::JSONB);
-  END IF;
-
-  -- Non-admin: filter by role_level + business unit tier
+  -- Non-owner: filter by role_level + business unit tier
   SELECT tier INTO v_bu_tier FROM business_units
   WHERE id = (v_ctx->>'business_unit_id')::TEXT;
   IF NOT FOUND THEN v_bu_tier := 0; END IF;

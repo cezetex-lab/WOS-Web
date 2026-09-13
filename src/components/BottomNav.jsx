@@ -83,32 +83,32 @@ const ROLE_CONFIG = {
       { to: '/admin/modules', icon: '🧩', label: 'Modules' },
     ],
   },
-  // Industry Admins
+  // Industry Admins — STRICT area isolation: admin area routes only.
   admin_mining: {
     home: '/admin/mining',
     items: [
       { to: '/admin/mining', icon: '⛏️', label: 'Dashboard' },
-      { to: '/worker/simper', icon: '📋', label: 'SIMPER' },
-      { to: '/worker/safety', icon: '🦺', label: 'Safety' },
-      { to: '/worker/production', icon: '📊', label: 'Produksi' },
+      { to: '/admin/mining/simper', icon: '📋', label: 'SIMPER' },
+      { to: '/admin/mining/safety', icon: '🦺', label: 'Safety' },
+      { to: '/admin/mining/production', icon: '📊', label: 'Produksi' },
     ],
   },
   admin_mill: {
     home: '/admin/mill',
     items: [
       { to: '/admin/mill', icon: '🏭', label: 'Dashboard' },
-      { to: '/worker/boiler', icon: '🔥', label: 'Boiler' },
-      { to: '/worker/qc', icon: '🔬', label: 'QC Lab' },
-      { to: '/worker/maintenance', icon: '🔧', label: 'Maintenance' },
+      { to: '/admin/mill/boiler', icon: '🔥', label: 'Boiler' },
+      { to: '/admin/mill/qc', icon: '🔬', label: 'QC Lab' },
+      { to: '/admin/mill/maintenance', icon: '🔧', label: 'Maintenance' },
     ],
   },
   admin_estate: {
     home: '/admin/estate',
     items: [
       { to: '/admin/estate', icon: '🌴', label: 'Dashboard' },
-      { to: '/worker/harvest', icon: '🌾', label: 'Panen' },
-      { to: '/worker/blocks', icon: '🗺️', label: 'Block' },
-      { to: '/worker/transport', icon: '🚛', label: 'Transport' },
+      { to: '/admin/estate/harvest', icon: '🌾', label: 'Panen' },
+      { to: '/admin/estate/blocks', icon: '🗺️', label: 'Block' },
+      { to: '/admin/estate/transport', icon: '🚛', label: 'Transport' },
     ],
   },
   // Backward compat
