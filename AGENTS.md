@@ -219,6 +219,55 @@
 - **Keputusan user:** siapa pun TIDAK bisa pindah page tanpa login ulang dari tab yang sesuai.
 - Implementasi (2 lapis):
   1. **Route guard** — `src/App.jsx` bungkus `/admin` `/worker` `/dashboard` dengan `RoleGuard` prop `entry`+`allowedRoles`. `RoleGuard` cek `getSession()` + `session.entry === entry` (sesi lama tanpa `entry` = legacy tetap diizinkan) + role; mismatch → redirect `'/'`.
+  2. **Page useEffect** — `Admin.jsx`/`Worker.jsx`/`Dashboard.jsx` cek `session.entry` mismatch → `window.location.href='/'`; role-worker → screen "Akses Ditolak" (button login ulang).
+- Session field `entry` diset saat login (`finalizeWorkerSession` / submitAdminCredentials → `setSession({..., entry})`).
+
+### 8.2 OTP wajib — Admin & Dashboard (kirim OTP email)
+- **Keputusan user:** setelah user+password sukses di tab admin/dashboard, TIDAK langsung redirect — wajib input OTP email.
+- Implementasi:
+  - `supabase/functions/password-reset/index.ts` → action **`login_otp`** (generate OTP langsung + service role bypass RLS, cek admin/owner via `user_roles`, simpan hash di `otp_store`, kirim Magic Link bila auth tersedia, `dev_code` fallback) + **`verify_login_otp`** (verify via RPC `verify_admin_otp`; identitas = NRP hasil verify, bukan param client → anti trust-the-client).
+  - **Fix 2026-09-13:** `login_otp` sebelumnya pakai RPC `generate_admin_otp()` yang gagal (auth.uid()=NULL di service role → 500). Sekarang generate OTP langsung di edge function.
+  - `Home.jsx`: admin step-1 sukses → setelah MFA-check → kirim OTP → step `otp`; dashboard step-1 sukses → kirim OTP → step `otp`. `submitWorkerOtp` branch tab `admin` (verify RPC `verify_admin_otp`) / tab `dashboard` (verify edge) → finalisasi → redirect.
+- **Catatan:** backend email sender (SMTP) BELUM ADA — kode OTP dev-mode ditampilkan via `dev_code` + Magic Link bila akun auth tersedia. Untuk kirim email sungguhan butuh email gateway.
+
+### 8.3 Branding — OWNER-configurable (JANGAN hardcode JS)
+- Branding (`branding` table + `update_branding` RPC + Owner Config UI via `LogoUploader.jsx`) = konfigurasi OWNER. **Jangan hardcode nama/logo di JS** — itu ma-buka Owner.
+- UI Owner: (1) OwnerDashboard → tab **🎨 Branding** (header button), (2) `/owner/dashboard/config` → kartu **Logo & Branding** di atas daftar company_config. Keduanya pakai `LogoUploader` (prefill dari `get_branding`, save via `update_branding` owner-only).
+
+### 8.4 Checklist verifikasi
+| # | Item | Status | Bukti |
+|---|---|---|---|
+| 1 | `vite build` EXIT 0 | ✅ | build log |
+| 2 | Unit tests 100/100 (14 files) | ✅ | `npm test` |
+| 3 | Migration 198 applied live → `branding.company_name='insightWIP'` | ✅ | probe pg8000 |
+| 4 | Secret scan pre-commit bersih | ✅ | scan `postgresql://\|SERVICE_ROLE\|ywYBamE6` |
+
+## 9. LOGIN OTP FIX 2026-09-13 — 500 Error Admin/Dashboard
+
+### 9.1 Bug: edge function password-reset 500 saat login admin/dashboard
+- **Gejala:** `POST .../functions/v1/password-reset 500 (Internal Server Error)` saat kredensial admin/dashboard benar. User tidak pernah sampai ke step MFA/OTP.
+- **Akar masalah:** Action `login_otp` memanggil RPC `generate_admin_otp()` (migration 191) yang require `auth.uid()` tidak NULL. Edge function pakai **service role key** sehingga `auth.uid() = NULL` → RPC return `{ok:false, msg:'Autentikasi diperlukan.'}` → edge function bungkus jadi 500.
+- **Bukan karena MFA** — error terjadi SEBELUM step MFA/OTP.
+- **Fix:** Generate OTP langsung di edge function (bypass `generate_admin_otp()` RPC), pakai service role untuk bypass RLS di `otp_store`. Tetap verify admin/owner via `user_roles` table sebelum generate OTP (replikasi cek di migration 191).
+- **File:** `supabase/functions/password-reset/index.ts` (action `login_otp`)
+- **Deploy:** ✅ Production (berkali-iterasi: initial → debug → final)
+- **Verifikasi end-to-end:** `login_otp NRP001 → 200, dev_code generated` → `verify_login_otp → 200, token + role + nama returned`
+
+### 9.2 Bug: `.catch()` tidak tersedia di Supabase JS v2
+- **Gejata:** `TypeError: adminClient.from(...).insert(...).catch is not a function` (Deno/ESM environment)
+- **Penyebab:** Supabase JS v2 query builder tidak punya method `.catch()` langsung (beda dari v1/CJS).
+- **Fix:** Ganti `await x.insert(...).catch(()=>{})` dengan `const { error } = await x.insert(...); if (error) { ... }`
+
+### 9.3 Known cosmetic: "authgrant" notice di worker login
+- **Gejala:** Notice merah cepat muncul di console saat worker login (NRP+NIK+Password), tapi worker page tetap load sukses.
+- **Penyebab:** `syncSupabaseAuth` fast-path gagal (password di `worker_passwords` tidak sama dengan Supabase Auth — lihat F-5). Supabase Auth SDK log error ke console. Fallback ke edge `worker-auth-sync` (rotate password auth) → berhasil.
+- **Status:** ⚠️ Kosmetik, tidak mempengaruhi fungsi login.
+- **Solusi jangka panjang:** Target 5.7 — retire dual-store (worker_passwords + auth.users) → login murni Supabase Auth.
+
+### 8.1 Isolasi 3 page (Worker / Admin / Dashboard)
+- **Keputusan user:** siapa pun TIDAK bisa pindah page tanpa login ulang dari tab yang sesuai.
+- Implementasi (2 lapis):
+  1. **Route guard** — `src/App.jsx` bungkus `/admin` `/worker` `/dashboard` dengan `RoleGuard` prop `entry`+`allowedRoles`. `RoleGuard` cek `getSession()` + `session.entry === entry` (sesi lama tanpa `entry` = legacy tetap diizinkan) + role; mismatch → redirect `'/'`.
   2. **Page useEffect** — `Admin.jsx`/`Worker.jsx`/`Dashboard.jsx` cek `session.entry` mismatch → `window.location.href='/'`; role worker ke /admin|/dashboard → screen "Akses Ditolak" (button login ulang).
 - Session field `entry` diset saat login (`finalizeWorkerSession` / submitAdminCredentials → `setSession({..., entry})`).
 
