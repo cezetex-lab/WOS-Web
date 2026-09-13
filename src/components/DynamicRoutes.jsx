@@ -28,12 +28,13 @@ function RouteWrapper({ Component, name }) {
  * Fetches ALL modules with route config from DB.
  * Admin routes should always be registered (access control is inside components).
  */
-async function fetchAllRouteConfig() {
+async function fetchAllRouteConfig(pArea) {
   // NOTE: rpc() helper mengembalikan DATA MENTAH (array jsonb dari
   // get_enabled_modules), bukan envelope {data, error}. Jangan destructure.
-  const res = await rpc('get_enabled_modules');
+  // pArea: 'admin' | 'worker' | 'dashboard' — filter modules by route_group.
+  const res = await rpc('get_enabled_modules', pArea ? { p_area: pArea } : {});
   const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
-  if (!list.length) console.warn('[DynamicRoutes] get_enabled_modules returned no rows');
+  if (!list.length) console.warn('[DynamicRoutes] get_enabled_modules returned no rows for area:', pArea);
 
   return list
     .filter(m => m.route_path && m.route_component)
@@ -43,6 +44,14 @@ async function fetchAllRouteConfig() {
       group: m.route_group || 'worker',
       code: m.module_code,
     }));
+}
+
+// Determine area from current pathname.
+function areaFromPath(pathname) {
+  const p = (pathname || '').replace(/\/+$/, '') || '/';
+  if (p.startsWith('/admin')) return 'admin';
+  if (p.startsWith('/dashboard')) return 'dashboard';
+  return 'worker';
 }
 
 const normalizePath = p => ((p || '').replace(/\/+$/, '') || '/');
@@ -55,14 +64,16 @@ export default function DynamicRoutes({ withNav }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const config = await fetchAllRouteConfig();
+      const area = areaFromPath(location.pathname);
+      const config = await fetchAllRouteConfig(area);
       if (!cancelled) {
         setRoutes(config);
         setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   if (loading) return <div className="p-4 text-white">Loading routes...</div>;
 
