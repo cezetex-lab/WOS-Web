@@ -251,7 +251,8 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 | `docs/migration-gap-inventory.md` | Gap karyawan B1–B17 masih OPEN → `AGENTS.md` §7 (file dihapus) |
 | `docs/5.0-credential-rotation-runbook.md` | Sudah dieksekusi → history (entri di atas; file dihapus) |
 | `Readme/`, `files/` (arsip GAS, forensik, CSV lampiran) | Dipindah user ke `supabase/GAS sebelum refaktor/` → tetap TIDAK di-commit (kredensial legacy, lihat AGENTS.md §9). Catatan: 3 file SQL duplikat (`191_remove_hardcoded_password`, `192_revoke_anon_access`, `193_fix_sql_injection`) yang pernah ada di `supabase/migrations/` **di-DELETE** (stale duplicate dari 2026-09-08; live DB sudah memenuhi tujuannya via migrasi 191-194 yang committed — bukti probe `.freebuff/audit/probe_untracked_191_193.py`). |
-| `_b.txt`, `_t.txt`, `_test_out.txt` | Sampah log build/test → dihapus |
+| `_b.txt`, `_t.txt`, `_test_out.txt` | Sampah log build/test → dihapus |
+
 
 ## [2026-09-13] Tahap 5.4 (A10) — industry fake-data → real tables (migrations 208)
 - Status: DONE
@@ -268,4 +269,14 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   FatigueMonitor, SimperPage). 6 RPCs lain sudah benar (estate_blocks,
   estate_field, estate_irrigation, estate_yield, mill_maintenance, mill_shift).
 - Bukti: pre-flight probe live DB (read-only), post-verify RPC calls,
-  gates: lint 0 errors, tests 100/100, build EXIT 0.
+  gates: lint 0 errors, tests 100/100, build EXIT 0.
+
+## [2026-09-13] Tahap 5.7 — Retire dual-store password (partial)
+- Status: PARTIAL (provisioning blocked by wrong service key)
+- Ringkasan: "authgrant" notice sudah dihapus di sesi sebelumnya.
+  Saat ini: 14 bcrypt, 3 sha256 (NRP004/006/008 — auto-upgrade on login).
+  9 auth users (NRP002-010). 8 belum di-auth: NRP001 (admin) + NRP100-106.
+  Provisioning butuh service key yang benar (SUPABASE_SERVICE_KEY di .env.local
+  salah project). Jalankan `provision-worker-auth.mjs --run` dengan key yang benar
+  untuk menyelesaikan.
+- Bukti: preflight probe live DB, grep codebase (authgrant text tidak ditemukan).
