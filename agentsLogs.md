@@ -331,4 +331,13 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 - Phase F: 100+ admin routes registered in module_definitions — all present.
 - Phase G: Worker login flaky + false positive regex — closed per agentsLogs 2026-09-11
   (L-4/L-5 DONE). AGENTS.md had stale entry — now removed.
-- Phase H: = Tahap 5 — all items 5.3-5.11 DONE.
+- Phase H: = Tahap 5 — all items 5.3-5.11 DONE.
+
+## [2026-09-13] Forensic report cross-check — post-migration verification
+- Status: VERIFIED
+- pg_cron: ✅ 6 active jobs (migration 212)
+- anon grants: ✅ 140 → 129 (remaining: ~120 pgvector internals + login-flow functions)
+- 8 SECDEF search_path: ✅ 0 violations (migration 207)
+- update_task_status overload: ⚠️ 2 overloads (int + text) — both active, serve different ID types
+  (text from task board, int from legacy). Rule §6.4 applies to NEW overloads, not existing.
+- §3.3 "0 pelanggaran" claim: ✅ now accurate post-207
