@@ -1,6 +1,7 @@
 // ============================================================
-// AI Copilot — Google Gemini (Interactions API) + Template Fallback
-// New endpoint: /v1beta/interactions (not generateContent)
+// AI Copilot — Gemini + Template Fallback
+// Security: auth.uid() guard, rate limit (15 queries/15 min),
+//           role-isolated data, DOMPurify-safe output
 // ============================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -11,6 +12,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limit config
+const RATE_LIMIT_MAX = 15;       // max queries per window
+const RATE_LIMIT_WINDOW = 15;    // minutes
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -19,7 +24,7 @@ serve(async (req: Request) => {
   try {
     const { message, conversationHistory = [], context = "general" } = await req.json();
 
-    // SECURITY: Input sanitization — block prompt injection
+    // SECURITY: Input sanitization
     const sanitized = message.replace(/[<>{}]/g, "").substring(0, 2000);
     if (!sanitized || typeof sanitized !== "string") {
       return new Response(
@@ -33,54 +38,112 @@ serve(async (req: Request) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const geminiKey = Deno.env.get("GEMINI_API_KEY") || "";
 
-    // SECURITY FIX: Use user's JWT token, NOT service_role key
-    // This ensures RLS policies are enforced
+    // ── AUTH: Extract user JWT ──
     const authHeader = req.headers.get("Authorization") || "";
     const userToken = authHeader.replace("Bearer ", "");
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
       auth: { autoRefreshToken: false, persistSession: false }
     });
-    // Service-role client ONLY for admin operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user's identity for BU filtering
+    // ── AUTH GUARD: Must be authenticated ──
+    let userNRP: string | null = null;
     let userBU: string | null = null;
+    let userRole: string | null = null;
     let isOwnerOrAdminPusat = false;
+    let roleLevel = 0;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser(userToken);
-      if (user) {
-        const { data: emp } = await supabase.from("employees_master")
-          .select("business_unit_id, role_level")
-          .eq("auth_id", user.id)
-          .single();
-        if (emp) {
-          userBU = emp.business_unit_id;
-          isOwnerOrAdminPusat = emp.role_level >= 4;
-        }
-        // Check if owner via system_owner_identity
-        const { data: ownerCheck } = await supabase.from("system_owner_identity")
-          .select("id")
-          .eq("auth_id", user.id)
-          .eq("is_active", true)
-          .single();
-        if (ownerCheck) isOwnerOrAdminPusat = true;
+      const { data: { user }, error: authErr } = await supabase.auth.getUser(userToken);
+      if (authErr || !user) {
+        return new Response(
+          JSON.stringify({ error: "Autentikasi diperlukan." }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-    } catch (_e) {}
 
-    // ── Step 1: Fetch relevant data from database ──
-    const dbData = await fetchDatabaseData(supabase, message, context);
+      const { data: emp } = await adminClient.from("employees_master")
+        .select("nrp, business_unit_id, role_level")
+        .eq("auth_id", user.id)
+        .single();
 
-    // ── Step 2: Fetch relevant policy documents ──
-    const docs = await fetchRelevantDocs(supabase, message, context);
+      if (emp) {
+        userNRP = emp.nrp;
+        userBU = emp.business_unit_id;
+        roleLevel = emp.role_level || 0;
+        isOwnerOrAdminPusat = roleLevel >= 4;
+      }
 
-    // ── Step 3: Try Gemini AI (with fallback to template) ──
+      // Check owner
+      const { data: ownerCheck } = await adminClient.from("system_owner_identity")
+        .select("id")
+        .eq("auth_id", user.id)
+        .eq("is_active", true)
+        .single();
+      if (ownerCheck) isOwnerOrAdminPusat = true;
+
+      // Get role from user_roles
+      const { data: roleData } = await adminClient.from("user_roles")
+        .select("role")
+        .eq("nrp", userNRP)
+        .single();
+      if (roleData) userRole = roleData.role;
+
+    } catch (_e) {
+      return new Response(
+        JSON.stringify({ error: "Autentikasi gagal." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── RATE LIMIT (15 queries per 15 min) ──
+    let rateLimited = false;
+    try {
+      const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW * 60 * 1000).toISOString();
+      const { data: rateData } = await adminClient.from("ai_rate_limits")
+        .select("query_count")
+        .eq("nrp", userNRP)
+        .gte("created_at", windowStart)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (rateData && rateData.query_count >= RATE_LIMIT_MAX) {
+        rateLimited = true;
+      }
+    } catch (_e) { /* ignore — first query */ }
+
+    // ── Fetch DB data (role-isolated) ──
+    const dbData = await fetchDatabaseData(adminClient, message, context, {
+      userNRP, userBU, userRole, isOwnerOrAdminPusat, roleLevel
+    });
+
+    // ── If rate limited: return DB data only (no AI) ──
+    if (rateLimited) {
+      const dbList = formatDbDataAsList(dbData, userRole);
+      return new Response(
+        JSON.stringify({
+          message: `📊 Tampilan data berdasarkan pencarian Anda.\n\n(Batas penggunaan AI tercapai — ${RATE_LIMIT_MAX} pertanyaan per ${RATE_LIMIT_WINDOW} menit. Menampilkan data database saja.)`,
+          dbData: dbList,
+          sources: [],
+          usedAI: false,
+          rateLimited: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── Fetch policy documents ──
+    const docs = await fetchRelevantDocs(adminClient, message, context);
+
+    // ── AI response ──
     let assistantMessage = "";
     let usedAI = false;
 
     if (geminiKey) {
-      const systemPrompt = buildSystemPrompt(dbData, docs);
-      assistantMessage = await callGemini(geminiKey, systemPrompt, message, conversationHistory);
+      const systemPrompt = buildSystemPrompt(dbData, docs, userRole);
+      assistantMessage = await callGemini(geminiKey, systemPrompt, sanitized, conversationHistory);
       if (assistantMessage && !assistantMessage.startsWith("__FALLBACK__")) {
         usedAI = true;
       } else {
@@ -88,15 +151,37 @@ serve(async (req: Request) => {
       }
     }
 
-    // ── Step 4: Template fallback (always works, no API needed) ──
     if (!usedAI) {
-      assistantMessage = generateTemplateResponse(message, dbData, docs, context);
+      assistantMessage = generateTemplateResponse(sanitized, dbData, docs, context);
     }
 
-    // ── Step 5: Log ──
+    // ── Log to ai_rate_limits ──
     try {
-      await supabase.from("ai_conversations").insert({
-        user_message: message,
+      const today = new Date().toISOString().split("T")[0];
+      const { data: existing } = await adminClient.from("ai_rate_limits")
+        .select("id, query_count")
+        .eq("nrp", userNRP)
+        .eq("query_date", today)
+        .single();
+
+      if (existing) {
+        await adminClient.from("ai_rate_limits")
+          .update({ query_count: existing.query_count + 1 })
+          .eq("id", existing.id);
+      } else {
+        await adminClient.from("ai_rate_limits").insert({
+          nrp: userNRP,
+          query_date: today,
+          query_count: 1,
+          tokens_used: 0,
+        });
+      }
+    } catch (_e) { /* ignore */ }
+
+    // ── Log conversation ──
+    try {
+      await adminClient.from("ai_conversations").insert({
+        user_message: sanitized,
         assistant_message: assistantMessage,
         context,
         tokens_used: 0,
@@ -104,12 +189,15 @@ serve(async (req: Request) => {
       }).catch(() => {});
     } catch (_e) { /* ignore */ }
 
-    // ── Step 6: Return ──
+    // ── Return both AI message AND structured DB data ──
+    const dbList = formatDbDataAsList(dbData, userRole);
     return new Response(
       JSON.stringify({
         message: assistantMessage,
+        dbData: dbList,
         sources: docs.map((d: any) => ({ title: d.title, similarity: 1.0 })),
         usedAI,
+        rateLimited: false,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -122,7 +210,7 @@ serve(async (req: Request) => {
 });
 
 // ══════════════════════════════════════════════════════════
-// GEMINI — New Interactions API (not generateContent)
+// GEMINI AI
 // ══════════════════════════════════════════════════════════
 async function callGemini(
   apiKey: string,
@@ -130,7 +218,6 @@ async function callGemini(
   message: string,
   history: any[]
 ): Promise<string> {
-  // Build full prompt with history
   let fullInput = systemPrompt + "\n\nPertanyaan: " + message;
 
   if (history.length > 0) {
@@ -140,9 +227,7 @@ async function callGemini(
     fullInput = historyText + "\n\n" + fullInput;
   }
 
-  // generateContent is confirmed working (tested 2026-08-30)
-  // Use gemini-3.6-flash (stable) → gemini-3.5-flash (fallback)
-  const models = ["gemini-3.6-flash", "gemini-3.5-flash"];
+  const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
 
   for (const model of models) {
     try {
@@ -161,23 +246,15 @@ async function callGemini(
       if (res.ok) {
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          return text;
-        }
-      } else {
-        const err = await res.json().catch(() => ({}));
-        console.warn(`${model} ${res.status}:`, (err as any).error?.message || res.status);
+        if (text) return text;
       }
-    } catch (e) {
-    }
+    } catch (_e) {}
   }
-
-  // All models failed
   return "__FALLBACK__";
 }
 
 // ══════════════════════════════════════════════════════════
-// TEMPLATE RESPONSE (no AI needed — pure DB data formatting)
+// TEMPLATE RESPONSE
 // ══════════════════════════════════════════════════════════
 function generateTemplateResponse(
   message: string,
@@ -190,69 +267,55 @@ function generateTemplateResponse(
   let response = "";
 
   if (msg.includes("kpi") || msg.includes("performa") || msg.includes("kinerja")) {
-    response = "📊 **Ringkasan KPI**\n\n";
+    response = "📊 Ringkasan KPI\n\n";
     const kpiLine = lines.find((l: string) => l.includes("KPI"));
     if (kpiLine) response += kpiLine.replace("KPI: ", "") + "\n\n";
-    response += "💡 *Data dari hr_performance. Skor KPI dihitung berdasarkan pencapaian target bulanan.*";
+    response += "Data dari hr_performance. Skor KPI dihitung berdasarkan pencapaian target bulanan.";
   }
   else if (msg.includes("payroll") || msg.includes("gaji") || msg.includes("salary")) {
-    response = "💰 **Ringkasan Payroll**\n\n";
+    response = "💰 Ringkasan Payroll\n\n";
     const payrollLine = lines.find((l: string) => l.includes("PAYROLL"));
     if (payrollLine) response += payrollLine.replace("PAYROLL: ", "") + "\n\n";
-    response += "💡 *Total gaji bersih semua karyawan. Data dari hr_payroll.*";
+    response += "Total gaji bersih semua karyawan. Data dari hr_payroll.";
   }
   else if (msg.includes("kehadiran") || msg.includes("absen") || msg.includes("hadir")) {
-    response = "📋 **Kehadiran Karyawan**\n\n";
+    response = "📋 Kehadiran Karyawan\n\n";
     const attLine = lines.find((l: string) => l.includes("ATTENDANCE"));
     if (attLine) response += attLine.replace("ATTENDANCE: ", "") + "\n\n";
-    response += "💡 *Data dari hr_attendance hari ini.*";
+    response += "Data dari hr_attendance hari ini.";
   }
   else if (msg.includes("cuti") || msg.includes("leave")) {
-    response = "🌴 **Data Cuti**\n\n";
+    response = "🌴 Data Cuti\n\n";
     const leaveLine = lines.find((l: string) => l.includes("LEAVE"));
     if (leaveLine) response += leaveLine.replace("LEAVE: ", "") + "\n\n";
-    response += "💡 *Kuota cuti tahun ini dari hr_leave.*";
+    response += "Kuota cuti tahun ini dari hr_leave.";
   }
   else if (msg.includes("turnover") || msg.includes("resign") || msg.includes("keluar")) {
-    response = "📉 **Data Turnover**\n\n";
+    response = "📉 Data Turnover\n\n";
     const tLine = lines.find((l: string) => l.includes("TURNOVER"));
     if (tLine) response += tLine.replace("TURNOVER: ", "") + "\n\n";
-    response += "💡 *Turnover rate = jumlah keluar / total headcount × 100%.*";
-  }
-  else if (msg.includes("flight risk") || msg.includes("berisiko")) {
-    response = "🚨 **Flight Risk**\n\n";
-    const riskLine = lines.find((l: string) => l.includes("FLIGHT RISK"));
-    if (riskLine) response += riskLine.replace("FLIGHT RISK:\n", "") + "\n\n";
-    response += "💡 *Karyawan berisiko resign berdasarkan analisis data HR.*";
-  }
-  else if (msg.includes("warning") || msg.includes("peringatan")) {
-    response = "⚠️ **Early Warning**\n\n";
-    const wLine = lines.find((l: string) => l.includes("EARLY"));
-    if (wLine) response += wLine.replace("EARLY WARNINGS:\n", "") + "\n\n";
-    response += "💡 *Peringatan dini dari sistem monitoring HR.*";
+    response += "Turnover rate = jumlah keluar / total headcount x 100%.";
   }
   else {
-    response = "🤖 **insightWOS AI Assistant**\n\n";
+    response = "🤖 insightWOS AI Assistant\n\n";
     const summaryLine = lines.find((l: string) => l.includes("SUMMARY"));
     if (summaryLine) {
-      response += "📊 **Ringkasan:**\n" + summaryLine.replace("SUMMARY:\n", "") + "\n\n";
+      response += "Ringkasan:\n" + summaryLine.replace("SUMMARY:\n", "") + "\n\n";
     } else {
       response += "Saya adalah asisten HR untuk insightWOS.\n\n";
     }
-    response += "**Yang bisa saya bantu:**\n";
-    response += "• 📊 KPI & Performa — \"Bagaimana KPI divisi Mining?\"\n";
-    response += "• 💰 Payroll — \"Berapa total gaji bulan ini?\"\n";
-    response += "• 📋 Kehadiran — \"Bagaimana kehadiran karyawan?\"\n";
-    response += "• 🌴 Cuti — \"Sisa cuti karyawan?\"\n";
-    response += "• 📉 Turnover — \"Data turnover bulan ini?\"\n";
-    response += "• 🚨 Flight Risk — \"Siapa karyawan berisiko resign?\"\n";
-    response += "• ⚠️ Warning — \"Ada peringatan hari ini?\"\n";
+    response += "Yang bisa saya bantu:\n";
+    response += "- KPI & Performa\n";
+    response += "- Payroll\n";
+    response += "- Kehadiran\n";
+    response += "- Cuti\n";
+    response += "- Turnover\n";
   }
 
   if (docs.length > 0) {
-    response += "\n\n---\n📚 **Kebijakan Terkait:**\n";
+    response += "\n\n---\nKebijakan Terkait:\n";
     docs.forEach((doc: any, i: number) => {
-      response += `\n*[${i + 1}] ${doc.title}:*\n${(doc.content || "").substring(0, 300)}...\n`;
+      response += `\n[${i + 1}] ${doc.title}:\n${(doc.content || "").substring(0, 300)}...\n`;
     });
   }
 
@@ -260,110 +323,139 @@ function generateTemplateResponse(
 }
 
 // ══════════════════════════════════════════════════════════
-// DATABASE FETCH
+// FORMAT DB DATA AS STRUCTURED LIST (human-readable)
 // ══════════════════════════════════════════════════════════
-async function fetchDatabaseData(supabase: any, message: string, context: string): Promise<string> {
-  const parts: string[] = [];
-  const msg = message.toLowerCase();
+function formatDbDataAsList(dbData: string, userRole: string | null): any[] {
+  const items: any[] = [];
+  if (!dbData || dbData === "Tidak ada data spesifik yang tersedia.") return items;
 
-  // Detect target business unit
-  let targetBU = null;
-  if (msg.includes("mining") || msg.includes("tambang")) targetBU = "MINING";
-  else if (msg.includes("estate") || msg.includes("kebun") || msg.includes("sawit")) targetBU = "ESTATE";
-  else if (msg.includes("mill") || msg.includes("pabrik") || msg.includes("pks")) targetBU = "MILL";
-  else if (msg.includes("hq") || msg.includes("kantor") || msg.includes("korporat")) targetBU = "HQ";
+  const sections = dbData.split("\n\n");
+  for (const section of sections) {
+    const lines = section.split("\n").filter(l => l.trim());
+    if (lines.length === 0) continue;
 
-  // Detect if asking about specific people
-  const asksTop = msg.includes("tertinggi") || msg.includes("terbaik") || msg.includes("top") || msg.includes("paling tinggi");
-  const asksLow = msg.includes("terendah") || msg.includes("terburuk") || msg.includes("bottom") || msg.includes("paling rendah");
+    const header = lines[0];
+    // Extract key-value pairs
+    const dataLines = lines.slice(1);
+    const entries: Record<string, string> = {};
 
-  try {
-    // 1. SUMMARY — always fetch
-    const { data: summary } = await supabase.rpc("admin_get_summary");
-    if (summary) {
-      parts.push(`SUMMARY:\n- Total: ${summary.total_employees || 0} karyawan\n- Mining: ${summary.mining_count || 0} | Estate: ${summary.estate_count || 0} | Mill: ${summary.mill_count || 0} | HQ: ${summary.hq_count || 0}\n- High performers (KPI≥80): ${summary.high_performers || 0}\n- Low performers (KPI<60): ${summary.low_performers || 0}\n- Pending requests: ${summary.pending_requests || 0}\n- PKWT expiring soon: ${summary.retiring_soon || 0}`);
+    for (const line of dataLines) {
+      const match = line.match(/^[-•]\s*(.+?):\s*(.+)$/);
+      if (match) {
+        entries[match[1].trim()] = match[2].trim();
+      } else if (line.includes(":")) {
+        const [key, ...vals] = line.split(":");
+        if (key && vals.length) entries[key.trim()] = vals.join(":").trim();
+      }
     }
 
-    // 2. KPI — always fetch top 10 + bottom 10 + per division
+    items.push({
+      category: header.replace(/^[📊💰📋🌴📉🚨⚠️]\s*/, "").trim(),
+      data: entries,
+      raw: dataLines.join("\n"),
+    });
+  }
+
+  return items;
+}
+
+// ══════════════════════════════════════════════════════════
+// DATABASE FETCH (role-isolated)
+// ══════════════════════════════════════════════════════════
+interface UserContext {
+  userNRP: string | null;
+  userBU: string | null;
+  userRole: string | null;
+  isOwnerOrAdminPusat: boolean;
+  roleLevel: number;
+}
+
+async function fetchDatabaseData(
+  supabase: any,
+  message: string,
+  context: string,
+  ctx: UserContext
+): Promise<string> {
+  const parts: string[] = [];
+  const msg = message.toLowerCase();
+  const isAdmin = ctx.isOwnerOrAdminPusat || (ctx.userRole && ctx.userRole.startsWith("admin"));
+
+  // Worker: only own data
+  if (!isAdmin && ctx.userNRP) {
+    try {
+      // Own KPI
+      const { data: myKpi } = await supabase.from("hr_performance")
+        .select("nrp, kpi_score, periode")
+        .eq("nrp", ctx.userNRP)
+        .order("periode", { ascending: false })
+        .limit(1);
+      if (myKpi?.length) {
+        parts.push(`KPI ANDA: Skor ${myKpi[0].kpi_score} (${myKpi[0].periode})`);
+      }
+
+      // Own attendance today
+      const today = new Date().toISOString().split("T")[0];
+      const { data: myAtt } = await supabase.from("hr_attendance")
+        .select("status_hadir, clock_in, clock_out")
+        .eq("nrp", ctx.userNRP)
+        .eq("date", today);
+      if (myAtt?.length) {
+        parts.push(`KEHADIRAN HARI INI: ${myAtt[0].status_hadir} (masuk: ${myAtt[0].clock_in || "-"}, keluar: ${myAtt[0].clock_out || "-"})`);
+      }
+
+      // Own leave quota
+      const { data: myLeave } = await supabase.from("hr_leave")
+        .select("annual_quota, annual_used")
+        .eq("nrp", ctx.userNRP)
+        .eq("tahun", new Date().getFullYear());
+      if (myLeave?.length) {
+        const l = myLeave[0];
+        parts.push(`CUTI: Kuota ${l.annual_quota} hari | Terpakai ${l.annual_used} | Sisa ${l.annual_quota - l.annual_used}`);
+      }
+
+      // Own payroll
+      const { data: myPay } = await supabase.from("hr_payroll")
+        .select("net_salary, base_salary, periode")
+        .eq("nrp", ctx.userNRP)
+        .order("periode", { ascending: false })
+        .limit(1);
+      if (myPay?.length) {
+        parts.push(`GAJI: Rp ${Number(myPay[0].net_salary || 0).toLocaleString("id-ID")} (periode ${myPay[0].periode})`);
+      }
+    } catch (_e) {}
+    return parts.length > 0 ? parts.join("\n\n") : "Tidak ada data spesifik yang tersedia.";
+  }
+
+  // Admin: BU-scoped data
+  try {
+    // Summary
+    const { data: summary } = await supabase.rpc("admin_get_summary");
+    if (summary) {
+      parts.push(`SUMMARY:\n- Total: ${summary.total_employees || 0} karyawan\n- Mining: ${summary.mining_count || 0} | Estate: ${summary.estate_count || 0} | Mill: ${summary.mill_count || 0} | HQ: ${summary.hq_count || 0}\n- High performers (KPI>=80): ${summary.high_performers || 0}\n- Low performers (KPI<60): ${summary.low_performers || 0}\n- Pending requests: ${summary.pending_requests || 0}`);
+    }
+
+    // KPI top 10
     let kpiQuery = supabase.from("hr_performance")
       .select("nrp, kpi_score, periode, employees_master(nama, divisi, business_unit_id)")
       .order("kpi_score", { ascending: false });
-    if (!isOwnerOrAdminPusat && userBU) {
-      kpiQuery = kpiQuery.eq("employees_master.business_unit_id", userBU);
+    if (!ctx.isOwnerOrAdminPusat && ctx.userBU) {
+      kpiQuery = kpiQuery.eq("employees_master.business_unit_id", ctx.userBU);
     }
     const { data: topKpi } = await kpiQuery.limit(10);
-    let lowKpiQuery = supabase.from("hr_performance")
-      .select("nrp, kpi_score, periode, employees_master(nama, divisi, business_unit_id)")
-      .order("kpi_score", { ascending: true });
-    if (!isOwnerOrAdminPusat && userBU) {
-      lowKpiQuery = lowKpiQuery.eq("employees_master.business_unit_id", userBU);
-    }
-    const { data: lowKpi } = await lowKpiQuery.limit(10);
-
     if (topKpi?.length) {
-      const topList = topKpi.map((k: any) => {
-        const name = k.employees_master?.nama || k.nrp;
-        const div = k.employees_master?.divisi || "?";
-        const bu = k.employees_master?.business_unit || "?";
-        return `${name} (${div}/${bu}): ${k.kpi_score}`;
-      }).join(", ");
-      parts.push(`TOP 10 KPI TERTINGGI:\n${topList}`);
-    }
-    if (lowKpi?.length) {
-      const lowList = lowKpi.map((k: any) => {
-        const name = k.employees_master?.nama || k.nrp;
-        const div = k.employees_master?.divisi || "?";
-        const bu = k.employees_master?.business_unit || "?";
-        return `${name} (${div}/${bu}): ${k.kpi_score}`;
-      }).join(", ");
-      parts.push(`BOTTOM 10 KPI TERENDAH:\n${lowList}`);
+      const list = topKpi.map((k: any) =>
+        `${k.employees_master?.nama || k.nrp} (${k.employees_master?.divisi || "?"}): ${k.kpi_score}`
+      ).join(", ");
+      parts.push(`TOP 10 KPI TERTINGGI: ${list}`);
     }
 
-    // 3. KPI PER DIVISION
-    const allKpi = [...(topKpi || []), ...(lowKpi || [])];
-    if (allKpi.length) {
-      const byDiv: Record<string, number[]> = {};
-      allKpi.forEach((k: any) => {
-        const key = `${k.employees_master?.business_unit || "?"}/${k.employees_master?.divisi || "?"}`;
-        if (!byDiv[key]) byDiv[key] = [];
-        byDiv[key].push(Number(k.kpi_score));
-      });
-      const divLines = Object.entries(byDiv).map(([k, v]) => {
-        const avg = (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1);
-        return `${k}: avg ${avg} (${v.length} data)`;
-      }).join(", ");
-      parts.push(`KPI PER DIVISI: ${divLines}`);
-    }
-
-    // 4. PAYROLL — top 5 + bottom 5
-    let payQuery = supabase.from("hr_payroll")
-      .select("nrp, net_salary, base_salary, employees_master(nama, divisi, business_unit_id)")
-      .order("net_salary", { ascending: false });
-    if (!isOwnerOrAdminPusat && userBU) {
-      payQuery = payQuery.eq("employees_master.business_unit_id", userBU);
-    }
-    const { data: topPay } = await payQuery.limit(5);
-    let lowPayQuery = supabase.from("hr_payroll")
-      .select("nrp, net_salary, base_salary, employees_master(nama, divisi, business_unit_id)")
-      .order("net_salary", { ascending: true });
-    if (!isOwnerOrAdminPusat && userBU) {
-      lowPayQuery = lowPayQuery.eq("employees_master.business_unit_id", userBU);
-    }
-    const { data: lowPay } = await lowPayQuery.limit(5);
-    if (topPay?.length) {
-      const totalPay = topPay.concat(lowPay || []).reduce((s: number, p: any) => s + Number(p.net_salary || 0), 0);
-      const topList = topPay.map((p: any) => `${p.employees_master?.nama || p.nrp}: Rp ${Number(p.net_salary || 0).toLocaleString("id-ID")}`).join(", ");
-      const lowList = (lowPay || []).map((p: any) => `${p.employees_master?.nama || p.nrp}: Rp ${Number(p.net_salary || 0).toLocaleString("id-ID")}`).join(", ");
-      parts.push(`PAYROLL TOP 5: ${topList}\nPAYROLL BOTTOM 5: ${lowList}`);
-    }
-
-    // 5. ATTENDANCE — today
+    // Attendance today
     const today = new Date().toISOString().split("T")[0];
     let attQuery = supabase.from("hr_attendance")
       .select("nrp, status_hadir, employees_master(nama, business_unit_id)")
       .eq("date", today);
-    if (!isOwnerOrAdminPusat && userBU) {
-      attQuery = attQuery.eq("employees_master.business_unit_id", userBU);
+    if (!ctx.isOwnerOrAdminPusat && ctx.userBU) {
+      attQuery = attQuery.eq("employees_master.business_unit_id", ctx.userBU);
     }
     const { data: att } = await attQuery.limit(200);
     if (att?.length) {
@@ -373,48 +465,30 @@ async function fetchDatabaseData(supabase: any, message: string, context: string
       parts.push(`KEHADIRAN HARI INI (${today}): Hadir ${hadir} | Terlambat ${terlambat} | Absen ${absen} | Total ${att.length}`);
     }
 
-    // 6. LEAVE
-    const { data: leave } = await supabase.from("hr_leave")
-      .select("nrp, annual_quota, annual_used")
-      .eq("tahun", new Date().getFullYear());
-    if (leave?.length) {
-      const totalKuota = leave.reduce((s: number, l: any) => s + Number(l.annual_quota || 0), 0);
-      const totalUsed = leave.reduce((s: number, l: any) => s + Number(l.annual_used || 0), 0);
-      parts.push(`CUTI ${new Date().getFullYear()}: ${leave.length} karyawan | Kuota: ${totalKuota} hari | Terpakai: ${totalUsed} | Sisa: ${totalKuota - totalUsed}`);
-    }
-
-    // 7. FLIGHT RISK
+    // Flight risk
     try {
       let riskQuery = supabase.from("hr_performance")
         .select("nrp, kpi_score, employees_master(nama, divisi, business_unit_id)")
         .lt("kpi_score", 60);
-      if (!isOwnerOrAdminPusat && userBU) {
-        riskQuery = riskQuery.eq("employees_master.business_unit_id", userBU);
+      if (!ctx.isOwnerOrAdminPusat && ctx.userBU) {
+        riskQuery = riskQuery.eq("employees_master.business_unit_id", ctx.userBU);
       }
       const { data: risk } = await riskQuery.limit(10);
       if (risk?.length) {
-        const riskList = risk.map((r: any) => `${r.employees_master?.nama || r.nrp} (${r.employees_master?.divisi || "?"}): KPI ${r.kpi_score}`).join(", ");
-        parts.push(`FLIGHT RISK (KPI<60): ${riskList}`);
+        const list = risk.map((r: any) =>
+          `${r.employees_master?.nama || r.nrp} (${r.employees_master?.divisi || "?"}): KPI ${r.kpi_score}`
+        ).join(", ");
+        parts.push(`FLIGHT RISK (KPI<60): ${list}`);
       }
     } catch (_e) {}
 
-    // 8. EARLY WARNING — PKWT expiring
-    try {
-      const { data: pkwt } = await supabase.rpc("get_pkwt_expiry_alert");
-      if (pkwt?.data?.length) {
-        const warningList = pkwt.data.slice(0, 5).map((w: any) => `${w.nama} (${w.divisi}): ${w.risk_level} - ${w.days_remaining} hari`).join(", ");
-        parts.push(`PKWT EXPIRING: ${warningList}`);
-      }
-    } catch (_e) {}
-
-  } catch (e) {
-  }
+  } catch (_e) {}
 
   return parts.length > 0 ? parts.join("\n\n") : "Tidak ada data spesifik yang tersedia.";
 }
 
 // ══════════════════════════════════════════════════════════
-// DOCUMENT SEARCH (keyword match, no embeddings)
+// DOCUMENT SEARCH
 // ══════════════════════════════════════════════════════════
 async function fetchRelevantDocs(supabase: any, message: string, context: string): Promise<any[]> {
   try {
@@ -443,18 +517,23 @@ async function fetchRelevantDocs(supabase: any, message: string, context: string
 // ══════════════════════════════════════════════════════════
 // SYSTEM PROMPT
 // ══════════════════════════════════════════════════════════
-function buildSystemPrompt(dbData: string, docs: any[]): string {
+function buildSystemPrompt(dbData: string, docs: any[], userRole: string | null): string {
   let prompt = `Kamu adalah AI Assistant untuk insightWOS — platform HR untuk perusahaan pertambangan, perkebunan sawit, dan pabrik PKS.
 
-Tugasmu: Bantu admin/manager dengan pertanyaan tentang data HR.
+Tugasmu: Bantu pengguna dengan pertanyaan tentang data HR.
 
 Aturan:
-- Jawab dalam Bahasa Indonesia
-- Singkat, langsung ke poin
+- Jawab dalam Bahasa Indonesia yang mudah dipahami manusia
+- Singkat, langsung ke poin, gunakan format list jika cocok
 - Gunakan data yang diberikan, jangan mengarang
 - Jika data tidak cukup, bilang "Saya tidak memiliki data yang cukup"
 - Format angka dengan ribuan (contoh: 1.500 bukan 1500)
-- Gunakan emoji jika sesuai`;
+- Jangan gunakan markdown yang rumit — cukup teks biasa dengan emoji
+- Setelah menjawab pertanyaan, tampilkan juga data mentah dalam bentuk list yang rapi`;
+
+  if (userRole && !userRole.startsWith("admin")) {
+    prompt += `\n\nPengguna ini adalah worker. Tampilkan HANYA data miliknya (KPI, kehadiran, cuti, gaji). Jangan tampilkan data orang lain.`;
+  }
 
   if (dbData && dbData !== "Tidak ada data spesifik yang tersedia.") {
     prompt += `\n\n--- DATA DARI DATABASE ---\n${dbData}\n--- AKHIR DATA ---`;

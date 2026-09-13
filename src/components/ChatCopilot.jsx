@@ -1,12 +1,8 @@
-// ============================================================
-// ChatCopilot.jsx — AI Copilot Chat UI
-// Floating chat widget with RAG-powered responses
-// ============================================================
-
+// ChatCopilot.jsx — AI Copilot Chat UI (DOMPurify, role-isolated, DB data list)
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { callEdgeFunction } from '@/lib/edge-functions';
+import DOMPurify from 'dompurify';
 
-// ── API call to AI Copilot Edge Function ──
 function askCopilot(message, conversationHistory = [], context = 'general') {
   return callEdgeFunction(
     'ai-copilot',
@@ -15,36 +11,20 @@ function askCopilot(message, conversationHistory = [], context = 'general') {
   );
 }
 
-// ── Quick action suggestions ──
-const QUICK_ACTIONS = [
-  { label: 'Ringkasan KPI', icon: '📊', message: 'Bagaimana ringkasan KPI karyawan bulan ini? Siapa yang perlu perhatian?', context: 'kpi' },
-  { label: 'Cek Payroll', icon: '💰', message: 'Tolong breakdown payroll bulan ini. Ada anomali?', context: 'payroll' },
-  { label: 'Kehadiran', icon: '📋', message: 'Bagaimana kondisi kehadiran karyawan minggu ini? Ada yang sering telat?', context: 'attendance' },
-  { label: 'Kebijakan', icon: '📖', message: 'Apa kebijakan cuti tahunan dan cara pengajuannya?', context: 'policy' },
-];
-
-// ── Markdown-like renderer (simple) ──
+// Safe HTML renderer — DOMPurify sanitizes all output
 function renderMessage(text) {
-  if (!text) return null;
-
-  // Bold
-  let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  // Italic
-  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  // Code blocks
-  html = html.replace(/```([\s\S]*?)```/g, '<pre class="bg-slate-900/60 rounded-lg p-3 my-2 text-xs overflow-x-auto font-mono text-emerald-400"><code>$1</code></pre>');
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code class="bg-slate-900/60 px-1.5 py-0.5 rounded text-sky-400 text-xs">$1</code>');
-  // Lists
-  html = html.replace(/^- (.*$)/gm, '<li class="ml-4 list-disc text-slate-300">$1</li>');
-  html = html.replace(/^(\d+)\. (.*$)/gm, '<li class="ml-4 list-decimal text-slate-300">$2</li>');
-  // Line breaks
-  html = html.replace(/\n/g, '<br/>');
-
-  return html;
+  if (!text) return '';
+  let html = text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/```([\s\S]*?)```/g, '<pre class="bg-slate-900/60 rounded-lg p-3 my-2 text-xs overflow-x-auto font-mono text-emerald-400"><code>$1</code></pre>')
+    .replace(/`([^`]+)`/g, '<code class="bg-slate-900/60 px-1.5 py-0.5 rounded text-sky-400 text-xs">$1</code>')
+    .replace(/^- (.*$)/gm, '<li class="ml-4 list-disc text-slate-300">$1</li>')
+    .replace(/^(\d+)\. (.*$)/gm, '<li class="ml-4 list-decimal text-slate-300">$2</li>')
+    .replace(/\n/g, '<br/>');
+  return DOMPurify.sanitize(html);
 }
 
-// ── Typing indicator ──
 function TypingIndicator() {
   return (
     <div className="flex items-center gap-2 px-4 py-3">
@@ -53,53 +33,47 @@ function TypingIndicator() {
         <span className="w-2 h-2 bg-sky-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
         <span className="w-2 h-2 bg-sky-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
       </div>
-      <span className="text-xs text-slate-400">AI sedang berpikir...</span>
+      <span className="text-xs text-slate-400">Mencari data...</span>
     </div>
   );
 }
 
-// ── Welcome screen ──
-function WelcomeScreen({ onSelect }) {
+// DB data list component — shows structured data after AI response
+function DbDataList({ dbData }) {
+  if (!dbData || dbData.length === 0) return null;
   return (
-    <div className="flex flex-col items-center justify-center py-6 px-4">
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-3xl mb-4 shadow-lg shadow-sky-500/20">
-        🤖
-      </div>
-      <h3 className="text-white font-bold text-lg mb-1">AI Copilot</h3>
-      <p className="text-slate-400 text-sm text-center mb-6">
-        Asisten AI untuk insightWOS.<br />
-        Tanya apa saja tentang data HR, KPI, kebijakan, dll.
-      </p>
-
-      <div className="grid grid-cols-2 gap-2 w-full">
-        {QUICK_ACTIONS.map((action, i) => (
-          <button
-            key={i}
-            onClick={() => onSelect(action.message, action.context)}
-            className="flex items-center gap-2 p-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 hover:border-sky-500/30 transition-all text-left"
-          >
-            <span className="text-xl">{action.icon}</span>
-            <span className="text-sm text-slate-300">{action.label}</span>
-          </button>
-        ))}
-      </div>
+    <div className="mt-3 pt-3 border-t border-slate-700/50">
+      <p className="text-[11px] text-slate-500 mb-2">📋 Data dari database:</p>
+      {dbData.map((item, i) => (
+        <div key={i} className="mb-2 p-2 bg-slate-900/40 rounded-lg">
+          <p className="text-xs font-semibold text-sky-400 mb-1">{item.category}</p>
+          {item.data && Object.keys(item.data).length > 0 ? (
+            <div className="space-y-0.5">
+              {Object.entries(item.data).map(([k, v], j) => (
+                <div key={j} className="flex gap-2 text-[11px]">
+                  <span className="text-slate-500 min-w-[80px]">{k}:</span>
+                  <span className="text-slate-300">{v}</span>
+                </div>
+              ))}
+            </div>
+          ) : item.raw ? (
+            <p className="text-[11px] text-slate-400 whitespace-pre-wrap">{item.raw}</p>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }
 
-// ── Message bubble ──
 function MessageBubble({ msg, isUser }) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
       <div className={`flex gap-2 max-w-[85%] ${isUser ? 'flex-row-reverse' : ''}`}>
-        {/* Avatar */}
         {!isUser && (
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-sm flex-shrink-0 mt-1">
             🤖
           </div>
         )}
-
-        {/* Bubble */}
         <div className={`rounded-2xl px-4 py-2.5 ${
           isUser
             ? 'bg-sky-600/80 text-white rounded-br-md'
@@ -108,27 +82,26 @@ function MessageBubble({ msg, isUser }) {
           {isUser ? (
             <p className="text-sm">{msg.text}</p>
           ) : (
-            <div
-              className="text-sm leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: renderMessage(msg.text) }}
-            />
+            <>
+              <div
+                className="text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: renderMessage(msg.text) }}
+              />
+              <DbDataList dbData={msg.dbData} />
+            </>
           )}
-
-          {/* Sources */}
           {!isUser && msg.sources?.length > 0 && (
             <div className="mt-2 pt-2 border-t border-slate-700/50">
               <p className="text-[11px] text-slate-500 mb-1">📚 Sumber:</p>
               <div className="flex flex-wrap gap-1">
                 {msg.sources.map((s, i) => (
                   <span key={i} className="text-[11px] bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded-full">
-                    {s.title} ({Math.round(s.similarity * 100)}%)
+                    {s.title}
                   </span>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Timestamp */}
           <p className={`text-[11px] mt-1 ${isUser ? 'text-sky-200/50' : 'text-slate-500'}`}>
             {msg.time}
           </p>
@@ -138,7 +111,6 @@ function MessageBubble({ msg, isUser }) {
   );
 }
 
-// ── Main ChatCopilot component ──
 export default function ChatCopilot({ context = 'general' }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -148,12 +120,10 @@ export default function ChatCopilot({ context = 'general' }) {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Focus input when opened
   useEffect(() => {
     if (isOpen) {
       setUnread(0);
@@ -161,7 +131,6 @@ export default function ChatCopilot({ context = 'general' }) {
     }
   }, [isOpen]);
 
-  // Send message
   const handleSend = useCallback(async (text = input, msgContext = context) => {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
@@ -178,7 +147,6 @@ export default function ChatCopilot({ context = 'general' }) {
     setIsLoading(true);
 
     try {
-      // Build conversation history for context
       const history = messages.slice(-10).map(m => ({
         role: m.isUser ? 'user' : 'assistant',
         content: m.text,
@@ -191,16 +159,16 @@ export default function ChatCopilot({ context = 'general' }) {
         text: result.message,
         isUser: false,
         sources: result.sources || [],
+        dbData: result.dbData || [],
         time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       };
 
       setMessages(prev => [...prev, botMsg]);
-
       if (!isOpen) setUnread(prev => prev + 1);
     } catch (error) {
       const errorMsg = {
         id: Date.now() + 1,
-        text: `❌ Maaf, terjadi kesalahan: ${error.message}\n\nCoba lagi dalam beberapa saat.`,
+        text: `Maaf, terjadi kesalahan: ${error.message}\n\nCoba lagi dalam beberapa saat.`,
         isUser: false,
         time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       };
@@ -210,12 +178,6 @@ export default function ChatCopilot({ context = 'general' }) {
     }
   }, [input, messages, isLoading, isOpen, context]);
 
-  // Handle quick action
-  const handleQuickAction = useCallback((message, actionContext) => {
-    handleSend(message, actionContext);
-  }, [handleSend]);
-
-  // Handle key press
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -225,7 +187,6 @@ export default function ChatCopilot({ context = 'general' }) {
 
   return (
     <>
-      {/* ── Floating Action Button ── */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -241,33 +202,27 @@ export default function ChatCopilot({ context = 'general' }) {
         </button>
       )}
 
-      {/* ── Chat Panel ── */}
       {isOpen && (
         <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-x-auto sm:right-4 sm:bottom-20 sm:w-[380px] sm:max-h-[560px] h-[85vh] sm:h-auto flex flex-col bg-slate-900/95 backdrop-blur-xl border-t sm:border sm:rounded-2xl border-slate-700/50 shadow-2xl shadow-black/40 overflow-hidden animate-in slide-in-from-bottom duration-300">
-          
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-sky-600/20 to-indigo-600/20 border-b border-slate-700/50">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-lg">
-                🤖
-              </div>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-lg">🤖</div>
               <div>
                 <h3 className="text-sm font-bold text-white">AI Copilot</h3>
                 <p className="text-[11px] text-slate-400">insightWOS Assistant</p>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-            >
-              ✕
-            </button>
+            <button onClick={() => setIsOpen(false)} className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors">✕</button>
           </div>
 
-          {/* Messages */}
+          {/* Messages — blank page when empty */}
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1" style={{ maxHeight: 'calc(85vh - 140px)' }}>
             {messages.length === 0 && !isLoading ? (
-              <WelcomeScreen onSelect={handleQuickAction} />
+              <div className="flex flex-col items-center justify-center h-full py-12">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-2xl mb-3">🤖</div>
+                <p className="text-slate-500 text-sm text-center">Tanya apa saja tentang data HR</p>
+              </div>
             ) : (
               <>
                 {messages.map(msg => (
@@ -279,24 +234,6 @@ export default function ChatCopilot({ context = 'general' }) {
             )}
           </div>
 
-          {/* Quick actions (shown when empty or few messages) */}
-          {messages.length <= 2 && !isLoading && (
-            <div className="px-4 pb-2">
-              <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
-                {QUICK_ACTIONS.map((action, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleQuickAction(action.message, action.context)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-800/80 hover:bg-sky-600/20 border border-slate-700/50 hover:border-sky-500/30 text-xs text-slate-400 hover:text-sky-400 transition-all whitespace-nowrap flex-shrink-0"
-                  >
-                    <span>{action.icon}</span>
-                    <span>{action.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Input */}
           <div className="px-3 pb-3 pt-1 border-t border-slate-700/50">
             <div className="flex items-center gap-2 bg-slate-800/80 rounded-xl border border-slate-700/50 focus-within:border-sky-500/50 transition-colors">
@@ -306,7 +243,7 @@ export default function ChatCopilot({ context = 'general' }) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Tanya AI Copilot..."
+                placeholder="Cari data HR..."
                 disabled={isLoading}
                 className="flex-1 bg-transparent px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none"
               />
@@ -323,7 +260,7 @@ export default function ChatCopilot({ context = 'general' }) {
               </button>
             </div>
             <p className="text-[11px] text-slate-600 text-center mt-1.5">
-              AI Copilot — jawaban berdasarkan data & kebijakan perusahaan (Gemini)
+              Data terisolasi berdasarkan role Anda
             </p>
           </div>
         </div>
