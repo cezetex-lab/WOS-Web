@@ -102,10 +102,10 @@ const MODULES = [
 ];
 
 const PAYROLL_ROWS = [
-  { nrp: 'NRP001', nama: 'Budi Santoso', divisi: 'Korporat', gross_salary: 8500000, total_potongan: 1200000, nett_salary: 7300000, status: 'Processed', jenis: 'PKWTT' },
-  { nrp: 'NRP002', nama: 'Andi Wijaya', divisi: 'Tambang', gross_salary: 9000000, total_potongan: 1400000, nett_salary: 7600000, status: 'Pending', jenis: 'PKWT' },
-  { nrp: 'NRP003', nama: 'Cici Lestari', divisi: 'Pabrik', gross_salary: 7500000, total_potongan: 1000000, nett_salary: 6500000, status: 'Paid', jenis: 'PKWTT' },
-  { nrp: 'NRP004', nama: 'Deni Pratama', divisi: 'Perkebunan', gross_salary: 6800000, total_potongan: 900000, nett_salary: 5900000, status: 'Draft', jenis: 'PKWT' },
+  { nrp: 'NRP001', nama: 'Budi Santoso', divisi: 'Korporat', gross_salary: 8500000, total_potongan: 1200000, nett_salary: 7300000, status: 'Processed', jenis: 'PKWTT', nama_bank: 'BCA', no_rekening: '1234567890' },
+  { nrp: 'NRP002', nama: 'Andi Wijaya', divisi: 'Tambang', gross_salary: 9000000, total_potongan: 1400000, nett_salary: 7600000, status: 'Pending', jenis: 'PKWT', nama_bank: 'Mandiri', no_rekening: '9876543210' },
+  { nrp: 'NRP003', nama: 'Cici Lestari', divisi: 'Pabrik', gross_salary: 7500000, total_potongan: 1000000, nett_salary: 6500000, status: 'Paid', jenis: 'PKWTT', nama_bank: 'BRI', no_rekening: '1122334455' },
+  { nrp: 'NRP004', nama: 'Deni Pratama', divisi: 'Perkebunan', gross_salary: 6800000, total_potongan: 900000, nett_salary: 5900000, status: 'Draft', jenis: 'PKWT', nama_bank: 'BNI', no_rekening: '5566778899' },
 ];
 
 // Attendance records for the current month (so the calendar + stats render).

@@ -373,7 +373,7 @@ function PayrollDetail({ data, onClose, onNavigate }) {
             <div className="space-y-1">
               {[
                 { label: 'Jenis Kontrak', value: d.jenis || d.contract_type || '-' },
-                { label: 'Rekening Bank', value: d.bank_account || d.no_rek || '-' },
+                { label: 'Rekening Bank', value: d.no_rekening || d.bank_account || d.no_rek || '-' },
                 { label: 'Bank', value: d.bank_name || d.nama_bank || '-' },
                 { label: 'Tanggal Bayar', value: d.payment_date || d.tgl_bayar || '-' },
               ].map((row, i) => (
