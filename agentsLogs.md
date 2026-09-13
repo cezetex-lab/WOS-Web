@@ -291,7 +291,8 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   get_mill_production, get_yield_data, change_password,
   check_login_lockout(p_identifier,p_attempt_type), get_branding, cleanup_rate_limits.
   Semua sudah di-REVOKE di live DB. Migration 210 merekam untuk audit trail.
-- Bukti: post-verify anon grants = 0 pada semua 9 RPCs.
+- Bukti: post-verify anon grants = 0 pada semua 9 RPCs.
+
 
 ## [2026-09-13] Tahap 5.9 — employees_master VIEW write-path (migration 211)
 - Status: DONE
@@ -302,4 +303,18 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   Migration 206 (5.3) sudah fix approve RPCs ke base table; trigger ini menjamin
   write-path permanen untuk semua kode yang masih refer ke VIEW.
 - Bukti: preflight probe (admin_approve_pending INSERT ke VIEW = error 55000),
-  migration 211 post-verify (3 triggers + smoke test PASS).
+  migration 211 post-verify (3 triggers + smoke test PASS).
+
+## [2026-09-13] Tahap 5.11 + F-7 — Registration form + pg_cron (migrations 212-213)
+- Status: DONE
+- Commit: pending
+- F-7: pg_cron EXTENSION di-enable via CREATE EXTENSION IF NOT EXISTS. 6 cron jobs
+  scheduled: refresh-mv-admin-summary (hourly), refresh-mv-team-kpi (hourly),
+  refresh-mv-attendance (30min), cleanup-sessions (2am), cleanup-rate-limits (3am),
+  cleanup-otp (15min). Semua active=True.
+- 5.11: submit_registration RPC (p_nrp, p_nik, p_nama, p_password, p_email?, p_divisi?,
+  p_posisi?) — validates NRP/NIK, hashes password bcrypt, inserts daftar_baru.
+  get_branding_public RPC — public-safe branding read. Frontend: registration form
+  (NRP/NIK/nama/email/divisi/posisi/password) replaces alert. Cek Daftar form
+  calls check_registration_status. Dynamic favicon + title from branding table.
+  Branding favicon_url fixed (was timestamp, now NULL).

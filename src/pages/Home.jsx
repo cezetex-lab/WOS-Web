@@ -69,10 +69,24 @@ export default function Home() {
   const [adminValidated, setAdminValidated] = useState(false);
   const [brand, setBrand] = useState({ company_name: 'insightWIP', logo_url: '' });
   const [mfaEmail, setMfaEmail] = useState('');
+  // Registration form state
+  const [regNama, setRegNama] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regDivisi, setRegDivisi] = useState('');
+  const [regPosisi, setRegPosisi] = useState('');
 
   useEffect(() => {
     rpc('get_branding', {}).then(d => {
       if (d && d.company_name) setBrand(d);
+      // Dynamic favicon from branding
+      if (d?.favicon_url) {
+        const link = document.querySelector('link[rel="icon"]');
+        if (link) link.href = d.favicon_url;
+      }
+      // Dynamic title from branding
+      if (d?.company_name) {
+        document.title = d.company_name + ' — ' + (d.tagline || 'Workforce Intelligence');
+      }
     }).catch(() => {});
   }, []);
 
@@ -684,8 +698,8 @@ export default function Home() {
           <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
 
           <div style={S.links}>
-            <span style={S.link} onClick={() => alert('Form pendaftaran akan segera tersedia.')}>Daftar Baru</span>
-            <span style={S.link} onClick={() => alert('Cek status pendaftaran akan segera tersedia.')}>Cek Daftar</span>
+            <span style={S.link} onClick={() => setLoginStep('register')}>Daftar Baru</span>
+            <span style={S.link} onClick={() => setLoginStep('cek_daftar')}>Cek Daftar</span>
             <span style={S.link} onClick={() => alert('MFA Setup akan segera tersedia.')}>MFA Setup</span>
           </div>
         </form>
@@ -730,6 +744,87 @@ export default function Home() {
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '4px' }}>
             <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
             <button type="button" style={S.btnSmall} onClick={resendOtp} disabled={loading}>Kirim Ulang OTP</button>
+          </div>
+        </form>
+      )}
+
+      {/* Registration Form */}
+      {tab === 'worker' && loginStep === 'register' && (
+        <form onSubmit={async (e) => {
+          e.preventDefault(); setLoading(true); setError('');
+          try {
+            const r = await rpc('submit_registration', {
+              p_nrp: nrp, p_nik: nik, p_nama: regNama, p_password: pass,
+              p_email: regEmail || null, p_divisi: regDivisi || null, p_posisi: regPosisi || null,
+            });
+            if (r?.ok) { alert(r.msg); setLoginStep('credentials'); }
+            else { setError(r?.msg || 'Gagal mendaftar'); }
+          } catch (err) { setError('Gagal mendaftar: ' + err.message); }
+          setLoading(false);
+        }} style={S.form}>
+          <div style={S.otpInfo}>📝 Formulir Pendaftaran Baru</div>
+          <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', marginBottom: '12px' }}>
+            {brand.company_name || 'insightWOS'} — {brand.tagline || ''}
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>NRP *</label>
+            <input value={nrp} onChange={e => setNrp(e.target.value)} placeholder="NRP" style={S.inp} required />
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>NIK *</label>
+            <input value={nik} onChange={e => setNik(e.target.value)} placeholder="NIK (minimal 5 karakter)" style={S.inp} required />
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>Nama Lengkap *</label>
+            <input value={regNama} onChange={e => setRegNama(e.target.value)} placeholder="Nama lengkap" style={S.inp} required />
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>Email (opsional)</label>
+            <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@contoh.com" style={S.inp} />
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ ...S.field, flex: 1 }}>
+              <label style={S.label}>Divisi</label>
+              <input value={regDivisi} onChange={e => setRegDivisi(e.target.value)} placeholder="Divisi" style={S.inp} />
+            </div>
+            <div style={{ ...S.field, flex: 1 }}>
+              <label style={S.label}>Posisi</label>
+              <input value={regPosisi} onChange={e => setRegPosisi(e.target.value)} placeholder="Posisi" style={S.inp} />
+            </div>
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>Password *</label>
+            <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password (min. 6 karakter)" style={S.inp} required />
+          </div>
+          {error && <div style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginBottom: 8 }}>{error}</div>}
+          <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : '📤 Daftar Sekarang'}</button>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+            <button type="button" style={S.btnBack} onClick={() => setLoginStep('credentials')}>{'<'} Kembali</button>
+          </div>
+        </form>
+      )}
+
+      {/* Check Registration Status */}
+      {tab === 'worker' && loginStep === 'cek_daftar' && (
+        <form onSubmit={async (e) => {
+          e.preventDefault(); setLoading(true); setError('');
+          try {
+            const r = await rpc('check_registration_status', { p_query: nrp });
+            if (r?.data) {
+              alert(`Status: ${r.data.status}\nNRP: ${r.data.nrp}\nNama: ${r.data.nama}`);
+            } else { setError(r?.msg || 'Data tidak ditemukan'); }
+          } catch (err) { setError('Gagal cek status: ' + err.message); }
+          setLoading(false);
+        }} style={S.form}>
+          <div style={S.otpInfo}>🔍 Cek Status Pendaftaran</div>
+          <div style={S.field}>
+            <label style={S.label}>NRP atau Email</label>
+            <input value={nrp} onChange={e => setNrp(e.target.value)} placeholder="Masukkan NRP atau email" style={S.inp} required />
+          </div>
+          {error && <div style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginBottom: 8 }}>{error}</div>}
+          <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : '🔍 Cek Status'}</button>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+            <button type="button" style={S.btnBack} onClick={() => setLoginStep('credentials')}>{'<'} Kembali</button>
           </div>
         </form>
       )}
