@@ -3,22 +3,55 @@ import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';
 
-const REQUESTS = [
-  { id: 'FAC-001', type: 'Mess Repair', location: 'Mess Blok A', description: 'Atap bocor kamar 3', status: 'IN_PROGRESS', priority: 'HIGH', submitted: '2026-08-25', assigned: 'Maintenance Team' },
-  { id: 'FAC-002', type: 'Office Supply', location: 'Kantor Estate', description: 'Printer toner habis', status: 'APPROVED', priority: 'MEDIUM', submitted: '2026-08-27', assigned: 'Admin' },
-  { id: 'FAC-003', type: 'Vehicle Repair', location: 'Garage', description: 'Ban depan truk T-003 bocor', status: 'PENDING', priority: 'HIGH', submitted: '2026-08-28', assigned: null },
-  { id: 'FAC-004', type: 'Water System', location: 'Mess Blok B', description: 'Pompa air mati', status: 'RESOLVED', priority: 'URGENT', submitted: '2026-08-22', assigned: 'Plumber' },
-  { id: 'FAC-005', type: 'Electricity', location: 'Gudang', description: 'MCB sering trip', status: 'PENDING', priority: 'MEDIUM', submitted: '2026-08-28', assigned: null },
-];
-
 const PRI_COLOR = { URGENT: 'danger', HIGH: 'warning', MEDIUM: 'info', LOW: 'default' };
 const STATUS_COLOR = { PENDING: 'warning', APPROVED: 'info', IN_PROGRESS: 'info', RESOLVED: 'success' };
 
 export default function FacilityRequest() {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
+  const [formType, setFormType] = useState('Mess Repair');
+  const [formDesc, setFormDesc] = useState('');
+  const [formPriority, setFormPriority] = useState('MEDIUM');
+  const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
 
-  useEffect(() => { rpc('admin_get_facility_requests').then(r => { setRequests(r?.data || []); setLoading(false); }).catch(() => setLoading(false)); }, []);
+  useEffect(() => { loadData(); }, []);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const r = await rpc('admin_get_facility_requests');
+      setRequests(r?.data || []);
+    } catch (e) {
+      setRequests([]);
+    }
+    setLoading(false);
+  }
+
+  async function handleSubmit() {
+    if (!formDesc.trim()) {
+      toast('Deskripsi wajib diisi', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const r = await rpc('create_facility_request', {
+        p_type: formType,
+        p_desc: formDesc,
+        p_priority: formPriority,
+      });
+      if (r?.ok) {
+        toast(r.msg || 'Request terkirim', 'success');
+        setFormDesc('');
+        loadData();
+      } else {
+        toast(r?.msg || 'Gagal mengirim request', 'error');
+      }
+    } catch (e) {
+      toast('Gagal mengirim request', 'error');
+    }
+    setSubmitting(false);
+  }
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat data fasilitas..." /></div>;
 
@@ -52,11 +85,18 @@ export default function FacilityRequest() {
 
         <GlassCard title="📝 Ajukan Request" icon="📝" accent="blue" className="mt-4">
           <div className="space-y-3">
-            <select className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
-              <option>Mess Repair</option><option>Office Supply</option><option>Vehicle Repair</option><option>Water System</option><option>Electricity</option><option>Other</option>
-            </select>
-            <textarea className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white h-16" placeholder="Deskripsi perbaikan..." />
-            <button className="w-full py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-bold hover:bg-blue-500/30">📤 Kirim Request</button>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={formType} onChange={e => setFormType(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+                <option>Mess Repair</option><option>Office Supply</option><option>Vehicle Repair</option><option>Water System</option><option>Electricity</option><option>Other</option>
+              </select>
+              <select value={formPriority} onChange={e => setFormPriority(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+                <option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="URGENT">URGENT</option>
+              </select>
+            </div>
+            <textarea value={formDesc} onChange={e => setFormDesc(e.target.value)} className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white h-16" placeholder="Deskripsi perbaikan..." />
+            <button onClick={handleSubmit} disabled={submitting} className="w-full py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-bold hover:bg-blue-500/30 disabled:opacity-50">
+              {submitting ? '⏳ Mengirim...' : '📤 Kirim Request'}
+            </button>
           </div>
         </GlassCard>
       </div>

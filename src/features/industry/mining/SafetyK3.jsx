@@ -7,6 +7,11 @@ export default function SafetyK3() {
   const [loading, setLoading] = useState(true);
   const [incidents, setIncidents] = useState([]);
   const [stats, setStats] = useState(null);
+  const [formType, setFormType] = useState('INCIDENT');
+  const [formDesc, setFormDesc] = useState('');
+  const [formZone, setFormZone] = useState('PIT-1');
+  const [formSeverity, setFormSeverity] = useState('MEDIUM');
+  const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
 
   useEffect(() => { loadData(); }, []);
@@ -17,16 +22,35 @@ export default function SafetyK3() {
       const r = await rpc('get_safety_incidents');
       if (r?.ok && r.data) { setIncidents(r.data); setStats(r.summary); }
     } catch (e) {
-      setIncidents([
-        { id: 'SAF-001', date: '2026-08-28', zone: 'PIT-1', type: 'NEAR_MISS', severity: 'LOW', description: 'Batu jatuh dari dump truck saat loading', reporter: 'MIN0001', status: 'OPEN', action_taken: null },
-        { id: 'SAF-002', date: '2026-08-25', zone: 'CRUSHER', type: 'INCIDENT', severity: 'MEDIUM', description: 'Operator terkena debu berlebih di area crusher', reporter: 'MIN0003', status: 'INVESTIGATING', action_taken: 'Tim K3 investigate' },
-        { id: 'SAF-003', date: '2026-08-20', zone: 'WORKSHOP', type: 'NEAR_MISS', severity: 'HIGH', description: 'Forklift hampir menabrak pejalan kaki', reporter: 'MIN0005', status: 'CLOSED', action_taken: 'Training ulang penggunaan forklift' },
-        { id: 'SAF-004', date: '2026-08-15', zone: 'PIT-2', type: 'INCIDENT', severity: 'HIGH', description: 'Operator mengalami heatmap ringan', reporter: 'MIN0002', status: 'CLOSED', action_taken: 'Istirahat + medical checkup' },
-        { id: 'SAF-005', date: '2026-08-10', zone: 'HAUL ROAD', type: 'OBSERVATION', severity: 'LOW', description: 'Pengendaraan melebihi batas kecepatan', reporter: 'MIN0007', status: 'CLOSED', action_taken: 'Warning + speed bump dipasang' },
-      ]);
-      setStats({ total: 5, open: 1, investigating: 1, closed: 3, lti: 0, ltifr: 0 });
+      setIncidents([]);
     }
     setLoading(false);
+  }
+
+  async function handleSubmit() {
+    if (!formDesc.trim()) {
+      toast('Deskripsi wajib diisi', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const r = await rpc('report_safety_incident', {
+        p_type: formType,
+        p_zone: formZone,
+        p_desc: formDesc,
+        p_severity: formSeverity,
+      });
+      if (r?.ok) {
+        toast(r.msg || 'Laporan terkirim', 'success');
+        setFormDesc('');
+        loadData();
+      } else {
+        toast(r?.msg || 'Gagal mengirim laporan', 'error');
+      }
+    } catch (e) {
+      toast('Gagal mengirim laporan', 'error');
+    }
+    setSubmitting(false);
   }
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat data safety..." /></div>;
@@ -42,9 +66,9 @@ export default function SafetyK3() {
 
         {stats && (
           <div className="grid grid-cols-3 gap-2 mb-4">
-            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-emerald-400">{stats.lti}</div><div className="text-[11px] text-slate-400">LTI (Lost Time)</div></GlassCard>
-            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{stats.total}</div><div className="text-[11px] text-slate-400">Total Reports</div></GlassCard>
-            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{stats.open}</div><div className="text-[11px] text-slate-400">Open Cases</div></GlassCard>
+            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-emerald-400">{stats.lti || 0}</div><div className="text-[11px] text-slate-400">LTI (Lost Time)</div></GlassCard>
+            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-blue-400">{stats.total || incidents.length}</div><div className="text-[11px] text-slate-400">Total Reports</div></GlassCard>
+            <GlassCard className="text-center p-3"><div className="text-xl font-bold text-amber-400">{stats.open || 0}</div><div className="text-[11px] text-slate-400">Open Cases</div></GlassCard>
           </div>
         )}
 
@@ -69,16 +93,26 @@ export default function SafetyK3() {
           ))}
         </div>
 
-        {/* Report Button */}
+        {/* Report Form */}
         <GlassCard title="📝 Laporkan Insiden" icon="📝" accent="red" className="mt-4">
           <div className="space-y-3">
-            <select className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+            <select value={formType} onChange={e => setFormType(e.target.value)} className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
               <option value="INCIDENT">🔴 Incident (Ada cedera)</option>
               <option value="NEAR_MISS">🟡 Near Miss (Hampir terjadi)</option>
               <option value="OBSERVATION">🔵 Observation (Observasi)</option>
             </select>
-            <textarea className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white h-20" placeholder="Deskripsi kejadian..." />
-            <button className="w-full py-2 rounded-lg bg-red-500/20 text-red-400 text-sm font-bold hover:bg-red-500/30 transition-all">📤 Kirim Laporan</button>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={formZone} onChange={e => setFormZone(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+                <option>PIT-1</option><option>PIT-2</option><option>PIT-3</option><option>CRUSHER</option><option>HAUL ROAD</option><option>WORKSHOP</option>
+              </select>
+              <select value={formSeverity} onChange={e => setFormSeverity(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+                <option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option>
+              </select>
+            </div>
+            <textarea value={formDesc} onChange={e => setFormDesc(e.target.value)} className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white h-20" placeholder="Deskripsi kejadian..." />
+            <button onClick={handleSubmit} disabled={submitting} className="w-full py-2 rounded-lg bg-red-500/20 text-red-400 text-sm font-bold hover:bg-red-500/30 transition-all disabled:opacity-50">
+              {submitting ? '⏳ Mengirim...' : '📤 Kirim Laporan'}
+            </button>
           </div>
         </GlassCard>
       </div>

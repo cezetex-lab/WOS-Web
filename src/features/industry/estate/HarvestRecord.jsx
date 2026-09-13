@@ -7,6 +7,11 @@ export default function HarvestRecord() {
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [formBlock, setFormBlock] = useState('BLOK-A1');
+  const [formWeight, setFormWeight] = useState('');
+  const [formRipe, setFormRipe] = useState('80');
+  const [formQuality, setFormQuality] = useState('A');
+  const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
 
   useEffect(() => { loadData(); }, []);
@@ -17,18 +22,35 @@ export default function HarvestRecord() {
       const r = await rpc('get_harvest_records');
       if (r?.ok && r.data) { setRecords(r.data); setSummary(r.summary); }
     } catch (e) {
-      setRecords([
-        { id: 'HVT-001', block: 'BLOK-A1', date: '2026-08-28', weight_kg: 25000, ripe_pct: 85, worker: 'EST0001', quality: 'A' },
-        { id: 'HVT-002', block: 'BLOK-A2', date: '2026-08-28', weight_kg: 22000, ripe_pct: 78, worker: 'EST0002', quality: 'A' },
-        { id: 'HVT-003', block: 'BLOK-B1', date: '2026-08-28', weight_kg: 18000, ripe_pct: 72, worker: 'EST0003', quality: 'B' },
-        { id: 'HVT-004', block: 'BLOK-B2', date: '2026-08-28', weight_kg: 28000, ripe_pct: 90, worker: 'EST0004', quality: 'A' },
-        { id: 'HVT-005', block: 'BLOK-C1', date: '2026-08-28', weight_kg: 15000, ripe_pct: 65, worker: 'EST0005', quality: 'B' },
-        { id: 'HVT-006', block: 'BLOK-A1', date: '2026-08-27', weight_kg: 24000, ripe_pct: 82, worker: 'EST0001', quality: 'A' },
-        { id: 'HVT-007', block: 'BLOK-C2', date: '2026-08-27', weight_kg: 20000, ripe_pct: 75, worker: 'EST0006', quality: 'B' },
-      ]);
-      setSummary({ total_ton: 152, avg_ripe: 78, target_ton: 180, achievement: 84 });
+      setRecords([]);
     }
     setLoading(false);
+  }
+
+  async function handleSubmit() {
+    if (!formWeight || Number(formWeight) <= 0) {
+      toast('Berat harus lebih dari 0', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const r = await rpc('create_harvest_record', {
+        p_block: formBlock,
+        p_weight_kg: Number(formWeight),
+        p_ripe_pct: Number(formRipe),
+        p_quality: formQuality,
+      });
+      if (r?.ok) {
+        toast(r.msg || 'Panen tercatat', 'success');
+        setFormWeight('');
+        loadData();
+      } else {
+        toast(r?.msg || 'Gagal mencatat panen', 'error');
+      }
+    } catch (e) {
+      toast('Gagal mencatat panen', 'error');
+    }
+    setSubmitting(false);
   }
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat data panen..." /></div>;
@@ -83,12 +105,20 @@ export default function HarvestRecord() {
         <GlassCard title="📝 Log Panen Baru" icon="📝" accent="green" className="mt-4">
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <select className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+              <select value={formBlock} onChange={e => setFormBlock(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
                 <option>BLOK-A1</option><option>BLOK-A2</option><option>BLOK-B1</option><option>BLOK-B2</option><option>BLOK-C1</option><option>BLOK-C2</option>
               </select>
-              <input type="number" className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Berat (kg)" />
+              <select value={formQuality} onChange={e => setFormQuality(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+                <option value="A">Grade A</option><option value="B">Grade B</option><option value="C">Grade C</option>
+              </select>
             </div>
-            <button className="w-full py-2 rounded-lg bg-green-500/20 text-green-400 text-sm font-bold hover:bg-green-500/30">📤 Catat Panen</button>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="number" value={formWeight} onChange={e => setFormWeight(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Berat (kg)" />
+              <input type="number" value={formRipe} onChange={e => setFormRipe(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Kematangan %" min="0" max="100" />
+            </div>
+            <button onClick={handleSubmit} disabled={submitting} className="w-full py-2 rounded-lg bg-green-500/20 text-green-400 text-sm font-bold hover:bg-green-500/30 disabled:opacity-50">
+              {submitting ? '⏳ Menyimpan...' : '📤 Catat Panen'}
+            </button>
           </div>
         </GlassCard>
       </div>
