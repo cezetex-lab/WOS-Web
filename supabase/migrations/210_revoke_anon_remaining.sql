@@ -31,3 +31,16 @@ SELECT '210.1 anon revoked from 9 RPCs' AS test,
       ) AND g.rolname = 'anon'
     ) t
   ) = 0 THEN 'PASS' ELSE 'FAIL' END AS result;
+
+-- Additional REVOKEs (post-verification 2026-09-13)
+REVOKE EXECUTE ON FUNCTION create_harvest_record(text,text,numeric,numeric,text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION get_organization_health() FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION report_safety_incident(text,text,text,text,text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION update_audit_timestamp() FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION _legacy_get_breakdown_log_by_site(text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION _legacy_get_estate_blocks_by_bu(text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION _legacy_get_harvest_records_by_bu(text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION _legacy_get_nursery_data_by_bu(text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION _legacy_get_packing_log_by_site(text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION _legacy_get_qc_results_by_site(text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION _legacy_get_transport_dispatch_by_bu(text) FROM anon, PUBLIC;
