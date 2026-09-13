@@ -64,3 +64,7 @@ supabase/scripts/fix-nrp003.sql
 /.wrongstack/*
 !/.wrongstack/project.json
 .env*
+
+# Legacy local archive (GAS source, forensik, lampiran audit) — arsip lokal, jangan commit
+Readme/
+files/
