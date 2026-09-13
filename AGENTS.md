@@ -85,18 +85,8 @@
 
 | Tahap | Item | Catatan |
 |---|---|---|
-| — | F-9 | RPC missing/kontrak: get_organization_health, update_audit_timestamp, register_session; update_task_status overload (p_id int / p_task_id text) |
 | — | F-10 | run_171.mjs dll. menerima URL DB via argv — aman asal jangan isi kredensial asli di terminal yang di-log |
 
-## 5. STATE OPEN — Phases E/F/G/H (sisa)
-
-- **Phase E:** verifikasi login admin finance/mining/mill/estate (password di `supabase/akun/akun.txt`).
-- **Phase F:** sisa admin routes belum ter-register di `module_definitions` — cek live dulu:
-  `SELECT route_path FROM module_definitions WHERE route_group='admin'` vs daftar route yang
-  dipakai admin UI.
-- **Phase G:** test infra: worker login flaky (timeout/sessionStorage check); false positive
-  regex error test (exclude "SW registered:").
-- **Phase H:** = Tahap 5 di atas.
 
 ## 6. PLAN — Login Refactor (asal: docs/TundaPlanLogin.md; status: TERTUNDA, butuh keputusan user)
 

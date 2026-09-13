@@ -303,7 +303,8 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   Migration 206 (5.3) sudah fix approve RPCs ke base table; trigger ini menjamin
   write-path permanen untuk semua kode yang masih refer ke VIEW.
 - Bukti: preflight probe (admin_approve_pending INSERT ke VIEW = error 55000),
-  migration 211 post-verify (3 triggers + smoke test PASS).
+  migration 211 post-verify (3 triggers + smoke test PASS).
+
 
 ## [2026-09-13] Tahap 5.11 + F-7 — Registration form + pg_cron (migrations 212-213)
 - Status: DONE
@@ -317,4 +318,17 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   get_branding_public RPC — public-safe branding read. Frontend: registration form
   (NRP/NIK/nama/email/divisi/posisi/password) replaces alert. Cek Daftar form
   calls check_registration_status. Dynamic favicon + title from branding table.
-  Branding favicon_url fixed (was timestamp, now NULL).
+  Branding favicon_url fixed (was timestamp, now NULL).
+
+## [2026-09-13] F-9 + Phase E/F/G — RPC contracts + route verification (migration 214)
+- Status: DONE
+- Commit: pending
+- F-9: Created update_audit_timestamp() (referenced by 22 triggers, was missing).
+  Created get_organization_health() (dashboard health check). Added updated_at columns
+  to 6 HR tables (hr_payroll, hr_performance, hr_tasks, hr_leave, hr_overtime, hr_requests).
+  register_session + update_task_status (2 overloads) already existed.
+- Phase E: Admin logins verified in previous session (L-1..L-5 closed).
+- Phase F: 100+ admin routes registered in module_definitions — all present.
+- Phase G: Worker login flaky + false positive regex — closed per agentsLogs 2026-09-11
+  (L-4/L-5 DONE). AGENTS.md had stale entry — now removed.
+- Phase H: = Tahap 5 — all items 5.3-5.11 DONE.
