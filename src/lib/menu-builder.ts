@@ -1,44 +1,64 @@
 /**
- * menu-builder.js — Dynamic menu berdasarkan modul yang diaktifkan + role-based
+ * menu-builder.ts — Dynamic menu based on enabled modules + role-based filtering (TypeScript)
  *
- * Panggil: const menu = await buildMenu();        // auto-detect area dari URL
- *         const menu = await buildMenu('admin');  // eksplisit (untuk test)
- * Return: array of menu items yang bisa diakses user, SUDAH difilter per area shell.
- *
- * CATATAN: filter ini KOSMETIK (menyembunyikan entri menu yang salah tempat).
- * Otoritas akses sesungguhnya = DynamicRoutes guard + RLS di database.
+ * Drop-in typed replacement for menu-builder.js.
  */
+
 import { supabase } from '@/lib/supabase-browser';
 import { getSession } from './supabase-browser';
 
-// 'worker' | 'admin' | 'dashboard' | 'owner' — dari pathname saat ini
-export function areaFromPath(p) {
+// ─── Types ────────────────────────────────────────────────────
+
+export type Area = 'worker' | 'admin' | 'dashboard' | 'owner';
+
+export interface MenuItem {
+  code: string;
+  name: string;
+  group: string;
+  icon: string;
+  isIndustry: boolean;
+  path: string;
+}
+
+interface DbModule {
+  module_code: string;
+  module_name: string;
+  module_group: string;
+  menu_icon: string;
+  menu_order: number;
+  is_industry_module: boolean;
+  route_path: string;
+  route_component: string;
+  minimum_tier_required?: number;
+  role_access?: string[];
+  required_business_unit?: string;
+}
+
+// ─── Area Detection ───────────────────────────────────────────
+
+export function areaFromPath(p: string): Area {
   if (p === '/owner' || p.startsWith('/owner/')) return 'owner';
   if (p === '/admin' || p.startsWith('/admin/')) return 'admin';
   if (p === '/dashboard' || p.startsWith('/dashboard/')) return 'dashboard';
   return 'worker';
 }
 
-// Diekspor agar AppDrawer memakai SATU implementasi filter area yang sama
-// (mencegah kedua filter divergen lagi).
-export function pathInArea(path, area) {
-  if (!path || path === '#') return false; // modul tanpa rasa -> buang
+export function pathInArea(path: string, area: Area): boolean {
+  if (!path || path === '#') return false;
   if (area === 'owner') return path === '/owner' || path.startsWith('/owner/');
   if (area === 'admin') return path === '/admin' || path.startsWith('/admin/');
   if (area === 'dashboard') return path === '/dashboard' || path.startsWith('/dashboard/');
   return path === '/worker' || path.startsWith('/worker/');
 }
 
-// Varian untuk drawer (AppDrawer): sama dengan pathInArea, plus aturan khusus
-// area worker — tautan dashboard tetap tampil (manajer sedang membuka halaman
-// worker; menu dinamis sudah memfilter area ini di buildMenu).
-export function drawerPathInArea(path, area) {
+export function drawerPathInArea(path: string, area: Area): boolean {
   if (area === 'worker' && (path === '/dashboard' || path.startsWith('/dashboard/'))) return true;
   return pathInArea(path, area);
 }
 
-export async function buildMenu(area) {
-  // Area: eksplisit > auto-detect dari URL (sinkron, aman utk one-shot effect)
+// ─── Menu Building ────────────────────────────────────────────
+
+export async function buildMenu(area?: Area): Promise<MenuItem[]> {
   const a = area || areaFromPath(window.location.pathname);
   const session = getSession();
   const role = session?.role || 'worker';
@@ -46,25 +66,21 @@ export async function buildMenu(area) {
   const tier = session?.tier || 0;
   const bu = session?.business_unit || 'HQ';
 
-  // Owner gets all modules regardless of tier
   const effectiveTier = isOwner ? 999 : tier;
 
   const { data: modules, error } = await supabase.rpc('get_enabled_modules');
   if (error || !modules) return [];
 
-  const seen = new Set();
-  return modules
+  const seen = new Set<string>();
+  return (modules as DbModule[])
     .sort((a, b) => a.menu_order - b.menu_order)
-    .filter(m => {
-      // Tier check: skip if user tier below minimum required
+    .filter((m) => {
       if (m.minimum_tier_required && effectiveTier < m.minimum_tier_required) return false;
-      // Role-specific filtering
       if (m.role_access && !m.role_access.includes(role)) return false;
-      // Business unit filtering for industry modules
       if (m.is_industry_module && m.required_business_unit && m.required_business_unit !== bu) return false;
       return true;
     })
-    .map(m => ({
+    .map((m) => ({
       code: m.module_code,
       name: m.module_name,
       group: m.module_group,
@@ -72,16 +88,18 @@ export async function buildMenu(area) {
       isIndustry: m.is_industry_module,
       path: getModulePath(m.module_code),
     }))
-    .filter(item => {
-      if (!pathInArea(item.path, a)) return false; // menu campur aduk fix
-      if (seen.has(item.path)) return false;       // dedup by path
+    .filter((item) => {
+      if (!pathInArea(item.path, a)) return false;
+      if (seen.has(item.path)) return false;
       seen.add(item.path);
       return true;
     });
 }
 
-function getModulePath(code) {
-  const pathMap = {
+// ─── Module Path Mapping ──────────────────────────────────────
+
+function getModulePath(code: string): string {
+  const pathMap: Record<string, string> = {
     // CORE
     profile: '/worker/profile',
     attendance: '/worker/attendance',

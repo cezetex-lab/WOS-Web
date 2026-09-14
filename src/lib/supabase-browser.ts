@@ -1,47 +1,50 @@
-import { createClient } from '@supabase/supabase-js';
-import { checkRateLimit } from './rate-limiter';
+/**
+ * supabase-browser.ts — Supabase client + session management (TypeScript)
+ *
+ * Drop-in typed replacement for supabase-browser.js.
+ * All existing imports from './supabase-browser' continue to work.
+ */
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { createClient, Session, User } from '@supabase/supabase-js';
+import { checkRateLimit } from './rate-limiter';
+import type { UserSession, CurrentUserContext } from '@/types';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// P3 FIX: RPC with rate limiting
-export async function rpc(fn, params = {}) {
-  // Rate limit check
+// ─── RPC with rate limiting ───────────────────────────────────
+
+export async function rpc<T = Record<string, unknown>>(
+  fn: string,
+  params: Record<string, unknown> = {},
+): Promise<T> {
   const { allowed, retryAfter } = checkRateLimit(fn);
   if (!allowed) {
     console.error(`[RPC] Rate limited for ${fn}. Retry in ${retryAfter}s`);
-    return { ok: false, msg: `Rate limited. Retry in ${retryAfter}s.` };
+    return { ok: false, msg: `Rate limited. Retry in ${retryAfter}s.` } as T;
   }
 
   const { data, error } = await supabase.rpc(fn, params);
   if (error) {
     console.error(`[RPC] Error calling ${fn}:`, error);
-    return { ok: false, msg: error.message };
+    return { ok: false, msg: error.message } as T;
   }
-  return data || { ok: false, msg: 'No response' };
+  return (data || { ok: false, msg: 'No response' }) as T;
 }
 
-// P2 SECURITY FIX: In-memory session (not sessionStorage)
-// Session data fetched from backend RPC via initSession(), cached in memory
-// getSession() is SYNC (reads cache) — no callers need to change
-//
-// WORKER LOGIN FIX: sesi worker hanya RPC-token (bukan Supabase Auth), jadi
-// in-memory cache hilang saat full-page reload (window.location.href) dan user
-// terlempar balik ke halaman login. Karena itu sesi juga dipersist ke
-// sessionStorage (per-tab; key kontrak: 'wos_user') dan dipulihkan oleh
-// loadSessionCache()/initSession() saat app dimuat ulang. Sesi admin/owner
-// tetap lebih mengutamakan Supabase Auth.
-let _sessionCache = null;
+// ─── Session Management ───────────────────────────────────────
+
+let _sessionCache: UserSession | null = null;
 const SESSION_STORAGE_KEY = 'wos_user';
 
-function loadSessionCache() {
+function loadSessionCache(): UserSession | null {
   if (_sessionCache) return _sessionCache;
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (raw) {
-      const s = JSON.parse(raw);
+      const s = JSON.parse(raw) as UserSession;
       if (s?.nrp && (!s.expires_at || new Date(s.expires_at) > new Date())) {
         _sessionCache = s;
         return _sessionCache;
@@ -52,22 +55,19 @@ function loadSessionCache() {
   return null;
 }
 
-export function setSession(user) {
+export function setSession(user: UserSession | null): void {
   _sessionCache = user;
   try {
     if (user) sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
     else sessionStorage.removeItem(SESSION_STORAGE_KEY);
-  } catch { /* storage full / private mode — sesi tetap jalan in-memory */ }
+  } catch { /* storage full / private mode */ }
 }
 
-// SYNC getter — sessionStorage adalah source of truth (dibaca langsung setiap
-// panggilan, tanpa fallback ke cache in-memory agar tidak mengembalikan data
-// basi dari sesi lain). JSON korup dibersihkan dan dianggap tidak ada sesi.
-export function getSession() {
+export function getSession(): UserSession | null {
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
-    const s = JSON.parse(raw);
+    const s = JSON.parse(raw) as UserSession;
     if (s?.nrp && (!s.expires_at || new Date(s.expires_at) > new Date())) return s;
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
     return null;
@@ -77,17 +77,13 @@ export function getSession() {
   }
 }
 
-// ASYNC initializer — call once at app startup
-// Fetches user context from backend using Supabase Auth JWT.
-// Workers (login via RPC token, bukan Supabase Auth) dipulihkan dari
-// localStorage — tanpa ini setiap reload mengembalikan user ke halaman login.
-export async function initSession() {
+export async function initSession(): Promise<UserSession | null> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       const { data, error } = await supabase.rpc('get_current_user_context');
       if (!error && data) {
-        const ctx = {
+        const ctx: UserSession = {
           nrp: data.nrp,
           nama: data.nama,
           role: data.role,
@@ -96,18 +92,13 @@ export async function initSession() {
           divisi: data.divisi,
           posisi: data.posisi,
           is_owner: data.is_owner || data.role === 'owner',
-          email: data.email
+          email: data.email,
         };
-        // Persist admin/owner context ke sessionStorage juga — tanpa ini
-        // getSession() (sync, baca storage) mengembalikan null untuk admin,
-        // sehingga useAdminAuth/RoleGuard menilai role kosong dan
-        // me-redirect semua sub-halaman admin balik ke /admin.
         setSession(ctx);
         return ctx;
       }
     }
 
-    // Worker fallback: pulihkan sesi RPC-token dari sessionStorage
     const restored = loadSessionCache();
     if (restored?.token) return restored;
 
@@ -119,19 +110,21 @@ export async function initSession() {
   }
 }
 
-export function clearSession() {
+export function clearSession(): void {
   _sessionCache = null;
   try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch {}
   supabase.auth.signOut().catch(() => {});
 }
 
-// V6: Sync login to Supabase Auth
-export async function syncSupabaseAuth(email, password) {
+// ─── Auth Helpers ─────────────────────────────────────────────
+
+export async function syncSupabaseAuth(
+  email: string,
+  password: string,
+): Promise<{ session: Session; user: User } | null> {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      return null;
-    }
+    if (error) return null;
     return data;
   } catch {
     return null;
@@ -142,6 +135,6 @@ export function getAuthUser() {
   return supabase.auth.getUser();
 }
 
-export async function signOutAuth() {
+export async function signOutAuth(): Promise<void> {
   await supabase.auth.signOut();
 }

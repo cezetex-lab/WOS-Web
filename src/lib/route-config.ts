@@ -1,16 +1,12 @@
 /**
- * route-config.js — Maps route_component names (from module_definitions) to lazy-loaded React components.
+ * route-config.ts — Maps route_component names to lazy-loaded React components (TypeScript)
  *
- * This is the SINGLE SOURCE OF TRUTH for which component renders at which route.
- * The DB (module_definitions.route_component) references component names defined here.
- *
- * To add a new module:
- * 1. Add the component lazy import below
- * 2. Add entry to COMPONENT_MAP
- * 3. INSERT into module_definitions with route_path + route_component
- *    → No App.jsx changes needed!
+ * SINGLE SOURCE OF TRUTH for which component renders at which route.
  */
-import { lazy } from 'react';
+
+import { lazy, ComponentType, LazyExoticComponent } from 'react';
+
+type LazyComponent = LazyExoticComponent<ComponentType>;
 
 // ── Lazy imports ──────────────────────────────────────────────
 
@@ -137,11 +133,9 @@ const MillAdminDashboard = lazy(() => import('../features/industry/mill/MillAdmi
 // Dashboard
 const Dashboard = lazy(() => import('../pages/Dashboard'));
 
-
 // ── Component Map ─────────────────────────────────────────────
-// Keys match module_definitions.route_component values in DB.
 
-export const COMPONENT_MAP = {
+export const COMPONENT_MAP: Record<string, LazyComponent> = {
   // Core — Worker
   WorkerProfile,
   WorkerAttendance,
@@ -266,8 +260,7 @@ export const COMPONENT_MAP = {
 
 /**
  * Get component by name from DB route_component field.
- * Returns null if not found (falls back to 404 or default page).
  */
-export function getComponent(name) {
+export function getComponent(name: string): LazyComponent | null {
   return COMPONENT_MAP[name] || null;
 }
