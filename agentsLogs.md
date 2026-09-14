@@ -399,3 +399,20 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 - Bukti: 9 RLS policies active, rate limit tiers verified (NRP005=15, NRP004=30, NRP003=50,
   NRP001=unlimited), match_documents no longer has IS NULL OR leak, upsert_document blocked
   for non-admin, lint 0 errors, tests 100/100, build EXIT 0.
+
+
+## [2026-09-14] R4 — Rollback scripts for critical migrations 183-214
+- Status: DONE
+- Commit: 53f721b
+- Ringkasan: Created 11 new rollback scripts (183, 191-194, 209-214) covering all critical
+  migrations. 7 existing rollbacks (206-208, 215-218) already present. Total: 18 rollback
+  scripts. Key rollbacks:
+  - 183: recreate employees_master TABLE from core+extended (destructive, backup required)
+  - 191: drop admin approve/reject/OTP functions
+  - 192: documented as destructive (fix, not addition) — functions NOT dropped by default
+  - 193: drop atomic rate limit functions
+  - 194: drop trust-the-client hardened RPCs
+  - 210: GRANT back anon/PUBLIC on 9 RPCs
+  - 211: drop INSTEAD OF triggers on employees_master VIEW
+  - 212: unschedule pg_cron jobs
+- Bukti: 18 rollback scripts present, no typos (grep IFACES check clean), all semicolons present.
