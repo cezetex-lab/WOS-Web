@@ -21,7 +21,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 ---
 ## [2026-09-13] §6 Login Refactor — step 1-3 (DB + UI + E2E) — PARTIAL
 - Status: PARTIAL (step 4-6 belum: MFA enforcement, deploy)
-- Commit: (pending)
+- Commit: ce8ceb2
 - Ringkasan:
   - Step 1 (DB): `login_worker_by_email(email, password)` RPC — migration 216. Delegates ke `login_worker` setelah resolve NRP+NIK dari email. Return NIK agar `provisionWorkerAuth` tetap jalan (Opsi A). Lockout by email (5 attempts/15min).
   - Step 2 (UI): Home.jsx — Worker + Dashboard tab default Email+Password form. Toggle "Masuk dengan NRP" untuk fallback NRP+NIK+Password. `submitWorkerCredentials` branch by `loginMode`. Rate limiter `login_worker_by_email` (5/5min).
