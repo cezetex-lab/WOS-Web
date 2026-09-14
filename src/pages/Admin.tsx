@@ -104,9 +104,9 @@ export default function Admin() {
 
   async function logout() { clearSession(); try { await signOutAuth(); } catch(e) {} window.location.href = '/'; }
   const [stats, setStats] = useState({});
-  const [pending, setPending] = useState([]);
-  const [autoHealing, setAutoHealing] = useState([]);
-  const [anomalies, setAnomalies] = useState([]);
+  const [pending, setPending] = useState<any[]>([]);
+  const [autoHealing, setAutoHealing] = useState<any[]>([]);
+  const [anomalies, setAnomalies] = useState<any[]>([]);
 
   useEffect(() => {
     // Isolasi 3 page: admin HANYA menerima sesi dari tab login admin

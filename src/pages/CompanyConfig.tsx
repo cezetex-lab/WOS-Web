@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 
 export default function CompanyConfig() {
   const navigate = useNavigate();
-  const [configs, setConfigs] = useState([]);
+  const [configs, setConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandedCat, setExpandedCat] = useState(null);
-  const [editing, setEditing] = useState(null);
+  const [expandedCat, setExpandedCat] = useState<any>(null);
+  const [editing, setEditing] = useState<any>(null);
   const [editValue, setEditValue] = useState('');
   const [msg, setMsg] = useState('');
   const [search, setSearch] = useState('');

@@ -21,52 +21,52 @@ export default function OwnerDashboard() {
 
   // Data states
   const [stats, setStats] = useState({});
-  const [employeesByBU, setEmployeesByBU] = useState([]);
-  const [modules, setModules] = useState([]);
-  const [businessUnits, setBusinessUnits] = useState([]);
-  const [roles, setRoles] = useState([]);
+  const [employeesByBU, setEmployeesByBU] = useState<any[]>([]);
+  const [modules, setModules] = useState<any[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   const [auditLog, setAuditLog] = useState({ data: [], total: 0 });
-  const [auditActions, setAuditActions] = useState([]);
+  const [auditActions, setAuditActions] = useState<any[]>([]);
   const [auditFilter, setAuditFilter] = useState({ action: '', page: 0 });
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loginStats, setLoginStats] = useState({});
-  const [securitySettings, setSecuritySettings] = useState([]);
+  const [securitySettings, setSecuritySettings] = useState<any[]>([]);
 
   // Wave 2 states
   const [employees, setEmployees] = useState({ data: [], total: 0 });
   const [empFilter, setEmpFilter] = useState({ bu: '', search: '', page: 0 });
   const [showEmpCreator, setShowEmpCreator] = useState(false);
   const [newEmp, setNewEmp] = useState({ nrp: '', nama: '', email: '', divisi: '', posisi: '', bu_id: '', role: 'worker', role_level: 1 });
-  const [editEmp, setEditEmp] = useState(null);
-  const [announcements, setAnnouncements] = useState([]);
+  const [editEmp, setEditEmp] = useState<any>(null);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [showAnnCreator, setShowAnnCreator] = useState(false);
   const [newAnn, setNewAnn] = useState({ title: '', message: '', priority: 'NORMAL', target_audience: 'ALL' });
-  const [notifConfig, setNotifConfig] = useState([]);
-  const [sysAnnouncements, setSysAnnouncements] = useState([]);
+  const [notifConfig, setNotifConfig] = useState<any[]>([]);
+  const [sysAnnouncements, setSysAnnouncements] = useState<any[]>([]);
   const [showSysAnnCreator, setShowSysAnnCreator] = useState(false);
   const [newSysAnn, setNewSysAnn] = useState({ title: '', message: '', type: 'info', dismissible: true });
   // Wave 3 states
   const [activityStats, setActivityStats] = useState({});
-  const [integrations, setIntegrations] = useState([]);
+  const [integrations, setIntegrations] = useState<any[]>([]);
   const [showIntCreator, setShowIntCreator] = useState(false);
   const [newInt, setNewInt] = useState({ name: '', type: 'webhook' });
-  const [retentionRules, setRetentionRules] = useState([]);
-  const [changelog, setChangelog] = useState([]);
-  const [tickets, setTickets] = useState([]);
+  const [retentionRules, setRetentionRules] = useState<any[]>([]);
+  const [changelog, setChangelog] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<any[]>([]);
   const [usageAnalytics, setUsageAnalytics] = useState({});
   // Edit states
-  const [editRole, setEditRole] = useState(null);
+  const [editRole, setEditRole] = useState<any>(null);
   const [editForm, setEditForm] = useState({ role: '', role_level: 1 });
   const [showBUCreator, setShowBUCreator] = useState(false);
   const [newBU, setNewBU] = useState({ unit_code: '', unit_name: '', description: '' });
-  const [editBU, setEditBU] = useState(null);
+  const [editBU, setEditBU] = useState<any>(null);
   const [editBUForm, setEditBUForm] = useState({ unit_name: '', description: '' });
   // Wave 4 — Access Control states
-  const [adminRoles, setAdminRoles] = useState([]);
-  const [adminAccounts, setAdminAccounts] = useState([]);
+  const [adminRoles, setAdminRoles] = useState<any[]>([]);
+  const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [showRoleCreator, setShowRoleCreator] = useState(false);
   const [newRole, setNewRole] = useState({ role_code: '', role_name: '', scope_type: 'global', scope_id: '', permissions: '[]' });
-  const [editRoleAdmin, setEditRoleAdmin] = useState(null);
+  const [editRoleAdmin, setEditRoleAdmin] = useState<any>(null);
   const [editRoleForm, setEditRoleForm] = useState({ role_name: '', permissions: '' });
   const [assignUser, setAssignUser] = useState({ nrp: '', role_code: '' });
 
