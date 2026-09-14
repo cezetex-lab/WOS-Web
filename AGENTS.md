@@ -182,18 +182,14 @@
 - [ ] Dashboard rendering tests (stats, charts, tables)
 - [ ] PWA offline mode tests (Service Worker caching)
 
-### A7: Migration Versioning System
-- [ ] Add `schema_migrations` table tracking version + checksum
-- [ ] Each migration file gets `-- VERSION: xxx` header
-- [ ] Startup check: detect unapplied / duplicate migrations
-- [ ] Rollback scripts for critical migrations (131–143)
-
+~~### A7: Migration Versioning System~~ ✅ DONE (migration 219) — schema_migrations table + apply_migration/check_migrations/verify_migration_checksum functions
 ### TypeScript Migration
 - [ ] Convert SQL RPCs to TypeScript edge functions (Supabase Edge Functions)
 - [ ] Type-safe RPC calls with generated Supabase types
 - [ ] Shared validation library (Zod) for input validation
 - [ ] Remove raw SQL from frontend, use typed client### Other TODOs (OPEN)
-- [ ] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash)
+- [ ] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash)
+
 
 ## 10. STATE OPEN — Disaster Recovery (operasi; asal: `Readme/DR_PLAN.md`)
 

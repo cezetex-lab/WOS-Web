@@ -434,3 +434,14 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   actual functions (clock_in, clock_out, get_narrative, etc.).
 - Commits: 87eedeb (N1+N4), 52ba974 (docs), 53f721b (R4 initial), 4ebae99 (R4 fixes)
 - Bukti: live DB verification (0 errors), lint 0, tests 100/100, build EXIT 0
+
+
+## [2026-09-14] A7: Migration Versioning System (migration 219)
+- Status: DONE
+- schema_migrations table: tracks version, filename (unique), SHA-256 checksum, applied_at, execution_ms
+- Functions: apply_migration() — register after apply; check_migrations() — detect unapplied/duplicate/orphaned; verify_migration_checksum() — detect tampering
+- Registered all 145 existing migrations in live DB
+- Removed version unique index (multiple files can share version numbers, filename is true unique key)
+- Applied to live DB + verified (0 issues)
+- Commits: 02f0b35
+- Gates: lint 0 errors, tests 100/100, build EXIT 0, secret scan clean
