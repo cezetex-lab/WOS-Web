@@ -19,6 +19,12 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 `git log --oneline` (640 commit di semua ref).
 
 ---
+## [2026-09-13] I1 — Forensic audit duplicate tables + drop legacy — DONE
+- Status: DONE
+- Commit: (pending)
+- Ringkasan: Forensic audit live DB (259 tabel). 211 kosong (81%). Dropped 3legacy tabel: `mill_boiler` (0rows, unused), `mfa_store` (0rows, replaced by `mfa_factors`), `hr_preview_data` (0rows, recreated but unused). Sisanya:80+ placeholder industri/HR/infra (keep), 38attendance partitions (keep, intentional). `review_360`→`reviews_360` dan `okrs`→`hr_okrs` sudah resolved sebelumnya (tabel lama tidak ada di DB).
+- Bukti: pre-verify 3 tabel exists+0rows → DROP OK → post-verify3 tabel NOT FOUND.
+
 ## [2026-09-13] B2 — drop deprecated login_admin RPC — DONE
 - Status: DONE
 - Commit: (pending)
