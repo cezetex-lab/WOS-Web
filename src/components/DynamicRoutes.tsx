@@ -59,7 +59,7 @@ function areaFromPath(pathname) {
 const normalizePath = p => ((p || '').replace(/\/+$/, '') || '/');
 
 export default function DynamicRoutes({ withNav }: DynamicRoutesProps) {
-  const [routes, setRoutes] = useState([]);
+  const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 

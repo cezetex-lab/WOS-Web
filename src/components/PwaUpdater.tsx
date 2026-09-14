@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 
 export default function PwaUpdater() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [registration, setRegistration] = useState(null);
+  const [registration, setRegistration] = useState<any>(null);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;

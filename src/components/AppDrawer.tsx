@@ -159,8 +159,8 @@ const OWNER_FALLBACK_GROUPS = ADMIN_FALLBACK_GROUPS;
 export function AppDrawer({ isOpen, onClose }) {
   const location = useLocation();
   const [brand, setBrand] = useState({ company_name: 'insightWIP', logo_url: '' });
-  const [dynamicGroups, setDynamicGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [dynamicGroups, setDynamicGroups] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     rpc('get_branding', {}).then(d => {

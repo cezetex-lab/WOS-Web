@@ -120,9 +120,9 @@ function MessageBubble({ msg, isUser }) {
   );
 }
 
-export default function ChatCopilot({ context = 'general' }) {
+export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [unread, setUnread] = useState(0);

@@ -102,9 +102,9 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
     : WORKER_PAGE_CONFIGS[pageKey];
 
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<any[]>([]);
   const [stats, setStats] = useState({});
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('all');
 
   // ── COMPUTED FIELDS ──
