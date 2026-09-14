@@ -461,3 +461,18 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   - Chain verified: 0 issues
 - Commits: §6 deploy (vercel), O5 = 4aeff4f
 - Gates: lint 0 errors, tests 100/100, build EXIT 0
+
+
+## [2026-09-14] TypeScript Migration — Phase 1 (branch: typescript-migration)
+- Status: DONE (Phase 1 of 3)
+- Branch: typescript-migration (isolated from migrasi-vite)
+- Phase 1 deliverables:
+  - tsconfig.json: strict mode, bundler resolution, path aliases (@/*)
+  - src/types/index.ts: 25+ shared interfaces (Employee, Payroll, RPC, etc.)
+  - src/lib/supabase-rpc.ts: typed RPC wrapper with overloads
+  - src/lib/validation/schemas.ts: Zod v4 schemas for all forms
+  - Converted 5 core lib files .js → .ts: supabase-browser, rate-limiter, edge-functions, route-config, menu-builder
+  - src/vite-env.d.ts: ambient declarations for .jsx imports + env vars
+- Gates: tsc --noEmit 0 errors, build EXIT 0, tests 100/100
+- Commit: 689478f
+- Remaining Phase 2: convert .jsx → .tsx (18 JS files in src/lib/hooks + src/components + src/features)
