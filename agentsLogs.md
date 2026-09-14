@@ -21,7 +21,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 ---
 ## [2026-09-13] I1 — Forensic audit duplicate tables + drop legacy — DONE
 - Status: DONE
-- Commit: (pending)
+- Commit: e659ead
 - Ringkasan: Forensic audit live DB (259 tabel). 211 kosong (81%). Dropped 3legacy tabel: `mill_boiler` (0rows, unused), `mfa_store` (0rows, replaced by `mfa_factors`), `hr_preview_data` (0rows, recreated but unused). Sisanya:80+ placeholder industri/HR/infra (keep), 38attendance partitions (keep, intentional). `review_360`→`reviews_360` dan `okrs`→`hr_okrs` sudah resolved sebelumnya (tabel lama tidak ada di DB).
 - Bukti: pre-verify 3 tabel exists+0rows → DROP OK → post-verify3 tabel NOT FOUND.
 
@@ -383,3 +383,19 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 - update_task_status overload: ⚠️ 2 overloads (int + text) — both active, serve different ID types
   (text from task board, int from legacy). Rule §6.4 applies to NEW overloads, not existing.
 - §3.3 "0 pelanggaran" claim: ✅ now accurate post-207
+
+
+## [2026-09-14] N1 + N4 — AI RAG Access Filtering + Role-Based Rate Limits (migration 215)
+- Status: DONE
+- Commit: 87eedeb
+- Ringkasan:
+  N1: RLS policies on ai_documents (admin=all, worker=own-BU), ai_conversations (own only),
+  ai_rate_limits (own rows, admin=all). Fixed match_documents precedence bug (was leaking all
+  docs when v_bu IS NULL). Secured upsert_document with SECURITY DEFINER + admin auth check.
+  REVOKE anon/PUBLIC from match_documents + upsert_document.
+  N4: Role-based daily limits — worker=15, admin=30, manager=50, owner=unlimited. Warning at
+  80%. Added role_level column to ai_rate_limits. Edge function uses DB-backed RPC. Frontend
+  shows remaining queries + warning banner.
+- Bukti: 9 RLS policies active, rate limit tiers verified (NRP005=15, NRP004=30, NRP003=50,
+  NRP001=unlimited), match_documents no longer has IS NULL OR leak, upsert_document blocked
+  for non-admin, lint 0 errors, tests 100/100, build EXIT 0.

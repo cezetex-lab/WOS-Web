@@ -196,8 +196,8 @@
 
 ### Other TODOs (OPEN)
 - [x] **B2**: `login_admin` migration to Supabase Auth — DONE: admin already uses Supabase Auth; deprecated `login_admin` RPC dropped (migration 217)
-- [ ] **N1**: AI RAG document access filtering (extend to all modules)
-- [ ] **N4**: AI query rate limit tuning (currently 50/day, adjust based on usage)
+- [x] **N1**: AI RAG document access filtering (extend to all modules) — DONE: migration 215, RLS on ai_* tables, fixed match_documents precedence bug
+- [x] **N4**: AI query rate limit tuning — DONE: migration 215, role-based (worker=15, admin=30, manager=50, owner=unlimited), warning at 80%
 - [x] **I1**: Resolve duplicate tables — DONE: forensic audit (259 tables, 211 empty). Dropped3legacy: `mill_boiler`, `mfa_store`, `hr_preview_data` (migration 218). `review_360`→`reviews_360`, `okrs`→`hr_okrs` sudah resolved sebelumnya.
 - [ ] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash)
 - [ ] **R4**: Write rollback scripts for all critical migrations
