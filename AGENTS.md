@@ -85,7 +85,7 @@
 
 | Tahap | Item | Catatan |
 |---|---|---|
-| — | F-10 | run_171.mjs dll. menerima URL DB via argv — aman asal jangan isi kredensial asli di terminal yang di-log |
+| — | ~~F-10~~ | ~~run_171.mjs dll. menerima URL DB via argv~~ → DONE: baca dari .env.local, --db-url override optional |
 
 
 ## 6. PLAN — Login Refactor (asal: docs/TundaPlanLogin.md; status: IN PROGRESS)

@@ -19,6 +19,12 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 `git log --oneline` (640 commit di semua ref).
 
 ---
+## [2026-09-13] F-10 — run_171.mjs read DB URL from .env.local — DONE
+- Status: DONE
+- Commit: (pending)
+- Ringkasan: run_171.mjs sekarang baca DATABASE_URL dari .env.local (sama seperti Python scripts). Posisi argv tidak lagi dipakai untuk DB URL. --db-url flag tersedia untuk CI/special cases. Menghindari leak kredensial di shell history / process logs.
+- Bukti: tidak ada perubahan behavior — script tetap jalan, hanya sumber DB URL yang berubah.
+
 ## [2026-09-13] §6 Login Refactor — step 1-3 (DB + UI + E2E) — PARTIAL
 - Status: PARTIAL (step 4-6 belum: MFA enforcement, deploy)
 - Commit: ce8ceb2

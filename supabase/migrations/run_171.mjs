@@ -5,13 +5,16 @@
  * Reads any .sql file, splits statements properly (respecting $function$,
  * $$, and $tag$ dollar-quoting), and executes each one against PostgreSQL.
  *
+ * DB URL is read from .env.local (DATABASE_URL=) by default.
+ * Optionally override via first CLI argument (not recommended in logged terminals).
+ *
  * Usage:
- *   node run_171.mjs <DATABASE_URL> [SQL_FILE]
+ *   node run_171.mjs [SQL_FILE]
+ *   node run_171.mjs --db-url "postgresql://..." [SQL_FILE]
  *
  * Examples:
- *   node run_171.mjs "postgresql://postgres.xxx:pass@pooler.supabase.com:6543/postgres"
- *   node run_171.mjs "postgresql://..." 168_fix_p0_p1.sql
- *   node run_171.mjs "postgresql://..." 172_hardening_grants.sql
+ *   node run_171.mjs                          # .env.local → 171_restore_db_only_functions.sql
+ *   node run_171.mjs 168_fix_p0_p1.sql        # .env.local → specified file
  *
  * Requires: npm install pg
  */
@@ -20,14 +23,31 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
-// ── 1. Parse CLI args ────────────────────────────────────────────────
-const connStr = process.argv[2];
-const sqlFileArg = process.argv[3];
+// ── 1. Load DB URL from .env.local (never from positional argv to avoid log leaks) ──
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envPath = join(__dirname, "../../.env.local");
+
+let connStr;
+try {
+  const envContent = readFileSync(envPath, "utf-8");
+  const match = envContent.match(/^DATABASE_URL\s*=\s*(.+)$/m);
+  if (match) connStr = match[1].trim().replace(/^["']|["']$/g, "");
+} catch { /* .env.local not found or unreadable */ }
+
+// Allow explicit --db-url flag as override (for CI/special cases)
+const dbUrlIdx = process.argv.indexOf("--db-url");
+if (dbUrlIdx !== -1 && process.argv[dbUrlIdx + 1]) {
+  connStr = process.argv[dbUrlIdx + 1];
+}
+
 if (!connStr) {
-  console.error("Usage: node run_171.mjs <DATABASE_URL> [SQL_FILE]");
-  console.error('Example: node run_171.mjs "postgresql://postgres.xxxx:xxxx@pooler.supabase.com:6543/postgres"');
+  console.error("ERROR: DATABASE_URL not found.");
+  console.error("  Set it in .env.local or pass --db-url \"postgresql://...\"");
   process.exit(1);
 }
+
+// SQL file: first non-flag argument, or default to 171_restore_db_only_functions.sql
+const sqlFileArg = process.argv.slice(2).find(a => !a.startsWith("--") && a !== connStr);
 
 // ── 2. Dollar-quote-aware splitter ───────────────────────────────────
 function splitStatements(sql) {
@@ -115,7 +135,6 @@ function splitStatements(sql) {
 }
 
 // ── 3. Load SQL file ─────────────────────────────────────────────────
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const sqlPath = sqlFileArg
   ? (sqlFileArg.includes("/") || sqlFileArg.includes("\\") ? sqlFileArg : join(__dirname, sqlFileArg))
   : join(__dirname, "171_restore_db_only_functions.sql");
