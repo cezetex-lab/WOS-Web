@@ -88,6 +88,13 @@ function MessageBubble({ msg, isUser }) {
                 dangerouslySetInnerHTML={{ __html: renderMessage(msg.text) }}
               />
               <DbDataList dbData={msg.dbData} />
+              {msg.rateLimit?.warning && (
+                <div className="mt-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <p className="text-[11px] text-amber-400">
+                    ⚠️ {msg.rateLimit.warning_msg}
+                  </p>
+                </div>
+              )}
             </>
           )}
           {!isUser && msg.sources?.length > 0 && (
@@ -160,6 +167,7 @@ export default function ChatCopilot({ context = 'general' }) {
         isUser: false,
         sources: result.sources || [],
         dbData: result.dbData || [],
+        rateLimit: result.rateLimit || null,
         time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -261,6 +269,11 @@ export default function ChatCopilot({ context = 'general' }) {
             </div>
             <p className="text-[11px] text-slate-600 text-center mt-1.5">
               Data terisolasi berdasarkan role Anda
+              {messages.length > 0 && messages[messages.length - 1]?.rateLimit?.limit > 0 && (
+                <span className="block text-slate-500">
+                  Sisa {messages[messages.length - 1].rateLimit.remaining}/{messages[messages.length - 1].rateLimit.limit} query hari ini
+                </span>
+              )}
             </p>
           </div>
         </div>

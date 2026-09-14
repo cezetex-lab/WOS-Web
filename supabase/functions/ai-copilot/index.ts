@@ -12,9 +12,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Rate limit config
-const RATE_LIMIT_MAX = 15;       // max queries per window
-const RATE_LIMIT_WINDOW = 15;    // minutes
+// Rate limit config (DB-backed via ai_check_rate_limit, role-based)
+// Worker: 15/day, Admin: 30/day, Manager: 50/day, Owner: unlimited
+const RATE_LIMIT_WINDOW = 60;    // minutes for per-window check (supplement to daily DB limit)
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -97,19 +97,15 @@ serve(async (req: Request) => {
       );
     }
 
-    // ── RATE LIMIT (15 queries per 15 min) ──
+    // ── RATE LIMIT (role-based, DB-backed) ──
     let rateLimited = false;
+    let rateLimitInfo: any = null;
     try {
-      const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW * 60 * 1000).toISOString();
-      const { data: rateData } = await adminClient.from("ai_rate_limits")
-        .select("query_count")
-        .eq("nrp", userNRP)
-        .gte("created_at", windowStart)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (rateData && rateData.query_count >= RATE_LIMIT_MAX) {
+      const { data: rlResult } = await adminClient.rpc("ai_check_rate_limit", {
+        p_nrp: userNRP,
+      });
+      rateLimitInfo = rlResult;
+      if (rlResult && !rlResult.ok) {
         rateLimited = true;
       }
     } catch (_e) { /* ignore — first query */ }
@@ -122,13 +118,15 @@ serve(async (req: Request) => {
     // ── If rate limited: return DB data only (no AI) ──
     if (rateLimited) {
       const dbList = formatDbDataAsList(dbData, userRole);
+      const limitMsg = rateLimitInfo?.msg || "Batas penggunaan AI tercapai";
       return new Response(
         JSON.stringify({
-          message: `📊 Tampilan data berdasarkan pencarian Anda.\n\n(Batas penggunaan AI tercapai — ${RATE_LIMIT_MAX} pertanyaan per ${RATE_LIMIT_WINDOW} menit. Menampilkan data database saja.)`,
+          message: `📊 Tampilan data berdasarkan pencarian Anda.\n\n(${limitMsg}\nMenampilkan data database saja.)`,
           dbData: dbList,
           sources: [],
           usedAI: false,
           rateLimited: true,
+          rateLimit: rateLimitInfo,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -155,27 +153,12 @@ serve(async (req: Request) => {
       assistantMessage = generateTemplateResponse(sanitized, dbData, docs, context);
     }
 
-    // ── Log to ai_rate_limits ──
+    // ── Log to ai_rate_limits (via RPC for atomicity) ──
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const { data: existing } = await adminClient.from("ai_rate_limits")
-        .select("id, query_count")
-        .eq("nrp", userNRP)
-        .eq("query_date", today)
-        .single();
-
-      if (existing) {
-        await adminClient.from("ai_rate_limits")
-          .update({ query_count: existing.query_count + 1 })
-          .eq("id", existing.id);
-      } else {
-        await adminClient.from("ai_rate_limits").insert({
-          nrp: userNRP,
-          query_date: today,
-          query_count: 1,
-          tokens_used: 0,
-        });
-      }
+      await adminClient.rpc("ai_record_query", {
+        p_nrp: userNRP,
+        p_tokens: 0,
+      });
     } catch (_e) { /* ignore */ }
 
     // ── Log conversation ──
@@ -198,6 +181,7 @@ serve(async (req: Request) => {
         sources: docs.map((d: any) => ({ title: d.title, similarity: 1.0 })),
         usedAI,
         rateLimited: false,
+        rateLimit: rateLimitInfo,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
