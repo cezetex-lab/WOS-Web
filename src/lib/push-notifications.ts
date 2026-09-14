@@ -1,12 +1,12 @@
 // ============================================================
-// push-notifications.js — Web Push Notification Support
+// push-notifications.ts — Web Push Notification Support
 // Register SW, subscribe to push, handle incoming notifications
 // ============================================================
 
 /**
  * Register service worker for push notifications
  */
-export async function registerServiceWorker() {
+export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) {
     return null;
   }
@@ -24,7 +24,7 @@ export async function registerServiceWorker() {
 /**
  * Check if push notifications are supported and permitted
  */
-export function isPushSupported() {
+export function isPushSupported(): boolean {
   return (
     'Notification' in window &&
     'serviceWorker' in navigator &&
@@ -35,7 +35,7 @@ export function isPushSupported() {
 /**
  * Get current notification permission status
  */
-export function getPermissionStatus() {
+export function getPermissionStatus(): 'granted' | 'denied' | 'default' | 'unsupported' {
   if (!isPushSupported()) return 'unsupported';
   return Notification.permission; // 'granted', 'denied', 'default'
 }
@@ -43,7 +43,7 @@ export function getPermissionStatus() {
 /**
  * Request notification permission
  */
-export async function requestPermission() {
+export async function requestPermission(): Promise<'granted' | 'denied' | 'default' | 'unsupported'> {
   if (!isPushSupported()) return 'unsupported';
 
   if (Notification.permission === 'granted') return 'granted';
@@ -55,9 +55,9 @@ export async function requestPermission() {
 
 /**
  * Subscribe to push notifications
- * @param {string} vapidPublicKey - VAPID public key (generate at https://app.pair.coach/variables)
+ * @param vapidPublicKey - VAPID public key (generate at https://app.pair.coach/variables)
  */
-export async function subscribeToPush(vapidPublicKey) {
+export async function subscribeToPush(vapidPublicKey: string): Promise<PushSubscription | null> {
   try {
     const registration = await navigator.serviceWorker.ready;
 
@@ -80,7 +80,7 @@ export async function subscribeToPush(vapidPublicKey) {
 /**
  * Unsubscribe from push notifications
  */
-export async function unsubscribeFromPush() {
+export async function unsubscribeFromPush(): Promise<boolean> {
   try {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
@@ -97,10 +97,10 @@ export async function unsubscribeFromPush() {
 
 /**
  * Send a local notification (no server needed)
- * @param {string} title
- * @param {object} options - { body, icon, badge, tag }
+ * @param title
+ * @param options - { body, icon, badge, tag }
  */
-export function sendLocalNotification(title, options = {}) {
+export function sendLocalNotification(title: string, options: NotificationOptions = {}): void {
   if (Notification.permission !== 'granted') return;
 
   try {
@@ -111,14 +111,14 @@ export function sendLocalNotification(title, options = {}) {
       tag: options.tag || 'insightwos-' + Date.now(),
       vibrate: [200, 100, 200],
       ...options,
-    });
+    } as NotificationOptions);
   } catch (e) { }
 }
 
 /**
  * Helper: Convert VAPID key to Uint8Array
  */
-function urlBase64ToUint8Array(base64String) {
+function urlBase64ToUint8Array(base64String: string): BufferSource {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
@@ -133,9 +133,9 @@ function urlBase64ToUint8Array(base64String) {
  * Initialize push notifications for the app
  * Call this once when app loads
  */
-export async function initPushNotifications() {
+export async function initPushNotifications(): Promise<ServiceWorkerRegistration | null> {
   const registration = await registerServiceWorker();
-  if (!registration) return;
+  if (!registration) return null;
 
   const status = getPermissionStatus();
   if (status === 'granted') {

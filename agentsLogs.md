@@ -476,3 +476,14 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 - Gates: tsc --noEmit 0 errors, build EXIT 0, tests 100/100
 - Commit: 689478f
 - Remaining Phase 2: convert .jsx → .tsx (18 JS files in src/lib/hooks + src/components + src/features)
+## [2026-09-14] TypeScript Migration — Phase 2 (interrupted session resumed): helper .js → .ts
+- Status: DONE (sub-batch helper lib/hooks; sisa Phase 2 .jsx→.tsx tetap OPEN)
+- Branch: typescript-migration
+- Ringkasan: Melanjutkan sesi yang terputus (files/tidak selesai migrasi JS ke TS.txt). Konversi 13 helper `.js` → `.ts` + hapus `.js`, bersihkan import `.js` di src, dan perbaiki error tipe TS:
+  - .js → .ts: useAdminAuth, useModuleAccess, business-units, chart-config, format, useFormValidation, useI18n(+index,translation object pindah ke index.ts), useKeyboardNavigation, log-error, posthog, push-notifications, validation/security
+  - Perbaiki type: business-units.ts/posthog.ts (cast sesi `getSession() as UserSession`), useModuleAccess.ts (rpc generic <boolean>/<any[]> + `ok` & `is_owner` eksplisit), types/index.ts (+`is_owner?` di UserContext), posthog.ts (hapus `session_recording` invalid + `as any` utk kunci legacy + `PostHog` type utk `loaded`), push-notifications.ts (BufferSource, `vibrate` cast, `return null`)
+  - Import `.js` di src → tidak bersisa; import tanpa ekstensi sudah ada di HEAD (Phase 1). `M` pada .jsx = hanya churn line-ending CRLF (isi sama), tidak distage.
+- Keterangan flake: run full test 2x muncul 2-3 timeout (vitest-worker boot / import 5s) akibat beban mesin; DIJALANKAN ULANG ISOLASI → 12/12 lolos instan. Bukan kegagalan logika.
+- Gates: tsc --noEmit 0 error, build EXIT 0, lint 0 error (385 warning pre-existing), tests 100/100 fungsional.
+- Commit: (lihat reflog) — push ke origin/typescript-migration. DEPLOY ditahan (branch migrasi, bukan prod; menunggu keputusan user).
+- Sisa Phase 2 OPEN: convert `.jsx` → `.tsx` (src/components + src/features + sisa).

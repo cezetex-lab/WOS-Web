@@ -1,5 +1,5 @@
 // ============================================================
-// security.js — Password Policy + Input Sanitization + Validation
+// security.ts — Password Policy + Input Sanitization + Validation
 // ============================================================
 
 /**
@@ -18,10 +18,15 @@ export const PASSWORD_POLICY = {
   requireNumber: true,
   requireSpecial: true,
   specialChars: '!@#$%^&*()_+-=[]{}|;:,.<>?'
-};
+} as const;
 
-export function validatePassword(password) {
-  const errors = [];
+export interface PasswordValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+export function validatePassword(password: string): PasswordValidationResult {
+  const errors: string[] = [];
   if (!password) return { valid: false, errors: ['Password wajib diisi'] };
   if (password.length < PASSWORD_POLICY.minLength)
     errors.push(`Minimal ${PASSWORD_POLICY.minLength} karakter`);
@@ -41,7 +46,7 @@ export function validatePassword(password) {
 /**
  * Input Sanitization — prevent XSS
  */
-export function sanitizeInput(input) {
+export function sanitizeInput(input: unknown): unknown {
   if (typeof input !== 'string') return input;
   return input
     .replace(/&/g, '&amp;')
@@ -56,7 +61,7 @@ export function sanitizeInput(input) {
  * NRP Validation — 3-4 letter prefix + 4 digits
  * Format: MNG0001, EST0001, MLL0001, HQ0001, ADM-001
  */
-export function validateNRP(nrp) {
+export function validateNRP(nrp: string): boolean {
   if (!nrp) return false;
   return /^[A-Z]{2,4}[0-9]{3,4}$/.test(nrp) || /^[A-Z]{2,4}-[0-9]{2,4}$/.test(nrp);
 }
@@ -64,7 +69,7 @@ export function validateNRP(nrp) {
 /**
  * NIK Validation — 16 digits (Indonesian standard)
  */
-export function validateNIK(nik) {
+export function validateNIK(nik: string): boolean {
   if (!nik) return false;
   return /^[0-9]{16}$/.test(nik);
 }
@@ -72,7 +77,7 @@ export function validateNIK(nik) {
 /**
  * Email Validation
  */
-export function validateEmail(email) {
+export function validateEmail(email: string): boolean {
   if (!email) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -80,7 +85,7 @@ export function validateEmail(email) {
 /**
  * Phone Validation — Indonesian format
  */
-export function validatePhone(phone) {
+export function validatePhone(phone: string): boolean {
   if (!phone) return false;
   return /^(\+62|62|0)[0-9]{9,13}$/.test(phone.replace(/\s/g, ''));
 }
@@ -88,7 +93,7 @@ export function validatePhone(phone) {
 /**
  * SQL Injection prevention — basic check
  */
-export function hasSQLInjection(input) {
+export function hasSQLInjection(input: unknown): boolean {
   if (!input || typeof input !== 'string') return false;
   const patterns = [
     /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE|UNION|WHERE|AND|OR)\b)/i,
@@ -98,11 +103,23 @@ export function hasSQLInjection(input) {
   return patterns.some(p => p.test(input));
 }
 
+export interface FormField {
+  value: unknown;
+  type?: 'email' | 'nik' | 'phone' | 'password';
+  required?: boolean;
+  label?: string;
+}
+
+export interface FormValidationResult {
+  valid: boolean;
+  errors: Record<string, string>;
+}
+
 /**
  * Validate all form fields before submit
  */
-export function validateForm(fields) {
-  const errors = {};
+export function validateForm(fields: Record<string, FormField>): FormValidationResult {
+  const errors: Record<string, string> = {};
   for (const [name, config] of Object.entries(fields)) {
     const { value, type, required, label } = config;
     if (required && (!value || value.toString().trim() === '')) {
@@ -112,13 +129,13 @@ export function validateForm(fields) {
     if (value && hasSQLInjection(value)) {
       errors[name] = `${label || name} mengandung karakter tidak valid`;
     }
-    if (type === 'email' && value && !validateEmail(value)) {
+    if (type === 'email' && value && !validateEmail(String(value))) {
       errors[name] = 'Format email tidak valid';
     }
-    if (type === 'nik' && value && !validateNIK(value)) {
+    if (type === 'nik' && value && !validateNIK(String(value))) {
       errors[name] = 'NIK harus 16 digit angka';
     }
-    if (type === 'phone' && value && !validatePhone(value)) {
+    if (type === 'phone' && value && !validatePhone(String(value))) {
       errors[name] = 'Format telepon tidak valid';
     }
   }
@@ -129,7 +146,7 @@ export function validateForm(fields) {
  * Mask sensitive data for display
  * e.g., maskSalary("8500000") → "8.500.***"
  */
-export function maskSensitive(value, showFirst = 3) {
+export function maskSensitive(value: unknown, showFirst: number = 3): string {
   if (!value) return '***';
   const str = String(value);
   if (str.length <= showFirst) return str;
@@ -141,7 +158,7 @@ export function maskSensitive(value, showFirst = 3) {
  */
 const SENSITIVE_FIELDS = ['salary', 'bank_account', 'tax_number', 'npwp', 'bpjs_ketenagakerjaan', 'bpjs_kesehatan'];
 
-export function canViewSensitiveField(userRole, field) {
+export function canViewSensitiveField(userRole: string, field: string): boolean {
   if (!SENSITIVE_FIELDS.includes(field)) return true;
   // Only admin_pusat, admin_hr, manager, and the employee themselves
   return ['admin_pusat', 'admin_hrd', 'manager'].includes(userRole);

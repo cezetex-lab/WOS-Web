@@ -72,6 +72,7 @@ export interface UserContext {
   business_unit_id?: string;
   unit_code?: string;
   tier?: number;
+  is_owner?: boolean;
   msg?: string;
 }
 

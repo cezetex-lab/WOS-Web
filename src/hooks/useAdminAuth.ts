@@ -5,11 +5,11 @@ import { getSession } from '@/lib/supabase-browser';
 /**
  * Hook: checks if current user's admin role is allowed for this path.
  * If not, redirects to /admin.
- * 
+ *
  * Usage in any admin page:
  *   useAdminAuth(['admin_pusat', 'admin_hrd']);
  */
-export default function useAdminAuth(allowedRoles = []) {
+export default function useAdminAuth(allowedRoles: string[] = []) {
   const navigate = useNavigate();
   const session = getSession();
   const role = session?.role || '';

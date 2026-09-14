@@ -1,11 +1,40 @@
 import { getSession } from './supabase-browser';
+import type { UserSession } from '@/types';
+
 // ============================================================
-// business-units.js — BU-Specific Menu & Module Configs
+// business-units.ts — BU-Specific Menu & Module Configs
 // Conditional rendering based on business_unit from login
 // ============================================================
 
+export interface QuickTile {
+  icon: string;
+  label: string;
+  color: string;
+  path: string;
+}
+
+export interface SidebarItem {
+  icon: string;
+  label: string;
+  path: string;
+  desc?: string;
+}
+
+export interface SidebarGroup {
+  title: string;
+  items: SidebarItem[];
+}
+
+export interface BusinessUnitModules {
+  label: string;
+  icon: string;
+  color: string;
+  quickTiles: QuickTile[];
+  sidebarGroups: SidebarGroup[];
+}
+
 // ── MINING (Tambang) ──
-export const MINING_MODULES = {
+export const MINING_MODULES: BusinessUnitModules = {
   label: 'Tambang',
   icon: '⛏️',
   color: 'red',
@@ -49,7 +78,7 @@ export const MINING_MODULES = {
 };
 
 // ── ESTATE (Perkebunan Sawit) ──
-export const ESTATE_MODULES = {
+export const ESTATE_MODULES: BusinessUnitModules = {
   label: 'Perkebunan',
   icon: '🌴',
   color: 'green',
@@ -93,7 +122,7 @@ export const ESTATE_MODULES = {
 };
 
 // ── MILL (Pabrik PKS) ──
-export const MILL_MODULES = {
+export const MILL_MODULES: BusinessUnitModules = {
   label: 'Pabrik',
   icon: '🏭',
   color: 'orange',
@@ -137,7 +166,7 @@ export const MILL_MODULES = {
 };
 
 // ── HQ (Korporat) ──
-export const HQ_MODULES = {
+export const HQ_MODULES: BusinessUnitModules = {
   label: 'Korporat',
   icon: '🏢',
   color: 'blue',
@@ -180,7 +209,7 @@ export const HQ_MODULES = {
 };
 
 // ── LOOKUP MAP ──
-export const BU_MODULES = {
+export const BU_MODULES: Record<string, BusinessUnitModules> = {
   MINING: MINING_MODULES,
   ESTATE: ESTATE_MODULES,
   MILL: MILL_MODULES,
@@ -188,10 +217,10 @@ export const BU_MODULES = {
 };
 
 // ── HELPER: Get modules for current user ──
-export function getUserModules() {
+export function getUserModules(): BusinessUnitModules {
   if (typeof window === 'undefined') return HQ_MODULES;
   try {
-    const session = getSession() || {};
+    const session = (getSession() || {}) as UserSession;
     const bu = session.business_unit || 'HQ';
     return BU_MODULES[bu] || HQ_MODULES;
   } catch {
@@ -200,10 +229,10 @@ export function getUserModules() {
 }
 
 // ── HELPER: Get business unit code ──
-export function getBusinessUnit() {
+export function getBusinessUnit(): string {
   if (typeof window === 'undefined') return 'HQ';
   try {
-    const session = getSession() || {};
+    const session = (getSession() || {}) as UserSession;
     return session.business_unit || 'HQ';
   } catch {
     return 'HQ';
@@ -211,10 +240,10 @@ export function getBusinessUnit() {
 }
 
 // ── HELPER: Get role level ──
-export function getRoleLevel() {
+export function getRoleLevel(): number {
   if (typeof window === 'undefined') return 1;
   try {
-    const session = getSession() || {};
+    const session = (getSession() || {}) as UserSession;
     return session.role_level || 1;
   } catch {
     return 1;

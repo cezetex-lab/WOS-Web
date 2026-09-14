@@ -1,18 +1,31 @@
 // ============================================================
-// useFormValidation.js - React hook for form validation
+// useFormValidation.ts - React hook for form validation
 // ============================================================
 import { useState, useCallback } from 'react';
 import { validatePassword, validateNRP, validateNIK, validateEmail, validatePhone, hasSQLInjection, validateForm } from '../validation/security';
 
+export interface ValidationSchema {
+  [fieldName: string]: {
+    type?: 'email' | 'nik' | 'nrp' | 'phone' | 'password';
+    required?: boolean;
+    label?: string;
+  };
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: Record<string, string>;
+}
+
 /**
  * Hook for form validation using security.js validators
- * @param {object} schema - { fieldName: { type, required, label } }
- * @returns {object} { errors, validateField, validateAll, clearErrors }
+ * @param schema - { fieldName: { type, required, label } }
+ * @returns { errors, validateField, validateAll, clearErrors }
  */
-export function useFormValidation(schema = {}) {
-  const [errors, setErrors] = useState({});
+export function useFormValidation(schema: ValidationSchema = {}) {
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const validateField = useCallback((name, value) => {
+  const validateField = useCallback((name: string, value: any): string | null => {
     const config = schema[name];
     if (!config) return null;
 
@@ -73,8 +86,8 @@ export function useFormValidation(schema = {}) {
     return null;
   }, [schema]);
 
-  const validateAll = useCallback((values) => {
-    const allErrors = {};
+  const validateAll = useCallback((values: Record<string, any>): ValidationResult => {
+    const allErrors: Record<string, string> = {};
     for (const [name, config] of Object.entries(schema)) {
       const value = values[name];
       if (config.required && (!value || (typeof value === 'string' && !value.trim()))) {

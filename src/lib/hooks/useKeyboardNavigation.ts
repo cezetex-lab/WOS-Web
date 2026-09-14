@@ -1,14 +1,22 @@
 // ============================================================
-// useKeyboardNavigation.js - WCAG: Keyboard navigation support
+// useKeyboardNavigation.ts - WCAG: Keyboard navigation support
 // ============================================================
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, RefObject } from 'react';
+
+export interface KeyboardNavigationOptions {
+  onEscape?: (e: KeyboardEvent) => void;
+  onEnter?: (e: KeyboardEvent) => void;
+  onArrowUp?: (e: KeyboardEvent) => void;
+  onArrowDown?: (e: KeyboardEvent) => void;
+  enabled?: boolean;
+}
 
 /**
  * Hook for keyboard navigation support
- * @param {object} options - { onEscape, onEnter, onArrowUp, onArrowDown, enabled }
+ * @param options - { onEscape, onEnter, onArrowUp, onArrowDown, enabled }
  */
-export function useKeyboardNavigation(options = {}) {
-  const handleKeyDown = useCallback((e) => {
+export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (options.enabled === false) return;
     
     switch (e.key) {
@@ -16,7 +24,7 @@ export function useKeyboardNavigation(options = {}) {
         options.onEscape?.(e);
         break;
       case 'Enter':
-        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        if ((e.target as HTMLElement).tagName !== 'INPUT' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
           options.onEnter?.(e);
         }
         break;
@@ -39,10 +47,10 @@ export function useKeyboardNavigation(options = {}) {
 
 /**
  * Trap focus within a container (for modals)
- * @param {React.RefObject} containerRef - Ref to container
- * @param {boolean} active - Whether focus trap is active
+ * @param containerRef - Ref to container
+ * @param active - Whether focus trap is active
  */
-export function useFocusTrap(containerRef, active = false) {
+export function useFocusTrap(containerRef: RefObject<HTMLElement>, active: boolean = false) {
   useEffect(() => {
     if (!active || !containerRef.current) return;
     
@@ -50,10 +58,10 @@ export function useFocusTrap(containerRef, active = false) {
     const focusable = container.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
+    const first = focusable[0] as HTMLElement;
+    const last = focusable[focusable.length - 1] as HTMLElement;
 
-    function handleTab(e) {
+    function handleTab(e: KeyboardEvent) {
       if (e.key !== 'Tab') return;
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();

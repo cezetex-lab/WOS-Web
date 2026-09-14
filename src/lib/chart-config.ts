@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 
 // Dynamic import Chart.js
-let chartLib = null;
+let chartLib: any = null;
 
 async function getChartJS() {
   if (chartLib) return chartLib;
@@ -53,9 +53,9 @@ export const CHART_DEFAULTS = {
 };
 
 // Reusable chart hook
-export function useChart(configFn, deps = []) {
-  const canvasRef = useRef(null);
-  const chartRef = useRef(null);
+export function useChart(configFn: (Chart: any) => any, deps: any[] = []) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartRef = useRef<any>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,8 +86,8 @@ export function useChart(configFn, deps = []) {
 
 // ---- Common chart builders ----
 
-export function buildBarChart(labels, data, color = COLORS.primary) {
-  return (Chart) => ({
+export function buildBarChart(labels: string[], data: number[], color: string = COLORS.primary) {
+  return (Chart: any) => ({
     type: 'bar',
     data: {
       labels,
@@ -107,8 +107,13 @@ export function buildBarChart(labels, data, color = COLORS.primary) {
   });
 }
 
-export function buildLineChart(labels, datasets) {
-  return (Chart) => ({
+export interface LineDataset {
+  label: string;
+  data: number[];
+}
+
+export function buildLineChart(labels: string[], datasets: LineDataset[]) {
+  return (Chart: any) => ({
     type: 'line',
     data: {
       labels,
@@ -136,8 +141,8 @@ export function buildLineChart(labels, datasets) {
   });
 }
 
-export function buildDoughnutChart(labels, data, colors) {
-  return (Chart) => ({
+export function buildDoughnutChart(labels: string[], data: number[], colors?: string[]) {
+  return (Chart: any) => ({
     type: 'doughnut',
     data: {
       labels,

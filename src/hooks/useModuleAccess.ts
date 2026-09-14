@@ -4,16 +4,17 @@
  */
 import { useState, useEffect } from 'react';
 import { supabase, rpc } from '@/lib/supabase-browser';
+import type { UserContext } from '@/types';
 
-export function useModuleAccess(moduleCode, requiredRoleLevel = 1) {
-  const [hasAccess, setHasAccess] = useState(null);
+export function useModuleAccess(moduleCode: string, requiredRoleLevel: number = 1) {
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!moduleCode) return;
     let cancelled = false;
     (async () => {
-      const result = await rpc('check_module_access', {
+      const result = await rpc<boolean>('check_module_access', {
         p_module_code: moduleCode,
         p_required_role_level: requiredRoleLevel,
       });
@@ -29,13 +30,13 @@ export function useModuleAccess(moduleCode, requiredRoleLevel = 1) {
 }
 
 export function useEnabledModules() {
-  const [modules, setModules] = useState([]);
+  const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const result = await rpc('get_enabled_modules');
+      const result = await rpc<any[]>('get_enabled_modules');
       if (!cancelled) {
         setModules(result || []);
         setLoading(false);
@@ -48,7 +49,7 @@ export function useEnabledModules() {
 }
 
 export function useCurrentUserContext() {
-  const [ctx, setCtx] = useState(null);
+  const [ctx, setCtx] = useState<UserContext | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,10 +65,11 @@ export function useCurrentUserContext() {
         return;
       }
 
-      const result = await rpc('get_user_context_by_auth_id', { p_auth_id: user.id });
+      const result = await rpc<Partial<UserContext>>('get_user_context_by_auth_id', { p_auth_id: user.id });
       if (!cancelled) {
         setCtx({
           ...result,
+          ok: result?.ok ?? true,
           is_owner: result?.role === 'owner',
         });
         setLoading(false);

@@ -1,5 +1,131 @@
 // i18n Translation Skeleton (ID + EN)
-const translations = {
+export interface Translations {
+  nav: {
+    dashboard: string;
+    employees: string;
+    attendance: string;
+    leave: string;
+    overtime: string;
+    payroll: string;
+    performance: string;
+    talent: string;
+    learning: string;
+    engagement: string;
+    recruitment: string;
+    organization: string;
+    analytics: string;
+    settings: string;
+    mining: string;
+    estate: string;
+    mill: string;
+    safety: string;
+  };
+  common: {
+    save: string;
+    cancel: string;
+    delete: string;
+    edit: string;
+    add: string;
+    search: string;
+    filter: string;
+    export: string;
+    loading: string;
+    noData: string;
+    confirm: string;
+    back: string;
+    next: string;
+    submit: string;
+    approve: string;
+    reject: string;
+    status: string;
+    date: string;
+    total: string;
+  };
+  employee: {
+    name: string;
+    nrp: string;
+    nik: string;
+    position: string;
+    division: string;
+    joinDate: string;
+    employmentType: string;
+    permanent: string;
+    contract: string;
+    outsourcing: string;
+    intern: string;
+  };
+  payroll: {
+    baseSalary: string;
+    allowance: string;
+    deduction: string;
+    overtimePay: string;
+    netSalary: string;
+    period: string;
+    currency: string;
+  };
+  form: {
+    required: string;
+    invalid: string;
+    emailInvalid: string;
+    phoneInvalid: string;
+    passwordWeak: string;
+    minLength: string;
+    maxLength: string;
+  };
+  settings: {
+    general: string;
+    branding: string;
+    security: string;
+    modules: string;
+    systemConfig: string;
+    saveSuccess: string;
+    saveFailed: string;
+  };
+  dashboard: {
+    welcome: string;
+    overview: string;
+    recentActivity: string;
+    quickActions: string;
+    notifications: string;
+    noNotifications: string;
+  };
+  leave: {
+    type: string;
+    startDate: string;
+    endDate: string;
+    reason: string;
+    days: string;
+    annual: string;
+    sick: string;
+    permission: string;
+  };
+  mining: {
+    equipment: string;
+    production: string;
+    safety: string;
+    fatigue: string;
+    simper: string;
+    jsa: string;
+    blast: string;
+  };
+  estate: {
+    block: string;
+    harvest: string;
+    transport: string;
+    yield: string;
+    ripe: string;
+  };
+  mill: {
+    boiler: string;
+    press: string;
+    qc: string;
+    packing: string;
+    maintenance: string;
+    breakdown: string;
+  };
+}
+
+const translations: Record<string, Translations> = {
   id: {
     nav: { dashboard: 'Dashboard', employees: 'Karyawan', attendance: 'Absensi', leave: 'Cuti', overtime: 'Lembur', payroll: 'Payroll', performance: 'Kinerja', talent: 'Talenta', learning: 'Pelatihan', engagement: 'Engagement', recruitment: 'Rekrutmen', organization: 'Organisasi', analytics: 'Analytics', settings: 'Pengaturan', mining: 'Tambang', estate: 'Perkebunan', mill: 'Pabrik', safety: 'Keselamatan' },
     common: { save: 'Simpan', cancel: 'Batal', delete: 'Hapus', edit: 'Edit', add: 'Tambah', search: 'Cari...', filter: 'Filter', export: 'Ekspor', loading: 'Memuat...', noData: 'Tidak ada data', confirm: 'Konfirmasi', back: 'Kembali', next: 'Selanjutnya', submit: 'Kirim', approve: 'Setuju', reject: 'Tolak', status: 'Status', date: 'Tanggal', total: 'Total' },
@@ -28,19 +154,22 @@ const translations = {
   },
 };
 
-let currentLang = localStorage.getItem("lang") || "id";
+let currentLang: string = localStorage.getItem("lang") || "id";
 
-export function t(key) {
+export function t(key: string): string {
   const keys = key.split(".");
-  let val = translations[currentLang];
+  let val: any = translations[currentLang];
   for (const k of keys) val = val?.[k];
   return val || key;
 }
 
-export function setLang(lang) {
+export function setLang(lang: string): void {
   currentLang = lang;
   localStorage.setItem("lang", lang);
 }
 
-export function getLang() { return currentLang; }
+export function getLang(): string {
+  return currentLang;
+}
+
 export default translations;
