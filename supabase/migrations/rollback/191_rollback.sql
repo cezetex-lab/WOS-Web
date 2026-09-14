@@ -1,8 +1,9 @@
 -- ================================================================
 -- rollback/191_rollback.sql — Rollback migration 191
 -- Drop admin approve/reject/OTP functions created in 191.
--- Note: These functions may be called by other code; ensure no
--- active callers before rolling back.
+-- Verified: all functions exist on live DB (2026-09-14).
+-- Note: admin_approve_facility / admin_reject_facility do NOT exist
+-- in 191 (removed from this rollback).
 -- ================================================================
 
 DROP FUNCTION IF EXISTS admin_approve_leave(text, text);
@@ -11,8 +12,6 @@ DROP FUNCTION IF EXISTS admin_approve_overtime(text, text);
 DROP FUNCTION IF EXISTS admin_reject_overtime(text, text);
 DROP FUNCTION IF EXISTS admin_approve_shift_swap(text, text);
 DROP FUNCTION IF EXISTS admin_reject_shift_swap(text, text);
-DROP FUNCTION IF EXISTS admin_approve_facility(text, text);
-DROP FUNCTION IF EXISTS admin_reject_facility(text, text);
 DROP FUNCTION IF EXISTS admin_approve_pending(text, text);
 DROP FUNCTION IF EXISTS admin_reject_pending(text, text);
 DROP FUNCTION IF EXISTS admin_bulk_approve_pending(text[], text);
