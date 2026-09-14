@@ -1,6 +1,21 @@
+import type { ReactNode, MouseEventHandler } from 'react';
+
+export type CardColor = 'blue' | 'teal' | 'orange' | 'red' | 'purple' | 'green' | 'slate';
+
+export interface MetricCardProps {
+  icon: string; value: number | string; label: string;
+  trend?: string; color?: CardColor; loading?: boolean; onClick?: MouseEventHandler<HTMLDivElement>;
+}
+export interface GlassCardProps {
+  title?: string; icon?: string; accent?: CardColor; className?: string; actions?: ReactNode; children: ReactNode;
+}
+export interface QuickTileProps {
+  icon: string; label: string; color?: CardColor; onClick?: () => void; badge?: number;
+}
+
 // Design System — Card Components
 
-export function MetricCard({ icon, value, label, trend, color = 'blue', loading, onClick }) {
+export function MetricCard({ icon, value, label, trend, color = 'blue', loading, onClick }: MetricCardProps) {
   const colors = { blue: 'from-blue-500/20 to-blue-600/5 border-blue-500/20', teal: 'from-teal-500/20 to-teal-600/5 border-teal-500/20', orange: 'from-orange-500/20 to-orange-600/5 border-orange-500/20', red: 'from-red-500/20 to-red-600/5 border-red-500/20', purple: 'from-purple-500/20 to-purple-600/5 border-purple-500/20', green: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/20', slate: 'from-slate-500/20 to-slate-600/5 border-slate-500/20' };
   const trendColors = { blue: 'text-blue-400 bg-blue-400/15', teal: 'text-teal-400 bg-teal-400/15', orange: 'text-orange-400 bg-orange-400/15', red: 'text-red-400 bg-red-400/15', purple: 'text-purple-400 bg-purple-400/15', green: 'text-emerald-400 bg-emerald-400/15', slate: 'text-slate-400 bg-slate-400/15' };
   if (loading) return <div className="animate-pulse bg-slate-700/30 rounded-2xl h-28 border border-white/5" />;
@@ -18,7 +33,7 @@ export function MetricCard({ icon, value, label, trend, color = 'blue', loading,
   );
 }
 
-export function GlassCard({ title, icon, accent = 'teal', children, className = '', actions }) {
+export function GlassCard({ title, icon, accent = 'teal', children, className = '', actions }: GlassCardProps) {
   const accents = { teal: 'border-l-teal-400', blue: 'border-l-blue-400', orange: 'border-l-orange-400', red: 'border-l-red-400', purple: 'border-l-purple-400', green: 'border-l-emerald-400', slate: 'border-l-slate-400' };
   return (
     <div className={`bg-slate-800/40 backdrop-blur-md rounded-2xl p-5 border border-white/5 border-l-4 ${accents[accent]} shadow-xl transition-all duration-200 hover:bg-slate-800/50 ${className}`}>
@@ -36,7 +51,7 @@ export function GlassCard({ title, icon, accent = 'teal', children, className = 
   );
 }
 
-export function QuickTile({ icon, label, color = 'slate', onClick, badge }) {
+export function QuickTile({ icon, label, color = 'slate', onClick, badge }: QuickTileProps) {
   const bgColors = { slate: 'bg-slate-700/40 hover:bg-slate-600/50', blue: 'bg-blue-500/15 hover:bg-blue-500/25', teal: 'bg-teal-500/15 hover:bg-teal-500/25', orange: 'bg-orange-500/15 hover:bg-orange-500/25', purple: 'bg-purple-500/15 hover:bg-purple-500/25', green: 'bg-emerald-500/15 hover:bg-emerald-500/25', red: 'bg-red-500/15 hover:bg-red-500/25' };
   return (
     <button onClick={onClick} className={`relative flex flex-col items-center justify-center p-3 rounded-2xl ${bgColors[color]} backdrop-blur-sm border border-white/5 transition-all duration-200 hover:border-white/15 active:scale-95`}>
