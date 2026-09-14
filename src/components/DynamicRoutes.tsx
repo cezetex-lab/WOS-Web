@@ -5,14 +5,15 @@
  * Maps route_component → lazy React component via route-config.js.
  * No hardcoded routes — add modules from Owner Dashboard → Module Management.
  */
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect, ComponentType } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
 import { rpc } from '@/lib/supabase-browser';
 import { getComponent } from '@/lib/route-config';
 import LazyLoad from './LazyLoad';
 import ErrorBoundary from './ErrorBoundary';
 
-function RouteWrapper({ Component, name }) {
+interface DynamicRoutesProps { withNav?: boolean; }
+function RouteWrapper({ Component, name }: { Component: ComponentType<any>; name?: string }) {
   // key by component name: remounts ErrorBoundary on route change so an
   // error caught on one page isn't shown on every later page.
   return (
@@ -57,7 +58,7 @@ function areaFromPath(pathname) {
 
 const normalizePath = p => ((p || '').replace(/\/+$/, '') || '/');
 
-export default function DynamicRoutes({ withNav }) {
+export default function DynamicRoutes({ withNav }: DynamicRoutesProps) {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const location = useLocation();

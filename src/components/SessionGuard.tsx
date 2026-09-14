@@ -4,7 +4,8 @@ import { getSession, initSession, supabase } from '@/lib/supabase-browser';
 
 const PUBLIC_ROUTES = ['/', '/owner', '/owner/dashboard'];
 
-export default function SessionGuard({ children }) {
+interface SessionGuardProps { children?: React.ReactNode; }
+export default function SessionGuard({ children }: SessionGuardProps) {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
 

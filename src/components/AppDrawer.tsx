@@ -1,3 +1,5 @@
+interface AppDrawerProps { open: boolean; onClose: () => void; }
+
 // src/components/AppDrawer.jsx
 // Drawer navigasi: sumber utama = menu dinamis dari module_definitions
 // (buildMenu, A12). Konstanta di bawah HANYA fallback saat menu dinamis

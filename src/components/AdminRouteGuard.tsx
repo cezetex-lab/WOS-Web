@@ -116,7 +116,8 @@ const ROLE_ACCESS = {
 };
 
 
-export default function AdminRouteGuard({ children }) {
+interface AdminRouteGuardProps { children?: React.ReactNode; }
+export default function AdminRouteGuard({ children }: AdminRouteGuardProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const session = getSession();
