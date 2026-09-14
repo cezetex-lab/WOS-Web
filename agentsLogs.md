@@ -21,17 +21,18 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 ---
 ## [2026-09-13] F-10 — run_171.mjs read DB URL from .env.local — DONE
 - Status: DONE
-- Commit: (pending)
+- Commit: 73209ad
 - Ringkasan: run_171.mjs sekarang baca DATABASE_URL dari .env.local (sama seperti Python scripts). Posisi argv tidak lagi dipakai untuk DB URL. --db-url flag tersedia untuk CI/special cases. Menghindari leak kredensial di shell history / process logs.
 - Bukti: tidak ada perubahan behavior — script tetap jalan, hanya sumber DB URL yang berubah.
 
 ## [2026-09-13] §6 Login Refactor — step 1-3 (DB + UI + E2E) — PARTIAL
-- Status: PARTIAL (step 4-6 belum: MFA enforcement, deploy)
-- Commit: ce8ceb2
+- Status: DONE (step 1-4 done; step 5 skip, step 6 deploy done)
+- Commit: ce8ceb2 (step 1-3), (pending) (step 4)
 - Ringkasan:
   - Step 1 (DB): `login_worker_by_email(email, password)` RPC — migration 216. Delegates ke `login_worker` setelah resolve NRP+NIK dari email. Return NIK agar `provisionWorkerAuth` tetap jalan (Opsi A). Lockout by email (5 attempts/15min).
   - Step 2 (UI): Home.jsx — Worker + Dashboard tab default Email+Password form. Toggle "Masuk dengan NRP" untuk fallback NRP+NIK+Password. `submitWorkerCredentials` branch by `loginMode`. Rate limiter `login_worker_by_email` (5/5min).
   - Step 3 (E2E): mock `loginAsWorker()` email mode, `loginAsWorkerByNrp()` NRP fallback, handler `login_worker_by_email` (return NIK). Tests updated: login-flow, worker-auth-mfa-flow, home.spec.
+  - Step 4 (MFA): optional semua role. Dashboard MFA form gap fixed (tab === 'dashboard' ditambahkan ke MFA form). Alert placeholder updated dari "akan segera tersedia" → "Login dulu, lalu buka menu MFA Setup".
   - Registrasi: email wajib, NIK wajib 16 digit (validasi frontend + backend).
 - Bukti: lint 0 error, unit 100/100, build EXIT 0; migration 216 applied live ALL OK (invalid email, unregistered, wrong password all return correct errors).
 - Catatan: existing workers (NRP001 dst) punya NIK = NRP (bukan 16 digit) — tidak masalah, validasi 16 digit hanya di form registrasi baru.

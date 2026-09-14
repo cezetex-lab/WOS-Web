@@ -736,7 +736,7 @@ export default function Home() {
             </span>
             <span style={S.link} onClick={() => setLoginStep('register')}>Daftar Baru</span>
             <span style={S.link} onClick={() => setLoginStep('cek_daftar')}>Cek Daftar</span>
-            <span style={S.link} onClick={() => alert('MFA Setup akan segera tersedia.')}>MFA Setup</span>
+            <span style={S.link} onClick={() => alert('Login dulu, lalu buka menu MFA Setup di halaman utama.')}>MFA Setup</span>
           </div>
         </form>
       )}
@@ -866,8 +866,8 @@ export default function Home() {
         </form>
       )}
 
-      {/* Worker MFA Step */}
-      {tab === 'worker' && loginStep === 'mfa' && (
+      {/* Worker + Dashboard MFA Step */}
+      {(tab === 'worker' || tab === 'dashboard') && loginStep === 'mfa' && (
         <form onSubmit={submitWorkerMfa} style={S.form}>
           <div style={S.otpInfo}>🔐 Verifikasi MFA untuk NRP: <strong>{mfaNrp}</strong></div>
           <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', marginBottom: '12px' }}>
@@ -899,7 +899,7 @@ export default function Home() {
 
           <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : 'Verifikasi Password'}</button>
           <div style={S.links}>
-            <span style={S.link} onClick={() => alert('MFA Setup akan segera tersedia.')}>MFA Setup</span>
+            <span style={S.link} onClick={() => alert('Login dulu, lalu buka menu MFA Setup di halaman utama.')}>MFA Setup</span>
           </div>
         </form>
       )}
@@ -990,7 +990,7 @@ export default function Home() {
             <span style={S.link} onClick={() => setLoginMode(loginMode === 'email' ? 'nrp' : 'email')}>
               {loginMode === 'email' ? 'Masuk dengan NRP' : 'Masuk dengan Email'}
             </span>
-            <span style={S.link} onClick={() => alert('MFA Setup akan segera tersedia.')}>MFA Setup</span>
+            <span style={S.link} onClick={() => alert('Login dulu, lalu buka menu MFA Setup di halaman utama.')}>MFA Setup</span>
           </div>
         </form>
       )}

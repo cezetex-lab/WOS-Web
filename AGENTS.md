@@ -102,7 +102,7 @@
   - [x] (1) DB: RPC `login_worker_by_email(email,password)` — migration 216, return NIK untuk provisionWorkerAuth
   - [x] (2) UI: form email+password worker/dashboard + toggle "Masuk dengan NRP" (fallback)
   - [x] (3) E2E: mock `loginAsWorker` email mode + `loginAsWorkerByNrp` + handler `login_worker_by_email`
-  - [ ] (4) MFA: optional worker, wajib admin/dashboard (belum diubah)
+  - [x] (4) MFA: optional semua role — dashboard MFA form gap fixed, alert placeholder updated
   - [ ] (5) edge `worker-auth-sync` — tidak perlu ubah (Opsi A: NIK dari RPC)
   - [ ] (6) deploy: lint/test/build → `vercel --prod`
 - **Keputusan desain:** Opsi A — `login_worker_by_email` return NIK, sehingga `provisionWorkerAuth(nrp,nik,pass)` tetap berfungsi tanpa ubah edge function. Email wajib di registrasi, NIK wajib 16 digit.
