@@ -1,18 +1,28 @@
-import { Component } from 'react';
+import { Component, ReactNode, ComponentType } from 'react';
+
+interface ErrorBoundaryProps {
+  fallbackName?: string;
+  children?: ReactNode;
+}
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: { componentStack?: string } | null;
+}
 
 // Per-domain ErrorBoundary — catches errors within a domain module
 // without crashing the entire app
-export default class ErrorBoundary extends Component {
-  constructor(props) {
+export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     this.setState({ errorInfo });
     // Report to PostHog if available
     try {
@@ -60,8 +70,8 @@ export default class ErrorBoundary extends Component {
 }
 
 // HOC: wraps any component with ErrorBoundary
-export function withErrorBoundary(WrappedComponent, name) {
-  return function ErrorBoundaryWrapper(props) {
+export function withErrorBoundary(WrappedComponent: ComponentType<any>, name?: string) {
+  return function ErrorBoundaryWrapper(props: any) {
     return (
       <ErrorBoundary fallbackName={name || WrappedComponent.displayName || WrappedComponent.name}>
         <WrappedComponent {...props} />

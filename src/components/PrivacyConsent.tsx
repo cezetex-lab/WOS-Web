@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 
 const CONSENT_KEY = 'wos_privacy_consent';
 
-export function usePrivacyConsent() {
+export interface PrivacyConsentProps {
+  onAccept?: () => void;
+}
+
+export function usePrivacyConsent(): { consented: boolean; accept: () => void } {
   const [consented, setConsented] = useState(() => {
     try {
       return localStorage.getItem(CONSENT_KEY) === 'true';
@@ -17,7 +21,7 @@ export function usePrivacyConsent() {
   return { consented, accept };
 }
 
-export default function PrivacyConsent({ onAccept }) {
+export default function PrivacyConsent({ onAccept }: PrivacyConsentProps) {
   const [show, setShow] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
