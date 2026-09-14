@@ -416,3 +416,21 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   - 211: drop INSTEAD OF triggers on employees_master VIEW
   - 212: unschedule pg_cron jobs
 - Bukti: 18 rollback scripts present, no typos (grep IFACES check clean), all semicolons present.
+
+
+## [2026-09-14] Session summary — N1 + N4 + R4 (migrations 215 + rollback scripts)
+- Status: DONE (all items verified against live DB)
+- N1 (AI RAG Access Filtering): RLS policies on ai_documents (admin=all, worker=own-BU),
+  ai_conversations (own only), ai_rate_limits (own rows, admin=all). Fixed match_documents
+  precedence bug. Secured upsert_document with SECURITY DEFINER + admin auth check.
+  REVOKE anon/PUBLIC from match_documents + upsert_document.
+- N4 (AI Rate Limit Tuning): Role-based daily limits — worker=15, admin=30, manager=50,
+  owner=unlimited. Warning at 80%. Added role_level column to ai_rate_limits. Edge function
+  uses DB-backed RPC. Frontend shows remaining queries + warning banner.
+- R4 (Rollback Scripts): 18 rollback scripts (183-214). Initial write had 18 errors
+  (referenced functions that don't exist on live DB). Fixed after live verification:
+  183: rewritten with correct column lists; 191: removed non-existent approve/reject facility;
+  193: removed non-existent atomic_rate_limit; 194: replaced 16 admin_update_worker_* with
+  actual functions (clock_in, clock_out, get_narrative, etc.).
+- Commits: 87eedeb (N1+N4), 52ba974 (docs), 53f721b (R4 initial), 4ebae99 (R4 fixes)
+- Bukti: live DB verification (0 errors), lint 0, tests 100/100, build EXIT 0

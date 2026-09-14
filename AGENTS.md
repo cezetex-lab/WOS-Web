@@ -192,22 +192,8 @@
 - [ ] Convert SQL RPCs to TypeScript edge functions (Supabase Edge Functions)
 - [ ] Type-safe RPC calls with generated Supabase types
 - [ ] Shared validation library (Zod) for input validation
-- [ ] Remove raw SQL from frontend, use typed client
-
-### Other TODOs (OPEN)
-- [x] **B2**: `login_admin` migration to Supabase Auth — DONE: admin already uses Supabase Auth; deprecated `login_admin` RPC dropped (migration 217)
-- [x] **N1**: AI RAG document access filtering (extend to all modules) — DONE: migration 215, RLS on ai_* tables, fixed match_documents precedence bug
-- [x] **N4**: AI query rate limit tuning — DONE: migration 215, role-based (worker=15, admin=30, manager=50, owner=unlimited), warning at 80%
-- [x] **I1**: Resolve duplicate tables — DONE: forensic audit (259 tables, 211 empty). Dropped3legacy: `mill_boiler`, `mfa_store`, `hr_preview_data` (migration 218). `review_360`→`reviews_360`, `okrs`→`hr_okrs` sudah resolved sebelumnya.
-- [ ] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash)
-- [x] **R4**: Write rollback scripts for all critical migrations — DONE: 18 rollback scripts (183-214)
-
-### DONE (catat di agentsLogs.md, jangan di sini)
-- [x] **I5**: Split `employees_master` God Table → `employees_core` + `employees_extended` (migration 183)
-- [x] **P1**: Data retention cleanup job (pg_cron) — migration 186
-- [x] **M3**: Auto-refresh materialized view (035) via pg_cron — migration 186
-- [x] Q1–Q4: Automated RPC / IDOR / RLS / PrivEsc tests (migration 184, 47/47 pass)
-- [x] E2E setup: Playwright config + login-flow.spec.js + role-change.spec.js
+- [ ] Remove raw SQL from frontend, use typed client### Other TODOs (OPEN)
+- [ ] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash)
 
 ## 10. STATE OPEN — Disaster Recovery (operasi; asal: `Readme/DR_PLAN.md`)
 
