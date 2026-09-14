@@ -78,7 +78,7 @@ export const MOCK_USERS = {
   },
 };
 
-export const WORKER_LOGIN = { nrp: MOCK_USERS.worker.nrp, nik: '1234567890', password: 'Test123!' };
+export const WORKER_LOGIN = { nrp: MOCK_USERS.worker.nrp, nik: '1234567890', email: MOCK_USERS.worker.email, password: 'Test123!' };
 export const ADMIN_LOGIN = { email: MOCK_USERS.admin_pusat.email, password: 'Admin123!' };
 
 // ─────────────────────────────────────────────────────────────
@@ -155,6 +155,26 @@ function handleRpc(fn, params, state) {
         business_unit: w.business_unit,
         tier: w.tier,
         email: w.email,
+      };
+    }
+
+    case 'login_worker_by_email': {
+      if (state.registeredSessions.size >= state.maxSessions) {
+        return { ok: false, msg: 'Sesi aktif melebihi batas maksimum. Silakan logout dari perangkat lain.' };
+      }
+      const we = MOCK_USERS.worker;
+      return {
+        ok: true,
+        token: 'mock-worker-token',
+        role: we.role,
+        nama: we.nama,
+        nrp: we.nrp,
+        nik: WORKER_LOGIN.nik,
+        role_level: we.role_level,
+        business_unit_id: we.business_unit_id,
+        business_unit: we.business_unit,
+        tier: we.tier,
+        email: we.email,
       };
     }
 
@@ -396,11 +416,28 @@ export async function mockSupabase(page, { maxSessions = Infinity, user = null, 
 }
 
 /**
- * Perform a full worker login through the real UI (with mocked backend).
+ * Perform a full worker login via Email+Password (default mode).
  * Assumes mockSupabase(page) was already called.
  */
 export async function loginAsWorker(page) {
   await page.goto('/');
+  await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
+  await page.locator('input[placeholder*="email"]').fill(WORKER_LOGIN.email);
+  await page.locator('input[placeholder*="password"]').fill(WORKER_LOGIN.password);
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL('**/worker', { timeout: 15000 });
+  await expect(page.getByRole('heading', { name: /Ringkasan Hari Ini/i })).toBeVisible();
+}
+
+/**
+ * Perform a full worker login via NRP+NIK+Password (fallback mode).
+ * Clicks "Masuk dengan NRP" toggle first, then fills the NRP form.
+ * Assumes mockSupabase(page) was already called.
+ */
+export async function loginAsWorkerByNrp(page) {
+  await page.goto('/');
+  await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
+  await page.locator('text=Masuk dengan NRP').click();
   await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
   await page.locator('input[placeholder*="NRP"]').fill(WORKER_LOGIN.nrp);
   await page.locator('input[placeholder*="NIK"]').fill(WORKER_LOGIN.nik);

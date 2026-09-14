@@ -88,7 +88,7 @@
 | — | F-10 | run_171.mjs dll. menerima URL DB via argv — aman asal jangan isi kredensial asli di terminal yang di-log |
 
 
-## 6. PLAN — Login Refactor (asal: docs/TundaPlanLogin.md; status: TERTUNDA, butuh keputusan user)
+## 6. PLAN — Login Refactor (asal: docs/TundaPlanLogin.md; status: IN PROGRESS)
 
 > Goal: Ubah login Worker + Dashboard ikut pola Admin (email + password). Tambah menu
 > DAFTAR|CEK|MFA. OTP tetap ada. MFA optional=worker, wajib=admin/dashboard.
@@ -98,15 +98,17 @@
 - **Rintangan:** jangan ganti signature `login_worker` (dipakai edge+audit); `provisionWorkerAuth`
   wajib untuk auth.uid() di RLS; F-5: NRP002-004,006-008,010 sha256 di `worker_passwords`;
   E2E mock `loginAsWorker(NRP+NIK+pw)` perlu update.
-- **Rencana bertahap:** (1) DB: RPC `login_worker_by_email(email,password)` + helper
-  `get_nrp_by_email`; (2) UI: form email+password worker/dashboard + menu
-  DAFTAR(/daftar)|CEK(/cek-status)|MFA(/mfa-setup); (3) OTP: link "Masuk OTP" (flow NRP+NIK+pass
-  tetap ada); (4) MFA: optional worker, wajib admin/dashboard; (5) edge `worker-auth-sync`
-  provisioning via email; (6) tests: update mock loginAsWorker + handler RPC baru;
-  (7) deploy: db push → edge → lint/test/build → playwright → `vercel --prod`.
+- **Rencana bertahap:**
+  - [x] (1) DB: RPC `login_worker_by_email(email,password)` — migration 216, return NIK untuk provisionWorkerAuth
+  - [x] (2) UI: form email+password worker/dashboard + toggle "Masuk dengan NRP" (fallback)
+  - [x] (3) E2E: mock `loginAsWorker` email mode + `loginAsWorkerByNrp` + handler `login_worker_by_email`
+  - [ ] (4) MFA: optional worker, wajib admin/dashboard (belum diubah)
+  - [ ] (5) edge `worker-auth-sync` — tidak perlu ubah (Opsi A: NIK dari RPC)
+  - [ ] (6) deploy: lint/test/build → `vercel --prod`
+- **Keputusan desain:** Opsi A — `login_worker_by_email` return NIK, sehingga `provisionWorkerAuth(nrp,nik,pass)` tetap berfungsi tanpa ubah edge function. Email wajib di registrasi, NIK wajib 16 digit.
 - **Email mapping:** worker `lower(trim(nrp))@insightwos.internal` (sintetis), admin
   `email@insightwos.com` (real, auth.users).
-- **Files:** migration XXX_login_worker_by_email.sql; worker-auth-sync/index.ts; Home.jsx;
+- **Files:** migration 216_login_worker_by_email.sql; Home.jsx; rate-limiter.js; mock-supabase.js; login-flow.spec.js; worker-auth-mfa-flow.spec.js; home.spec.js;
   tests/e2e/helpers/mock-supabase.js; src/components/MfaSetup.jsx.
 
 ## 7. STATE OPEN — Migration Gap Inventory (karyawan; asal: docs/migration-gap-inventory.md)

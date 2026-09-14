@@ -32,9 +32,9 @@ test.describe('L7: Worker Login Flow E2E', () => {
   test('worker login form exists on home page', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
-    // Check for NRP/NIK input
-    const nrpInput = page.locator('input[placeholder*="NRP"], input[placeholder*="NIK"], input[type="text"]').first();
-    await expect(nrpInput).toBeVisible();
+    // Check for login input (email mode by default)
+    const loginInput = page.locator('input[placeholder*="email"], input[placeholder*="NRP"], input[type="text"]').first();
+    await expect(loginInput).toBeVisible();
   });
 
   test('login with empty fields shows error', async ({ page }) => {

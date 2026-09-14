@@ -13,6 +13,7 @@ const DEFAULT_MAX_REQUESTS = 30;
 // Format: fnName -> { maxRequests, windowMs }
 const FUNCTION_LIMITS = {
   login_worker: { maxRequests: 5, windowMs: 5 * DEFAULT_WINDOW_MS },  // 5 per 5 menit
+  login_worker_by_email: { maxRequests: 5, windowMs: 5 * DEFAULT_WINDOW_MS },  // 5 per 5 menit
   owner_toggle_lock: { maxRequests: 5, windowMs: DEFAULT_WINDOW_MS }, // 5 per menit
 };
 

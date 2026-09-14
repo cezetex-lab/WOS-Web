@@ -74,6 +74,9 @@ export default function Home() {
   const [regEmail, setRegEmail] = useState('');
   const [regDivisi, setRegDivisi] = useState('');
   const [regPosisi, setRegPosisi] = useState('');
+  // Login mode toggle: 'email' (default) or 'nrp' (fallback)
+  const [loginMode, setLoginMode] = useState('email');
+  const [workerEmail, setWorkerEmail] = useState('');
 
   useEffect(() => {
     rpc('get_branding', {}).then(d => {
@@ -118,6 +121,8 @@ export default function Home() {
     setAdminPass('');
     setResetPass('');
     setResetConfirm('');
+    setLoginMode('email');
+    setWorkerEmail('');
   }
 
   // Redirect sesuai TAB ASAL LOGIN — bukan role.
@@ -158,23 +163,33 @@ export default function Home() {
     setError('');
     setLoading(true);
     try {
+      const isEmailMode = loginMode === 'email';
+      const lockId = isEmailMode ? workerEmail : nrp;
+
       // V6: Check lockout before attempting login
-      const lockCheck = await rpc('check_login_lockout', { p_identifier: nrp, p_attempt_type: 'worker' });
+      const lockCheck = await rpc('check_login_lockout', { p_identifier: lockId, p_attempt_type: 'worker' });
       if (lockCheck?.locked) {
         setError(lockCheck.reason || "Akun sementara dikunci");
         setLoading(false);
         return;
       }
 
-      // Direct login via login_worker (return reset_required bila wajib ganti password)
-      const d = await rpc('login_worker', { p_nrp: nrp, p_nik: nik, p_password: pass });
+      let d;
+      if (isEmailMode) {
+        d = await rpc('login_worker_by_email', { p_email: workerEmail, p_password: pass });
+      } else {
+        d = await rpc('login_worker', { p_nrp: nrp, p_nik: nik, p_password: pass });
+      }
       if (!d.ok) {
         setError(d.msg || 'Login gagal');
         setLoading(false);
         return;
       }
+      // Set NRP/NIK from response for downstream functions (finalizeWorkerSession, provisionWorkerAuth)
+      if (d.nrp) setNrp(d.nrp);
+      if (d.nik) setNik(d.nik);
       if (d.reset_required) {
-        setValidatedNrp(nrp);
+        setValidatedNrp(d.nrp || nrp);
         setLoginStep('reset');
         setLoading(false);
         return;
@@ -187,7 +202,7 @@ export default function Home() {
         setLoading(false);
         return;
       }
-      await finalizeWorkerSession(d, { nik, password: pass }, tab);
+      await finalizeWorkerSession(d, { nik: d.nik || nik, password: pass }, tab);
     } catch (err) {
       setError('Koneksi error: ' + err.message);
     }
@@ -680,24 +695,45 @@ export default function Home() {
       {/* Worker Login */}
       {tab === 'worker' && loginStep === 'credentials' && (
         <form onSubmit={submitWorkerCredentials} style={S.form}>
-          <div style={S.field}>
-            <label style={S.label}>NRP</label>
-            <input value={nrp} onChange={e => setNrp(e.target.value)} placeholder="Masukkan NRP" style={S.inp} required />
-          </div>
-          <div style={S.field}>
-            <label style={S.label}>NIK</label>
-            <input value={nik} onChange={e => setNik(e.target.value)} placeholder="Masukkan NIK" style={S.inp} required />
-          </div>
-          <div style={S.field}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <label style={S.label}>Password</label>
-              <a href="/reset-password" style={{ color: "#60a5fa", fontSize: 13 }}>Lupa Password?</a>
-            </div>
-            <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Masukkan password" style={S.inp} required />
-          </div>
+          {loginMode === 'email' ? (
+            <>
+              <div style={S.field}>
+                <label style={S.label}>Email</label>
+                <input type="email" value={workerEmail} onChange={e => setWorkerEmail(e.target.value)} placeholder="Masukkan email" style={S.inp} required />
+              </div>
+              <div style={S.field}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={S.label}>Password</label>
+                  <a href="/reset-password" style={{ color: "#60a5fa", fontSize: 13 }}>Lupa Password?</a>
+                </div>
+                <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Masukkan password" style={S.inp} required />
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={S.field}>
+                <label style={S.label}>NRP</label>
+                <input value={nrp} onChange={e => setNrp(e.target.value)} placeholder="Masukkan NRP" style={S.inp} required />
+              </div>
+              <div style={S.field}>
+                <label style={S.label}>NIK</label>
+                <input value={nik} onChange={e => setNik(e.target.value)} placeholder="Masukkan NIK" style={S.inp} required />
+              </div>
+              <div style={S.field}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={S.label}>Password</label>
+                  <a href="/reset-password" style={{ color: "#60a5fa", fontSize: 13 }}>Lupa Password?</a>
+                </div>
+                <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Masukkan password" style={S.inp} required />
+              </div>
+            </>
+          )}
           <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
 
           <div style={S.links}>
+            <span style={S.link} onClick={() => setLoginMode(loginMode === 'email' ? 'nrp' : 'email')}>
+              {loginMode === 'email' ? 'Masuk dengan NRP' : 'Masuk dengan Email'}
+            </span>
             <span style={S.link} onClick={() => setLoginStep('register')}>Daftar Baru</span>
             <span style={S.link} onClick={() => setLoginStep('cek_daftar')}>Cek Daftar</span>
             <span style={S.link} onClick={() => alert('MFA Setup akan segera tersedia.')}>MFA Setup</span>
@@ -753,9 +789,10 @@ export default function Home() {
         <form onSubmit={async (e) => {
           e.preventDefault(); setLoading(true); setError('');
           try {
+            if (!nik || nik.length !== 16) { setError('NIK harus tepat 16 digit angka'); setLoading(false); return; }
             const r = await rpc('submit_registration', {
               p_nrp: nrp, p_nik: nik, p_nama: regNama, p_password: pass,
-              p_email: regEmail || null, p_divisi: regDivisi || null, p_posisi: regPosisi || null,
+              p_email: regEmail, p_divisi: regDivisi || null, p_posisi: regPosisi || null,
             });
             if (r?.ok) { alert(r.msg); setLoginStep('credentials'); }
             else { setError(r?.msg || 'Gagal mendaftar'); }
@@ -772,15 +809,15 @@ export default function Home() {
           </div>
           <div style={S.field}>
             <label style={S.label}>NIK *</label>
-            <input value={nik} onChange={e => setNik(e.target.value)} placeholder="NIK (minimal 5 karakter)" style={S.inp} required />
+            <input value={nik} onChange={e => setNik(e.target.value.replace(/\D/g, '').slice(0, 16))} placeholder="NIK (16 digit angka)" style={S.inp} required pattern="\d{16}" maxLength={16} inputMode="numeric" title="NIK harus tepat 16 digit angka" />
           </div>
           <div style={S.field}>
             <label style={S.label}>Nama Lengkap *</label>
             <input value={regNama} onChange={e => setRegNama(e.target.value)} placeholder="Nama lengkap" style={S.inp} required />
           </div>
           <div style={S.field}>
-            <label style={S.label}>Email (opsional)</label>
-            <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@contoh.com" style={S.inp} />
+            <label style={S.label}>Email *</label>
+            <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@contoh.com" style={S.inp} required />
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <div style={{ ...S.field, flex: 1 }}>
@@ -915,23 +952,44 @@ export default function Home() {
       {/* Dashboard Login (sama dengan worker, dengan tujuan dashboard) */}
       {tab === 'dashboard' && loginStep === 'credentials' && (
         <form onSubmit={submitWorkerCredentials} style={S.form}>
-          <div style={S.field}>
-            <label style={S.label}>NRP</label>
-            <input value={nrp} onChange={e => setNrp(e.target.value)} placeholder="Masukkan NRP" style={S.inp} required />
-          </div>
-          <div style={S.field}>
-            <label style={S.label}>NIK</label>
-            <input value={nik} onChange={e => setNik(e.target.value)} placeholder="Masukkan NIK" style={S.inp} required />
-          </div>
-          <div style={S.field}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <label style={S.label}>Password</label>
-              <a href="/reset-password" style={{ color: "#60a5fa", fontSize: 13 }}>Lupa Password?</a>
-            </div>
-            <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Masukkan password" style={S.inp} required />
-          </div>
+          {loginMode === 'email' ? (
+            <>
+              <div style={S.field}>
+                <label style={S.label}>Email</label>
+                <input type="email" value={workerEmail} onChange={e => setWorkerEmail(e.target.value)} placeholder="Masukkan email" style={S.inp} required />
+              </div>
+              <div style={S.field}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={S.label}>Password</label>
+                  <a href="/reset-password" style={{ color: "#60a5fa", fontSize: 13 }}>Lupa Password?</a>
+                </div>
+                <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Masukkan password" style={S.inp} required />
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={S.field}>
+                <label style={S.label}>NRP</label>
+                <input value={nrp} onChange={e => setNrp(e.target.value)} placeholder="Masukkan NRP" style={S.inp} required />
+              </div>
+              <div style={S.field}>
+                <label style={S.label}>NIK</label>
+                <input value={nik} onChange={e => setNik(e.target.value)} placeholder="Masukkan NIK" style={S.inp} required />
+              </div>
+              <div style={S.field}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={S.label}>Password</label>
+                  <a href="/reset-password" style={{ color: "#60a5fa", fontSize: 13 }}>Lupa Password?</a>
+                </div>
+                <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Masukkan password" style={S.inp} required />
+              </div>
+            </>
+          )}
           <button type="submit" style={S.btn} disabled={loading}>{btnLabel}</button>
           <div style={S.links}>
+            <span style={S.link} onClick={() => setLoginMode(loginMode === 'email' ? 'nrp' : 'email')}>
+              {loginMode === 'email' ? 'Masuk dengan NRP' : 'Masuk dengan Email'}
+            </span>
             <span style={S.link} onClick={() => alert('MFA Setup akan segera tersedia.')}>MFA Setup</span>
           </div>
         </form>

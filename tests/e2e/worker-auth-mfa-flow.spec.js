@@ -130,8 +130,11 @@ test.describe('L7: Worker login with MFA enabled', () => {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, msg: 'unknown' }) });
     });
 
-    // Navigate + login manually (loginAsWorker would wait for /worker).
+    // Navigate + login manually via NRP mode (loginAsWorker would wait for /worker).
     await page.goto('/');
+    await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
+    await page.locator('text=Masuk dengan NRP').click();
+    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
     await page.locator('input[placeholder*="NRP"]').fill(WORKER_LOGIN.nrp);
     await page.locator('input[placeholder*="NIK"]').fill(WORKER_LOGIN.nik);
     await page.locator('input[placeholder*="password"]').fill(WORKER_LOGIN.password);

@@ -22,21 +22,22 @@ test.describe('L7: Login Flow UI', () => {
     await mockSupabase(page);
   });
 
-  test('home page renders login form with worker tab active', async ({ page }) => {
+  test('home page renders login form with worker tab active (email mode)', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('h1')).toContainText('insightWOS');
     const workerTab = page.locator('button', { hasText: 'Pekerja' });
     await expect(workerTab).toBeVisible();
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
-    await expect(page.locator('input[placeholder*="NIK"]')).toBeVisible();
+    await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
     await expect(page.locator('input[placeholder*="password"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();
+    // NRP/NIK inputs hidden by default (email mode)
+    await expect(page.locator('input[placeholder*="NRP"]')).not.toBeVisible();
   });
 
   test('worker login with empty fields stays on login page', async ({ page }) => {
     await page.goto('/');
     await page.locator('button[type="submit"]').click();
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
+    await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
     expect(page.url()).toContain('/');
   });
 
@@ -47,20 +48,20 @@ test.describe('L7: Login Flow UI', () => {
     await expect(page.locator('input[placeholder*="password"]')).toBeVisible();
   });
 
-  test('dashboard tab shows dashboard login form', async ({ page }) => {
+  test('dashboard tab shows dashboard login form (email mode)', async ({ page }) => {
     await page.goto('/');
     await page.locator('button', { hasText: 'Dashboard' }).click();
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
+    await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
   });
 
   test('tab switching clears form state', async ({ page }) => {
     await page.goto('/');
-    await page.locator('input[placeholder*="NRP"]').fill('TEST123');
-    await page.locator('input[placeholder*="NIK"]').fill('1234567890');
+    await page.locator('input[placeholder*="email"]').fill('test@example.com');
+    await page.locator('input[placeholder*="password"]').fill('secret123');
     await page.locator('button', { hasText: 'Admin' }).click();
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await page.locator('button', { hasText: 'Pekerja' }).click();
-    await expect(page.locator('input[placeholder*="NRP"]')).toHaveValue('');
+    await expect(page.locator('input[placeholder*="email"]')).toHaveValue('');
   });
 });
 
@@ -79,26 +80,25 @@ test.describe('L7: Worker Login -> Dashboard -> Logout (mocked backend)', () => 
     // Logout returns to the login screen.
     await page.getByRole('button', { name: /keluar|logout/i }).first().click();
     await page.waitForURL('http://localhost:5173/', { timeout: 15000 });
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
+    await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
   });
 
   test('wrong credentials show an error and stay on login page', async ({ page }) => {
-    // Override the login_worker mock to simulate rejected credentials.
-    await page.route('**/rest/v1/rpc/login_worker', (route) =>
+    // Override the login_worker_by_email mock to simulate rejected credentials.
+    await page.route('**/rest/v1/rpc/login_worker_by_email', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ ok: false, msg: 'NRP, NIK, atau password salah' }),
+        body: JSON.stringify({ ok: false, msg: 'Email atau password salah' }),
       })
     );
 
     await page.goto('/');
-    await page.locator('input[placeholder*="NRP"]').fill('NRP999');
-    await page.locator('input[placeholder*="NIK"]').fill('0000000000');
+    await page.locator('input[placeholder*="email"]').fill('wrong@test.com');
     await page.locator('input[placeholder*="password"]').fill('wrongpass');
     await page.locator('button[type="submit"]').click();
 
-    await expect(page.locator('body')).toContainText('NRP, NIK, atau password salah');
+    await expect(page.locator('body')).toContainText('Email atau password salah');
     expect(page.url()).toContain('/');
   });
 });
@@ -106,9 +106,12 @@ test.describe('L7: Worker Login -> Dashboard -> Logout (mocked backend)', () => 
 test.describe('L7: Live Worker Login (opt-in, needs real backend)', () => {
   test.skip(!hasCredentials, 'Skipping live login - set TEST_WORKER_NRP, TEST_WORKER_NIK, TEST_WORKER_PASS');
 
-  test('complete worker login flow', async ({ page }) => {
+  test('complete worker login flow (NRP mode)', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
+    // Switch to NRP mode for NRP+NIK login
+    await page.locator('text=Masuk dengan NRP').click();
+    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
     await page.locator('input[placeholder*="NRP"]').fill(WORKER_NRP);
     await page.locator('input[placeholder*="NIK"]').fill(WORKER_NIK);
     await page.locator('input[type="password"]').fill(WORKER_PASS);

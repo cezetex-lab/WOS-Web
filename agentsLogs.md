@@ -19,6 +19,17 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 `git log --oneline` (640 commit di semua ref).
 
 ---
+## [2026-09-13] §6 Login Refactor — step 1-3 (DB + UI + E2E) — PARTIAL
+- Status: PARTIAL (step 4-6 belum: MFA enforcement, deploy)
+- Commit: (pending)
+- Ringkasan:
+  - Step 1 (DB): `login_worker_by_email(email, password)` RPC — migration 216. Delegates ke `login_worker` setelah resolve NRP+NIK dari email. Return NIK agar `provisionWorkerAuth` tetap jalan (Opsi A). Lockout by email (5 attempts/15min).
+  - Step 2 (UI): Home.jsx — Worker + Dashboard tab default Email+Password form. Toggle "Masuk dengan NRP" untuk fallback NRP+NIK+Password. `submitWorkerCredentials` branch by `loginMode`. Rate limiter `login_worker_by_email` (5/5min).
+  - Step 3 (E2E): mock `loginAsWorker()` email mode, `loginAsWorkerByNrp()` NRP fallback, handler `login_worker_by_email` (return NIK). Tests updated: login-flow, worker-auth-mfa-flow, home.spec.
+  - Registrasi: email wajib, NIK wajib 16 digit (validasi frontend + backend).
+- Bukti: lint 0 error, unit 100/100, build EXIT 0; migration 216 applied live ALL OK (invalid email, unregistered, wrong password all return correct errors).
+- Catatan: existing workers (NRP001 dst) punya NIK = NRP (bukan 16 digit) — tidak masalah, validasi 16 digit hanya di form registrasi baru.
+
 ## [2026-09-14] §7 Migration Gap Inventory (karyawan) — DONE
 - Status: DONE
 - Commit: ccb89c2 (deploy: https://insightwos.vercel.app ✓ Ready in 22s; migration 215 applied live, ALL OK)
@@ -343,7 +354,7 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 - Phase F: 100+ admin routes registered in module_definitions — all present.
 - Phase G: Worker login flaky + false positive regex — closed per agentsLogs 2026-09-11
   (L-4/L-5 DONE). AGENTS.md had stale entry — now removed.
-- Phase H: = Tahap 5 — all items 5.3-5.11 DONE.
+- Phase H: = Tahap 5 — all items 5.3-5.11 DONE.
 
 ## [2026-09-13] Forensic report cross-check — post-migration verification
 - Status: VERIFIED
