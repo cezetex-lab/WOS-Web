@@ -445,3 +445,19 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 - Applied to live DB + verified (0 issues)
 - Commits: 02f0b35
 - Gates: lint 0 errors, tests 100/100, build EXIT 0, secret scan clean
+
+
+## [2026-09-14] §6 Login Refactor — DEPLOYED + O5 Hash-chain Audit Log
+- Status: BOTH DONE
+- §6 Login Refactor: deployed to production (vercel --prod) + edge function (ai-copilot)
+  - Worker email+password login now live
+  - MFA optional all roles
+  - Step 5 (edge worker-auth-sync): no change needed (Opsi A)
+- O5 Hash-chain Audit Log (migration 220):
+  - Added prev_hash + row_hash columns to audit_log
+  - BEFORE INSERT trigger: auto-compute SHA-256 chain
+  - Backfilled all 162 existing rows
+  - verify_audit_chain(): detects BROKEN_LINK + TAMPERED rows
+  - Chain verified: 0 issues
+- Commits: §6 deploy (vercel), O5 = 4aeff4f
+- Gates: lint 0 errors, tests 100/100, build EXIT 0

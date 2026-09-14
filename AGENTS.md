@@ -88,7 +88,7 @@
 | — | ~~F-10~~ | ~~run_171.mjs dll. menerima URL DB via argv~~ → DONE: baca dari .env.local, --db-url override optional |
 
 
-## 6. PLAN — Login Refactor (asal: docs/TundaPlanLogin.md; status: IN PROGRESS)
+## 6. PLAN — Login Refactor (asal: docs/TundaPlanLogin.md; status: DONE ✅)
 
 > Goal: Ubah login Worker + Dashboard ikut pola Admin (email + password). Tambah menu
 > DAFTAR|CEK|MFA. OTP tetap ada. MFA optional=worker, wajib=admin/dashboard.
@@ -188,7 +188,7 @@
 - [ ] Type-safe RPC calls with generated Supabase types
 - [ ] Shared validation library (Zod) for input validation
 - [ ] Remove raw SQL from frontend, use typed client### Other TODOs (OPEN)
-- [ ] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash)
+- [x] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash) — DONE: migration 220, prev_hash+row_hash columns, BEFORE INSERT trigger, verify_audit_chain() function
 
 
 ## 10. STATE OPEN — Disaster Recovery (operasi; asal: `Readme/DR_PLAN.md`)
