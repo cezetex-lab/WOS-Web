@@ -195,7 +195,7 @@
 - [ ] Remove raw SQL from frontend, use typed client
 
 ### Other TODOs (OPEN)
-- [ ] **B2**: `login_admin` migration to Supabase Auth (bcrypt via `auth.users`)
+- [x] **B2**: `login_admin` migration to Supabase Auth — DONE: admin already uses Supabase Auth; deprecated `login_admin` RPC dropped (migration 217)
 - [ ] **N1**: AI RAG document access filtering (extend to all modules)
 - [ ] **N4**: AI query rate limit tuning (currently 50/day, adjust based on usage)
 - [ ] **I1**: Resolve duplicate tables (mill_boiler 052 vs 074, okrs vs hr_okrs)

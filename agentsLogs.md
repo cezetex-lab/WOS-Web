@@ -19,6 +19,12 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 `git log --oneline` (640 commit di semua ref).
 
 ---
+## [2026-09-13] B2 — drop deprecated login_admin RPC — DONE
+- Status: DONE
+- Commit: (pending)
+- Ringkasan: Admin login sudah pakai Supabase Auth (signInWithPassword + get_user_context_by_auth_id). `login_admin` RPC deprecated sejak migration 141, return {ok:false, deprecated:true}. Dropped: REVOKE + DROP function. Migration 217.
+- Bukti: pg_proc check post-drop: login_admin exists = False.
+
 ## [2026-09-13] F-10 — run_171.mjs read DB URL from .env.local — DONE
 - Status: DONE
 - Commit: 73209ad
