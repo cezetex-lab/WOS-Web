@@ -15,14 +15,14 @@ test.describe('L7: Worker Protected Route Redirects', () => {
 
   test('/worker redirects to home when not authenticated', async ({ page }) => {
     await page.goto('/worker');
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('input[placeholder*="email"]')).toBeVisible({ timeout: 15000 });
     expect(page.url()).toBe('http://localhost:5173/');
   });
 
   test('/worker sub-routes redirect to home when not authenticated', async ({ page }) => {
     for (const route of ['/worker/attendance', '/worker/payroll', '/worker/leave']) {
       await page.goto(route);
-      await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible({ timeout: 15000 });
+      await expect(page.locator('input[placeholder*="email"]')).toBeVisible({ timeout: 15000 });
       expect(page.url(), `expected redirect to home after visiting ${route}`).toBe('http://localhost:5173/');
     }
   });

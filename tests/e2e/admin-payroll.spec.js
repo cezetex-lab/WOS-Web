@@ -45,13 +45,13 @@ test.describe('L7: Admin Protected Route Redirects', () => {
 
   test('/admin redirects to home when not authenticated', async ({ page }) => {
     await page.goto('/admin');
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 15000 });
     expect(page.url()).toBe('http://localhost:5173/');
   });
 
   test('/admin/payroll redirects to home when not authenticated', async ({ page }) => {
     await page.goto('/admin/payroll');
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 15000 });
     expect(page.url()).toBe('http://localhost:5173/');
   });
 
