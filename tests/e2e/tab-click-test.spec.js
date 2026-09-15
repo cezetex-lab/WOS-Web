@@ -4,6 +4,10 @@
  */
 import { test, expect } from '@playwright/test';
 
+// Live-backend diagnostic: uses real credentials against a running deployment.
+// Opt in with E2E_LIVE=1 so the default suite stays hermetic (mocked) and green.
+test.skip(!process.env.E2E_LIVE, 'Live diagnostic — set E2E_LIVE=1 and TEST_BASE_URL to run');
+
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:5173';
 const ADMIN = { email: 'pusat@insightwos.com', pass: 'Admin123!' };
 

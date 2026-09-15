@@ -19,6 +19,12 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 `git log --oneline` (640 commit di semua ref).
 
 ---
+## [2026-09-15] Phase 2 helper fix — OwnerDashboard `\n` corruption — DONE
+- Status: DONE
+- Commit: (pending)
+- Ringkasan: Helper `scripts/fix_dashboard.ts` (Phase 2 .jsx→.tsx typing codemod) interrupted mid-write at line 146 — injected literal `\n` instead of a real newline, so `src/pages/OwnerDashboard.tsx` line 156 became `\nexport default function OwnerDashboard() {` (TS1127 invalid character). Fixed the file to a clean `export default function OwnerDashboard() {` and repaired the helper (its `interfaces` template already ends in a newline, so it now injects without the stray `\n`). Build restored to green.
+- Bukti: pre-fix `npm run build` FAILED (TS1127); post-fix `npm run build` EXIT 0 (built 17.7s). `tsc --noEmit` still lists hundreds of pre-existing strict-type errors across the 70-file WIP — out of scope for this ticket (project gate = vite build, not a clean tsc).
+- Catatan: mojibake `â€”` in comments is pre-existing WIP noise in the working tree, left untouched.
 ## [2026-09-13] I1 — Forensic audit duplicate tables + drop legacy — DONE
 - Status: DONE
 - Commit: e659ead
@@ -461,3 +467,43 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   - Chain verified: 0 issues
 - Commits: §6 deploy (vercel), O5 = 4aeff4f
 - Gates: lint 0 errors, tests 100/100, build EXIT 0
+
+
+## [2026-09-14] TypeScript Migration — Phase 1 (branch: typescript-migration)
+- Status: DONE (Phase 1 of 3)
+- Branch: typescript-migration (isolated from migrasi-vite)
+- Phase 1 deliverables:
+  - tsconfig.json: strict mode, bundler resolution, path aliases (@/*)
+  - src/types/index.ts: 25+ shared interfaces (Employee, Payroll, RPC, etc.)
+  - src/lib/supabase-rpc.ts: typed RPC wrapper with overloads
+  - src/lib/validation/schemas.ts: Zod v4 schemas for all forms
+  - Converted 5 core lib files .js → .ts: supabase-browser, rate-limiter, edge-functions, route-config, menu-builder
+  - src/vite-env.d.ts: ambient declarations for .jsx imports + env vars
+- Gates: tsc --noEmit 0 errors, build EXIT 0, tests 100/100
+- Commit: 689478f
+- Remaining Phase 2: convert .jsx → .tsx (18 JS files in src/lib/hooks + src/components + src/features)
+## [2026-09-14] TypeScript Migration — Phase 2 (interrupted session resumed): helper .js → .ts
+- Status: DONE (sub-batch helper lib/hooks; sisa Phase 2 .jsx→.tsx tetap OPEN)
+- Branch: typescript-migration
+- Ringkasan: Melanjutkan sesi yang terputus (files/tidak selesai migrasi JS ke TS.txt). Konversi 13 helper `.js` → `.ts` + hapus `.js`, bersihkan import `.js` di src, dan perbaiki error tipe TS:
+  - .js → .ts: useAdminAuth, useModuleAccess, business-units, chart-config, format, useFormValidation, useI18n(+index,translation object pindah ke index.ts), useKeyboardNavigation, log-error, posthog, push-notifications, validation/security
+  - Perbaiki type: business-units.ts/posthog.ts (cast sesi `getSession() as UserSession`), useModuleAccess.ts (rpc generic <boolean>/<any[]> + `ok` & `is_owner` eksplisit), types/index.ts (+`is_owner?` di UserContext), posthog.ts (hapus `session_recording` invalid + `as any` utk kunci legacy + `PostHog` type utk `loaded`), push-notifications.ts (BufferSource, `vibrate` cast, `return null`)
+  - Import `.js` di src → tidak bersisa; import tanpa ekstensi sudah ada di HEAD (Phase 1). `M` pada .jsx = hanya churn line-ending CRLF (isi sama), tidak distage.
+- Keterangan flake: run full test 2x muncul 2-3 timeout (vitest-worker boot / import 5s) akibat beban mesin; DIJALANKAN ULANG ISOLASI → 12/12 lolos instan. Bukan kegagalan logika.
+- Gates: tsc --noEmit 0 error, build EXIT 0, lint 0 error (385 warning pre-existing), tests 100/100 fungsional.
+- Commit: (lihat reflog) — push ke origin/typescript-migration. DEPLOY ditahan (branch migrasi, bukan prod; menunggu keputusan user).
+- Sisa Phase 2 OPEN: convert `.jsx` → `.tsx` (src/components + src/features + sisa).
+
+## [2026-09-15] TypeScript Migration — Phase 2 SELESAI (`.jsx` → `.tsx`, tsc 0 error) + E2E hijau — DONE
+- Status: DONE
+- Branch: typescript-migration
+- Commit: 3962321 → push `origin/typescript-migration` (DEPLOY ditahan: branch migrasi terisolasi, menunggu keputusan merge ke `migrasi-vite`)
+- Ringkasan: Menuntaskan sisa Phase 2. Semua `src/**/*.jsx` sudah di-rename `.tsx` oleh helper, tapi masih **199 error `tsc --noEmit`**. Diperbaiki sampai **0 error** — akar masalah dulu, bukan tambal per call-site:
+  - design-system (satu perbaikan mematikan ~60 error): `CardColor` dibuka jadi `string` (caller mengirim nilai DB seperti `'info'`), `Badge` menerima `children`/`variant`/`color`, `EmptyState` menerima `message`/`description`, `Column.render` param dilonggarkan, `DataTable.data` jadi `any[]`, `Tabs` menerima `id`/`key`
+  - `useState({})` → `useState<Record<string, any>>({})` (8 file), ~30 peta status literal (`STATUS_CONFIG`, `SHIFT_COLORS`, …) dianotasi `Record<string, …>`, ~60 callback implicit-`any` diberi tipe eksplisit
+- **2 bug runtime nyata yang terbongkar compiler:**
+  1. `toast(...)` dipanggil sebagai fungsi di `SafetyK3.tsx`, `FacilityRequest.tsx`, `HarvestRecord.tsx` — padahal `useToast()` mengembalikan objek `{success, error, …}` → `toast is not a function` saat runtime (sisa kerja Tahap 5.5 dead-forms). Diganti `toast.error(...)` / `toast.success(...)` sesuai 15 call-site lain.
+  2. `Home.tsx` rusak encoding akibat codemod rename — bukan cuma komentar: **string yang dirender** pun jadi mojibake (tombol kembali tampil sampah, bukan `←`; emoji `🔑 📝 🔍 🔐 📤` dan semua `—` hancur), plus **newline hilang di 3 tempat** sehingga baris komentar tergabung. Dipulihkan byte-exact dari blob pra-rename `2ccaa95^:src/pages/Home.jsx` (terverifikasi identik dengan HEAD). Mojibake em-dash di `OwnerDashboard.tsx` (sudah ter-commit) ikut dibersihkan. Scan seluruh repo: 0 mojibake / 0 C1-control / 0 komentar tergabung.
+- Lint: **0 error** (buang direktif `@typescript-eslint/no-explicit-any` yang basi — plugin-nya tidak dimuat di config Babel-parser saat ini, jadi direktifnya sendiri yang jadi error — dan bereskan irregular whitespace).
+- E2E Playwright: **51 passed / 0 failed** (sebelumnya 9 gagal). Akar 6 kegagalan admin/dashboard: mock TIDAK pernah meng-intersep edge `password-reset`, sehingga login menembus edge produksi yang rate-limiter-nya menjawab "Terlalu banyak request OTP". Ditambah route mock `password-reset` (`login_otp` → `dev_code`, `verify_login_otp`), handler RPC `verify_admin_otp`, dan `loginAsAdmin` kini menjalankan alur 2 langkah password → OTP yang sebenarnya. `concurrent-session.spec.js` masih memakai selector mode-NRP (form kini default mode email); `home.spec.js` terhalang modal persetujuan privasi. 3 spec diagnostik ber-kredensial live (`diag-login`, `full-sweep`, `tab-click-test`) di-gate di balik `E2E_LIVE=1` — menyumbang 13 skip.
+- Bukti: `tsc --noEmit` 0 error · `eslint src/` 0 error (393 warning pre-existing) · `vitest run` 100/100 (14 file) · `vite build` EXIT 0 · `npx playwright test` 51 passed / 0 failed / 13 skipped. Secret scan diff staged: bersih. Artefak (`WOS-Web.rar`, `forensic_report.md`, `FuturePlans.md`, `supabase/GAS sebelum refaktor/`, `supabase/scripts/forensic_audit.py`, `tmperr/`, `test-results/`) TIDAK ikut ter-commit.

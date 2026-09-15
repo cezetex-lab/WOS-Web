@@ -27,6 +27,9 @@ const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // ─────────────────────────────────────────────────────────────
 // Mock users (worker + admin roles used across the 5 flows)
 // ─────────────────────────────────────────────────────────────
+/** OTP digit string the mocked edge/RPC layer accepts. */
+export const MOCK_OTP = '123456';
+
 export const MOCK_USERS = {
   worker: {
     id: '00000000-0000-0000-0000-000000000001',
@@ -138,6 +141,24 @@ function handleRpc(fn, params, state) {
 
     case 'check_login_lockout':
       return { locked: false };
+
+    // Admin OTP verification (tab admin). Identity comes from the verified
+    // OTP, never from client input — mirror that by returning the mock admin.
+    case 'verify_admin_otp': {
+      if (String(params.p_code) !== MOCK_OTP) return { ok: false, msg: 'OTP salah' };
+      const a = u || MOCK_USERS.admin_pusat;
+      return {
+        ok: true,
+        token: 'mock-admin-token',
+        role: a.role,
+        nama: a.nama,
+        nrp: a.nrp,
+        role_level: a.role_level,
+        business_unit_id: a.business_unit_id,
+        business_unit: a.unit_code || 'HQ',
+        tier: a.tier,
+      };
+    }
 
     case 'login_worker': {
       if (state.registeredSessions.size >= state.maxSessions) {
@@ -364,6 +385,29 @@ export async function mockSupabase(page, { maxSessions = Infinity, user = null, 
       auth_id: MOCK_USERS.worker.id,
     })
   );
+  // password-reset — OTP login for the admin/dashboard tabs.
+  // Without this route the request reaches the REAL edge function, whose
+  // rate limiter answers "Terlalu banyak request OTP", so admin login never
+  // gets past the OTP step. `login_otp` returns `dev_code` so the test can
+  // type a deterministic code.
+  await page.route(`${SUPABASE_URL}/functions/v1/password-reset`, (route) => {
+    const body = route.request().postDataJSON?.() || {};
+    if (body.action === 'verify_login_otp') {
+      const u = state.user || MOCK_USERS.admin_pusat;
+      return json(route, {
+        ok: true,
+        token: 'mock-dashboard-token',
+        nrp: u.nrp,
+        nama: u.nama,
+        role: u.role,
+        role_level: u.role_level,
+        business_unit_id: u.business_unit_id,
+        business_unit: u.unit_code || 'HQ',
+        tier: u.tier,
+      });
+    }
+    return json(route, { ok: true, dev_code: MOCK_OTP });
+  });
 
   // 4) Supabase Auth REST.
   await page.route(new RegExp(`^${esc(SUPABASE_URL)}/auth/v1/(token|user|logout)`), async (route) => {
@@ -458,6 +502,11 @@ export async function loginAsAdmin(page, role = 'admin_pusat') {
   await expect(page.locator('input[type="email"]')).toBeVisible();
   await page.locator('input[type="email"]').fill(u.email);
   await page.locator('input[type="password"]').fill(ADMIN_LOGIN.password);
+  await page.locator('button[type="submit"]').click();
+  // Admin login is two-step: password → OTP (edge password-reset / verify_admin_otp).
+  const otpInput = page.locator('input[placeholder="000000"]');
+  await expect(otpInput).toBeVisible({ timeout: 15000 });
+  await otpInput.fill(MOCK_OTP);
   await page.locator('button[type="submit"]').click();
   await page.waitForURL('**/admin', { timeout: 15000 });
   await expect(page.getByRole('heading', { name: /Selamat Datang, Admin/i })).toBeVisible();

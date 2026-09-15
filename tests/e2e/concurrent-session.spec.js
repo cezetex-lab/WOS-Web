@@ -67,7 +67,9 @@ test.describe('L7: Session Lifecycle', () => {
     });
 
     await page.reload();
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible({ timeout: 15000 });
+    // Login Refactor: the worker tab defaults to email mode (NRP is behind the
+    // "Masuk dengan NRP" toggle), so assert the default form is shown.
+    await expect(page.locator('input[placeholder*="email"]')).toBeVisible({ timeout: 15000 });
     expect(page.url()).toBe('http://localhost:5173/');
   });
 
@@ -77,7 +79,7 @@ test.describe('L7: Session Lifecycle', () => {
 
     await page.getByRole('button', { name: /keluar|logout/i }).first().click();
     await page.waitForURL('http://localhost:5173/', { timeout: 15000 });
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
+    await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
 
     // Stored auth session must be gone after logout.
     const stored = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.includes('auth-token')));
@@ -103,6 +105,9 @@ test.describe('L7: Concurrent Session Limit', () => {
         .forEach((k) => localStorage.removeItem(k));
     });
     await page2.goto('/');
+    // NRP mode lives behind the toggle (worker tab defaults to email mode).
+    await page2.locator('text=Masuk dengan NRP').click();
+    await expect(page2.locator('input[placeholder*="NRP"]')).toBeVisible();
     await page2.locator('input[placeholder*="NRP"]').fill('NRP001');
     await page2.locator('input[placeholder*="NIK"]').fill('1234567890');
     await page2.locator('input[placeholder*="password"]').fill('Test123!');

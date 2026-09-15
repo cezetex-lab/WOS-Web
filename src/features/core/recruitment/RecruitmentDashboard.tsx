@@ -1,0 +1,113 @@
+// RecruitmentDashboard.jsx — Manajemen Lowongan & Rekrutmen
+import React, { useState, useEffect, useCallback } from 'react';
+import { rpc } from '@/lib/supabase-browser';
+import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState, Tabs } from '@/lib/design-system';
+import useAdminAuth from '@/hooks/useAdminAuth';
+
+interface Vacancy {
+  title?: string;
+  department?: string;
+  location?: string;
+  applicants?: number;
+  status?: string;
+  [key: string]: unknown;
+}
+
+interface Candidate {
+  candidate_name?: string;
+  candidate_email?: string;
+  stage?: string;
+  rating?: number;
+  created_at?: string;
+  [key: string]: unknown;
+}
+
+export default function RecruitmentDashboard() {
+  useAdminAuth(["admin_pusat", "admin_hrd"]);
+  const [loading, setLoading] = useState(true);
+  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [tab, setTab] = useState('vacancies');
+  const [selectedVacancy, setSelectedVacancy] = useState<Vacancy | null>(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [v, c] = await Promise.all([
+        rpc('admin_get_vacancies'),
+        rpc('get_candidate_pipeline'),
+      ]);
+      const vData = v as Vacancy[] | { data?: Vacancy[] } | null;
+      const cData = c as Candidate[] | { data?: Candidate[] } | null;
+      setVacancies(Array.isArray(vData) ? vData : vData?.data || []);
+      setCandidates(Array.isArray(cData) ? cData : cData?.data || []);
+    } catch (e) { }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const stages = ['Applied', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'];
+  const stageCount: Record<string, number> = stages.reduce((acc: Record<string, number>, s) => {
+    acc[s] = candidates.filter((c: Candidate) => c.stage === s).length;
+    return acc;
+  }, {});
+
+  const vacancyColumns = [
+    { key: 'title', label: 'Posisi', render: (v: unknown) => <span className="text-sm font-semibold text-white">{(v as string) || '-'}</span> },
+    { key: 'department', label: 'Divisi', render: (v: unknown) => <Badge status={(v as string) || '-'} type="info" /> },
+    { key: 'location', label: 'Lokasi', render: (v: unknown) => <span className="text-xs text-slate-300">{(v as string) || '-'}</span> },
+    { key: 'applicants', label: 'Pelamar', render: (v: unknown) => <span className="text-sm font-bold text-blue-400">{(v as number) || 0}</span> },
+    { key: 'status', label: 'Status', render: (v: unknown) => { const s = v as string; return <Badge status={s || 'Open'} type={s === 'Open' ? 'success' : s === 'Closed' ? 'danger' : 'warning'} />; } },
+  ];
+
+  const candidateColumns = [
+    { key: 'candidate_name', label: 'Nama', render: (v: unknown) => <span className="text-sm font-semibold text-white">{v as string}</span> },
+    { key: 'candidate_email', label: 'Email', render: (v: unknown) => <span className="text-xs text-slate-300">{(v as string) || '-'}</span> },
+    { key: 'stage', label: 'Stage', render: (v: unknown) => { const s = v as string; return <Badge status={s} type={s === 'Hired' ? 'success' : s === 'Rejected' ? 'danger' : s === 'Interview' ? 'warning' : 'info'} />; } },
+    { key: 'rating', label: 'Rating', render: (v: unknown) => <span className="text-sm text-yellow-400">{'⭐'.repeat(Math.min((v as number) || 0, 5))}</span> },
+    { key: 'created_at', label: 'Tanggal', render: (v: unknown) => <span className="text-xs text-slate-300">{v ? new Date(v as string).toLocaleDateString('id-ID') : '-'}</span> },
+  ];
+
+  if (loading) return <PageLayout backTo="/admin" title="Rekrutmen"><LoadingSpinner text="Memuat data rekrutmen..." /></PageLayout>;
+
+  return (
+    <PageLayout backTo="/admin" title="📌 Rekrutmen" subtitle={`${vacancies.length} lowongan, ${candidates.length} pelamar`}>
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        <MetricCard icon="📋" value={vacancies.length} label="Lowongan" color="blue" />
+        <MetricCard icon="👥" value={candidates.length} label="Pelamar" color="teal" />
+        <MetricCard icon="🎯" value={stageCount['Hired'] || 0} label="Hired" color="green" />
+        <MetricCard icon="⏳" value={stageCount['Interview'] || 0} label="Interview" color="orange" />
+      </div>
+
+      {/* Pipeline Visual */}
+      <GlassCard accent="blue" className="mb-4">
+        <h3 className="text-xs font-bold text-white mb-3">📊 Pipeline Overview</h3>
+        <div className="flex gap-1">
+          {stages.filter(s => s !== 'Rejected').map(s => (
+            <div key={s} className="flex-1 text-center">
+              <div className={`h-2 rounded-full mb-1 ${s === 'Hired' ? 'bg-green-500' : s === 'Interview' ? 'bg-orange-500' : 'bg-blue-500'}`} style={{ height: `${Math.max((stageCount[s] || 0) * 8, 4)}px` }} />
+              <p className="text-[11px] text-slate-400">{s}</p>
+              <p className="text-xs font-bold text-white">{stageCount[s] || 0}</p>
+            </div>
+          ))}
+        </div>
+      </GlassCard>
+
+      <Tabs tabs={[
+        { id: 'vacancies', label: '📋 Lowongan', count: vacancies.length },
+        { id: 'candidates', label: '👥 Pelamar', count: candidates.length },
+      ]} active={tab} onChange={setTab} />
+
+      <div className="mt-4">
+        <GlassCard accent="blue">
+          {tab === 'vacancies' ? (
+            <DataTable columns={vacancyColumns} data={vacancies} searchPlaceholder="Cari lowongan..." emptyMessage="Belum ada lowongan" />
+          ) : (
+            <DataTable columns={candidateColumns} data={candidates} searchPlaceholder="Cari pelamar..." emptyMessage="Belum ada pelamar" />
+          )}
+        </GlassCard>
+      </div>
+    </PageLayout>
+  );
+}
