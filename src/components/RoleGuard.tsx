@@ -21,7 +21,7 @@ import { getSession } from '@/lib/supabase-browser';
  *   </RoleGuard>
  */
 
-interface RoleGuardProps { children?: React.ReactNode; allowedRoles?: string[]; entry?: string; redirectTo?: string; }
+interface RoleGuardProps { children?: React.ReactNode; allowedRoles?: string[]; entry?: string | null; redirectTo?: string; }
 
 export default function RoleGuard({ children, allowedRoles = [], entry = null, redirectTo = '/' }: RoleGuardProps) {
   const navigate = useNavigate();

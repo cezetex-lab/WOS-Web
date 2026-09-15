@@ -6,7 +6,7 @@ import useAdminAuth from '@/hooks/useAdminAuth';
 export default function MiningAdminDashboard() {
   useAdminAuth(["admin_pusat", "admin_mining"]);
   const navigate = useNavigate();
-  const [stats, setStats] = useState({});
+  const [stats, setStats] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

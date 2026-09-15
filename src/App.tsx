@@ -30,7 +30,7 @@ function AppContent() {
   const toggleDrawer = () => setDrawerOpen(!isDrawerOpen);
   const closeDrawer = () => setDrawerOpen(false);
 
-  const withNav = (Component, props) => (
+  const withNav = (Component: any, props?: any) => (
     <Layout>
       <ErrorBoundary fallbackName={Component.name || 'Page'}>
         <Component {...props} />

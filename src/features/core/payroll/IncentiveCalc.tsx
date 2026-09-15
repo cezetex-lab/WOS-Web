@@ -46,7 +46,7 @@ export default function IncentiveCalc() {
 
   useEffect(() => { fetchIncentives(); }, [fetchIncentives]);
 
-  const calculateIncentive = async (calcNrp) => {
+  const calculateIncentive = async (calcNrp?: string) => {
     setCalculating(true);
     try {
       const { data } = await supabase.rpc('calculate_incentive', { p_nrp: calcNrp || nrp });

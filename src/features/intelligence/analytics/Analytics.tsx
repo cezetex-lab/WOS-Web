@@ -22,10 +22,10 @@ const BU_COLORS = {
 export default function Analytics() {
   useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<any>(null);
-  const [teamKpi, setTeamKpi] = useState<any[]>([]);
-  const [payroll, setPayroll] = useState<any[]>([]);
-  const [attendance, setAttendance] = useState<any[]>([]);
+  const [summary, setSummary] = useState<Record<string, number> | null>(null);
+  const [teamKpi, setTeamKpi] = useState<Record<string, unknown>[]>([]);
+  const [payroll, setPayroll] = useState<Record<string, unknown>[]>([]);
+  const [attendance, setAttendance] = useState<Record<string, unknown>[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
 
   // Chart refs
@@ -43,10 +43,10 @@ export default function Analytics() {
         rpc('admin_get_payroll'),
         rpc('get_worker_attendance'),
       ]);
-      if (s) setSummary(s);
-      setTeamKpi(k?.data || k || []);
-      setPayroll(p?.data || p || []);
-      setAttendance(a?.data || a || []);
+      if (s) setSummary(s as Record<string, number>);
+      setTeamKpi((k?.data || k || []) as Record<string, unknown>[]);
+      setPayroll((p?.data || p || []) as Record<string, unknown>[]);
+      setAttendance((a?.data || a || []) as Record<string, unknown>[]);
     } catch (err) { }
     setLoading(false);
   }, []);
@@ -64,7 +64,7 @@ export default function Analytics() {
     return { labels: divs.slice(0, 8), data: avgs.slice(0, 8) };
   }, [teamKpi]);
 
-  useChart(kpiData ? (Chart) => ({
+  useChart(kpiData ? (Chart: any) => ({
     type: 'bar',
     data: {
       labels: kpiData.labels,
@@ -76,7 +76,7 @@ export default function Analytics() {
       }],
     },
     options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, title: { display: true, text: 'KPI per Divisi', color: '#fff' } } },
-  }) : null, [kpiData]);
+  }) : () => null, [kpiData]);
 
   // ── CHART: Headcount by Business Unit ──
   const headcountData = React.useMemo(() => {
@@ -87,7 +87,7 @@ export default function Analytics() {
     };
   }, [summary]);
 
-  useChart(headcountData ? (Chart) => ({
+  useChart(headcountData ? (Chart: any) => ({
     type: 'doughnut',
     data: {
       labels: headcountData.labels,
@@ -105,32 +105,32 @@ export default function Analytics() {
         title: { display: true, text: 'Headcount per Unit', color: '#fff' },
       },
     },
-  }) : null, [headcountData]);
+  }) : () => null, [headcountData]);
 
   // ── CHART: Payroll Trend ──
   const payrollData = React.useMemo(() => {
     if (!payroll.length) return null;
-    const byBu = {};
-    payroll.forEach(p => {
-      const bu = p.business_unit || 'HQ';
+    const byBu: Record<string, number> = {};
+    payroll.forEach((p: Record<string, unknown>) => {
+      const bu = (p.business_unit as string) || 'HQ';
       byBu[bu] = (byBu[bu] || 0) + Number(p.net_salary || p.gaji_bersih || 0);
     });
     return { labels: Object.keys(byBu), data: Object.values(byBu) };
   }, [payroll]);
 
-  useChart(payrollData ? (Chart) => ({
+  useChart(payrollData ? (Chart: any) => ({
     type: 'bar',
     data: {
       labels: payrollData.labels,
       datasets: [{
         label: 'Total Payroll (Rp)',
         data: payrollData.data,
-        backgroundColor: payrollData.labels.map(l => (BU_COLORS[l] || COLORS.muted) + '99'),
+        backgroundColor: payrollData.labels.map((l: string) => ((BU_COLORS as Record<string, string>)[l] || COLORS.muted) + '99'),
         borderRadius: 8,
       }],
     },
     options: { ...CHART_DEFAULTS, indexAxis: 'y', plugins: { ...CHART_DEFAULTS.plugins, title: { display: true, text: 'Payroll per Unit', color: '#fff' } } },
-  }) : null, [payrollData]);
+  }) : () => null, [payrollData]);
 
   if (loading) return <PageLayout backTo="/admin" title="Analytics"><LoadingSpinner text="Memuat analytics..." /></PageLayout>;
 

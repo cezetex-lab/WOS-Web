@@ -1,4 +1,6 @@
-interface AppDrawerProps { open: boolean; onClose: () => void; }
+interface MenuItem { icon: string; label: string; path: string; }
+interface MenuGroup { title: string; items: MenuItem[]; }
+interface AppDrawerProps { isOpen: boolean; onClose: () => void; }
 
 // src/components/AppDrawer.jsx
 // Drawer navigasi: sumber utama = menu dinamis dari module_definitions
@@ -156,15 +158,15 @@ const MANAGER_GROUPS = [
 // Fallback area owner — menu lengkap owner datang dari module_definitions.
 const OWNER_FALLBACK_GROUPS = ADMIN_FALLBACK_GROUPS;
 
-export function AppDrawer({ isOpen, onClose }) {
+export function AppDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const location = useLocation();
-  const [brand, setBrand] = useState({ company_name: 'insightWIP', logo_url: '' });
-  const [dynamicGroups, setDynamicGroups] = useState<any[]>([]);
+  const [brand, setBrand] = useState<{ company_name: string; logo_url: string }>({ company_name: 'insightWIP', logo_url: '' });
+  const [dynamicGroups, setDynamicGroups] = useState<MenuGroup[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    rpc('get_branding', {}).then(d => {
-      if (d && d.company_name) setBrand(d);
+    rpc('get_branding', {}).then((d: unknown) => {
+      if (d && typeof d === 'object' && 'company_name' in d) setBrand(d as { company_name: string; logo_url: string });
     }).catch(() => {});
   }, []);
 
@@ -173,15 +175,15 @@ export function AppDrawer({ isOpen, onClose }) {
     const drawerArea = areaFromPath(location.pathname);
     buildMenu(drawerArea).then(menu => {
       // Group dynamic menu items by module_group
-      const grouped = {};
-      menu.forEach(item => {
+      const grouped: Record<string, MenuItem[]> = {};
+      menu.forEach((item: { group?: string; icon: string; name: string; path: string }) => {
         const group = item.group || 'LAINNYA';
         if (!grouped[group]) grouped[group] = [];
         grouped[group].push({ icon: item.icon, label: item.name, path: item.path });
       });
 
       // Convert to AppDrawer format
-      const groups = Object.entries(grouped).map(([title, items]) => ({ title, items }));
+      const groups: MenuGroup[] = Object.entries(grouped).map(([title, items]) => ({ title, items }));
       setDynamicGroups(groups);
       setLoading(false);
     }).catch(err => {
@@ -211,7 +213,7 @@ export function AppDrawer({ isOpen, onClose }) {
       if (isOwner || role === 'admin_pusat') {
         groups = ADMIN_FALLBACK_GROUPS;
       } else {
-        groups = ADMIN_ROLE_MAP[role] || ADMIN_FALLBACK_GROUPS;
+        groups = (ADMIN_ROLE_MAP as Record<string, MenuGroup[]>)[role] || ADMIN_FALLBACK_GROUPS;
       }
     } else {
       // Semua user di area worker hanya melihat self-service pribadi.
@@ -224,10 +226,10 @@ export function AppDrawer({ isOpen, onClose }) {
   // Memakai drawerPathInArea() dari menu-builder.js — satu implementasi filter
   // area yang sama dengan buildMenu (plus klausa dashboard-di-area-worker).
   const area = areaFromPath(path);
-  const inArea = (p) => drawerPathInArea(p, area);
+  const inArea = (p: string) => drawerPathInArea(p, area);
   groups = groups
-    .map(g => ({ ...g, items: g.items.filter(i => inArea(i.path)) }))
-    .filter(g => g.items.length > 0);
+    .map((g: MenuGroup) => ({ ...g, items: g.items.filter((i: MenuItem) => inArea(i.path)) }))
+    .filter((g: MenuGroup) => g.items.length > 0);
 
   return (
     <>
@@ -254,7 +256,7 @@ export function AppDrawer({ isOpen, onClose }) {
             <div key={idx}>
               <h4 className="text-[11px] font-bold text-teal-400 tracking-widest mb-2">{group.title}</h4>
               <div className="space-y-1">
-                {group.items.map((item, i) => (
+                {group.items.map((item: MenuItem, i: number) => (
                   <Link
                     key={i}
                     to={item.path}

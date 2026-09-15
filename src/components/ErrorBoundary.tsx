@@ -7,7 +7,7 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
-  errorInfo: { componentStack?: string } | null;
+  errorInfo: React.ErrorInfo | null;
 }
 
 // Per-domain ErrorBoundary — catches errors within a domain module

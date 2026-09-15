@@ -7,7 +7,7 @@ import useAdminAuth from '@/hooks/useAdminAuth';
 export default function Review360() {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({});
+  const [data, setData] = useState<Record<string, any>>({});
   const [reviews, setReviews] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
@@ -30,7 +30,7 @@ export default function Review360() {
     { key: 'innovation', label: 'Innovation', icon: '💡', color: 'bg-yellow-500' },
   ];
 
-  const getScoreColor = (s) => s >= 80 ? 'green' : s >= 60 ? 'teal' : s >= 40 ? 'orange' : 'red';
+  const getScoreColor = (s: number) => s >= 80 ? 'green' : s >= 60 ? 'teal' : s >= 40 ? 'orange' : 'red';
 
   if (loading) return <PageLayout backTo="/admin" title="360° Review"><LoadingSpinner text="Memuat 360° review..." /></PageLayout>;
 

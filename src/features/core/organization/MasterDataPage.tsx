@@ -4,17 +4,31 @@ import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner, Tabs } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
+interface MasterDataRow {
+  type?: string;
+  category?: string;
+  tipe?: string;
+  name?: string;
+  nama?: string;
+  label?: string;
+  code?: string;
+  kode?: string;
+  description?: string;
+  status?: string;
+}
+
 export default function MasterDataPage() {
   useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<MasterDataRow[]>([]);
   const [tab, setTab] = useState('all');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await rpc('admin_get_master_data');
-      setData(Array.isArray(result) ? result : result?.data || []);
+      const result = await rpc<{ data?: MasterDataRow[] }>('admin_get_master_data');
+      const r = result as { ok?: boolean; data?: MasterDataRow[] } | MasterDataRow[];
+      setData(Array.isArray(r) ? r : r?.data || []);
     } catch (e) { }
     setLoading(false);
   }, []);
@@ -33,17 +47,17 @@ export default function MasterDataPage() {
   }, [data, tab]);
 
   const columns = [
-    { key: 'type', label: 'Tipe', render: (v) => <Badge status={v || 'data'} type="info" /> },
-    { key: 'name', label: 'Nama', render: (v, row) => <span className="text-sm font-semibold text-white">{v || row.nama || row.label || '-'}</span> },
-    { key: 'code', label: 'Kode', render: (v, row) => <span className="text-xs font-mono text-slate-400">{v || row?.kode || '-'}</span> },
-    { key: 'description', label: 'Deskripsi', render: (v) => <span className="text-xs text-slate-300 truncate max-w-[200px] block">{v || '-'}</span> },
-    { key: 'status', label: 'Status', render: (v) => <Badge status={v || 'active'} type={v === 'active' ? 'success' : 'default'} /> },
+    { key: 'type', label: 'Tipe', render: (v: string) => <Badge status={v || 'data'} type="info" /> },
+    { key: 'name', label: 'Nama', render: (v: string, row: MasterDataRow) => <span className="text-sm font-semibold text-white">{v || row.nama || row.label || '-'}</span> },
+    { key: 'code', label: 'Kode', render: (v: string, row: MasterDataRow) => <span className="text-xs font-mono text-slate-400">{v || row?.kode || '-'}</span> },
+    { key: 'description', label: 'Deskripsi', render: (v: string) => <span className="text-xs text-slate-300 truncate max-w-[200px] block">{v || '-'}</span> },
+    { key: 'status', label: 'Status', render: (v: string) => <Badge status={v || 'active'} type={v === 'active' ? 'success' : 'default'} /> },
   ];
 
   const statCards = [
-    { icon: '🗄️', value: data.length, label: 'Total Master Data', color: 'blue' },
-    { icon: '📂', value: types.length, label: 'Kategori', color: 'teal' },
-    { icon: '✅', value: data.filter(r => r.status === 'active').length, label: 'Aktif', color: 'green' },
+    { icon: '🗄️', value: data.length, label: 'Total Master Data', color: 'blue' as const },
+    { icon: '📂', value: types.length, label: 'Kategori', color: 'teal' as const },
+    { icon: '✅', value: data.filter(r => r.status === 'active').length, label: 'Aktif', color: 'green' as const },
   ];
 
   if (loading) return <PageLayout backTo="/admin" title="Master Data"><LoadingSpinner text="Memuat master data..." /></PageLayout>;

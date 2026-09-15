@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 import { GlassCard, MetricCard, LoadingSpinner } from '@/lib/design-system';
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   RUNNING: 'bg-green-500/20 text-green-400 border-green-500/30',
   STANDBY: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   MAINTENANCE: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
@@ -38,7 +38,7 @@ export default function MesinPress() {
         <MetricCard icon="⚙️" value={running.length} label="Press Running" trend={`dari ${presses.length}`} color="green" />
         <MetricCard icon="🔄" value={avgRpm} label="Avg RPM" trend="Target: 28" color="blue" />
         <MetricCard icon="📊" value={`${totalCapacity.toFixed(1)}`} label="Total Output" trend="ton/jam" color="teal" />
-        <MetricCard icon="⚠️" value={avgVibration} label="Avg Vibration" trend="mm/s (warn: >3)" color={parseFloat(avgVibration) > 3 ? 'red' : 'green'} />
+        <MetricCard icon="⚠️" value={avgVibration} label="Avg Vibration" trend="mm/s (warn: >3)" color={parseFloat(String(avgVibration)) > 3 ? 'red' : 'green'} />
       </div>
 
       <div className="space-y-4">

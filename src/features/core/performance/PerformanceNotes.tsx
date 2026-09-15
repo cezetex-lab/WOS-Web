@@ -11,7 +11,7 @@ import {
 } from '@/lib/design-system';
 
 // Inline Modal
-function Modal({ onClose, title, children }) {
+function Modal({ onClose, title, children }: { onClose: () => void; title?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
@@ -33,7 +33,7 @@ const NOTE_TYPES = [
   { key: 'goal', label: '🎯 Goal', color: 'teal' },
 ];
 
-const TYPE_COLORS = { achievement: 'green', improvement: 'blue', concern: 'yellow', feedback: 'purple', goal: 'teal' };
+const TYPE_COLORS: Record<string, string> = { achievement: 'green', improvement: 'blue', concern: 'yellow', feedback: 'purple', goal: 'teal' };
 
 export default function PerformanceNotes() {
   const nrp = getSession()?.nrp;

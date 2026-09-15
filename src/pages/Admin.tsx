@@ -7,8 +7,21 @@ import { createPageErrorLogger } from '../lib/log-error';
 
 const logError = createPageErrorLogger('Admin');
 
+interface RoleBadge {
+  label: string;
+  color: string;
+  icon: string;
+}
+
+interface QuickTileItem {
+  icon: string;
+  label: string;
+  color: string;
+  path: string;
+}
+
 // Role badges
-const ROLE_BADGES = {
+const ROLE_BADGES: Record<string, RoleBadge> = {
   admin_pusat: { label: 'Admin Pusat', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: '👑' },
   admin_hrd: { label: 'Admin HRD', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: '👥' },
   admin_finance: { label: 'Admin Finance', color: 'bg-green-500/20 text-green-400 border-green-500/30', icon: '💰' },
@@ -19,7 +32,7 @@ const ROLE_BADGES = {
 };
 
 // Quick tiles per admin role
-const ADMIN_TILES = {
+const ADMIN_TILES: Record<string, QuickTileItem[]> = {
   admin_pusat: [
     { icon: '📝', label: 'Pengajuan', color: 'blue', path: '/admin/requests' },
     { icon: '👥', label: 'Karyawan', color: 'slate', path: '/admin/employees' },
@@ -94,6 +107,35 @@ const ADMIN_TILES = {
   ],
 };
 
+interface DashboardStats {
+  total_workers?: number;
+  total_divisions?: number;
+  pending_requests?: number;
+  pkwt_count?: number;
+  pkwtt_count?: number;
+  retiring_soon?: number;
+}
+
+interface PendingRequest {
+  id?: string;
+  type?: string;
+  note?: string;
+  nama?: string;
+  created_at?: string;
+  status?: string;
+}
+
+interface AutoHealingItem {
+  title?: string;
+  type?: string;
+}
+
+interface AnomalyItem {
+  title?: string;
+  type?: string;
+  priority?: string;
+}
+
 export default function Admin() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -103,15 +145,12 @@ export default function Admin() {
   const badge = ROLE_BADGES[adminRole] || ROLE_BADGES.admin_pusat;
 
   async function logout() { clearSession(); try { await signOutAuth(); } catch(e) {} window.location.href = '/'; }
-  const [stats, setStats] = useState({});
-  const [pending, setPending] = useState<any[]>([]);
-  const [autoHealing, setAutoHealing] = useState<any[]>([]);
-  const [anomalies, setAnomalies] = useState<any[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({});
+  const [pending, setPending] = useState<PendingRequest[]>([]);
+  const [autoHealing, setAutoHealing] = useState<AutoHealingItem[]>([]);
+  const [anomalies, setAnomalies] = useState<AnomalyItem[]>([]);
 
   useEffect(() => {
-    // Isolasi 3 page: admin HANYA menerima sesi dari tab login admin
-    // (session.entry === 'admin'). Sesi worker/dashboard yang mencoba buka
-    // /admin langsung dikembalikan ke login (bukan auto-redirect).
     if (!session || !session.nrp) {
       console.error('[Admin Dashboard] No valid session found, redirecting to login');
       window.location.href = '/';
@@ -124,8 +163,8 @@ export default function Admin() {
     }
     if (session.role === 'worker') { setNoAccess(true); setLoading(false); return; }
 
-  const toArray = (v) => {
-    if (!v || v.ok === false) return [];
+  const toArray = (v: unknown): unknown[] => {
+    if (!v || (v as { ok?: boolean }).ok === false) return [];
     return Array.isArray(v) ? v : [];
   };
 
@@ -140,30 +179,30 @@ export default function Admin() {
         ]);
 
         if (s.status === 'fulfilled' && s.value) {
-          setStats(s.value.ok !== false ? s.value : {});
+          setStats((s.value as { ok?: boolean }).ok !== false ? s.value as DashboardStats : {});
         } else {
-          logError('loadData.stats', s.reason || new Error('empty response'));
+          logError('loadData.stats', s.status === 'rejected' ? s.reason : new Error('empty response'));
         }
-        
+
         if (p.status === 'fulfilled' && p.value) {
-          setPending(toArray(p.value));
+          setPending(toArray(p.value) as PendingRequest[]);
         } else {
-          logError('loadData.pending', p.reason || new Error('empty response'));
+          logError('loadData.pending', p.status === 'rejected' ? p.reason : new Error('empty response'));
         }
-        
+
         if (h.status === 'fulfilled' && h.value) {
-          setAutoHealing(toArray(h.value));
+          setAutoHealing(toArray(h.value) as AutoHealingItem[]);
         } else {
-          logError('loadData.autoHealing', h.reason || new Error('empty response'));
+          logError('loadData.autoHealing', h.status === 'rejected' ? h.reason : new Error('empty response'));
         }
-        
+
         if (a.status === 'fulfilled' && a.value) {
-          setAnomalies(toArray(a.value));
+          setAnomalies(toArray(a.value) as AnomalyItem[]);
         } else {
-          logError('loadData.anomalies', a.reason || new Error('empty response'));
+          logError('loadData.anomalies', a.status === 'rejected' ? a.reason : new Error('empty response'));
         }
-      } catch (e) { 
-        logError('loadData', e); 
+      } catch (e) {
+        logError('loadData', e);
       }
       setLoading(false);
     };
@@ -172,7 +211,6 @@ export default function Admin() {
 
   if (loading) return <LoadingSpinner text="Memuat data admin..." />;
 
-  // Role worker tidak punya akses admin — arahkan login ulang via tab admin.
   if (noAccess) return <div className="max-w-7xl mx-auto px-4 py-6 pb-28 flex items-center justify-center min-h-[60vh]"><div className="text-center max-w-sm"><p className="text-4xl mb-4">🔒</p><p className="text-white text-lg font-bold mb-2">Akses Admin Ditolak</p><p className="text-slate-400 text-sm mb-6">Akun worker tidak punya akses admin. Silakan login ulang via tab Admin.</p><button onClick={logout} className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all">Kembali ke Login</button></div></div>;
 
   const quickTiles = ADMIN_TILES[adminRole] || ADMIN_TILES.admin_pusat;
@@ -254,13 +292,13 @@ export default function Admin() {
             <EmptyState icon="✅" title="Semua request sudah diproses" />
           ) : (
             pending.map((req) => (
-              <ActionItem 
-                key={req.id} 
-                title={`Request: ${req.type}`} 
-                subtitle={req.note || req.nama} 
-                date={req.created_at} 
-                badge={req.status} 
-                badgeType={req.status === 'Pending' ? 'warning' : 'success'} 
+              <ActionItem
+                key={req.id}
+                title={`Request: ${req.type}`}
+                subtitle={req.note || req.nama}
+                date={req.created_at}
+                badge={req.status}
+                badgeType={req.status === 'Pending' ? 'warning' : 'success'}
               />
             ))
           )}

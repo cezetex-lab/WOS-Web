@@ -21,7 +21,7 @@ export default function OnboardingWorkflow() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const categories = ['IT', 'HR', 'Facility', 'Training', 'General'];
-  const catCount = categories.reduce((acc, c) => {
+  const catCount = categories.reduce<Record<string, number>>((acc, c) => {
     acc[c] = tasks.filter(t => t.category === c).length;
     return acc;
   }, {});

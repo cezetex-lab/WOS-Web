@@ -29,7 +29,7 @@ export default function SafetyK3() {
 
   async function handleSubmit() {
     if (!formDesc.trim()) {
-      toast('Deskripsi wajib diisi', 'error');
+      toast.error('Deskripsi wajib diisi');
       return;
     }
     setSubmitting(true);
@@ -41,22 +41,22 @@ export default function SafetyK3() {
         p_severity: formSeverity,
       });
       if (r?.ok) {
-        toast(r.msg || 'Laporan terkirim', 'success');
+        toast.success(r.msg || 'Laporan terkirim');
         setFormDesc('');
         loadData();
       } else {
-        toast(r?.msg || 'Gagal mengirim laporan', 'error');
+        toast.error(r?.msg || 'Gagal mengirim laporan');
       }
     } catch (e) {
-      toast('Gagal mengirim laporan', 'error');
+      toast.error('Gagal mengirim laporan');
     }
     setSubmitting(false);
   }
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat data safety..." /></div>;
 
-  const sevColor = { LOW: 'info', MEDIUM: 'warning', HIGH: 'danger' };
-  const typeIcon = { INCIDENT: '🔴', NEAR_MISS: '🟡', OBSERVATION: '🔵' };
+  const sevColor: Record<string, string> = { LOW: 'info', MEDIUM: 'warning', HIGH: 'danger' };
+  const typeIcon: Record<string, string> = { INCIDENT: '🔴', NEAR_MISS: '🟡', OBSERVATION: '🔵' };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 pb-24">

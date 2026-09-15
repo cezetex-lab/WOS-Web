@@ -62,7 +62,7 @@ export default function ShiftSchedule() {
           </GlassCard>
         ) : (
           shifts.map(shift => {
-            const style = SHIFT_COLORS[shift.shift_name] || SHIFT_COLORS['Pagi'];
+            const style = SHIFT_COLORS[shift.shift_name as keyof typeof SHIFT_COLORS] || SHIFT_COLORS['Pagi'];
             return (
               <GlassCard key={shift.shift_code} accent="blue">
                 <div className="flex items-center gap-3">

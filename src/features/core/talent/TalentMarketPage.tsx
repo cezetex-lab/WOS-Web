@@ -25,12 +25,12 @@ export default function TalentMarketPage() {
   const filtered = tab === 'all' ? data : data.filter(r => (r.status || 'Available') === tab);
 
   const columns = [
-    { key: 'nrp', label: 'NRP', render: v => <span className="text-xs font-mono text-slate-400">{v}</span> },
-    { key: 'nama', label: 'Nama', render: v => <span className="text-sm font-semibold text-white">{v || '-'}</span> },
-    { key: 'current_role', label: 'Posisi', render: v => <span className="text-xs text-slate-300">{v || '-'}</span> },
-    { key: 'skills', label: 'Skills', render: v => <span className="text-xs text-blue-300">{v || '-'}</span> },
-    { key: 'interest', label: 'Minat', render: v => <span className="text-xs text-teal-300">{v || '-'}</span> },
-    { key: 'status', label: 'Status', render: v => <Badge status={v || 'Available'} type={v === 'Placed' ? 'success' : v === 'Available' ? 'info' : 'warning'} /> },
+    { key: 'nrp', label: 'NRP', render: (v: any) => <span className="text-xs font-mono text-slate-400">{v}</span> },
+    { key: 'nama', label: 'Nama', render: (v: any) => <span className="text-sm font-semibold text-white">{v || '-'}</span> },
+    { key: 'current_role', label: 'Posisi', render: (v: any) => <span className="text-xs text-slate-300">{v || '-'}</span> },
+    { key: 'skills', label: 'Skills', render: (v: any) => <span className="text-xs text-blue-300">{v || '-'}</span> },
+    { key: 'interest', label: 'Minat', render: (v: any) => <span className="text-xs text-teal-300">{v || '-'}</span> },
+    { key: 'status', label: 'Status', render: (v: any) => <Badge status={v || 'Available'} type={v === 'Placed' ? 'success' : v === 'Available' ? 'info' : 'warning'} /> },
   ];
 
   if (loading) return <PageLayout backTo="/admin" title="Talent"><LoadingSpinner text="Memuat talent market..." /></PageLayout>;

@@ -6,70 +6,67 @@
 import { getSession } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, rpc } from '../../../lib/supabase-browser';
+import { supabase, rpc } from '../../lib/supabase-browser';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, Avatar, ActionItem, Divider
-} from '../../../lib/design-system';
+} from '../../lib/design-system';
+import type { CardColor } from '../../lib/design-system';
 
 // ── PERMISSION CHECK ──
 const APPROVE_ROLES = ['admin_pusat', 'admin_hrd', 'manager', 'director', 'owner'];
-function canUserApprove(userRole) {
-  return APPROVE_ROLES.includes(userRole);
+function canUserApprove(userRole: string | undefined) {
+  return APPROVE_ROLES.includes(userRole || '');
 }
 
 // ──────────────────────────────────────────────────────────────
 // PAGE CONFIGS — Definisi semua halaman admin
 // ──────────────────────────────────────────────────────────────
-export const ADMIN_PAGE_CONFIGS = {
-  // KELOLA DATA
+interface PageConfig {
+  title: string;
+  desc: string;
+  icon: string;
+  rpc: string | null;
+  fallbackTable?: string;
+  hasActions?: boolean;
+  statusField?: string;
+  approveRpc?: string;
+  rejectRpc?: string;
+  paramField?: string;
+  static?: boolean;
+}
+
+export const ADMIN_PAGE_CONFIGS: Record<string, PageConfig> = {
   org:          { title: 'Organisasi', desc: 'Struktur organisasi perusahaan', icon: '🏢', rpc: 'admin_get_org_structure', fallbackTable: 'hr_org' },
   divisions:    { title: 'Divisi', desc: 'Manajemen divisi & departemen', icon: '📂', rpc: 'admin_get_divisions', fallbackTable: 'employees_master' },
   master:       { title: 'Master Data', desc: 'Data referensi utama sistem', icon: '🗄️', rpc: 'admin_get_master_data', fallbackTable: 'master_data' },
   roles:        { title: 'Role Matrix', desc: 'Mapping role & permission', icon: '🔑', rpc: null, fallbackTable: 'user_roles' },
-
-  // OPERASIONAL HR
-  // NOTE: approveRpc/rejectRpc adalah pemetaan EKSPLISIT (tidak lagi
-  // derive dari config.rpc.replace('get','approve') yang menghasilkan
-  // nama RPC hantu). Backend: migration 191 (admin_approve_leave, dst).
   requests:     { title: 'Pengajuan', desc: 'Kelola semua pengajuan karyawan', icon: '📝', rpc: 'admin_get_pending_requests', fallbackTable: 'hr_requests', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_request', rejectRpc: 'admin_reject_request' },
   leave:        { title: 'Cuti', desc: 'Manajemen cuti karyawan', icon: '🌴', rpc: 'admin_get_leave', fallbackTable: 'hr_leave', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_leave', rejectRpc: 'admin_reject_leave' },
   overtime:     { title: 'Lembur', desc: 'Pengajuan & persetujuan lembur', icon: '⏰', rpc: 'get_overtime_data', fallbackTable: 'hr_overtime', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_overtime', rejectRpc: 'admin_reject_overtime' },
   timesheet:    { title: 'Timesheet', desc: 'Catatan jam kerja harian', icon: '⏱️', rpc: 'admin_get_timesheet', fallbackTable: 'timesheet' },
   'shift-swap': { title: 'Shift Swap', desc: 'Tukar jadwal shift', icon: '🔄', rpc: 'get_shift_schedule', fallbackTable: 'hr_shift_master', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_shift_swap', rejectRpc: 'admin_reject_shift_swap' },
-
-  // TALENT & PERFORMANCE
   okr:          { title: 'OKR', desc: 'Objectives & Key Results', icon: '🎯', rpc: 'admin_get_okr', fallbackTable: 'okr' },
   learning:     { title: 'Learning', desc: 'Program pelatihan & kursus', icon: '📚', rpc: 'get_worker_learning', fallbackTable: 'hr_learning' },
   certifications: { title: 'Sertifikasi', desc: 'Sertifikasi profesional', icon: '📜', rpc: 'get_skills_intelligence', fallbackTable: 'hr_skills' },
   badges:       { title: 'Badge & Gamifikasi', desc: 'Sistem penghargaan & poin', icon: '🏅', rpc: 'admin_get_badges', fallbackTable: 'badges' },
   talent:       { title: 'Talent Market', desc: 'Marketplace internal talent', icon: '🎯', rpc: 'get_talent_marketplace', fallbackTable: 'hr_talent_catalog' },
   career:       { title: 'Career Path', desc: 'Jalur karir & promosi', icon: '🧭', rpc: 'get_career_path', fallbackTable: 'hr_skills' },
-
-  // ASET & FASILITAS
   assets:       { title: 'Inventaris', desc: 'Inventaris aset perusahaan', icon: '🛠️', rpc: 'admin_get_assets', fallbackTable: 'assets' },
   'asset-assign': { title: 'Check-in/out', desc: 'Peminjaman & pengembalian aset', icon: '📦', rpc: 'admin_get_asset_assignments', fallbackTable: 'asset_assignments' },
   estate:       { title: 'Estate Blocks', desc: 'Blok perumahan & fasilitas', icon: '🌳', rpc: 'admin_get_estate_blocks', fallbackTable: 'estate_blocks' },
   facility:     { title: 'Facility Request', desc: 'Permintaan fasilitas kerja', icon: '🏗️', rpc: 'admin_get_facility_requests', fallbackTable: 'facility_requests', hasActions: true, statusField: 'status', approveRpc: 'admin_approve_facility_request', rejectRpc: 'admin_reject_facility_request' },
-
-  // ENGAGEMENT & BUDAYA
   surveys:      { title: 'Survei (eNPS)', desc: 'Employee Net Promoter Score', icon: '📋', rpc: 'get_worker_engagement', fallbackTable: 'hr_engagement' },
   voice:        { title: 'Ide & Voice', desc: 'Saran & masukan karyawan', icon: '💡', rpc: 'list_ideas', fallbackTable: 'hr_voice' },
   whistleblower: { title: 'Whistleblowing', desc: 'Laporan pelanggaran anonim', icon: '🕊️', rpc: null, fallbackTable: 'hr_safety' },
-
-  // OFFBOARDING
   exit:         { title: 'Exit Interview', desc: 'Wawancara keluar karyawan', icon: '🚪', rpc: 'get_exit_clearance', fallbackTable: 'hr_exit_clearance' },
   settlement:   { title: 'Final Settlement', desc: 'Pelunasan hak karyawan', icon: '📄', rpc: 'admin_get_settlements', fallbackTable: 'settlements' },
   clearance:    { title: 'Clearance', desc: 'Checklist serah terima', icon: '✅', rpc: 'get_exit_clearance', fallbackTable: 'hr_exit_clearance' },
-
-  // SISTEM & KEAMANAN
   audit:        { title: 'Audit Log', desc: 'Log aktivitas sistem', icon: '📋', rpc: null, fallbackTable: 'audit_log' },
   export:       { title: 'Export Data', desc: 'Ekspor data ke Excel/CSV', icon: '📤', rpc: null, static: true },
   features:     { title: 'Feature Flags', desc: 'Toggle fitur aktif/nonaktif', icon: '⚙️', rpc: 'admin_get_feature_flags', fallbackTable: 'feature_flags' },
   settings:     { title: 'Pengaturan', desc: 'Konfigurasi sistem', icon: '🔐', rpc: null, static: true },
   chain:        { title: 'Audit Chain', desc: 'Rantai audit transparan', icon: '🔗', rpc: 'admin_get_audit_chain', fallbackTable: 'audit_chain' },
-
-  // PERENCANAAN
   headcount:    { title: 'Headcount Plan', desc: 'Perencanaan jumlah karyawan', icon: '📊', rpc: 'get_workforce_planning', fallbackTable: 'hr_talent_catalog' },
   budget:       { title: 'Budget Allocation', desc: 'Alokasi anggaran HR', icon: '💰', rpc: 'admin_get_budget', fallbackTable: 'budget_allocations' },
   referral:     { title: 'Referral Program', desc: 'Program rekomendasi karyawan', icon: '🤝', rpc: 'admin_get_referrals', fallbackTable: 'referrals' },
@@ -78,7 +75,7 @@ export const ADMIN_PAGE_CONFIGS = {
 // ──────────────────────────────────────────────────────────────
 // WORKER PAGE CONFIGS
 // ──────────────────────────────────────────────────────────────
-export const WORKER_PAGE_CONFIGS = {
+export const WORKER_PAGE_CONFIGS: Record<string, PageConfig> = {
   attendance:   { title: 'Kehadiran', desc: 'Riwayat kehadiran harian', icon: '📍', rpc: 'get_worker_attendance', fallbackTable: 'hr_attendance', paramField: 'p_nrp' },
   leave:        { title: 'Cuti', desc: 'Ajukan & lihat status cuti', icon: '🌴', rpc: 'get_worker_leave', fallbackTable: 'hr_leave', paramField: 'p_nrp' },
   overtime:     { title: 'Lembur', desc: 'Ajukan & lihat lembur', icon: '💼', rpc: 'get_worker_overtime', fallbackTable: 'hr_overtime', paramField: 'p_nrp' },
@@ -95,16 +92,21 @@ export const WORKER_PAGE_CONFIGS = {
 // DETAIL PAGE COMPONENT
 // ═════════════════════════════════════════════════════════════
 // ============================================================
-export default function DetailPageFactory({ pageKey, isAdmin = true }) {
+interface DetailPageFactoryProps {
+  pageKey: string;
+  isAdmin?: boolean;
+}
+
+export default function DetailPageFactory({ pageKey, isAdmin = true }: DetailPageFactoryProps) {
   const navigate = useNavigate();
   const config = isAdmin
     ? ADMIN_PAGE_CONFIGS[pageKey]
     : WORKER_PAGE_CONFIGS[pageKey];
 
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any[]>([]);
-  const [stats, setStats] = useState({});
-  const [selected, setSelected] = useState<any>(null);
+  const [data, setData] = useState<Record<string, unknown>[]>([]);
+  const [stats, setStats] = useState<Record<string, number>>({});
+  const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
   const [activeTab, setActiveTab] = useState('all');
 
   // ── COMPUTED FIELDS ──
@@ -124,10 +126,10 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
         result = await rpc(config.rpc, params);
       }
 
-      if (result?.ok !== false && Array.isArray(result)) {
-        setData(result);
-      } else if (result?.data && Array.isArray(result.data)) {
-        setData(result.data);
+      if ((result as { ok?: boolean })?.ok !== false && Array.isArray(result)) {
+        setData(result as Record<string, unknown>[]);
+      } else if ((result as { data?: Record<string, unknown>[] })?.data && Array.isArray((result as { data?: Record<string, unknown>[] }).data)) {
+        setData((result as { data: Record<string, unknown>[] }).data);
       } else {
         setData([]);
       }
@@ -143,7 +145,6 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
     const sample = data[0];
     const keys = Object.keys(sample).filter(k => !k.startsWith('_') && k !== 'id');
 
-    // Smart column ordering
     const priority = ['nrp', 'nama', 'name', 'title', 'type', 'status', 'divisi', 'division', 'jabatan', 'position', 'created_at', 'date'];
     const sorted = keys.sort((a, b) => {
       const ai = priority.findIndex(p => a.toLowerCase().includes(p));
@@ -153,19 +154,19 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
 
     return sorted.slice(0, 6).map(key => ({
       key,
-      label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-      render: (val) => {
+      label: key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      render: (val: unknown) => {
         if (val == null || val === '') return <span className="text-slate-500">-</span>;
         if (typeof val === 'boolean') return <Badge status={val ? 'Ya' : 'Tidak'} type={val ? 'success' : 'default'} />;
         if (key.toLowerCase().includes('status')) {
-          const t = (val || '').toLowerCase();
+          const t = ((val as string) || '').toLowerCase();
           const badgeType = t === 'active' || t === 'approved' || t === 'completed' || t === 'paid' ? 'success'
             : t === 'pending' || t === 'draft' || t === 'requested' ? 'warning'
             : t === 'rejected' || t === 'cancelled' || t === 'inactive' ? 'danger' : 'info';
-          return <Badge status={val} type={badgeType} />;
+          return <Badge status={val as string} type={badgeType} />;
         }
         if (typeof val === 'number') return <span className="text-xs font-semibold text-white">{val.toLocaleString('id-ID')}</span>;
-        if (String(val).length > 40) return <span className="text-xs text-slate-300 truncate block max-w-[150px]">{val}</span>;
+        if (String(val).length > 40) return <span className="text-xs text-slate-300 truncate block max-w-[150px]">{String(val)}</span>;
         return <span className="text-xs text-slate-300">{String(val)}</span>;
       },
     }));
@@ -177,20 +178,19 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
     const total = data.length;
     const statusField = config?.statusField || 'status';
 
-    // Count by status
-    const statusCounts = {};
+    const statusCounts: Record<string, number> = {};
     data.forEach(row => {
-      const s = (row[statusField] || 'Unknown').toString();
+      const s = ((row[statusField] as string) || 'Unknown').toString();
       statusCounts[s] = (statusCounts[s] || 0) + 1;
     });
 
-    const statusColors = {
+    const statusColors: Record<string, string> = {
       active: 'green', approved: 'green', completed: 'green', paid: 'green',
       pending: 'orange', draft: 'orange', requested: 'orange',
       rejected: 'red', cancelled: 'red', inactive: 'red',
     };
 
-    const cards = [{ icon: '📊', value: total, label: 'Total', trend: 'Semua', color: 'blue' }];
+    const cards: Array<{ icon: string; value: number; label: string; trend: string; color: CardColor }> = [{ icon: '📊', value: total, label: 'Total', trend: 'Semua', color: 'blue' }];
 
     Object.entries(statusCounts).slice(0, 3).forEach(([status, count]) => {
       const normalized = status.toLowerCase();
@@ -210,7 +210,7 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
   const statuses = React.useMemo(() => {
     if (data.length === 0) return [];
     const statusField = config?.statusField || 'status';
-    const set = new Set(data.map(r => r[statusField]).filter(Boolean));
+    const set = new Set(data.map(r => r[statusField]).filter(Boolean) as string[]);
     return Array.from(set);
   }, [data, config]);
 
@@ -219,15 +219,12 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
     if (activeTab === 'all') return data;
     return data.filter(row => {
       const statusField = config?.statusField || 'status';
-      return (row[statusField] || '').toLowerCase() === activeTab.toLowerCase();
+      return ((row[statusField] as string) || '').toLowerCase() === activeTab.toLowerCase();
     });
   }, [data, activeTab, config]);
 
   // ── ACTION HANDLER (approve/reject) ──
-  // Pakai config.approveRpc/rejectRpc (pemetaan eksplisit, bukan derive
-  // rapuh dari nama RPC get). Jangan update UI kalau result.ok !== true —
-  // supaya tidak ada lagi "sukses palsu" ketika RPC gagal / akses ditolak.
-  function buildActionHandler(kind) {
+  function buildActionHandler(kind: string) {
     if (!config?.hasActions) return null;
     const rpcName = kind === 'approve' ? config.approveRpc : config.rejectRpc;
     if (!rpcName) return null;
@@ -238,12 +235,12 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
         return;
       }
       if (!window.confirm(`Yakin ingin ${kind} data ini?`)) return;
-      const result = await rpc(rpcName, { p_id: selected.id, p_note: null });
+      const result = await rpc(rpcName, { p_id: selected?.id, p_note: null }) as { ok?: boolean; msg?: string };
       if (result?.ok === false) {
         alert(result?.msg || `Gagal ${kind} data.`);
         return;
       }
-      setData(data.filter(r => r.id !== selected.id));
+      setData(data.filter(r => r.id !== selected?.id));
       setSelected(null);
     };
   }
@@ -328,7 +325,16 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }) {
 // ──────────────────────────────────────────────────────────────
 // DETAIL MODAL
 // ──────────────────────────────────────────────────────────────
-function DetailModal({ data, title, onClose, hasActions, onApprove, onReject }) {
+interface DetailModalProps {
+  data: Record<string, unknown>;
+  title: string;
+  onClose: () => void;
+  hasActions?: boolean;
+  onApprove?: (() => void) | null;
+  onReject?: (() => void) | null;
+}
+
+function DetailModal({ data, title, onClose, hasActions, onApprove, onReject }: DetailModalProps) {
   if (!data) return null;
 
   return (
@@ -354,8 +360,8 @@ function DetailModal({ data, title, onClose, hasActions, onApprove, onReject }) 
 
           {hasActions && (
             <div className="flex gap-2">
-              <Button color="green" size="sm" className="flex-1" onClick={onApprove}>✓ Approve</Button>
-              <Button color="red" size="sm" variant="outline" className="flex-1" onClick={onReject}>✕ Reject</Button>
+              <Button color="green" size="sm" className="flex-1" onClick={onApprove || undefined}>✓ Approve</Button>
+              <Button color="red" size="sm" variant="outline" className="flex-1" onClick={onReject || undefined}>✕ Reject</Button>
             </div>
           )}
 

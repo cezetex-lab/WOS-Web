@@ -23,11 +23,11 @@ export default function CareerPathPage() {
   const levels = [...new Set(data.map(r => r.level || r.target_level || 'L1'))];
 
   const columns = [
-    { key: 'nrp', label: 'NRP', render: v => <span className="text-xs font-mono text-slate-400">{v}</span> },
-    { key: 'nama', label: 'Nama', render: v => <span className="text-sm font-semibold text-white">{v || '-'}</span> },
-    { key: 'current_position', label: 'Posisi Saat Ini', render: v => <span className="text-xs text-slate-300">{v || '-'}</span> },
-    { key: 'target_position', label: 'Target', render: v => <span className="text-xs text-blue-300 font-semibold">{v || '-'}</span> },
-    { key: 'progress', label: 'Progress', render: v => (
+    { key: 'nrp', label: 'NRP', render: (v: any) => <span className="text-xs font-mono text-slate-400">{v}</span> },
+    { key: 'nama', label: 'Nama', render: (v: any) => <span className="text-sm font-semibold text-white">{v || '-'}</span> },
+    { key: 'current_position', label: 'Posisi Saat Ini', render: (v: any) => <span className="text-xs text-slate-300">{v || '-'}</span> },
+    { key: 'target_position', label: 'Target', render: (v: any) => <span className="text-xs text-blue-300 font-semibold">{v || '-'}</span> },
+    { key: 'progress', label: 'Progress', render: (v: any) => (
       <div className="flex items-center gap-2">
         <div className="w-16 bg-slate-700 rounded-full h-1.5">
           <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${v || 0}%` }} />
@@ -35,7 +35,7 @@ export default function CareerPathPage() {
         <span className="text-[11px] text-slate-400">{v || 0}%</span>
       </div>
     )},
-    { key: 'status', label: 'Status', render: v => <Badge status={v || 'Active'} type={v === 'Promoted' ? 'success' : 'info'} /> },
+    { key: 'status', label: 'Status', render: (v: any) => <Badge status={v || 'Active'} type={v === 'Promoted' ? 'success' : 'info'} /> },
   ];
 
   if (loading) return <PageLayout backTo="/admin" title="Career"><LoadingSpinner text="Memuat career path..." /></PageLayout>;

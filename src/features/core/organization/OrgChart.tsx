@@ -11,13 +11,24 @@ import {
   Badge, Input, Button, StatItem
 } from '@/lib/design-system';
 
+interface OrgNode {
+  nrp: string;
+  nama?: string;
+  posisi?: string;
+  divisi?: string;
+  business_unit?: string;
+  atasan_nrp?: string;
+  children: OrgNode[];
+  [key: string]: unknown;
+}
+
 export default function OrgChart() {
   useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
-  const [orgData, setOrgData] = useState<any[]>([]);
-  const [tree, setTree] = useState<any>(null);
+  const [orgData, setOrgData] = useState<OrgNode[]>([]);
+  const [tree, setTree] = useState<OrgNode | null>(null);
   const [searchNrp, setSearchNrp] = useState('');
-  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [selectedNode, setSelectedNode] = useState<OrgNode | null>(null);
   const [businessUnit, setBusinessUnit] = useState('ALL');
 
   const fetchData = useCallback(async () => {
@@ -44,7 +55,7 @@ export default function OrgChart() {
       return { ...item, nama: emp.nama || item.nama, posisi: emp.posisi || item.posisi };
     });
 
-    const map = {};
+    const map: Record<string, OrgNode> = {};
     enriched.forEach(item => {
       map[item.nrp] = { ...item, children: [] };
     });
@@ -65,11 +76,11 @@ export default function OrgChart() {
   // Filter by business unit
   const filteredTree = React.useMemo(() => {
     if (!tree || businessUnit === 'ALL') return tree;
-    const filterNode = (node) => {
+    const filterNode = (node: OrgNode): OrgNode | null => {
       if (!node) return null;
-      const filteredChildren = node.children
+      const filteredChildren: OrgNode[] = node.children
         .map(filterNode)
-        .filter(Boolean);
+        .filter((n): n is OrgNode => n !== null);
       if (node.business_unit === businessUnit || filteredChildren.length > 0) {
         return { ...node, children: filteredChildren };
       }
@@ -166,15 +177,23 @@ export default function OrgChart() {
   );
 }
 
+interface OrgTreeNodeProps {
+  node: OrgNode;
+  level: number;
+  searchNrp: string;
+  onSelect: (node: OrgNode) => void;
+  selectedNrp?: string;
+}
+
 // ── TREE NODE ──
-function OrgTreeNode({ node, level, searchNrp, onSelect, selectedNrp }) {
+function OrgTreeNode({ node, level, searchNrp, onSelect, selectedNrp }: OrgTreeNodeProps) {
   const [expanded, setExpanded] = useState(level < 2);
   if (!node) return null;
   const hasChildren = node.children?.length > 0;
   const isHighlighted = searchNrp && node.nrp?.toLowerCase().includes(searchNrp.toLowerCase());
   const isSelected = selectedNrp === node.nrp;
 
-  const unitColors = {
+  const unitColors: Record<string, string> = {
     MINING: 'border-l-red-400 bg-red-500/5',
     ESTATE: 'border-l-green-400 bg-green-500/5',
     MILL: 'border-l-orange-400 bg-orange-500/5',
@@ -185,7 +204,7 @@ function OrgTreeNode({ node, level, searchNrp, onSelect, selectedNrp }) {
     <div className="mb-1">
       <div
         className={`flex items-center gap-2 py-2 px-3 rounded-xl border-l-4 cursor-pointer transition-all
-          ${isSelected ? 'bg-teal-500/20 border-teal-500' : unitColors[node.business_unit] || 'border-l-slate-500 bg-white/3'}
+          ${isSelected ? 'bg-teal-500/20 border-teal-500' : unitColors[node.business_unit ?? ''] || 'border-l-slate-500 bg-white/3'}
           ${isHighlighted ? 'ring-2 ring-teal-400' : ''}
           hover:bg-white/5
         `}
@@ -208,7 +227,7 @@ function OrgTreeNode({ node, level, searchNrp, onSelect, selectedNrp }) {
       
       {expanded && hasChildren && (
         <div className="ml-4 border-l border-white/10 pl-2">
-          {node.children.map(child => (
+          {node.children.map((child: OrgNode) => (
             <OrgTreeNode key={child.nrp} node={child} level={level + 1} searchNrp={searchNrp} onSelect={onSelect} selectedNrp={selectedNrp} />
           ))}
         </div>
@@ -217,7 +236,7 @@ function OrgTreeNode({ node, level, searchNrp, onSelect, selectedNrp }) {
   );
 }
 
-function calcDepth(node) {
+function calcDepth(node: OrgNode | null): number {
   if (!node?.children?.length) return 0;
   return 1 + Math.max(...node.children.map(calcDepth));
 }

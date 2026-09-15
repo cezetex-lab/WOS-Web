@@ -1,10 +1,10 @@
 // RoleMatrixPage.jsx — Mapping Role & Permission
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
-import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';
+import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState, type CardColor } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
-const ROLE_LEVELS = {
+const ROLE_LEVELS: Record<number, { label: string; color: CardColor; icon: string }> = {
   1: { label: 'Worker', color: 'blue', icon: '👷' },
   2: { label: 'Supervisor', color: 'teal', icon: '👨‍💼' },
   3: { label: 'Manager', color: 'green', icon: '🧑‍💼' },
@@ -12,16 +12,31 @@ const ROLE_LEVELS = {
   5: { label: 'Admin', color: 'red', icon: '🔑' },
 };
 
+interface RoleUser {
+  role_level: number;
+  nama?: string;
+  nrp?: string;
+  divisi?: string;
+}
+
+interface GroupedRole {
+  label: string;
+  color: CardColor;
+  icon: string;
+  level: number;
+  users: RoleUser[];
+}
+
 export default function RoleMatrixPage() {
   useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
-  const [roles, setRoles] = useState<any[]>([]);
+  const [roles, setRoles] = useState<RoleUser[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const result = await rpc('admin_get_role_matrix');
-      setRoles(Array.isArray(result) ? result : result?.data || []);
+      setRoles(Array.isArray(result) ? result as RoleUser[] : (result as { data?: RoleUser[] })?.data || []);
     } catch (e) { }
     setLoading(false);
   }, []);
@@ -30,7 +45,7 @@ export default function RoleMatrixPage() {
 
   // Group by role_level
   const grouped = React.useMemo(() => {
-    const map = {};
+    const map: Record<number, GroupedRole> = {};
     roles.forEach(r => {
       const level = r.role_level || 1;
       if (!map[level]) map[level] = { ...ROLE_LEVELS[level], level, users: [] };
@@ -40,9 +55,9 @@ export default function RoleMatrixPage() {
   }, [roles]);
 
   const statCards = [
-    { icon: '🔑', value: roles.length, label: 'Total Users', color: 'blue' },
-    { icon: '👥', value: grouped.length, label: 'Role Levels', color: 'teal' },
-    { icon: '🛡️', value: roles.filter(r => r.role_level >= 4).length, label: 'Admin+', color: 'red' },
+    { icon: '🔑', value: roles.length, label: 'Total Users', color: 'blue' as CardColor },
+    { icon: '👥', value: grouped.length, label: 'Role Levels', color: 'teal' as CardColor },
+    { icon: '🛡️', value: roles.filter(r => r.role_level >= 4).length, label: 'Admin+', color: 'red' as CardColor },
   ];
 
   if (loading) return <PageLayout backTo="/admin" title="Role Matrix"><LoadingSpinner text="Memuat role matrix..." /></PageLayout>;

@@ -11,6 +11,7 @@ import {
   PageLayout, MetricCard, GlassCard, Badge,
   Tabs, LoadingSpinner, EmptyState, Button, StatItem, Avatar, Divider
 } from '@/lib/design-system';
+type CardColor = 'blue' | 'teal' | 'orange' | 'red' | 'purple' | 'green' | 'slate';
 import {
   useChart, buildBarChart, buildDoughnutChart, buildLineChart, COLORS
 } from '@/lib/chart-config';
@@ -21,21 +22,21 @@ import { getCurrentPeriod, getPeriodLabel } from '@/lib/format';
 
 // ──────────────────────────────────────────────────────────────
 
-function getKpiColor(score) {
+function getKpiColor(score: number) {
   if (score >= 90) return COLORS.success;
   if (score >= 75) return COLORS.primary;
   if (score >= 60) return COLORS.warning;
   return COLORS.error;
 }
 
-function getKpiLabel(score) {
+function getKpiLabel(score: number) {
   if (score >= 90) return 'Excellent';
   if (score >= 75) return 'Good';
   if (score >= 60) return 'Needs Improvement';
   return 'At Risk';
 }
 
-function getKpiBadgeType(score) {
+function getKpiBadgeType(score: number) {
   if (score >= 90) return 'success';
   if (score >= 75) return 'info';
   if (score >= 60) return 'warning';
@@ -45,15 +46,55 @@ function getKpiBadgeType(score) {
 // ──────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────
+interface KpiOverview {
+  avg_kpi?: number;
+  avg_score?: number;
+  excellent_count?: number;
+  good_count?: number;
+  improve_count?: number;
+  risk_count?: number;
+  total_evaluated?: number;
+  [key: string]: unknown;
+}
+
+interface DivisionData {
+  divisi?: string;
+  division?: string;
+  avg_kpi?: number;
+  avg_score?: number;
+  total?: number;
+  total_employees?: number;
+  [key: string]: unknown;
+}
+
+interface TrendData {
+  period?: string;
+  month?: string;
+  avg_kpi?: number;
+  avg_score?: number;
+  [key: string]: unknown;
+}
+
+interface PerformerData {
+  nama?: string;
+  name?: string;
+  nrp?: string;
+  divisi?: string;
+  division?: string;
+  kpi_score?: number;
+  score?: number;
+  [key: string]: unknown;
+}
+
 export default function Kpi() {
   useAdminAuth(["admin_pusat", "admin_hrd", "admin_finance", "admin_operasional"]);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [overview, setOverview] = useState({});
-  const [byDivision, setByDivision] = useState<any[]>([]);
-  const [trend, setTrend] = useState<any[]>([]);
-  const [topPerformers, setTopPerformers] = useState<any[]>([]);
-  const [lowPerformers, setLowPerformers] = useState<any[]>([]);
+  const [overview, setOverview] = useState<KpiOverview>({});
+  const [byDivision, setByDivision] = useState<DivisionData[]>([]);
+  const [trend, setTrend] = useState<TrendData[]>([]);
+  const [topPerformers, setTopPerformers] = useState<PerformerData[]>([]);
+  const [lowPerformers, setLowPerformers] = useState<PerformerData[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
 
   // ── CHART REFS ──
@@ -101,40 +142,45 @@ export default function Kpi() {
       ]);
 
       // Overview
-      if (overviewResult && typeof overviewResult === 'object' && overviewResult.ok !== false) {
-        setOverview(overviewResult);
-      } else if (overviewResult?.data) {
-        setOverview(overviewResult.data);
+      const ov = overviewResult as KpiOverview | { data?: KpiOverview; ok?: boolean } | null;
+      if (ov && typeof ov === 'object' && (ov as { ok?: boolean }).ok !== false && !('data' in ov)) {
+        setOverview(ov as KpiOverview);
+      } else if (ov && typeof ov === 'object' && 'data' in ov && ov.data) {
+        setOverview(ov.data as KpiOverview);
       }
 
       // By Division
-      if (divisionResult?.ok !== false && Array.isArray(divisionResult)) {
-        setByDivision(divisionResult);
-      } else if (divisionResult?.data && Array.isArray(divisionResult.data)) {
-        setByDivision(divisionResult.data);
+      const dv = divisionResult as DivisionData[] | { data?: DivisionData[]; ok?: boolean } | null;
+      if (dv && Array.isArray(dv)) {
+        setByDivision(dv);
+      } else if (dv && typeof dv === 'object' && 'data' in dv && Array.isArray(dv.data)) {
+        setByDivision(dv.data);
       } else {
         setByDivision([]);
       }
 
       // Trend
-      if (trendResult?.ok !== false && Array.isArray(trendResult)) {
-        setTrend(trendResult);
-      } else if (trendResult?.data && Array.isArray(trendResult.data)) {
-        setTrend(trendResult.data);
+      const tv = trendResult as TrendData[] | { data?: TrendData[]; ok?: boolean } | null;
+      if (tv && Array.isArray(tv)) {
+        setTrend(tv);
+      } else if (tv && typeof tv === 'object' && 'data' in tv && Array.isArray(tv.data)) {
+        setTrend(tv.data);
       }
 
       // Top performers
-      if (topResult?.ok !== false && Array.isArray(topResult)) {
-        setTopPerformers(topResult);
-      } else if (topResult?.data && Array.isArray(topResult.data)) {
-        setTopPerformers(topResult.data);
+      const tp = topResult as PerformerData[] | { data?: PerformerData[]; ok?: boolean } | null;
+      if (tp && Array.isArray(tp)) {
+        setTopPerformers(tp);
+      } else if (tp && typeof tp === 'object' && 'data' in tp && Array.isArray(tp.data)) {
+        setTopPerformers(tp.data);
       }
 
       // Low performers
-      if (lowResult?.ok !== false && Array.isArray(lowResult)) {
-        setLowPerformers(lowResult);
-      } else if (lowResult?.data && Array.isArray(lowResult.data)) {
-        setLowPerformers(lowResult.data);
+      const lp = lowResult as PerformerData[] | { data?: PerformerData[]; ok?: boolean } | null;
+      if (lp && Array.isArray(lp)) {
+        setLowPerformers(lp);
+      } else if (lp && typeof lp === 'object' && 'data' in lp && Array.isArray(lp.data)) {
+        setLowPerformers(lp.data);
       }
     } catch (err) { }
     setLoading(false);
@@ -144,10 +190,10 @@ export default function Kpi() {
 
   // ── STAT CARDS ──
   const avgKpi = overview.avg_kpi || overview.avg_score || 0;
-  const statCards = [
+  const statCards: { icon: string; value: number | string; label: string; trend: string; color: CardColor }[] = [
     {
       icon: '📊',
-      value: typeof avgKpi === 'number' ? avgKpi.toFixed(1) : avgKpi,
+      value: typeof avgKpi === 'number' ? avgKpi.toFixed(1) : String(avgKpi),
       label: 'Rata-rata KPI',
       trend: getKpiLabel(avgKpi),
       color: avgKpi >= 75 ? 'green' : avgKpi >= 60 ? 'orange' : 'red',

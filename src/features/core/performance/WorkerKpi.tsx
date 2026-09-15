@@ -7,7 +7,7 @@ import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } 
 export default function WorkerKpi() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any[]>([]);
-  const [profile, setProfile] = useState({});
+  const [profile, setProfile] = useState<Record<string, any>>({});
 
     const nrp = getSession()?.nrp || 'NRP001';
 
@@ -26,14 +26,14 @@ export default function WorkerKpi() {
   const latest = data.length > 0 ? data[0] : null;
   const avgScore = data.length > 0 ? (data.reduce((s, r) => s + (parseFloat(r.kpi_score || r.overall_score || 0)), 0) / data.length).toFixed(1) : 0;
 
-  const getScoreColor = (score) => {
+  const getScoreColor = (score: number) => {
     if (score >= 80) return 'green';
     if (score >= 60) return 'teal';
     if (score >= 40) return 'orange';
     return 'red';
   };
 
-  const getScoreLabel = (score) => {
+  const getScoreLabel = (score: number) => {
     if (score >= 90) return '⭐ Sangat Baik';
     if (score >= 75) return '✅ Baik';
     if (score >= 60) return '⚠️ Cukup';
@@ -45,7 +45,7 @@ export default function WorkerKpi() {
   return (
     <PageLayout backTo="/worker" title="📊 KPI Saya" subtitle={profile.nama || nrp}>
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <MetricCard icon="📊" value={`${avgScore}`} label="Rata-rata KPI" color={getScoreColor(parseFloat(avgScore))} />
+        <MetricCard icon="📊" value={`${avgScore}`} label="Rata-rata KPI" color={getScoreColor(parseFloat(String(avgScore)))} />
         <MetricCard icon="📅" value={data.length} label="Periode Tercatat" color="blue" />
       </div>
 

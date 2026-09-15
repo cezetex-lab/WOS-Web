@@ -23,3 +23,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// Optional third-party analytics globals attached to window at runtime.
+interface Window {
+  posthog?: {
+    capture: (event: string, properties?: Record<string, unknown>) => void;
+  };
+}

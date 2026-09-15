@@ -4,7 +4,7 @@
 
 import ChatCopilot from '@/components/ChatCopilot';
 
-export function Layout({ children }) {
+export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen max-w-7xl mx-auto">
       {/* Skip to main content — for keyboard/screen reader users */}

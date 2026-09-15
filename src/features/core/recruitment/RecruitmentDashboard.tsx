@@ -4,13 +4,31 @@ import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState, Tabs } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
+interface Vacancy {
+  title?: string;
+  department?: string;
+  location?: string;
+  applicants?: number;
+  status?: string;
+  [key: string]: unknown;
+}
+
+interface Candidate {
+  candidate_name?: string;
+  candidate_email?: string;
+  stage?: string;
+  rating?: number;
+  created_at?: string;
+  [key: string]: unknown;
+}
+
 export default function RecruitmentDashboard() {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   const [loading, setLoading] = useState(true);
-  const [vacancies, setVacancies] = useState<any[]>([]);
-  const [candidates, setCandidates] = useState<any[]>([]);
+  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [tab, setTab] = useState('vacancies');
-  const [selectedVacancy, setSelectedVacancy] = useState<any>(null);
+  const [selectedVacancy, setSelectedVacancy] = useState<Vacancy | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -19,8 +37,10 @@ export default function RecruitmentDashboard() {
         rpc('admin_get_vacancies'),
         rpc('get_candidate_pipeline'),
       ]);
-      setVacancies(Array.isArray(v) ? v : v?.data || []);
-      setCandidates(Array.isArray(c) ? c : c?.data || []);
+      const vData = v as Vacancy[] | { data?: Vacancy[] } | null;
+      const cData = c as Candidate[] | { data?: Candidate[] } | null;
+      setVacancies(Array.isArray(vData) ? vData : vData?.data || []);
+      setCandidates(Array.isArray(cData) ? cData : cData?.data || []);
     } catch (e) { }
     setLoading(false);
   }, []);
@@ -28,25 +48,25 @@ export default function RecruitmentDashboard() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const stages = ['Applied', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'];
-  const stageCount = stages.reduce((acc, s) => {
-    acc[s] = candidates.filter(c => c.stage === s).length;
+  const stageCount: Record<string, number> = stages.reduce((acc: Record<string, number>, s) => {
+    acc[s] = candidates.filter((c: Candidate) => c.stage === s).length;
     return acc;
   }, {});
 
   const vacancyColumns = [
-    { key: 'title', label: 'Posisi', render: v => <span className="text-sm font-semibold text-white">{v || '-'}</span> },
-    { key: 'department', label: 'Divisi', render: v => <Badge status={v || '-'} type="info" /> },
-    { key: 'location', label: 'Lokasi', render: v => <span className="text-xs text-slate-300">{v || '-'}</span> },
-    { key: 'applicants', label: 'Pelamar', render: v => <span className="text-sm font-bold text-blue-400">{v || 0}</span> },
-    { key: 'status', label: 'Status', render: v => <Badge status={v || 'Open'} type={v === 'Open' ? 'success' : v === 'Closed' ? 'danger' : 'warning'} /> },
+    { key: 'title', label: 'Posisi', render: (v: unknown) => <span className="text-sm font-semibold text-white">{(v as string) || '-'}</span> },
+    { key: 'department', label: 'Divisi', render: (v: unknown) => <Badge status={(v as string) || '-'} type="info" /> },
+    { key: 'location', label: 'Lokasi', render: (v: unknown) => <span className="text-xs text-slate-300">{(v as string) || '-'}</span> },
+    { key: 'applicants', label: 'Pelamar', render: (v: unknown) => <span className="text-sm font-bold text-blue-400">{(v as number) || 0}</span> },
+    { key: 'status', label: 'Status', render: (v: unknown) => { const s = v as string; return <Badge status={s || 'Open'} type={s === 'Open' ? 'success' : s === 'Closed' ? 'danger' : 'warning'} />; } },
   ];
 
   const candidateColumns = [
-    { key: 'candidate_name', label: 'Nama', render: v => <span className="text-sm font-semibold text-white">{v}</span> },
-    { key: 'candidate_email', label: 'Email', render: v => <span className="text-xs text-slate-300">{v || '-'}</span> },
-    { key: 'stage', label: 'Stage', render: v => <Badge status={v} type={v === 'Hired' ? 'success' : v === 'Rejected' ? 'danger' : v === 'Interview' ? 'warning' : 'info'} /> },
-    { key: 'rating', label: 'Rating', render: v => <span className="text-sm text-yellow-400">{'⭐'.repeat(Math.min(v || 0, 5))}</span> },
-    { key: 'created_at', label: 'Tanggal', render: v => <span className="text-xs text-slate-300">{v ? new Date(v).toLocaleDateString('id-ID') : '-'}</span> },
+    { key: 'candidate_name', label: 'Nama', render: (v: unknown) => <span className="text-sm font-semibold text-white">{v as string}</span> },
+    { key: 'candidate_email', label: 'Email', render: (v: unknown) => <span className="text-xs text-slate-300">{(v as string) || '-'}</span> },
+    { key: 'stage', label: 'Stage', render: (v: unknown) => { const s = v as string; return <Badge status={s} type={s === 'Hired' ? 'success' : s === 'Rejected' ? 'danger' : s === 'Interview' ? 'warning' : 'info'} />; } },
+    { key: 'rating', label: 'Rating', render: (v: unknown) => <span className="text-sm text-yellow-400">{'⭐'.repeat(Math.min((v as number) || 0, 5))}</span> },
+    { key: 'created_at', label: 'Tanggal', render: (v: unknown) => <span className="text-xs text-slate-300">{v ? new Date(v as string).toLocaleDateString('id-ID') : '-'}</span> },
   ];
 
   if (loading) return <PageLayout backTo="/admin" title="Rekrutmen"><LoadingSpinner text="Memuat data rekrutmen..." /></PageLayout>;

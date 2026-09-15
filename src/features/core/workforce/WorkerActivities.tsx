@@ -25,8 +25,8 @@ export default function WorkerActivities() {
   const types = [...new Set(data.map(r => r.type || r.action_type || 'Other'))];
   const filtered = tab === 'all' ? data : data.filter(r => (r.type || r.action_type || 'Other') === tab);
 
-  const getActionIcon = (type) => {
-    const icons = { login: '🔑', logout: '🚪', leave: '🌴', overtime: '⏰', training: '📚', request: '📝', attendance: '📍', task: '✅', profile: '👤' };
+  const getActionIcon = (type: string) => {
+    const icons: Record<string, string> = { login: '🔑', logout: '🚪', leave: '🌴', overtime: '⏰', training: '📚', request: '📝', attendance: '📍', task: '✅', profile: '👤' };
     return icons[(type || '').toLowerCase()] || '📋';
   };
 

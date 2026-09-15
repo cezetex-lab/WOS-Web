@@ -8,7 +8,13 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 
-export default function ModuleRouteGuard({ moduleCode, requiredRoleLevel = 1, children }) {
+interface ModuleRouteGuardProps {
+  moduleCode: string;
+  requiredRoleLevel?: number;
+  children: React.ReactNode;
+}
+
+export default function ModuleRouteGuard({ moduleCode, requiredRoleLevel = 1, children }: ModuleRouteGuardProps) {
   const { data: hasAccess, isLoading } = useModuleAccess(moduleCode, requiredRoleLevel);
 
   if (isLoading) {

@@ -3,12 +3,24 @@ import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';
 
-const PRI_COLOR = { URGENT: 'danger', HIGH: 'warning', MEDIUM: 'info', LOW: 'default' };
-const STATUS_COLOR = { PENDING: 'warning', APPROVED: 'info', IN_PROGRESS: 'info', RESOLVED: 'success' };
+interface FacilityReq {
+  id?: string | number;
+  type?: string;
+  description?: string;
+  status?: string;
+  location?: string;
+  priority?: string;
+  submitted?: string;
+  assigned?: string;
+  [key: string]: unknown;
+}
+
+const PRI_COLOR: Record<string, 'danger' | 'warning' | 'info' | 'default'> = { URGENT: 'danger', HIGH: 'warning', MEDIUM: 'info', LOW: 'default' };
+const STATUS_COLOR: Record<string, 'warning' | 'info' | 'success' | 'danger' | 'default'> = { PENDING: 'warning', APPROVED: 'info', IN_PROGRESS: 'info', RESOLVED: 'success' };
 
 export default function FacilityRequest() {
   const [loading, setLoading] = useState(true);
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<FacilityReq[]>([]);
   const [formType, setFormType] = useState('Mess Repair');
   const [formDesc, setFormDesc] = useState('');
   const [formPriority, setFormPriority] = useState('MEDIUM');
@@ -20,9 +32,9 @@ export default function FacilityRequest() {
   async function loadData() {
     setLoading(true);
     try {
-      const r = await rpc('admin_get_facility_requests');
+      const r = await rpc<{ data?: FacilityReq[] }>('admin_get_facility_requests');
       setRequests(r?.data || []);
-    } catch (e) {
+    } catch (e: unknown) {
       setRequests([]);
     }
     setLoading(false);
@@ -30,7 +42,7 @@ export default function FacilityRequest() {
 
   async function handleSubmit() {
     if (!formDesc.trim()) {
-      toast('Deskripsi wajib diisi', 'error');
+      toast.error('Deskripsi wajib diisi');
       return;
     }
     setSubmitting(true);
@@ -41,14 +53,14 @@ export default function FacilityRequest() {
         p_priority: formPriority,
       });
       if (r?.ok) {
-        toast(r.msg || 'Request terkirim', 'success');
+        toast.success(r.msg || 'Request terkirim');
         setFormDesc('');
         loadData();
       } else {
-        toast(r?.msg || 'Gagal mengirim request', 'error');
+        toast.error(r?.msg || 'Gagal mengirim request');
       }
-    } catch (e) {
-      toast('Gagal mengirim request', 'error');
+    } catch (e: unknown) {
+      toast.error('Gagal mengirim request');
     }
     setSubmitting(false);
   }
@@ -71,11 +83,11 @@ export default function FacilityRequest() {
             <GlassCard key={i} className="p-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-bold text-white">{r.id} — {r.type}</span>
-                <Badge status={r.status} type={STATUS_COLOR[r.status]} />
+                <Badge status={r.status || 'PENDING'} type={STATUS_COLOR[r.status || 'PENDING'] || 'default'} />
               </div>
               <p className="text-xs text-slate-300 mb-2">{r.description}</p>
               <div className="flex justify-between text-[11px] text-slate-500">
-                <span>📍 {r.location} • <Badge status={r.priority} type={PRI_COLOR[r.priority]} /></span>
+                <span>📍 {r.location} • <Badge status={r.priority || 'MEDIUM'} type={PRI_COLOR[r.priority || 'MEDIUM'] || 'default'} /></span>
                 <span>{r.submitted}</span>
               </div>
               {r.assigned && <div className="text-[11px] text-teal-400 mt-1">👤 {r.assigned}</div>}

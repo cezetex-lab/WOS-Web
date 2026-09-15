@@ -8,13 +8,13 @@ import { supabase, getSession } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, LoadingSpinner, Badge, Button, Tabs } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   Pending: 'warning',
   Approved: 'success',
   Rejected: 'danger',
 };
 
-const TYPE_ICONS = {
+const TYPE_ICONS: Record<string, string> = {
   Cuti: '✈️', Izin: '📌', Sakit: '🏥', Lembur: '⏰',
   Training: '🎓', Dinas: '🚗', default: '📋',
 };
@@ -40,7 +40,7 @@ export default function ApprovalCenter() {
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
-  const handleApprove = async (requestId) => {
+  const handleApprove = async (requestId: any) => {
     setProcessing(true);
     try {
       // p_approver dihapus dari kontrak RPC (migration 194): approver
@@ -55,7 +55,7 @@ export default function ApprovalCenter() {
     setProcessing(false);
   };
 
-  const handleReject = async (requestId, note) => {
+  const handleReject = async (requestId: any, note?: string) => {
     setProcessing(true);
     try {
       await supabase.rpc('process_request', {

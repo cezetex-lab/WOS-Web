@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, EmptyState, SectionHeader, useToast } from '@/lib/design-system';
 
-const ZONE_COLORS = { 'PIT-1': 'red', 'PIT-2': 'orange', 'PIT-3': 'yellow', 'WORKSHOP': 'blue', 'OFFICE': 'slate', 'CRUSHER': 'purple', 'HAUL ROAD': 'teal' };
+const ZONE_COLORS: Record<string, string> = { 'PIT-1': 'red', 'PIT-2': 'orange', 'PIT-3': 'yellow', 'WORKSHOP': 'blue', 'OFFICE': 'slate', 'CRUSHER': 'purple', 'HAUL ROAD': 'teal' };
 
 export default function SimperPage() {
   const [user, setUser] = useState<any>(null);
@@ -20,12 +20,12 @@ export default function SimperPage() {
     loadData(u.nrp);
   }, []);
 
-  async function loadData(nrp) {
+  async function loadData(nrp: string) {
     setLoading(true);
     try {
       const r = await rpc('get_simper_list', { p_nrp: nrp });
       if (r?.ok && r.data) {
-        setMyPermits(r.data.filter(p => p.nrp === nrp));
+        setMyPermits(r.data.filter((p: any) => p.nrp === nrp));
         setPermits(r.data);
       }
     } catch (e) {

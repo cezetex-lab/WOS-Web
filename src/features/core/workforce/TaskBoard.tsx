@@ -16,7 +16,7 @@ const COLUMNS = [
 export default function TaskBoard() {
   const nrp = getSession()?.nrp;
   const [loading, setLoading] = useState(true);
-  const [tasks, setTasks] = useState({ todo: [], doing: [], done: [] });
+  const [tasks, setTasks] = useState<Record<string, any[]>>({ todo: [], doing: [], done: [] });
   const [newTitle, setNewTitle] = useState('');
   const [adding, setAdding] = useState(false);
 
@@ -51,14 +51,14 @@ export default function TaskBoard() {
     setAdding(false);
   };
 
-  const handleMoveTask = async (taskId, newStatus) => {
+  const handleMoveTask = async (taskId: any, newStatus: string) => {
     try {
       await supabase.rpc('update_task_status', { p_task_id: taskId, p_status: newStatus });
       fetchTasks();
     } catch (err) { }
   };
 
-  const moveToNext = (currentStatus) => {
+  const moveToNext = (currentStatus: string) => {
     if (currentStatus === 'TODO') return 'DOING';
     if (currentStatus === 'DOING') return 'DONE';
     return null;
@@ -100,7 +100,7 @@ export default function TaskBoard() {
                 <p className="text-xs text-slate-500 text-center py-4">Tidak ada tugas</p>
               ) : (
                 <div className="space-y-2">
-                  {colTasks.map(task => {
+                  {colTasks.map((task: any) => {
                     const next = moveToNext(col.id);
                     return (
                       <div key={task.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">

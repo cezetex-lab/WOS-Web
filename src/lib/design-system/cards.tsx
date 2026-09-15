@@ -1,13 +1,20 @@
 import type { ReactNode, MouseEventHandler } from 'react';
 
-export type CardColor = 'blue' | 'teal' | 'orange' | 'red' | 'purple' | 'green' | 'slate';
+/**
+ * Allowed accent / color names for card components.
+ * Intentionally widened to `string` so callers may pass dynamic status values
+ * (e.g. values read from the database) without breaking type-checking.
+ */
+export type CardColor = string;
 
 export interface MetricCardProps {
-  icon: string; value: number | string; label: string;
+  icon?: string; value: number | string; label?: string;
+  /** Alias for `label` kept for backward compatibility. */
+  title?: string;
   trend?: string; color?: CardColor; loading?: boolean; onClick?: MouseEventHandler<HTMLDivElement>;
 }
 export interface GlassCardProps {
-  title?: string; icon?: string; accent?: CardColor; className?: string; actions?: ReactNode; children: ReactNode;
+  title?: string; icon?: string; accent?: CardColor; className?: string; actions?: ReactNode; children: ReactNode; onClick?: () => void;
 }
 export interface QuickTileProps {
   icon: string; label: string; color?: CardColor; onClick?: () => void; badge?: number;
@@ -15,9 +22,10 @@ export interface QuickTileProps {
 
 // Design System — Card Components
 
-export function MetricCard({ icon, value, label, trend, color = 'blue', loading, onClick }: MetricCardProps) {
-  const colors = { blue: 'from-blue-500/20 to-blue-600/5 border-blue-500/20', teal: 'from-teal-500/20 to-teal-600/5 border-teal-500/20', orange: 'from-orange-500/20 to-orange-600/5 border-orange-500/20', red: 'from-red-500/20 to-red-600/5 border-red-500/20', purple: 'from-purple-500/20 to-purple-600/5 border-purple-500/20', green: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/20', slate: 'from-slate-500/20 to-slate-600/5 border-slate-500/20' };
-  const trendColors = { blue: 'text-blue-400 bg-blue-400/15', teal: 'text-teal-400 bg-teal-400/15', orange: 'text-orange-400 bg-orange-400/15', red: 'text-red-400 bg-red-400/15', purple: 'text-purple-400 bg-purple-400/15', green: 'text-emerald-400 bg-emerald-400/15', slate: 'text-slate-400 bg-slate-400/15' };
+export function MetricCard({ icon, value, label, title, trend, color = 'blue', loading, onClick }: MetricCardProps) {
+  const caption = label ?? title ?? '';
+  const colors: Record<CardColor, string> = { blue: 'from-blue-500/20 to-blue-600/5 border-blue-500/20', teal: 'from-teal-500/20 to-teal-600/5 border-teal-500/20', orange: 'from-orange-500/20 to-orange-600/5 border-orange-500/20', red: 'from-red-500/20 to-red-600/5 border-red-500/20', purple: 'from-purple-500/20 to-purple-600/5 border-purple-500/20', green: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/20', slate: 'from-slate-500/20 to-slate-600/5 border-slate-500/20', yellow: 'from-yellow-500/20 to-yellow-600/5 border-yellow-500/20' };
+  const trendColors: Record<CardColor, string> = { blue: 'text-blue-400 bg-blue-400/15', teal: 'text-teal-400 bg-teal-400/15', orange: 'text-orange-400 bg-orange-400/15', red: 'text-red-400 bg-red-400/15', purple: 'text-purple-400 bg-purple-400/15', green: 'text-emerald-400 bg-emerald-400/15', slate: 'text-slate-400 bg-slate-400/15', yellow: 'text-yellow-400 bg-yellow-400/15' };
   if (loading) return <div className="animate-pulse bg-slate-700/30 rounded-2xl h-28 border border-white/5" />;
   return (
     <div onClick={onClick} className={`bg-gradient-to-br ${colors[color]} backdrop-blur-sm border rounded-2xl p-4 shadow-lg transition-all duration-200 ${onClick ? 'cursor-pointer hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]' : ''}`}>
@@ -27,16 +35,16 @@ export function MetricCard({ icon, value, label, trend, color = 'blue', loading,
       </div>
       <div className="mt-2">
         <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
-        <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">{label}</div>
+        <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">{caption}</div>
       </div>
     </div>
   );
 }
 
-export function GlassCard({ title, icon, accent = 'teal', children, className = '', actions }: GlassCardProps) {
-  const accents = { teal: 'border-l-teal-400', blue: 'border-l-blue-400', orange: 'border-l-orange-400', red: 'border-l-red-400', purple: 'border-l-purple-400', green: 'border-l-emerald-400', slate: 'border-l-slate-400' };
+export function GlassCard({ title, icon, accent = 'teal', children, className = '', actions, onClick }: GlassCardProps) {
+  const accents: Record<CardColor, string> = { teal: 'border-l-teal-400', blue: 'border-l-blue-400', orange: 'border-l-orange-400', red: 'border-l-red-400', purple: 'border-l-purple-400', green: 'border-l-emerald-400', slate: 'border-l-slate-400', yellow: 'border-l-yellow-400' };
   return (
-    <div className={`bg-slate-800/40 backdrop-blur-md rounded-2xl p-5 border border-white/5 border-l-4 ${accents[accent]} shadow-xl transition-all duration-200 hover:bg-slate-800/50 ${className}`}>
+    <div onClick={onClick} className={`bg-slate-800/40 backdrop-blur-md rounded-2xl p-5 border border-white/5 border-l-4 ${accents[accent]} shadow-xl transition-all duration-200 hover:bg-slate-800/50 ${onClick ? 'cursor-pointer' : ''} ${className}`}>
       {(title || actions) && (
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -52,12 +60,12 @@ export function GlassCard({ title, icon, accent = 'teal', children, className = 
 }
 
 export function QuickTile({ icon, label, color = 'slate', onClick, badge }: QuickTileProps) {
-  const bgColors = { slate: 'bg-slate-700/40 hover:bg-slate-600/50', blue: 'bg-blue-500/15 hover:bg-blue-500/25', teal: 'bg-teal-500/15 hover:bg-teal-500/25', orange: 'bg-orange-500/15 hover:bg-orange-500/25', purple: 'bg-purple-500/15 hover:bg-purple-500/25', green: 'bg-emerald-500/15 hover:bg-emerald-500/25', red: 'bg-red-500/15 hover:bg-red-500/25' };
+  const bgColors: Record<CardColor, string> = { slate: 'bg-slate-700/40 hover:bg-slate-600/50', blue: 'bg-blue-500/15 hover:bg-blue-500/25', teal: 'bg-teal-500/15 hover:bg-teal-500/25', orange: 'bg-orange-500/15 hover:bg-orange-500/25', purple: 'bg-purple-500/15 hover:bg-purple-500/25', green: 'bg-emerald-500/15 hover:bg-emerald-500/25', red: 'bg-red-500/15 hover:bg-red-500/25' };
   return (
     <button onClick={onClick} className={`relative flex flex-col items-center justify-center p-3 rounded-2xl ${bgColors[color]} backdrop-blur-sm border border-white/5 transition-all duration-200 hover:border-white/15 active:scale-95`}>
       <span className="text-2xl mb-1">{icon}</span>
       <span className="text-[11px] font-medium text-slate-300 text-center leading-tight">{label}</span>
-      {badge > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[11px] font-bold rounded-full px-1">{badge > 99 ? '99+' : badge}</span>}
+      {badge !== undefined && badge > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[11px] font-bold rounded-full px-1">{badge > 99 ? '99+' : badge}</span>}
     </button>
   );
 }

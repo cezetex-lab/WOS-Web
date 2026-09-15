@@ -20,7 +20,7 @@ export default function ExportPage() {
   useAdminAuth(["admin_pusat", "admin_finance"]);
   const [exporting, setExporting] = useState<any>(null);
 
-  const handleExport = useCallback(async (sheet) => {
+  const handleExport = useCallback(async (sheet: any) => {
     setExporting(sheet.id);
     try {
       const result = await rpc('admin_export_sheet', { p_sheet: sheet.id });

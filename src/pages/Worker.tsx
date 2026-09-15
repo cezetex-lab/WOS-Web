@@ -14,7 +14,7 @@ export default function Worker() {
   const [loading, setLoading] = useState(true);
 
   async function logout() { clearSession(); try { await signOutAuth(); } catch(e) {} window.location.href = '/'; }
-  const [status, setStatus] = useState({});
+  const [status, setStatus] = useState<Record<string, any>>({});
   const [narrative, setNarrative] = useState<any>(null);
   const [announcements, setAnnouncements] = useState<any[]>([]);
 

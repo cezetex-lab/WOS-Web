@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { callEdgeFunction } from '@/lib/edge-functions';
 import DOMPurify from 'dompurify';
 
-function askCopilot(message, conversationHistory = [], context = 'general') {
+function askCopilot(message: string, conversationHistory: Array<{ role: string; content: string }> = [], context = 'general') {
   return callEdgeFunction(
     'ai-copilot',
     { message, conversationHistory, context },
@@ -14,7 +14,7 @@ function askCopilot(message, conversationHistory = [], context = 'general') {
 }
 
 // Safe HTML renderer — DOMPurify sanitizes all output
-function renderMessage(text) {
+function renderMessage(text: string): string {
   if (!text) return '';
   let html = text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -40,8 +40,14 @@ function TypingIndicator() {
   );
 }
 
+interface DbDataItem {
+  category?: string;
+  data?: Record<string, unknown>;
+  raw?: string;
+}
+
 // DB data list component — shows structured data after AI response
-function DbDataList({ dbData }) {
+function DbDataList({ dbData }: { dbData?: DbDataItem[] }) {
   if (!dbData || dbData.length === 0) return null;
   return (
     <div className="mt-3 pt-3 border-t border-slate-700/50">
@@ -51,10 +57,10 @@ function DbDataList({ dbData }) {
           <p className="text-xs font-semibold text-sky-400 mb-1">{item.category}</p>
           {item.data && Object.keys(item.data).length > 0 ? (
             <div className="space-y-0.5">
-              {Object.entries(item.data).map(([k, v], j) => (
+              {Object.entries(item.data).map(([k, v]: [string, unknown], j: number) => (
                 <div key={j} className="flex gap-2 text-[11px]">
                   <span className="text-slate-500 min-w-[80px]">{k}:</span>
-                  <span className="text-slate-300">{v}</span>
+                  <span className="text-slate-300">{String(v)}</span>
                 </div>
               ))}
             </div>
@@ -67,7 +73,17 @@ function DbDataList({ dbData }) {
   );
 }
 
-function MessageBubble({ msg, isUser }) {
+interface ChatMessage {
+  id: number;
+  text: string;
+  isUser: boolean;
+  time: string;
+  sources?: Array<{ title: string }>;
+  dbData?: DbDataItem[];
+  rateLimit?: { warning?: boolean; warning_msg?: string; limit?: number; remaining?: number } | null;
+}
+
+function MessageBubble({ msg, isUser }: { msg: ChatMessage; isUser: boolean }) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
       <div className={`flex gap-2 max-w-[85%] ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -99,11 +115,11 @@ function MessageBubble({ msg, isUser }) {
               )}
             </>
           )}
-          {!isUser && msg.sources?.length > 0 && (
+          {!isUser && msg.sources && msg.sources.length > 0 && (
             <div className="mt-2 pt-2 border-t border-slate-700/50">
               <p className="text-[11px] text-slate-500 mb-1">📚 Sumber:</p>
               <div className="flex flex-wrap gap-1">
-                {msg.sources.map((s, i) => (
+                {msg.sources.map((s: { title: string }, i: number) => (
                   <span key={i} className="text-[11px] bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded-full">
                     {s.title}
                   </span>
@@ -122,12 +138,12 @@ function MessageBubble({ msg, isUser }) {
 
 export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [unread, setUnread] = useState(0);
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -163,22 +179,22 @@ export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
 
       const result = await askCopilot(trimmed, history, msgContext);
 
-      const botMsg = {
+      const botMsg: ChatMessage = {
         id: Date.now() + 1,
-        text: result.message,
+        text: String(result.message ?? ''),
         isUser: false,
-        sources: result.sources || [],
-        dbData: result.dbData || [],
-        rateLimit: result.rateLimit || null,
+        sources: Array.isArray(result.sources) ? result.sources : [],
+        dbData: Array.isArray(result.dbData) ? result.dbData : [],
+        rateLimit: result.rateLimit ?? null,
         time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       };
 
       setMessages(prev => [...prev, botMsg]);
       if (!isOpen) setUnread(prev => prev + 1);
-    } catch (error) {
-      const errorMsg = {
+    } catch (error: unknown) {
+      const errorMsg: ChatMessage = {
         id: Date.now() + 1,
-        text: `Maaf, terjadi kesalahan: ${error.message}\n\nCoba lagi dalam beberapa saat.`,
+        text: `Maaf, terjadi kesalahan: ${error instanceof Error ? error.message : String(error)}\n\nCoba lagi dalam beberapa saat.`,
         isUser: false,
         time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       };
@@ -188,7 +204,7 @@ export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
     }
   }, [input, messages, isLoading, isOpen, context]);
 
-  const handleKeyDown = useCallback((e) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -271,9 +287,9 @@ export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
             </div>
             <p className="text-[11px] text-slate-600 text-center mt-1.5">
               Data terisolasi berdasarkan role Anda
-              {messages.length > 0 && messages[messages.length - 1]?.rateLimit?.limit > 0 && (
+              {messages.length > 0 && (messages[messages.length - 1]?.rateLimit?.limit ?? 0) > 0 && (
                 <span className="block text-slate-500">
-                  Sisa {messages[messages.length - 1].rateLimit.remaining}/{messages[messages.length - 1].rateLimit.limit} query hari ini
+                  Sisa {messages[messages.length - 1]?.rateLimit?.remaining}/{messages[messages.length - 1]?.rateLimit?.limit} query hari ini
                 </span>
               )}
             </p>

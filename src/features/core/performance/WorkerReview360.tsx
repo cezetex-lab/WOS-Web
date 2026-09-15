@@ -5,7 +5,7 @@ import { PageLayout, GlassCard, Badge, LoadingSpinner, EmptyState } from '@/lib/
 
 export default function WorkerReview360() {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({});
+  const [data, setData] = useState<Record<string, any>>({});
   const [reviews, setReviews] = useState<any[]>([]);
   const session = getSession();
   const nrp = session?.nrp || '';
@@ -31,7 +31,7 @@ export default function WorkerReview360() {
     { key: 'innovation', label: 'Innovation', icon: '💡' },
   ];
 
-  const getScoreColor = (s) => s >= 80 ? 'text-green-400' : s >= 60 ? 'text-teal-400' : s >= 40 ? 'text-orange-400' : 'text-red-400';
+  const getScoreColor = (s: number) => s >= 80 ? 'text-green-400' : s >= 60 ? 'text-teal-400' : s >= 40 ? 'text-orange-400' : 'text-red-400';
 
   if (loading) return <PageLayout backTo="/worker" title="360° Review Saya"><LoadingSpinner text="Memuat review..." /></PageLayout>;
 

@@ -11,18 +11,26 @@ import {
   Input, Tabs, DataTable, Button
 } from '@/lib/design-system';
 
+interface LogEntry {
+  created_at: string;
+  actor?: string;
+  action?: string;
+  detail?: string;
+  [key: string]: unknown;
+}
+
 export default function AuditLog() {
   useAdminAuth(["admin_pusat", "admin_finance"]);
   const [loading, setLoading] = useState(true);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [activeTab, setActiveTab] = useState('all');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const result = await rpc('admin_get_audit_log');
-      const items = result?.data || result || [];
-      setLogs(Array.isArray(items) ? items : []);
+      const items = (result as { data?: LogEntry[] })?.data || result || [];
+      setLogs(Array.isArray(items) ? items as LogEntry[] : []);
     } catch (err) {
       setLogs([]);
     }
@@ -33,7 +41,7 @@ export default function AuditLog() {
 
   // Categorize logs
   const categories = React.useMemo(() => {
-    const cats = { all: logs };
+    const cats: Record<string, LogEntry[]> = { all: logs };
     logs.forEach(log => {
       const action = (log.action || '').toLowerCase();
       if (action.includes('login') || action.includes('auth')) {
@@ -55,36 +63,36 @@ export default function AuditLog() {
     {
       key: 'created_at',
       label: 'Waktu',
-      render: (val) => (
+      render: (val: unknown) => (
         <span className="text-[11px] text-slate-400">
-          {val ? new Date(val).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
+          {val ? new Date(val as string).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
         </span>
       ),
     },
     {
       key: 'actor',
       label: 'Actor',
-      render: (val) => (
-        <span className="text-xs font-semibold text-white">{val || '-'}</span>
+      render: (val: unknown) => (
+        <span className="text-xs font-semibold text-white">{(val as string) || '-'}</span>
       ),
     },
     {
       key: 'action',
       label: 'Aksi',
-      render: (val) => {
-        const v = (val || '').toLowerCase();
+      render: (val: unknown) => {
+        const v = ((val as string) || '').toLowerCase();
         const type = v.includes('login') || v.includes('auth') ? 'info'
           : v.includes('create') || v.includes('insert') ? 'success'
           : v.includes('delete') || v.includes('remove') ? 'danger'
           : v.includes('update') || v.includes('edit') ? 'warning' : 'default';
-        return <Badge status={val || '-'} type={type} />;
+        return <Badge status={(val as string) || '-'} type={type} />;
       },
     },
     {
       key: 'detail',
       label: 'Detail',
-      render: (val) => (
-        <span className="text-[11px] text-slate-400 truncate block max-w-[180px]">{val || '-'}</span>
+      render: (val: unknown) => (
+        <span className="text-[11px] text-slate-400 truncate block max-w-[180px]">{(val as string) || '-'}</span>
       ),
     },
   ];
@@ -131,7 +139,7 @@ export default function AuditLog() {
         <GlassCard accent="blue">
           <DataTable
             columns={columns}
-            data={currentLogs}
+            data={currentLogs as Record<string, unknown>[]}
             searchPlaceholder="Cari actor, aksi, atau detail..."
             emptyMessage="Tidak ada log ditemukan"
           />

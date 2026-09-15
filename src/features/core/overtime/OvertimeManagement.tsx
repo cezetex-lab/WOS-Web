@@ -4,24 +4,27 @@ import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
+interface OvertimeRow { id: string; nrp?: string; nama?: string; hours?: number; jam?: number; date?: string; reason?: string; status?: string; [key: string]: unknown; }
+
 export default function OvertimeManagement() {
   useAdminAuth(["admin_pusat", "admin_finance", "admin_operasional"]);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any>(null);
+  const [data, setData] = useState<OvertimeRow[]>([]);
+  const [selected, setSelected] = useState<OvertimeRow | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await rpc('admin_get_overtime');
-      setData(Array.isArray(result) ? result : result?.data || []);
+      const result = await rpc('admin_get_overtime') as unknown;
+      const rows: OvertimeRow[] = Array.isArray(result) ? result as OvertimeRow[] : (result && typeof result === 'object' && 'data' in result ? ((result as Record<string, unknown>).data as OvertimeRow[] || [] ) : []);
+      setData(rows);
     } catch (e) { }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleApprove = async (row) => {
+  const handleApprove = async (row: OvertimeRow) => {
     try {
       await rpc('admin_approve_request', { p_request_id: row.id, p_type: 'overtime' });
       setData(data.map(r => r.id === row.id ? { ...r, status: 'Approved' } : r));
@@ -29,7 +32,7 @@ export default function OvertimeManagement() {
     } catch (e) { }
   };
 
-  const handleReject = async (row) => {
+  const handleReject = async (row: OvertimeRow) => {
     try {
       await rpc('admin_reject_request', { p_request_id: row.id, p_type: 'overtime' });
       setData(data.map(r => r.id === row.id ? { ...r, status: 'Rejected' } : r));
@@ -37,16 +40,16 @@ export default function OvertimeManagement() {
     } catch (e) { }
   };
 
-  const totalHours = data.reduce((s, r) => s + (parseFloat(r.hours || r.jam || 0)), 0);
+  const totalHours = data.reduce((s, r) => s + (parseFloat(String(r.hours || r.jam || 0))), 0);
   const pending = data.filter(r => (r.status || '').toLowerCase() === 'pending' || (r.status || '').toLowerCase() === 'requested');
 
   const columns = [
-    { key: 'nrp', label: 'NRP', render: (v) => <span className="text-xs font-mono text-slate-400">{v}</span> },
-    { key: 'nama', label: 'Nama', render: (v) => <span className="text-sm font-semibold text-white">{v || '-'}</span> },
-    { key: 'hours', label: 'Jam', render: (v) => <span className="text-sm font-bold text-orange-400">{v || '-'}h</span> },
-    { key: 'date', label: 'Tanggal', render: (v) => <span className="text-xs text-slate-300">{v ? new Date(v).toLocaleDateString('id-ID') : '-'}</span> },
-    { key: 'reason', label: 'Alasan', render: (v) => <span className="text-xs text-slate-300 truncate max-w-[150px] block">{v || '-'}</span> },
-    { key: 'status', label: 'Status', render: (v) => <Badge status={v} type={v?.toLowerCase() === 'approved' ? 'success' : v?.toLowerCase() === 'pending' || v?.toLowerCase() === 'requested' ? 'warning' : 'danger'} /> },
+    { key: 'nrp', label: 'NRP', render: (v: unknown) => <span className="text-xs font-mono text-slate-400">{String(v ?? '')}</span> },
+    { key: 'nama', label: 'Nama', render: (v: unknown) => <span className="text-sm font-semibold text-white">{String(v || '-')}</span> },
+    { key: 'hours', label: 'Jam', render: (v: unknown) => <span className="text-sm font-bold text-orange-400">{String(v || '-')}h</span> },
+    { key: 'date', label: 'Tanggal', render: (v: unknown) => <span className="text-xs text-slate-300">{v ? new Date(String(v)).toLocaleDateString('id-ID') : '-'}</span> },
+    { key: 'reason', label: 'Alasan', render: (v: unknown) => <span className="text-xs text-slate-300 truncate max-w-[150px] block">{String(v || '-')}</span> },
+    { key: 'status', label: 'Status', render: (v: unknown) => { const s = String(v ?? ''); return <Badge status={s} type={s.toLowerCase() === 'approved' ? 'success' : s.toLowerCase() === 'pending' || s.toLowerCase() === 'requested' ? 'warning' : 'danger'} />; } },
   ];
 
   if (loading) return <PageLayout backTo="/admin" title="Lembur"><LoadingSpinner text="Memuat data lembur..." /></PageLayout>;

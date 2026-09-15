@@ -12,8 +12,8 @@ const SEEDLINGS = [
 ];
 
 const STAGE_ORDER = ['SEEDLING', 'PRE_NURSERY', 'NURSERY', 'READY'];
-const STAGE_COLOR = { SEEDLING: 'info', PRE_NURSERY: 'warning', NURSERY: 'success', READY: 'success' };
-const HEALTH_COLOR = { EXCELLENT: 'success', GOOD: 'success', FAIR: 'warning', POOR: 'danger' };
+const STAGE_COLOR: Record<string, string> = { SEEDLING: 'info', PRE_NURSERY: 'warning', NURSERY: 'success', READY: 'success' };
+const HEALTH_COLOR: Record<string, string> = { EXCELLENT: 'success', GOOD: 'success', FAIR: 'warning', POOR: 'danger' };
 
 export default function Nursery() {
   const [loading, setLoading] = useState(true);

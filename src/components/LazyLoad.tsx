@@ -14,7 +14,7 @@ function LoadingSkeleton() {
   );
 }
 
-export default function LazyLoad({ children }) {
+export default function LazyLoad({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={<LoadingSkeleton />}>
       {children}

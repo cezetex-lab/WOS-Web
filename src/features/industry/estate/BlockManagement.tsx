@@ -32,7 +32,7 @@ export default function BlockManagement() {
 
   const totalArea = blocks.reduce((s, b) => s + b.area_ha, 0);
   const totalTrees = blocks.reduce((s, b) => s + b.total_trees, 0);
-  const statusColor = { ACTIVE: 'success', YOUNG: 'info', REPLANTING: 'warning' };
+  const statusColor: Record<string, string> = { ACTIVE: 'success', YOUNG: 'info', REPLANTING: 'warning' };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 pb-24">

@@ -4,6 +4,17 @@ import { rpc, getSession } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, Tabs, Input } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
+interface WhistleblowRow {
+  id?: string | number;
+  category?: string;
+  severity?: string;
+  description?: string;
+  status?: string;
+  created_at?: string;
+  detail?: string;
+  [key: string]: unknown;
+}
+
 export default function WhistleblowingPage() {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   const session = getSession();
@@ -11,9 +22,9 @@ export default function WhistleblowingPage() {
   const isAdmin = role.startsWith('admin_') || role === 'admin';
 
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<WhistleblowRow[]>([]);
   const [tab, setTab] = useState('all');
-  const [selected, setSelected] = useState<any>(null);
+  const [selected, setSelected] = useState<WhistleblowRow | null>(null);
   const [showSubmit, setShowSubmit] = useState(false);
   const [newCategory, setNewCategory] = useState('Etika');
   const [newDesc, setNewDesc] = useState('');
@@ -21,9 +32,10 @@ export default function WhistleblowingPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await rpc('get_whistleblowers');
-      setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { }
+      const result = await rpc<{ data?: WhistleblowRow[] }>('get_whistleblowers');
+      const items = (Array.isArray(result) ? result : result?.data) || [];
+      setData(items as WhistleblowRow[]);
+    } catch (e: unknown) { }
     setLoading(false);
   }, []);
 
@@ -38,16 +50,16 @@ export default function WhistleblowingPage() {
       await rpc('submit_whistleblower', { p_category: newCategory, p_desc: newDesc });
       setNewDesc(''); setShowSubmit(false);
       fetchData();
-    } catch (e) { }
+    } catch (e: unknown) { }
   };
 
   const columns = [
-    { key: 'id', label: 'ID', render: v => <span className="text-xs font-mono text-slate-400">#{String(v).slice(-4)}</span> },
-    { key: 'category', label: 'Kategori', render: v => <Badge status={v || 'Lainnya'} type={v === 'Korupsi' ? 'danger' : v === 'Etika' ? 'warning' : 'info'} /> },
-    { key: 'severity', label: 'Tingkat', render: v => <Badge status={v || 'Medium'} type={v === 'High' || v === 'Critical' ? 'danger' : v === 'Medium' ? 'warning' : 'info'} /> },
-    { key: 'description', label: 'Deskripsi', render: v => <span className="text-xs text-slate-300 truncate max-w-[200px] block">{v || '-'}</span> },
-    { key: 'status', label: 'Status', render: v => <Badge status={v || 'Open'} type={v === 'Closed' ? 'success' : v === 'Investigating' ? 'warning' : 'danger'} /> },
-    { key: 'created_at', label: 'Tanggal', render: v => <span className="text-xs text-slate-300">{v ? new Date(v).toLocaleDateString('id-ID') : '-'}</span> },
+    { key: 'id', label: 'ID', render: (v: string | number) => <span className="text-xs font-mono text-slate-400">#{String(v).slice(-4)}</span> },
+    { key: 'category', label: 'Kategori', render: (v: string) => <Badge status={v || 'Lainnya'} type={v === 'Korupsi' ? 'danger' : v === 'Etika' ? 'warning' : 'info'} /> },
+    { key: 'severity', label: 'Tingkat', render: (v: string) => <Badge status={v || 'Medium'} type={v === 'High' || v === 'Critical' ? 'danger' : v === 'Medium' ? 'warning' : 'info'} /> },
+    { key: 'description', label: 'Deskripsi', render: (v: string) => <span className="text-xs text-slate-300 truncate max-w-[200px] block">{v || '-'}</span> },
+    { key: 'status', label: 'Status', render: (v: string) => <Badge status={v || 'Open'} type={v === 'Closed' ? 'success' : v === 'Investigating' ? 'warning' : 'danger'} /> },
+    { key: 'created_at', label: 'Tanggal', render: (v: string) => <span className="text-xs text-slate-300">{v ? new Date(v).toLocaleDateString('id-ID') : '-'}</span> },
   ];
 
   if (loading) return <PageLayout backTo={isAdmin ? '/admin' : '/worker'} title="Whistleblowing"><LoadingSpinner text="Memuat laporan..." /></PageLayout>;

@@ -20,7 +20,7 @@ export default function FeatureFlagsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const toggleFlag = async (flag) => {
+  const toggleFlag = async (flag: any) => {
     try {
       await rpc('admin_set_feature_flag', { p_flag: flag.flag || flag.key || flag.name, p_enabled: !flag.enabled });
       setFlags(flags.map(f => f.id === flag.id ? { ...f, enabled: !f.enabled } : f));

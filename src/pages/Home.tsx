@@ -1,25 +1,26 @@
-﻿import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { rpc, setSession, getSession, supabase, syncSupabaseAuth } from '@/lib/supabase-browser';
 import { callEdgeFunction } from '@/lib/edge-functions';
+import type { RpcResult, LoginWorkerResponse, UserSession } from '@/types';
 
 // Root-cause fix (audit): worker tidak pernah punya akun Supabase Auth →
 // auth.uid() NULL → authz_current_nrp()/get_enabled_modules() menolak
-// akses → DynamicRoutes me-redirect balik ke /. 
+// akses → DynamicRoutes me-redirect balik ke /.
 // Tahap 4C FAST PATH: akun yang sudah diprovisi → signInWithPassword langsung
 // (email sintetis satu sumber: lower(trim(nrp)) + '@insightwos.internal').
 // Fallback: edge function worker-auth-sync (provisioning/rotasi + temp password).
 // Non-fatal: gagal hanya me-log warning (login RPC tetap jalan).
-async function provisionWorkerAuth(nrp, nik, password) {
+async function provisionWorkerAuth(nrp: string, nik: string, password: string) {
   try {
-    // FAST PATH — akun Supabase Auth sudah ada → sign-in langsung
+    // FAST PATH - akun Supabase Auth sudah ada -> sign-in langsung
     const syntheticEmail = String(nrp).toLowerCase().trim() + '@insightwos.internal';
     const direct = await syncSupabaseAuth(syntheticEmail, password);
     if (direct) {
       console.info('[auth-sync] fast path OK');
       return true;
     }
-    console.info('[auth-sync] fast path gagal → fallback edge');
+    console.info('[auth-sync] fast path gagal -> fallback edge');
 
     // Timeout 5s: auth-sync bersifat best-effort — edge function yang hang
     // tidak boleh memblokir redirect login (fetch default tidak pernah timeout).
@@ -28,20 +29,20 @@ async function provisionWorkerAuth(nrp, nik, password) {
       console.warn('[auth-sync] tidak berhasil:', d?.msg || 'respons tidak lengkap');
       return false;
     }
-    const signed = await syncSupabaseAuth(d.email, d.temp_password);
+    const signed = await syncSupabaseAuth(String(d.email), String(d.temp_password));
     if (!signed) console.warn('[auth-sync] signInWithPassword gagal untuk', d.email);
     return !!signed;
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[auth-sync] error:', err?.message);
     return false;
   }
 }
 
 
-function checkMfaStatus(nrp) {
+function checkMfaStatus(nrp: string) {
   return callEdgeFunction('mfa-service', { action: 'check', nrp });
 }
-function verifyMfaLogin(nrp, code) {
+function verifyMfaLogin(nrp: string, code: string) {
   return callEdgeFunction('mfa-service', { action: 'verify_login', nrp, code });
 }
 
@@ -67,7 +68,7 @@ export default function Home() {
   const [mfaContext, setMfaContext] = useState('worker'); // 'worker' or 'admin'
   const [validatedNrp, setValidatedNrp] = useState('');
   const [adminValidated, setAdminValidated] = useState(false);
-  const [brand, setBrand] = useState({ company_name: 'insightWIP', logo_url: '' });
+  const [brand, setBrand] = useState<{ company_name: string; logo_url: string; tagline?: string }>({ company_name: 'insightWIP', logo_url: '' });
   const [mfaEmail, setMfaEmail] = useState('');
   // Registration form state
   const [regNama, setRegNama] = useState('');
@@ -80,10 +81,10 @@ export default function Home() {
 
   useEffect(() => {
     rpc('get_branding', {}).then(d => {
-      if (d && d.company_name) setBrand(d);
+      if (d && d.company_name) setBrand({ company_name: d.company_name, logo_url: d.logo_url ?? '', tagline: d.tagline });
       // Dynamic favicon from branding
       if (d?.favicon_url) {
-        const link = document.querySelector('link[rel="icon"]');
+        const link = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
         if (link) link.href = d.favicon_url;
       }
       // Dynamic title from branding
@@ -103,7 +104,7 @@ export default function Home() {
     }
   }, []);
 
-  function switchTab(t) {
+  function switchTab(t: string) {
     setTab(t);
     setError('');
     setLoginStep('credentials');
@@ -127,17 +128,17 @@ export default function Home() {
 
   // Redirect sesuai TAB ASAL LOGIN — bukan role.
   // Admin juga bisa jadi worker: login lewat tab Pekerja → area pekerja.
-  function redirectAfterLogin(entry) {
+  function redirectAfterLogin(entry: string) {
     if (entry === 'dashboard') window.location.href = '/dashboard';
     else if (entry === 'admin') window.location.href = '/admin';
     else window.location.href = '/worker';
   }
 
   // Finalisasi sesi worker dari response login_worker (termasuk pengecekan MFA)
-  async function finalizeWorkerSession(d, creds, entry) {
+  async function finalizeWorkerSession(d: any, creds: {nik?: string; password?: string}, entry: string) {
     if (!d || !d.ok) return;
     const role = d.role || 'worker';
-    const sessionData = { token: d.token, role, nama: d.nama, nrp: d.nrp, entry: entry || tab, role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: d.business_unit || 'HQ', tier: d.tier ?? 0, expires_at: d.expires_at };
+    const sessionData = { token: d.token, role, nama: d.nama, nrp: d.nrp, entry: (entry || tab) as 'admin' | 'worker' | 'dashboard' | 'owner', role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: (d.business_unit || 'HQ') as string, tier: d.tier ?? 0, expires_at: d.expires_at };
     try {
       const mfaRes = await checkMfaStatus(d.nrp);
       if (mfaRes && mfaRes.mfa_enabled) {
@@ -147,7 +148,7 @@ export default function Home() {
         setLoginStep('mfa');
         return;
       }
-    } catch (err) {
+    } catch (err: any) {
       // MFA check gagal -> lanjut login (tidak memblokir user)
     }
     setSession(sessionData);
@@ -158,7 +159,7 @@ export default function Home() {
     redirectAfterLogin(entry);
   }
 
-  async function submitWorkerCredentials(e) {
+  async function submitWorkerCredentials(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -203,14 +204,14 @@ export default function Home() {
         return;
       }
       await finalizeWorkerSession(d, { nik: d.nik || nik, password: pass }, tab);
-    } catch (err) {
-      setError('Koneksi error: ' + err.message);
+    } catch (err: any) {
+      setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);
   }
 
   // Kirim password baru (reset_required) lalu finalisasi sesi login yang tertunda
-  async function submitResetPassword(e) {
+  async function submitResetPassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     if (!resetPass || resetPass.length < 8) {
@@ -236,13 +237,13 @@ export default function Home() {
       } else {
         setError(d.msg || 'Gagal mengubah password');
       }
-    } catch (err) {
-      setError('Koneksi error: ' + err.message);
+    } catch (err: any) {
+      setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);
   }
 
-  async function submitAdminCredentials(e) {
+  async function submitAdminCredentials(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -287,13 +288,13 @@ export default function Home() {
       // No MFA — Kirim OTP via email (edge password-reset) sebelum redirect ke /admin.
       // OTP wajib untuk tab admin (keputusan user: "admin dan dashboard = setelah
       // sukses user+passwd, harus kirim OTP email dan input OTP baru diarahkan").
-      const sessionData = { token: authResult.session?.access_token, entry: 'admin', role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' };
+      const sessionData = { token: authResult.session?.access_token ?? '', entry: 'admin' as const, role: ctx.role ?? '', nama: ctx.nama ?? '', nrp: ctx.nrp ?? '', role_level: ctx.role_level ?? 0, business_unit_id: ctx.business_unit_id ?? '', business_unit: (ctx.unit_code || 'HQ') as string, tier: ctx.tier ?? 0, is_owner: ctx.role === 'owner' };
       setSession(sessionData);
       setValidatedNrp(ctx.nrp);
       await requestAdminOtpForEntry(ctx.nrp, 'admin');
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Admin Login] Exception during login:', err);
-      setError('Koneksi error: ' + err.message);
+      setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);
   }
@@ -309,32 +310,32 @@ export default function Home() {
       } else {
         setError(otpRes.msg || 'Gagal generate OTP');
       }
-    } catch (err) {
-      setError('Koneksi error: ' + err.message);
+    } catch (err: any) {
+      setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);
   }
 
   // Kirim OTP login via edge password-reset (action login_otp) setelah
   // user+password sukses (tab admin & dashboard). OTP wajib sebelum redirect.
-  async function requestAdminOtpForEntry(nrp, entry) {
+  async function requestAdminOtpForEntry(nrp: string, entry: string) {
     setError('');
     setLoading(true);
     try {
       const r = await callEdgeFunction('password-reset', { action: 'login_otp', nrp });
       if (r?.ok) {
-        if (r.dev_code) setOtpCode(r.dev_code);
+        if (r.dev_code) setOtpCode(String(r.dev_code));
         setLoginStep('otp');
       } else {
-        setError(r?.msg || 'Gagal mengirim OTP ke email');
+        setError(String(r?.msg || 'Gagal mengirim OTP ke email'));
       }
-    } catch (err) {
-      setError('Koneksi error: ' + err.message);
+    } catch (err: any) {
+      setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);
   }
 
-  async function submitWorkerOtp(e) {
+  async function submitWorkerOtp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -344,7 +345,7 @@ export default function Home() {
         // verify; bukan dari input user) — lalu cek MFA, finalisasi sesi.
         const d = await rpc('verify_admin_otp', { p_code: otp });
         if (d.ok) {
-          const s = { token: d.token, entry: tab, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: d.nrp || validatedNrp };
+          const s: UserSession = { token: d.token ?? '', entry: (tab || 'admin') as 'admin' | 'worker' | 'dashboard' | 'owner', role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: d.nrp || validatedNrp || '', role_level: d.role_level ?? 0, business_unit_id: d.business_unit_id ?? '' };
           const mfaRes = await checkMfaStatus(s.nrp);
           if (mfaRes?.mfa_enabled) {
             setSession(s);
@@ -368,11 +369,11 @@ export default function Home() {
       if (tab === 'dashboard') {
         const v = await callEdgeFunction('password-reset', { action: 'verify_login_otp', token: otp });
         if (v?.ok) {
-          finalizeWorkerSession({ ...v, role: v.role || 'manager' }, {}, 'dashboard');
+        finalizeWorkerSession({ ...v, role: v.role || 'manager' }, {}, 'dashboard');
           setLoading(false);
           return;
         }
-        setError(v?.msg || 'OTP salah');
+        setError(String(v?.msg || 'OTP salah'));
         setLoading(false);
         return;
       }
@@ -382,7 +383,7 @@ export default function Home() {
         const mfaRes = await checkMfaStatus(validatedNrp);
         if (mfaRes.mfa_enabled) {
           // MFA required — store OTP data, show MFA input
-          setSession({ ...d, role: 'worker', entry: tab });
+          setSession({ token: (d as { token?: string }).token ?? '', role: 'worker', entry: (tab || 'worker') as 'admin' | 'worker' | 'dashboard' | 'owner', role_level: (d as { role_level?: number }).role_level ?? 0, business_unit_id: (d as { business_unit_id?: string }).business_unit_id ?? '', nrp: (d as { nrp?: string }).nrp ?? validatedNrp ?? '', nama: (d as { nama?: string }).nama ?? '' });
           setMfaRequired(true);
           setMfaNrp(validatedNrp);
           setMfaContext('worker');
@@ -390,19 +391,19 @@ export default function Home() {
           return;
         }
         // No MFA — direct sesuai tab asal login
-        setSession({ ...d, role: 'worker', entry: tab });
+        finalizeWorkerSession(d, {}, tab);
         if (nik && pass) await provisionWorkerAuth(validatedNrp, nik, pass);
         redirectAfterLogin(tab);
       } else {
         setError(d.msg || 'OTP salah');
       }
-    } catch (err) {
-      setError('Koneksi error: ' + err.message);
+    } catch (err: any) {
+      setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);
   }
 
-  async function submitWorkerMfa(e) {
+  async function submitWorkerMfa(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(false); // Ensure loading is reset
@@ -428,15 +429,15 @@ export default function Home() {
           window.location.href = '/admin';
         }
       } else {
-        setError(d.msg || 'Kode TOTP salah');
+        setError(String(d.msg || 'Kode TOTP salah'));
       }
-    } catch (err) {
-      setError('Koneksi error: ' + err.message);
+    } catch (err: any) {
+      setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);
   }
 
-  async function submitAdminOtp(e) {
+  async function submitAdminOtp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -447,7 +448,7 @@ export default function Home() {
         // Check MFA for admin
         const mfaRes = await checkMfaStatus(adminNrp);
         if (mfaRes.mfa_enabled) {
-          setSession({ token: d.token, entry: tab, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
+          setSession({ token: d.token ?? '', entry: (tab || 'admin') as 'admin' | 'worker' | 'dashboard' | 'owner', role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp, role_level: d.role_level ?? 0, business_unit_id: d.business_unit_id ?? '' });
           setMfaRequired(true);
           setMfaNrp(adminNrp);
           setMfaContext('admin');
@@ -455,15 +456,15 @@ export default function Home() {
           setLoading(false);
           return;
         }
-        setSession({ token: d.token, entry: tab, role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp });
+        setSession({ token: d.token ?? '', entry: (tab || 'admin') as 'admin' | 'worker' | 'dashboard' | 'owner', role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp, role_level: d.role_level ?? 0, business_unit_id: d.business_unit_id ?? '' });
         // V6: sync Supabase Auth for gatekeeper RPCs
         if (adminEmail) syncSupabaseAuth(adminEmail, adminPass);
         window.location.href = '/admin';
       } else {
         setError(d.msg || 'OTP salah');
       }
-    } catch (err) {
-      setError('Koneksi error: ' + err.message);
+    } catch (err: any) {
+      setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);
   }
@@ -487,8 +488,8 @@ export default function Home() {
       } else {
         setError(res.msg || 'Gagal kirim ulang OTP');
       }
-    } catch (err) {
-      setError('Koneksi error: ' + err.message);
+    } catch (err: any) {
+      setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);
   }
@@ -508,7 +509,7 @@ export default function Home() {
     setResetConfirm('');
   }
 
-  const S = {
+  const S: Record<string, React.CSSProperties> = {
     wrap: {
       minHeight: '100vh',
       display: 'flex',
@@ -786,7 +787,7 @@ export default function Home() {
 
       {/* Registration Form */}
       {tab === 'worker' && loginStep === 'register' && (
-        <form onSubmit={async (e) => {
+        <form onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
           e.preventDefault(); setLoading(true); setError('');
           try {
             if (!nik || nik.length !== 16) { setError('NIK harus tepat 16 digit angka'); setLoading(false); return; }
@@ -796,7 +797,7 @@ export default function Home() {
             });
             if (r?.ok) { alert(r.msg); setLoginStep('credentials'); }
             else { setError(r?.msg || 'Gagal mendaftar'); }
-          } catch (err) { setError('Gagal mendaftar: ' + err.message); }
+          } catch (err: any) { setError('Gagal mendaftar: ' + (err instanceof Error ? err.message : String(err))); }
           setLoading(false);
         }} style={S.form}>
           <div style={S.otpInfo}>📝 Formulir Pendaftaran Baru</div>
@@ -843,14 +844,14 @@ export default function Home() {
 
       {/* Check Registration Status */}
       {tab === 'worker' && loginStep === 'cek_daftar' && (
-        <form onSubmit={async (e) => {
+        <form onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
           e.preventDefault(); setLoading(true); setError('');
           try {
             const r = await rpc('check_registration_status', { p_query: nrp });
             if (r?.data) {
               alert(`Status: ${r.data.status}\nNRP: ${r.data.nrp}\nNama: ${r.data.nama}`);
             } else { setError(r?.msg || 'Data tidak ditemukan'); }
-          } catch (err) { setError('Gagal cek status: ' + err.message); }
+          } catch (err: any) { setError('Gagal cek status: ' + (err instanceof Error ? err.message : String(err))); }
           setLoading(false);
         }} style={S.form}>
           <div style={S.otpInfo}>🔍 Cek Status Pendaftaran</div>

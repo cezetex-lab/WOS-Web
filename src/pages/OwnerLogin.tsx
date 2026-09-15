@@ -9,7 +9,7 @@ export default function OwnerLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -29,6 +29,7 @@ export default function OwnerLogin() {
         role: 'owner',
         role_level: 5,
         is_owner: true,
+        business_unit_id: '',
         email: email,
       });
 

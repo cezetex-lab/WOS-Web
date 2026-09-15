@@ -134,18 +134,18 @@ const ROLE_CONFIG = {
   },
 };
 
-export function BottomNav({ onMenuClick }) {
+export function BottomNav({ onMenuClick }: BottomNavProps) {
   const location = useLocation();
   const session = getSession();
   const role = session?.role || 'worker';
   const path = location.pathname;
   // Nav mengikuti AREA tempat user berada (bukan role) — admin di /worker = nav worker
   const config = path.startsWith('/admin')
-    ? (ROLE_CONFIG[role] || ROLE_CONFIG.admin)
+    ? (ROLE_CONFIG[role as keyof typeof ROLE_CONFIG] || ROLE_CONFIG.admin)
     : path.startsWith('/dashboard')
       ? ROLE_CONFIG.manager
-      : { home: '/worker', items: WORKER_NAV[session?.business_unit || 'HQ'] || WORKER_NAV.HQ };
-  const isActive = (path) => location.pathname === path;
+      : { home: '/worker', items: WORKER_NAV[(session?.business_unit as keyof typeof WORKER_NAV) || 'HQ'] || WORKER_NAV.HQ };
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <nav aria-label="Navigasi utama" className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-t border-white/10 px-2 pb-safe">
@@ -162,7 +162,14 @@ export function BottomNav({ onMenuClick }) {
   );
 }
 
-function NavItem({ to, icon, label, active }) {
+interface NavItemProps {
+  to: string;
+  icon: string;
+  label: string;
+  active: boolean;
+}
+
+function NavItem({ to, icon, label, active }: NavItemProps) {
   return (
     <Link to={to} aria-label={label} aria-current={active ? 'page' : undefined} className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-teal-400/50 ${active ? 'text-teal-400 bg-teal-400/10' : 'text-slate-400 hover:text-white'}`}>
       <span className="text-2xl" aria-hidden="true">{icon}</span>

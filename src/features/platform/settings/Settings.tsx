@@ -17,7 +17,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [pkwtAlerts, setPkwtAlerts] = useState<any[]>([]);
   const [passwordForm, setPasswordForm] = useState({ old: '', new: '', confirm: '' });
-  const [passwordMsg, setPasswordMsg] = useState<any>(null);
+  const [passwordMsg, setPasswordMsg] = useState<{type: string; text: string} | null>(null);
   const [changing, setChanging] = useState(false);
 
   useEffect(() => { loadData(); }, []);
@@ -34,7 +34,7 @@ export default function Settings() {
     setLoading(false);
   }
 
-  async function handleChangePassword(e) {
+  async function handleChangePassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPasswordMsg(null);
     if (passwordForm.new !== passwordForm.confirm) {
@@ -46,9 +46,9 @@ export default function Settings() {
     setChanging(true);
     try {
       const result = await rpc('admin_change_password', { p_old_password: passwordForm.old, p_new_password: passwordForm.new });
-      if (result?.ok) { setPasswordMsg({ type: 'success', text: result.msg }); setPasswordForm({ old: '', new: '', confirm: '' }); }
-      else { setPasswordMsg({ type: 'error', text: result?.msg || 'Gagal' }); }
-    } catch (e) { setPasswordMsg({ type: 'error', text: 'Error: ' + e.message }); }
+      if (result?.ok) { setPasswordMsg({ type: 'success', text: String(result.msg) }); setPasswordForm({ old: '', new: '', confirm: '' }); }
+      else { setPasswordMsg({ type: 'error', text: String(result?.msg || 'Gagal') }); }
+    } catch (e: unknown) { setPasswordMsg({ type: 'error', text: 'Error: ' + (e instanceof Error ? e.message : String(e)) }); }
     setChanging(false);
   }
 

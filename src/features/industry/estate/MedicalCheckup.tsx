@@ -18,7 +18,7 @@ export default function MedicalCheckup() {
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<any[]>([]);
 
-  useEffect(() => { rpc('get_medical_checkup', { p_nrp: '*' }).then(r => { setRecords(r?.data || []); setLoading(false); }).catch(() => setLoading(false)); }, []);
+  useEffect(() => { rpc('get_medical_checkup', { p_nrp: '*' }).then(r => { setRecords((r?.data || []) as any[]); setLoading(false); }).catch(() => setLoading(false)); }, []);
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat data medical..." /></div>;
 

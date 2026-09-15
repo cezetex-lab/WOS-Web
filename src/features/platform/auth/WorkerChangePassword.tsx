@@ -20,7 +20,7 @@ export default function WorkerChangePassword() {
   const [result, setResult] = useState<any>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResult(null);
 

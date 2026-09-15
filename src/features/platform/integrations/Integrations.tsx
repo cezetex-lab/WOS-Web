@@ -3,7 +3,7 @@
 // Webhooks, SSO, Slack/Teams notifications
 // ============================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supabase, getSession } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
@@ -11,7 +11,13 @@ import {
   EmptyState, Tabs, Input, Toggle, StatItem, Divider
 } from '@/lib/design-system';
 
-function Modal({ onClose, title, children }) {
+interface ModalProps {
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+}
+
+function Modal({ onClose, title, children }: ModalProps) {
   useAdminAuth(["admin_pusat"]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -37,21 +43,53 @@ const EVENT_OPTIONS = [
   { key: 'safety_incident', label: '🦺 Insiden Safety' },
 ];
 
-const CHANNEL_ICONS = {
+const CHANNEL_ICONS: Record<string, string> = {
   slack: '💬', teams: '👥', whatsapp: '📱', email: '📧'
 };
 
+interface Webhook {
+  id: string;
+  name: string;
+  url: string;
+  active: boolean;
+  events?: string[];
+}
+
+interface SsoProvider {
+  id: string;
+  name: string;
+  provider_type: string;
+  enabled: boolean;
+}
+
+interface ExternalNotification {
+  id: string;
+  channel: string;
+  webhook_url?: string;
+  active: boolean;
+  event_types?: string[];
+}
+
+interface WebhookLog {
+  id: string;
+  event: string;
+  created_at: string;
+  success: boolean;
+  response_status?: number;
+}
+
 export default function Integrations() {
+  useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('webhooks');
-  const [webhooks, setWebhooks] = useState<any[]>([]);
-  const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
-  const [ssoProviders, setSsoProviders] = useState<any[]>([]);
-  const [extNotifs, setExtNotifs] = useState<any[]>([]);
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+  const [ssoProviders, setSsoProviders] = useState<SsoProvider[]>([]);
+  const [extNotifs, setExtNotifs] = useState<ExternalNotification[]>([]);
   const [showAddWebhook, setShowAddWebhook] = useState(false);
   const [newWhName, setNewWhName] = useState('');
   const [newWhUrl, setNewWhUrl] = useState('');
-  const [newWhEvents, setNewWhEvents] = useState<any[]>([]);
+  const [newWhEvents, setNewWhEvents] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -84,14 +122,14 @@ export default function Integrations() {
     } catch (e) { }
   };
 
-  const toggleWebhook = async (id, active) => {
+  const toggleWebhook = async (id: string, active: boolean) => {
     try {
       await supabase.rpc('admin_toggle_webhook', { p_id: id, p_active: !active });
       fetchData();
     } catch (e) { }
   };
 
-  const deleteWebhook = async (id) => {
+  const deleteWebhook = async (id: string) => {
     if (!confirm('Hapus webhook ini?')) return;
     try {
       await supabase.rpc('admin_delete_webhook', { p_id: id });
@@ -99,15 +137,15 @@ export default function Integrations() {
     } catch (e) { }
   };
 
-  const toggleEvent = (key) => {
+  const toggleEvent = (key: string) => {
     setNewWhEvents(prev => prev.includes(key) ? prev.filter(e => e !== key) : [...prev, key]);
   };
 
   const tabs = [
-    { key: 'webhooks', label: '🔗 Webhooks' },
-    { key: 'sso', label: '🔑 SSO' },
-    { key: 'notifications', label: '💬 Slack/Teams' },
-    { key: 'logs', label: '📋 Logs' },
+    { id: 'webhooks', label: '🔗 Webhooks' },
+    { id: 'sso', label: '🔑 SSO' },
+    { id: 'notifications', label: '💬 Slack/Teams' },
+    { id: 'logs', label: '📋 Logs' },
   ];
 
   return (
@@ -138,15 +176,15 @@ export default function Integrations() {
                         <p className="text-white text-sm font-medium">{wh.name}</p>
                         <p className="text-slate-400 text-xs truncate">{wh.url}</p>
                       </div>
-                      <Badge color={wh.active ? 'green' : 'slate'}>{wh.active ? '🟢 Active' : '⚪ Off'}</Badge>
+                      <Badge status={wh.active ? '🟢 Active' : '⚪ Off'} type={wh.active ? 'success' : 'default'} />
                     </div>
                     <div className="flex flex-wrap gap-1 mb-2">
                       {(wh.events || []).map((ev, i) => (
-                        <Badge key={i} color="blue">{ev}</Badge>
+                        <Badge key={i} status={ev} type="info" />
                       ))}
                     </div>
                     <div className="flex gap-2">
-                      <Button onClick={() => toggleWebhook(wh.id, wh.active)} variant="secondary" size="sm">
+                      <Button onClick={() => toggleWebhook(wh.id, wh.active)} variant="outline" size="sm">
                         {wh.active ? '⏸️ Disable' : '▶️ Enable'}
                       </Button>
                       <Button onClick={() => deleteWebhook(wh.id)} color="red" size="sm">🗑️</Button>
@@ -170,9 +208,7 @@ export default function Integrations() {
                       <p className="text-white text-sm font-semibold">{sso.name}</p>
                       <p className="text-slate-400 text-xs">Type: {sso.provider_type}</p>
                     </div>
-                    <Badge color={sso.enabled ? 'green' : 'slate'}>
-                      {sso.enabled ? '🟢 Enabled' : '⚪ Disabled'}
-                    </Badge>
+                    <Badge status={sso.enabled ? '🟢 Enabled' : '⚪ Disabled'} type={sso.enabled ? 'success' : 'default'} />
                   </div>
                   {!sso.enabled && (
                     <p className="text-slate-500 text-xs mt-2">
@@ -206,13 +242,11 @@ export default function Integrations() {
                         <p className="text-slate-400 text-xs">{ch.webhook_url ? '✅ Configured' : '⚠️ No URL'}</p>
                       </div>
                     </div>
-                    <Badge color={ch.active ? 'green' : 'slate'}>
-                      {ch.active ? '🟢 Active' : '⚪ Off'}
-                    </Badge>
+                    <Badge status={ch.active ? '🟢 Active' : '⚪ Off'} type={ch.active ? 'success' : 'default'} />
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {(ch.event_types || []).map((ev, i) => (
-                      <Badge key={i} color="blue">{ev}</Badge>
+                      <Badge key={i} status={ev} type="info" />
                     ))}
                   </div>
                 </GlassCard>
@@ -238,9 +272,7 @@ export default function Integrations() {
                       <p className="text-white text-xs font-medium">{log.event}</p>
                       <p className="text-slate-500 text-xs">{new Date(log.created_at).toLocaleString('id-ID')}</p>
                     </div>
-                    <Badge color={log.success ? 'green' : 'red'}>
-                      {log.success ? '✅' : '❌'} {log.response_status || '-'}
-                    </Badge>
+                    <Badge status={log.success ? '✅' : '❌'} type={log.success ? 'success' : 'danger'} />
                   </div>
                 </GlassCard>
               ))}
@@ -253,8 +285,8 @@ export default function Integrations() {
       {showAddWebhook && (
         <Modal onClose={() => setShowAddWebhook(false)} title="➕ Tambah Webhook">
           <div className="space-y-3">
-            <Input label="Nama" value={newWhName} onChange={setNewWhName} placeholder="Contoh: Slack HR Channel" />
-            <Input label="URL" value={newWhUrl} onChange={setNewWhUrl} placeholder="https://hooks.slack.com/..." />
+            <Input label="Nama" value={newWhName} onChange={(e) => setNewWhName(e.target.value)} placeholder="Contoh: Slack HR Channel" />
+            <Input label="URL" value={newWhUrl} onChange={(e) => setNewWhUrl(e.target.value)} placeholder="https://hooks.slack.com/..." />
             <div>
               <label className="text-xs text-slate-400 mb-1 block">Events</label>
               <div className="space-y-1">

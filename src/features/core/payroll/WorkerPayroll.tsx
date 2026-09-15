@@ -22,7 +22,7 @@ export default function WorkerPayroll() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const formatRp = (v) => `Rp ${(parseFloat(v || 0)).toLocaleString('id-ID')}`;
+  const formatRp = (v: any) => `Rp ${(parseFloat(String(v || 0))).toLocaleString('id-ID')}`;
   const totalNet = data.reduce((s, r) => s + parseFloat(r.net_salary || r.take_home || 0), 0);
 
   if (loading) return <PageLayout backTo="/worker" title="Slip Gaji"><LoadingSpinner text="Memuat slip gaji..." /></PageLayout>;

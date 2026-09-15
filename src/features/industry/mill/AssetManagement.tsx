@@ -12,7 +12,8 @@ import {
 } from '@/lib/design-system';
 
 // Inline Modal
-function Modal({ onClose, title, children }) {
+interface ModalProps { onClose: () => void; title: string; children: React.ReactNode; }
+function Modal({ onClose, title, children }: ModalProps) {
   useAdminAuth(["admin_pusat", "admin_operasional"]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -63,7 +64,7 @@ export default function AssetManagement() {
 
   useEffect(() => { fetchAssets(); }, [fetchAssets]);
 
-  const handleCheckout = async (assetId) => {
+  const handleCheckout = async (assetId: string) => {
     try {
       await supabase.rpc('checkout_asset', { p_asset_id: assetId, p_nrp: nrp });
       setShowCheckout(null);
@@ -71,7 +72,7 @@ export default function AssetManagement() {
     } catch (e) { }
   };
 
-  const handleCheckin = async (assetId) => {
+  const handleCheckin = async (assetId: string) => {
     try {
       await supabase.rpc('checkin_asset', { p_asset_id: assetId, p_condition: condition });
       setShowCheckin(null);
@@ -86,10 +87,10 @@ export default function AssetManagement() {
   const available = totalAssets - checkedOut;
 
   const tabs = [
-    { key: 'inventory', label: '📦 Inventaris' },
-    { key: 'assignments', label: '🔄 Check-in/out' },
-    { key: 'vehicles', label: '🚛 Kendaraan' },
-    { key: 'facility', label: '🏢 Fasilitas' },
+    { id: 'inventory', label: '📦 Inventaris' },
+    { id: 'assignments', label: '🔄 Check-in/out' },
+    { id: 'vehicles', label: '🚛 Kendaraan' },
+    { id: 'facility', label: '🏢 Fasilitas' },
   ];
 
   return (
@@ -132,7 +133,7 @@ export default function AssetManagement() {
                         <p className="text-white text-sm font-medium">{a.name || a.machine_id || `Aset #${a.id}`}</p>
                         <p className="text-slate-400 text-xs">{a.category || '-'} · {a.location || '-'}</p>
                       </div>
-                      <Badge color={CONDITION_COLORS[a.condition] || 'slate'}>{a.condition || 'N/A'}</Badge>
+                      <Badge status={a.condition || 'N/A'} type={CONDITION_COLORS[a.condition as keyof typeof CONDITION_COLORS] || 'default'} />
                     </div>
                   </GlassCard>
                 ))}
@@ -153,9 +154,7 @@ export default function AssetManagement() {
                       <p className="text-white text-sm">{a.asset_name || a.machine_id || `Aset #${a.asset_id}`}</p>
                       <p className="text-slate-400 text-xs">oleh: {a.nrp || a.user_nrp} · {a.date || a.checked_out_at || '-'}</p>
                     </div>
-                    <Badge color={a.returned_at ? 'green' : 'orange'}>
-                      {a.returned_at ? '✅ Dikembalikan' : '🔄 Dipinjam'}
-                    </Badge>
+                    <Badge status={a.returned_at ? '✅ Dikembalikan' : '🔄 Dipinjam'} type={a.returned_at ? 'success' : 'warning'} />
                   </div>
                 </GlassCard>
               ))}

@@ -29,7 +29,7 @@ export default function TransportTBS() {
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat transport..." /></div>;
 
-  const statusColor = { DELIVERED: 'success', IN_TRANSIT: 'info', LOADING: 'warning', SCHEDULED: 'default' };
+  const statusColor: Record<string, string> = { DELIVERED: 'success', IN_TRANSIT: 'info', LOADING: 'warning', SCHEDULED: 'default' };
   const delivered = dispatches.filter(d => d.status === 'DELIVERED').reduce((s, d) => s + d.weight_ton, 0);
   const total = dispatches.reduce((s, d) => s + d.weight_ton, 0);
 

@@ -31,14 +31,14 @@ export default function ApprovalWorkflow() {
   const pending = requests.filter(r => (r.status || '').toLowerCase() === 'pending' || (r.status || '').toLowerCase() === 'requested');
   const approved = requests.filter(r => (r.status || '').toLowerCase() === 'approved');
 
-  const getRequiredLevel = (days) => {
+  const getRequiredLevel = (days: number) => {
     if (days > 14) return 4;
     if (days > 7) return 3;
     if (days > 3) return 2;
     return 1;
   };
 
-  const handleApprove = async (req) => {
+  const handleApprove = async (req: any) => {
     try {
       await rpc('process_request', { p_request_id: req.id, p_action: 'approve' });
       setRequests(requests.map(r => r.id === req.id ? { ...r, status: 'Approved' } : r));
@@ -46,7 +46,7 @@ export default function ApprovalWorkflow() {
     } catch (e) { }
   };
 
-  const handleReject = async (req) => {
+  const handleReject = async (req: any) => {
     try {
       await rpc('process_request', { p_request_id: req.id, p_action: 'reject' });
       setRequests(requests.map(r => r.id === req.id ? { ...r, status: 'Rejected' } : r));

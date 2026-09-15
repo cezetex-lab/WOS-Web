@@ -12,7 +12,10 @@ import { getComponent } from '@/lib/route-config';
 import LazyLoad from './LazyLoad';
 import ErrorBoundary from './ErrorBoundary';
 
-interface DynamicRoutesProps { withNav?: boolean; }
+/** Wraps a page component with the app chrome (Layout/BottomNav/Drawer). */
+export type WithNavFn = (Component: ComponentType<any>, props?: any) => React.ReactNode;
+
+interface DynamicRoutesProps { withNav?: WithNavFn; }
 function RouteWrapper({ Component, name }: { Component: ComponentType<any>; name?: string }) {
   // key by component name: remounts ErrorBoundary on route change so an
   // error caught on one page isn't shown on every later page.
@@ -29,7 +32,7 @@ function RouteWrapper({ Component, name }: { Component: ComponentType<any>; name
  * Fetches ALL modules with route config from DB.
  * Admin routes should always be registered (access control is inside components).
  */
-async function fetchAllRouteConfig(pArea) {
+async function fetchAllRouteConfig(pArea?: string) {
   // NOTE: rpc() helper mengembalikan DATA MENTAH (array jsonb dari
   // get_enabled_modules), bukan envelope {data, error}. Jangan destructure.
   // ISOLASI: load modules HANYA untuk area saat ini (admin/worker/dashboard).
@@ -39,8 +42,8 @@ async function fetchAllRouteConfig(pArea) {
   if (!list.length) console.warn('[DynamicRoutes] get_enabled_modules returned no rows for area:', pArea);
 
   return list
-    .filter(m => m.route_path && m.route_component)
-    .map(m => ({
+    .filter((m: any) => m.route_path && m.route_component)
+    .map((m: any) => ({
       path: m.route_path,
       componentName: m.route_component,
       group: m.route_group || 'worker',
@@ -49,14 +52,14 @@ async function fetchAllRouteConfig(pArea) {
 }
 
 // Determine area from current pathname.
-function areaFromPath(pathname) {
+function areaFromPath(pathname: string) {
   const p = (pathname || '').replace(/\/+$/, '') || '/';
   if (p.startsWith('/admin')) return 'admin';
   if (p.startsWith('/dashboard')) return 'dashboard';
   return 'worker';
 }
 
-const normalizePath = p => ((p || '').replace(/\/+$/, '') || '/');
+const normalizePath = (p: string) => ((p || '').replace(/\/+$/, '') || '/');
 
 export default function DynamicRoutes({ withNav }: DynamicRoutesProps) {
   const [routes, setRoutes] = useState<any[]>([]);
@@ -110,7 +113,7 @@ export default function DynamicRoutes({ withNav }: DynamicRoutesProps) {
 
   return (
     <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400">Loading...</div>}>
-      {withNav(Component)}
+      {withNav ? withNav(Component) : <Component />}
     </Suspense>
   );
 }

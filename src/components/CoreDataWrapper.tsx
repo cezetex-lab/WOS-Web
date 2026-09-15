@@ -7,7 +7,14 @@
 import React from 'react';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 
-export default function CoreDataWrapper({ moduleCode, requiredRoleLevel = 1, children, fallbackTitle }) {
+interface CoreDataWrapperProps {
+  moduleCode: string;
+  requiredRoleLevel?: number;
+  children: React.ReactNode;
+  fallbackTitle?: string;
+}
+
+export default function CoreDataWrapper({ moduleCode, requiredRoleLevel = 1, children, fallbackTitle }: CoreDataWrapperProps) {
   const { data: hasAccess, isLoading } = useModuleAccess(moduleCode, requiredRoleLevel);
 
   if (isLoading) {

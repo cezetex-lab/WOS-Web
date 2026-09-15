@@ -10,17 +10,45 @@ import { useCurrentUserContext } from '@/hooks/useModuleAccess';
 import { ArrowLeft, Package, Lock, ToggleLeft, ToggleRight, Star, Shield, ChevronDown, ChevronRight } from 'lucide-react';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
+interface Module {
+  module_code: string;
+  module_name: string;
+  is_enabled: boolean;
+  is_industry_module: boolean;
+  business_unit_id: string;
+  unit_code?: string;
+  unit_name?: string;
+}
+
+interface BusinessUnit {
+  id: string;
+  unit_name?: string;
+  unit_code?: string;
+  tier?: number;
+}
+
+interface RoleStat {
+  business_unit_id: string;
+  role_level: number;
+  count: number;
+}
+
+interface GroupedModule {
+  name: string;
+  modules: Module[];
+}
+
 export default function ModuleManagement() {
   useAdminAuth(["admin_pusat"]);
   const { data: ctx, isLoading: ctxLoading } = useCurrentUserContext();
-  const [modules, setModules] = useState([]);
-  const [auditLog, setAuditLog] = useState([]);
-  const [businessUnits, setBusinessUnits] = useState([]);
-  const [roleStats, setRoleStats] = useState([]);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [auditLog, setAuditLog] = useState<Record<string, unknown>[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [roleStats, setRoleStats] = useState<RoleStat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [toggling, setToggling] = useState(null);
+  const [toggling, setToggling] = useState<string | null>(null);
   const [tab, setTab] = useState('lock');
-  const [collapsed, setCollapsed] = useState({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   useEffect(() => { if (ctx?.is_owner) loadAllData(); }, [ctx]);
 
@@ -32,14 +60,14 @@ export default function ModuleManagement() {
       rpc('get_business_units_for_owner'),
       rpc('get_role_overview'),
     ]);
-    setModules(Array.isArray(mods) ? mods : []);
-    setAuditLog(Array.isArray(logs) ? logs : []);
-    setBusinessUnits(Array.isArray(bu) ? bu : []);
-    setRoleStats(Array.isArray(roles) ? roles : []);
+    setModules(Array.isArray(mods) ? mods as Module[] : []);
+    setAuditLog(Array.isArray(logs) ? logs as Record<string, unknown>[] : []);
+    setBusinessUnits(Array.isArray(bu) ? bu as BusinessUnit[] : []);
+    setRoleStats(Array.isArray(roles) ? roles as RoleStat[] : []);
     setLoading(false);
   }
 
-  async function toggleLock(code, enabled, buId) {
+  async function toggleLock(code: string, enabled: boolean, buId: string) {
     if (!buId) { return; }
     setToggling(code);
     const result = await rpc('owner_toggle_lock', { p_module_code: code, p_enable: !enabled, p_bu_id: buId });
@@ -47,7 +75,7 @@ export default function ModuleManagement() {
     setToggling(null);
   }
 
-  async function setTier(buId, tier) {
+  async function setTier(buId: string, tier: number) {
     await rpc('owner_set_tier', { p_bu_id: buId, p_tier: tier });
     await loadAllData();
   }
@@ -56,7 +84,7 @@ export default function ModuleManagement() {
   if (!ctx?.is_owner) return <div className="p-6 text-center"><Lock className="mx-auto mb-4 text-red-500" size={48} /><h2 className="text-xl font-bold text-red-600">Akses Ditolak</h2><p className="text-gray-500 mt-2">Hanya Owner.</p></div>;
 
   const industry = modules.filter(m => m.is_industry_module);
-  const grouped = {};
+  const grouped: Record<string, GroupedModule> = {};
   industry.forEach(m => { const b = m.unit_code || 'Unknown'; if (!grouped[b]) grouped[b] = { name: m.unit_name || b, modules: [] }; grouped[b].modules.push(m); });
   const tierL = ['Free','Basic','Standard','Premium','Enterprise'];
   const roleL = ['Staff','Supervisor','Manager','Director','CEO'];

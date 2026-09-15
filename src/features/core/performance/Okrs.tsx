@@ -12,8 +12,14 @@ import {
 } from '@/lib/design-system';
 import { getCurrentPeriod } from '@/lib/format';
 
+interface ModalProps {
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+
 // Inline Modal
-function Modal({ onClose, title, children }) {
+function Modal({ onClose, title, children }: ModalProps) {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -28,10 +34,10 @@ function Modal({ onClose, title, children }) {
   );
 }
 
-const STATUS_COLORS = {
-  on_track: 'green', at_risk: 'yellow', behind: 'red', draft: 'slate', completed: 'blue'
+const STATUS_COLORS: Record<string, string> = {
+  on_track: 'success', at_risk: 'warning', behind: 'danger', draft: 'default', completed: 'info'
 };
-const STATUS_LABELS = {
+const STATUS_LABELS: Record<string, string> = {
   on_track: '✅ On Track', at_risk: '⚠️ At Risk', behind: '🔴 Behind', draft: '📝 Draft', completed: '🎯 Completed'
 };
 
@@ -97,11 +103,11 @@ export default function Okrs() {
     setNewTarget('');
   };
 
-  const removeKr = (idx) => setKrList(krList.filter((_, i) => i !== idx));
+  const removeKr = (idx: number) => setKrList(krList.filter((_: { kr: string; target: string; unit: string }, i: number) => i !== idx));
 
   const tabs = role === 'admin'
-    ? [{ key: 'my', label: '🎯 OKR Saya' }, { key: 'all', label: '📊 Semua OKR' }]
-    : [{ key: 'my', label: '🎯 OKR Saya' }];
+    ? [{ id: 'my', label: '🎯 OKR Saya' }, { id: 'all', label: '📊 Semua OKR' }]
+    : [{ id: 'my', label: '🎯 OKR Saya' }];
 
   return (
     <PageLayout title="🎯 OKRs — Objectives & Key Results">
@@ -123,12 +129,12 @@ export default function Okrs() {
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <p className="text-white font-semibold text-sm">{okr.objective}</p>
-                        <p className="text-slate-400 text-xs mt-1">📅 {okr.periode} · <Badge color={STATUS_COLORS[okr.status]}>{STATUS_LABELS[okr.status] || okr.status}</Badge></p>
+                        <p className="text-slate-400 text-xs mt-1">📅 {okr.periode} · <Badge status={STATUS_LABELS[okr.status] || okr.status} type={STATUS_COLORS[okr.status] || 'default'} /></p>
                       </div>
                     </div>
                     {okr.key_results && okr.key_results.length > 0 && (
                       <div className="mt-3 space-y-2">
-                        {okr.key_results.map((kr, idx) => (
+                        {okr.key_results.map((kr: { kr: string; pct?: number; actual?: number; target: number; unit: string }, idx: number) => (
                           <div key={idx} className="bg-slate-800/50 rounded-lg p-3">
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-slate-300 text-xs">{kr.kr}</span>
@@ -172,12 +178,12 @@ export default function Okrs() {
       {showCreate && (
         <Modal onClose={() => setShowCreate(false)} title="➕ Buat OKR Baru">
           <div className="space-y-3">
-            <Input label="Objective" value={newObjective} onChange={setNewObjective} placeholder="Contoh: Meningkatkan produktivitas tim" />
-            <Input label="Periode" value={newPeriod} onChange={setNewPeriod} placeholder="YYYY-MM" />
-            
+            <Input label="Objective" value={newObjective} onChange={(e) => setNewObjective(e.target.value)} placeholder="Contoh: Meningkatkan produktivitas tim" />
+            <Input label="Periode" value={newPeriod} onChange={(e) => setNewPeriod(e.target.value)} placeholder="YYYY-MM" />
+
             <Divider />
             <p className="text-slate-300 text-xs font-semibold">Key Results:</p>
-            {krList.map((kr, idx) => (
+            {krList.map((kr: { kr: string; target: string; unit: string }, idx: number) => (
               <div key={idx} className="flex items-center gap-2 bg-slate-800/50 rounded p-2">
                 <span className="text-white text-xs flex-1">{kr.kr}</span>
                 <span className="text-slate-400 text-xs">{kr.target} {kr.unit}</span>
@@ -185,10 +191,10 @@ export default function Okrs() {
               </div>
             ))}
             <div className="flex gap-2">
-              <Input label="" value={newKr} onChange={setNewKr} placeholder="Key Result" className="flex-1" />
-              <Input label="" value={newTarget} onChange={setNewTarget} placeholder="Target" className="w-20" />
-              <Input label="" value={newUnit} onChange={setNewUnit} placeholder="Unit" className="w-16" />
-              <Button onClick={addKrToList} variant="secondary" className="mt-1">+</Button>
+              <Input label="" value={newKr} onChange={(e) => setNewKr(e.target.value)} placeholder="Key Result" className="flex-1" />
+              <Input label="" value={newTarget} onChange={(e) => setNewTarget(e.target.value)} placeholder="Target" className="w-20" />
+              <Input label="" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="Unit" className="w-16" />
+              <Button onClick={addKrToList} variant="outline" className="mt-1">+</Button>
             </div>
             
             <Button onClick={createOkr} className="w-full">💾 Simpan OKR</Button>

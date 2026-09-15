@@ -39,6 +39,13 @@ test.describe('L7: Worker Login Flow E2E', () => {
 
   test('login with empty fields shows error', async ({ page }) => {
     await page.goto('/');
+    // The privacy-consent modal is rendered at z-[9999] and asynchronously;
+    // it overlays the form and intercepts the submit click until dismissed.
+    const consent = page.locator('div[role="dialog"] button:has-text("Saya Setuju")');
+    try {
+      await consent.first().waitFor({ state: 'visible', timeout: 8000 });
+      await consent.first().click();
+    } catch { /* no consent dialog — continue */ }
     await page.waitForLoadState('networkidle');
     // Try to submit without filling
     const submitBtn = page.locator('button[type="submit"], button:has-text("Masuk"), button:has-text("Login")').first();

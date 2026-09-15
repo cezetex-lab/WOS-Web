@@ -11,6 +11,38 @@ import {
   LoadingSpinner, StatItem, SectionHeader, useToast
 } from '@/lib/design-system';
 
+interface WorkerProfileData {
+  nrp?: string;
+  nik?: string;
+  nama?: string;
+  email?: string;
+  no_hp?: string;
+  phone?: string;
+  alamat?: string;
+  address?: string;
+  divisi?: string;
+  division?: string;
+  posisi?: string;
+  position?: string;
+  status_kerja?: string;
+  status?: string;
+  tanggal_masuk?: string;
+  join_date?: string;
+  tanggal_lahir?: string;
+  birth_date?: string;
+  jenis_kelamin?: string;
+  atasan_nrp?: string;
+  [key: string]: unknown;
+}
+
+interface ProfileForm {
+  no_hp: string;
+  alamat: string;
+  email: string;
+  tanggal_lahir: string;
+  [key: string]: string;
+}
+
 export default function WorkerProfile() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -19,15 +51,15 @@ export default function WorkerProfile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
-  const [form, setForm] = useState({});
+  const [profile, setProfile] = useState<WorkerProfileData | null>(null);
+  const [form, setForm] = useState<ProfileForm>({ no_hp: '', alamat: '', email: '', tanggal_lahir: '' });
 
   // ── FETCH PROFILE ──
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
       const result = await rpc('get_worker_profile', { p_nrp: nrp });
-      const p = result?.data || result || {};
+      const p = (result?.data || result || {}) as WorkerProfileData;
       setProfile(p);
       setForm({
         no_hp: p.no_hp || p.phone || '',
@@ -67,7 +99,7 @@ export default function WorkerProfile() {
     );
   }
 
-  const p = profile || {};
+  const p: WorkerProfileData = profile || {};
   const statusColor = (p.status_kerja || '').toLowerCase() === 'aktif' ? 'success' : 'warning';
 
   // ── INFO ROWS ──
@@ -110,8 +142,8 @@ export default function WorkerProfile() {
 
       {/* ── STAT ITEMS ── */}
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <StatItem label="Masa Kerja" value={calcTenure(p.tanggal_masuk)} suffix=" bln" color="#38bdf8" />
-        <StatItem label="Status" value={p.status_kerja || '-'} color="#34d399" />
+        <StatItem label="Masa Kerja" value={calcTenure(p.tanggal_masuk) as number} suffix=" bln" color="#38bdf8" />
+        <StatItem label="Status" value={(p.status_kerja || '-') as unknown as number} color="#34d399" />
       </div>
 
       {/* ── EDIT FORM ── */}
@@ -179,8 +211,8 @@ export default function WorkerProfile() {
 }
 
 // ── SUPERVISOR SUB-COMPONENT ──
-function SupervisorInfo({ nrp }) {
-  const [supervisor, setSupervisor] = useState<any>(null);
+function SupervisorInfo({ nrp }: { nrp: string }) {
+  const [supervisor, setSupervisor] = useState<WorkerProfileData | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -210,7 +242,7 @@ function SupervisorInfo({ nrp }) {
 }
 
 // ── HELPER ──
-function calcTenure(joinDate) {
+function calcTenure(joinDate: string | undefined): string | number {
   if (!joinDate) return '-';
   const start = new Date(joinDate);
   const now = new Date();

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { callEdgeFunctionApiKey } from "@/lib/edge-functions";
 
-async function callReset(action, data) {
+async function callReset(action: string, data: Record<string, unknown>) {
   return callEdgeFunctionApiKey("password-reset", { action, ...data });
 }
 
@@ -13,27 +13,27 @@ export default function PasswordReset() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleRequest(e) {
+  async function handleRequest(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setMsg("");
-    const res = await callReset("request", { email });
+    const res = await callReset("request", { email }) as { msg?: string; ok: boolean };
     setMsg(res.msg || "Terjadi kesalahan.");
     if (res.ok) setStep(2);
     setLoading(false);
   }
 
-  async function handleVerify(e) {
+  async function handleVerify(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setMsg("");
-    const res = await callReset("verify", { email, token });
+    const res = await callReset("verify", { email, token }) as { msg?: string; ok: boolean };
     setMsg(res.msg || "Token tidak valid.");
     if (res.ok) setStep(3);
     setLoading(false);
   }
 
-  async function handleReset(e) {
+  async function handleReset(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setMsg("");
@@ -42,7 +42,7 @@ export default function PasswordReset() {
       setLoading(false);
       return;
     }
-    const res = await callReset("reset", { email, token, new_password: newPassword });
+    const res = await callReset("reset", { email, token, new_password: newPassword }) as { msg?: string; ok: boolean };
     setMsg(res.msg || "Gagal.");
     if (res.ok) setStep(4);
     setLoading(false);

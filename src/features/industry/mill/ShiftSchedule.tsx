@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 import { GlassCard, MetricCard, LoadingSpinner } from '@/lib/design-system';
 
-const SHIFT_COLORS = {
+const SHIFT_COLORS: Record<string, { bg: string; text: string; border: string; icon: string }> = {
   PAGI: { bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30', icon: '🌅' },
   SORE: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30', icon: '🌇' },
   MALAM: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30', icon: '🌙' },

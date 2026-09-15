@@ -8,7 +8,9 @@ import { useNavigate } from 'react-router-dom';
 import { supabase, getSession } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, Button, Badge, LoadingSpinner } from '@/lib/design-system';
 
-const REQUEST_TYPES = [
+interface RequestType { id: string; icon: string; label: string; color: string; fields: string[]; }
+
+const REQUEST_TYPES: RequestType[] = [
   { id: 'Cuti', icon: '✈️', label: 'Cuti', color: 'blue', fields: ['start_date', 'end_date', 'reason'] },
   { id: 'Izin', icon: '📌', label: 'Izin', color: 'teal', fields: ['date', 'reason'] },
   { id: 'Sakit', icon: '🏥', label: 'Sakit', color: 'red', fields: ['start_date', 'end_date', 'reason', 'medical_note'] },
@@ -21,20 +23,20 @@ export default function MultiStepRequest() {
   const navigate = useNavigate();
   const nrp = getSession()?.nrp;
   const [step, setStep] = useState(0); // 0=type, 1=form, 2=review, 3=submitting, 4=done
-  const [selectedType, setSelectedType] = useState<any>(null);
-  const [formData, setFormData] = useState({});
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
 
   const currentType = REQUEST_TYPES.find(t => t.id === selectedType);
 
-  const handleSelectType = (type) => {
+  const handleSelectType = (type: RequestType) => {
     setSelectedType(type.id);
     setFormData({});
     setStep(1);
   };
 
-  const handleChange = (field, value) => {
+  const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -50,8 +52,8 @@ export default function MultiStepRequest() {
       if (error) throw error;
       setResult(data);
       setStep(4);
-    } catch (err) {
-      setResult({ ok: false, msg: err.message });
+    } catch (err: unknown) {
+      setResult({ ok: false, msg: err instanceof Error ? err.message : 'Unknown error' });
       setStep(4);
     }
     setSubmitting(false);
@@ -81,7 +83,7 @@ export default function MultiStepRequest() {
   if (step === 1) {
     return (
       <PageLayout backTo="/worker" title={`Pengajuan ${currentType?.label}`} subtitle="Isi detail pengajuan">
-        <GlassCard accent={currentType?.color}>
+        <GlassCard accent={currentType?.color as import('@/lib/design-system').CardColor | undefined}>
           <div className="space-y-4">
             {currentType?.fields.map(field => (
               <div key={field}>
@@ -146,7 +148,7 @@ export default function MultiStepRequest() {
               {Object.entries(formData).map(([key, value]) => (
                 <div key={key} className="flex justify-between items-center">
                   <span className="text-xs text-slate-400">{key.replace(/_/g, ' ')}</span>
-                  <span className="text-xs font-semibold text-white">{value}</span>
+                  <span className="text-xs font-semibold text-white">{String(value)}</span>
                 </div>
               ))}
             </div>
@@ -182,9 +184,9 @@ export default function MultiStepRequest() {
       <GlassCard accent={result?.ok ? 'green' : 'red'}>
         <div className="text-center py-4">
           <span className="text-4xl block mb-3">{result?.ok ? '✅' : '❌'}</span>
-          <p className="text-sm text-white mb-4">{result?.msg}</p>
-          {result?.ok && result?.approver && (
-            <p className="text-xs text-slate-400">Menunggu approval dari: <b className="text-white">{result.approver}</b></p>
+          <p className="text-sm text-white mb-4">{String(result?.msg ?? '')}</p>
+          {!!result?.ok && !!result?.approver && (
+            <p className="text-xs text-slate-400">Menunggu approval dari: <b className="text-white">{String(result.approver)}</b></p>
           )}
           <Button color="blue" size="sm" onClick={() => { setStep(0); setSelectedType(null); setFormData({}); setResult(null); }}>
             Buat Pengajuan Baru

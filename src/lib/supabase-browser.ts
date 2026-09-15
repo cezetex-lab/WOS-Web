@@ -16,7 +16,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ─── RPC with rate limiting ───────────────────────────────────
 
-export async function rpc<T = Record<string, unknown>>(
+// NOTE: default `any` because Supabase `.rpc()` rows are unshaped at the client
+// (no static column info). Known RPCs are typed explicitly via typed-wrapped
+// helpers that pass `<ConcreteType>`; untyped call sites get `any` (as in the
+// original JS client), NOT a forced `unknown` that would cascade into setState.
+export async function rpc<T = any>(
   fn: string,
   params: Record<string, unknown> = {},
 ): Promise<T> {

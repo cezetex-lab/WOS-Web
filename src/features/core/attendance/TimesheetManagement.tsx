@@ -28,7 +28,7 @@ export default function TimesheetManagement() {
       </div>
       <GlassCard>
         {loading ? <LoadingSpinner /> : data.length === 0 ? (
-          <EmptyState message="Belum ada data timesheet" />
+          <EmptyState title="Belum ada data timesheet" />
         ) : (
           <DataTable data={data} columns={[
             { key: 'nrp', label: 'NRP' },

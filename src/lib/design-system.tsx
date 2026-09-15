@@ -9,3 +9,4 @@ export { MetricCard, GlassCard, QuickTile } from './design-system/index';
 export { Badge, ActionItem, EmptyState, DataTable, StatItem, Avatar } from './design-system/index';
 export { Button, Input, Toggle, Tabs } from './design-system/index';
 export { LoadingSpinner } from './design-system/index';
+export type { CardColor } from './design-system/index';

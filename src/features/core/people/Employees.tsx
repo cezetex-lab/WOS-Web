@@ -23,6 +23,36 @@ const TABS = [
   { id: 'inactive',label: 'Non-Aktif' },
 ];
 
+interface Employee {
+  nrp?: string;
+  nik?: string;
+  nama?: string;
+  email?: string;
+  phone?: string;
+  no_hp?: string;
+  divisi?: string;
+  division?: string;
+  jabatan?: string;
+  position?: string;
+  jenis?: string;
+  contract_type?: string;
+  status?: string;
+  is_active?: boolean;
+  tanggal_masuk?: string;
+  join_date?: string;
+  tanggal_habis?: string;
+  contract_end?: string;
+  [key: string]: unknown;
+}
+
+interface EmployeeStats {
+  total?: number;
+  active?: number;
+  pkwt?: number;
+  pkwtt?: number;
+  expiring_soon?: number;
+}
+
 // ──────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────
@@ -30,34 +60,31 @@ export default function Employees() {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [stats, setStats] = useState({});
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [stats, setStats] = useState<EmployeeStats>({});
   const [activeTab, setActiveTab] = useState('all');
-  const [selected, setSelected] = useState<any>(null); // detail modal
+  const [selected, setSelected] = useState<Employee | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   // ── FETCH DATA ──
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Parallel fetch
       const [empResult, statsResult] = await Promise.all([
         rpc('admin_get_employees'),
         rpc('admin_get_employee_stats'),
       ]);
 
-      // Employees
-      if (empResult?.ok !== false && Array.isArray(empResult)) {
-        setEmployees(empResult);
-      } else if (empResult?.data && Array.isArray(empResult.data)) {
-        setEmployees(empResult.data);
+      if ((empResult as { ok?: boolean })?.ok !== false && Array.isArray(empResult)) {
+        setEmployees(empResult as Employee[]);
+      } else if ((empResult as { data?: Employee[] })?.data && Array.isArray((empResult as { data?: Employee[] }).data)) {
+        setEmployees((empResult as { data: Employee[] }).data);
       } else {
         setEmployees([]);
       }
 
-      // Stats
       if (statsResult && typeof statsResult === 'object') {
-        setStats(statsResult);
+        setStats(statsResult as EmployeeStats);
       }
     } catch (err) { }
     setLoading(false);
@@ -67,7 +94,6 @@ export default function Employees() {
 
   // ── FILTER ──
   const filtered = employees.filter(emp => {
-    // Tab filter
     if (activeTab === 'active')  return emp.status === 'Aktif' || emp.is_active === true;
     if (activeTab === 'inactive') return emp.status === 'Non-Aktif' || emp.is_active === false;
     if (activeTab === 'pkwt')   return emp.jenis === 'PKWT' || emp.contract_type === 'PKWT';
@@ -112,12 +138,12 @@ export default function Employees() {
     {
       key: 'nama',
       label: 'Nama',
-      render: (val, row) => (
+      render: (val: unknown, row: Record<string, unknown>) => (
         <div className="flex items-center gap-2">
-          <Avatar name={val} size="sm" />
+          <Avatar name={val as string} size="sm" />
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-white truncate">{val}</div>
-            <div className="text-[11px] text-slate-500">{row.nrp || '-'}</div>
+            <div className="text-xs font-semibold text-white truncate">{val as string}</div>
+            <div className="text-[11px] text-slate-500">{(row.nrp as string) || '-'}</div>
           </div>
         </div>
       ),
@@ -125,22 +151,22 @@ export default function Employees() {
     {
       key: 'divisi',
       label: 'Divisi',
-      render: (val) => (
-        <span className="text-xs text-slate-300">{val || '-'}</span>
+      render: (val: unknown) => (
+        <span className="text-xs text-slate-300">{(val as string) || '-'}</span>
       ),
     },
     {
       key: 'jabatan',
       label: 'Jabatan',
-      render: (val) => (
-        <span className="text-xs text-slate-400 truncate block max-w-[120px]">{val || '-'}</span>
+      render: (val: unknown) => (
+        <span className="text-xs text-slate-400 truncate block max-w-[120px]">{(val as string) || '-'}</span>
       ),
     },
     {
       key: 'jenis',
       label: 'Kontrak',
-      render: (val) => {
-        const v = val || '';
+      render: (val: unknown) => {
+        const v = (val as string) || '';
         const isPKWT = v.toUpperCase() === 'PKWT';
         return <Badge status={v || '-'} type={isPKWT ? 'warning' : 'info'} />;
       },
@@ -148,8 +174,8 @@ export default function Employees() {
     {
       key: 'status',
       label: 'Status',
-      render: (val) => {
-        const v = val || '';
+      render: (val: unknown) => {
+        const v = (val as string) || '';
         const isActive = v === 'Aktif' || v.toLowerCase() === 'active';
         return <Badge status={v || '-'} type={isActive ? 'success' : 'danger'} />;
       },
@@ -194,9 +220,9 @@ export default function Employees() {
       <GlassCard accent="blue">
         <DataTable
           columns={columns}
-          data={filtered}
+          data={filtered as Record<string, unknown>[]}
           searchPlaceholder="Cari nama, NRP, divisi..."
-          onRowClick={(row) => setSelected(row)}
+          onRowClick={(row) => setSelected(row as unknown as Employee)}
           emptyMessage="Tidak ada data karyawan"
         />
       </GlassCard>
@@ -206,7 +232,7 @@ export default function Employees() {
         <EmployeeDetail
           employee={selected}
           onClose={() => setSelected(null)}
-          onNavigate={(path) => {
+          onNavigate={(path: string) => {
             setSelected(null);
             navigate(path);
           }}
@@ -220,7 +246,14 @@ export default function Employees() {
 // ──────────────────────────────────────────────────────────────
 // EMPLOYEE DETAIL MODAL
 // ──────────────────────────────────────────────────────────────
-function EmployeeDetail({ employee, onClose, onNavigate, onDeactivate }) {
+interface EmployeeDetailProps {
+  employee: Employee;
+  onClose: () => void;
+  onNavigate: (path: string) => void;
+  onDeactivate?: () => void;
+}
+
+function EmployeeDetail({ employee, onClose, onNavigate, onDeactivate }: EmployeeDetailProps) {
   const emp = employee;
   const [deactivating, setDeactivating] = useState(false);
 
@@ -321,7 +354,7 @@ function EmployeeDetail({ employee, onClose, onNavigate, onDeactivate }) {
                   if (!confirm(`Nonaktifkan akses ${emp.nama} (${emp.nrp})?\n\nKaryawan tidak akan bisa login lagi.`)) return;
                   setDeactivating(true);
                   try {
-                    const result = await rpc('admin_deactivate_worker', { p_nrp: emp.nrp });
+                    const result = await rpc('admin_deactivate_worker', { p_nrp: emp.nrp }) as { ok?: boolean; msg?: string };
                     if (result?.ok) {
                       alert(`✅ ${result.msg}`);
                       onClose();
@@ -329,8 +362,8 @@ function EmployeeDetail({ employee, onClose, onNavigate, onDeactivate }) {
                     } else {
                       alert(`❌ ${result?.msg || 'Gagal menonaktifkan'}`);
                     }
-                  } catch (e) {
-                    alert('Error: ' + e.message);
+                  } catch (e: unknown) {
+                    alert('Error: ' + (e instanceof Error ? e.message : String(e)));
                   }
                   setDeactivating(false);
                 }}

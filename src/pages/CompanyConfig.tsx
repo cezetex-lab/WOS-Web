@@ -28,7 +28,7 @@ export default function CompanyConfig() {
         setError('');
       }
     } catch (e) {
-      setError('Gagal memuat config: ' + (e?.message || 'unknown'));
+      setError('Gagal memuat config: ' + ((e as Error)?.message || 'unknown'));
     }
     setLoading(false);
   }
@@ -47,19 +47,19 @@ export default function CompanyConfig() {
       } else {
         setMsg('❌ ' + (res?.msg || 'Gagal'));
       }
-    } catch (e) { setMsg('❌ ' + e.message); }
+    } catch (e) { setMsg('❌ ' + (e as Error).message); }
   }
 
   // Group by category
-  const grouped = {};
-  configs.forEach(c => {
-    const cat = c.category_id;
-    if (!grouped[cat]) grouped[cat] = { name: c.category_name, icon: c.category_icon, items: [] };
+  const grouped: Record<string, { name: string; icon: string; items: Record<string, unknown>[] }> = {};
+  configs.forEach((c: Record<string, unknown>) => {
+    const cat = c.category_id as string;
+    if (!grouped[cat]) grouped[cat] = { name: c.category_name as string, icon: c.category_icon as string, items: [] };
     grouped[cat].items.push(c);
   });
 
   const filtered = search
-    ? configs.filter(c => c.label.toLowerCase().includes(search.toLowerCase()) || c.config_key.toLowerCase().includes(search.toLowerCase()))
+    ? configs.filter((c: Record<string, unknown>) => (c.label as string).toLowerCase().includes(search.toLowerCase()) || (c.config_key as string).toLowerCase().includes(search.toLowerCase()))
     : null;
 
   return (
@@ -115,8 +115,8 @@ export default function CompanyConfig() {
                     </button>
                     {expandedCat === catId && (
                       <div className="border-t border-gray-700/50 p-4 space-y-2">
-                        {cat.items.map(c => (
-                          <ConfigItem key={c.id} config={c} onEdit={() => { setEditing(c); setEditValue(JSON.stringify(c.config_value)); }} />
+                        {cat.items.map((c: Record<string, unknown>) => (
+                          <ConfigItem key={c.id as string} config={c} onEdit={() => { setEditing(c); setEditValue(JSON.stringify(c.config_value)); }} />
                         ))}
                       </div>
                     )}
@@ -156,16 +156,22 @@ export default function CompanyConfig() {
   );
 }
 
-function ConfigItem({ config, onEdit }) {
-  const displayValue = config.config_value?.value !== undefined
-    ? JSON.stringify(config.config_value.value)
+interface ConfigItemProps {
+  config: Record<string, unknown>;
+  onEdit: () => void;
+}
+
+function ConfigItem({ config, onEdit }: ConfigItemProps) {
+  const cv = config.config_value as Record<string, unknown> | null;
+  const displayValue = cv?.value !== undefined
+    ? JSON.stringify(cv.value)
     : JSON.stringify(config.config_value);
 
   return (
     <div className="flex items-center justify-between bg-gray-900/60 rounded-lg px-4 py-3 hover:bg-gray-900/80 transition-colors">
       <div className="flex-1 min-w-0">
-        <div className="text-gray-200 text-sm font-medium">{config.label}</div>
-        <div className="text-gray-500 text-xs truncate">{config.description}</div>
+        <div className="text-gray-200 text-sm font-medium">{config.label as string}</div>
+        <div className="text-gray-500 text-xs truncate">{config.description as string}</div>
       </div>
       <div className="flex items-center gap-3 ml-4">
         <code className="text-xs text-cyan-400 bg-gray-800 px-2 py-1 rounded max-w-[200px] truncate">{displayValue}</code>

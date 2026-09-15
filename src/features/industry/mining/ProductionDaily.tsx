@@ -15,7 +15,7 @@ export default function ProductionDaily() {
     setLoading(true);
     try {
       const r = await rpc('get_production_daily');
-      if (r?.ok && r.data) { setData(r.data); setSummary(r.summary); }
+      if (r?.ok && r.data) { setData(r.data as any[]); setSummary(r.summary); }
     } catch (e) {
       setData([
         { zone: 'PIT-1', product: 'Coal OB', target: 5000, actual: 5250, unit: 'ton', operator_count: 12 },

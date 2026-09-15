@@ -10,21 +10,31 @@ import {
   PageLayout, GlassCard, LoadingSpinner, EmptyState, Avatar, Badge, Input, Button
 } from '@/lib/design-system';
 
+interface OrgNode {
+  nrp: string;
+  nama?: string;
+  posisi?: string;
+  role_level?: number | string;
+  atasan_nrp?: string;
+  children?: OrgNode[];
+  [key: string]: unknown;
+}
+
 export default function OrgSubtree() {
   useAdminAuth(["admin_pusat"]);
   const [loading, setLoading] = useState(true);
-  const [orgData, setOrgData] = useState<any[]>([]);
-  const [tree, setTree] = useState<any>(null);
+  const [orgData, setOrgData] = useState<OrgNode[]>([]);
+  const [tree, setTree] = useState<OrgNode | null>(null);
   const [searchNrp, setSearchNrp] = useState('');
-  const [expanded, setExpanded] = useState(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await rpc('admin_get_org_structure');
-      const items = result?.data || result || [];
-      setOrgData(Array.isArray(items) ? items : []);
-    } catch (err) {
+      const result = await rpc<{ data?: OrgNode[] }>('admin_get_org_structure');
+      const items = (Array.isArray(result) ? result : result?.data) || [];
+      setOrgData(items as OrgNode[]);
+    } catch (err: unknown) {
       setOrgData([]);
     }
     setLoading(false);
@@ -35,14 +45,14 @@ export default function OrgSubtree() {
   // Build tree from flat data
   useEffect(() => {
     if (orgData.length === 0) return;
-    const map = {};
-    orgData.forEach(item => {
+    const map: Record<string, OrgNode> = {};
+    orgData.forEach((item) => {
       map[item.nrp] = { ...item, children: [] };
     });
-    let root = null;
-    orgData.forEach(item => {
+    let root: OrgNode | null = null;
+    orgData.forEach((item) => {
       if (item.atasan_nrp && map[item.atasan_nrp]) {
-        map[item.atasan_nrp].children.push(map[item.nrp]);
+        map[item.atasan_nrp].children!.push(map[item.nrp]);
       } else if (!item.atasan_nrp) {
         root = map[item.nrp];
       }
@@ -55,11 +65,11 @@ export default function OrgSubtree() {
   // Expand all by default on load
   useEffect(() => {
     if (orgData.length > 0) {
-      setExpanded(new Set(orgData.map(d => d.nrp)));
+      setExpanded(new Set(orgData.map((d) => d.nrp)));
     }
   }, [orgData]);
 
-  const toggleExpand = (nrp) => {
+  const toggleExpand = (nrp: string) => {
     setExpanded(prev => {
       const next = new Set(prev);
       if (next.has(nrp)) next.delete(nrp);
@@ -68,8 +78,8 @@ export default function OrgSubtree() {
     });
   };
 
-  const expandAll = () => setExpanded(new Set(orgData.map(d => d.nrp)));
-  const collapseAll = () => setExpanded(new Set());
+  const expandAll = () => setExpanded(new Set(orgData.map((d) => d.nrp)));
+  const collapseAll = () => setExpanded(new Set<string>());
 
   if (loading) return <PageLayout backTo="/admin" title="Subtree Organisasi"><LoadingSpinner text="Memuat struktur..." /></PageLayout>;
 
@@ -88,7 +98,7 @@ export default function OrgSubtree() {
         }}>🔍 Cari</Button>
       </div>
       <div className="mb-4">
-        <Input placeholder="Cari NRP..." value={searchNrp} onChange={(e) => setSearchNrp(e.target.value)} icon="🔍" />
+        <Input placeholder="Cari NRP..." value={searchNrp} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchNrp(e.target.value)} icon="🔍" />
       </div>
 
       {/* ── TREE ── */}
@@ -128,7 +138,15 @@ export default function OrgSubtree() {
 }
 
 // ── TREE NODE ──
-function TreeNode({ node, level, expanded, toggleExpand, searchNrp }) {
+interface TreeNodeProps {
+  node: OrgNode;
+  level: number;
+  expanded: Set<string>;
+  toggleExpand: (nrp: string) => void;
+  searchNrp: string;
+}
+
+function TreeNode({ node, level, expanded, toggleExpand, searchNrp }: TreeNodeProps) {
   if (!node) return null;
   const hasChildren = node.children && node.children.length > 0;
   const isExpanded = expanded.has(node.nrp);
@@ -162,14 +180,14 @@ function TreeNode({ node, level, expanded, toggleExpand, searchNrp }) {
 
         {/* Children count */}
         {hasChildren && (
-          <Badge status={`${node.children.length} bawahan`} type="info" />
+          <Badge status={`${node.children!.length} bawahan`} type="info" />
         )}
       </div>
 
       {/* Children */}
       {hasChildren && isExpanded && (
         <div>
-          {node.children.map(child => (
+          {node.children!.map((child) => (
             <TreeNode
               key={child.nrp}
               node={child}
@@ -186,7 +204,7 @@ function TreeNode({ node, level, expanded, toggleExpand, searchNrp }) {
 }
 
 // ── HELPER: Calculate tree depth ──
-function calcDepth(node) {
+function calcDepth(node: OrgNode | null): number {
   if (!node || !node.children || node.children.length === 0) return 0;
-  return 1 + Math.max(...node.children.map(calcDepth));
+  return 1 + Math.max(...node.children.map((c) => calcDepth(c)));
 }

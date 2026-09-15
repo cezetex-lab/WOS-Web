@@ -5,7 +5,7 @@ import { createPageErrorLogger } from '@/lib/log-error';
 import LogoUploader from '@/components/LogoUploader';
 
 // Factory per halaman: console.error (dev) + PostHog trackError (prod).
-// Lihat src/lib/log-error.js â€” plugin strip-console membuang console.*
+// Lihat src/lib/log-error.js — plugin strip-console membuang console.*
 // di build production, sehingga trackError satu-satunya jalur pantau di prod.
 const logError = createPageErrorLogger('OwnerDashboard');
 
@@ -106,6 +106,7 @@ interface EmployeeData {
   business_unit?: string;
   status_kerja?: string;
   is_active?: boolean;
+  unit_name?: string;
 }
 
 interface AnnouncementData {
@@ -137,6 +138,31 @@ interface SysAnnouncement {
   end_at?: string;
 }
 
+interface UsageDailyAction {
+  date?: string;
+  count?: number;
+  [key: string]: unknown;
+}
+
+interface UsageActionDistribution {
+  action?: string;
+  count?: number;
+  [key: string]: unknown;
+}
+
+interface UsageAnalytics {
+  daily_actions?: UsageDailyAction[];
+  action_distribution?: UsageActionDistribution[];
+  [key: string]: unknown;
+}
+
+interface ActivityStats {
+  actions_today?: number;
+  actions_week?: number;
+  top_actions?: UsageActionDistribution[];
+  [key: string]: unknown;
+}
+
 interface AdminRole {
   id: string;
   role_code: string;
@@ -144,6 +170,7 @@ interface AdminRole {
   scope_type: string;
   scope_id?: string;
   is_active: boolean;
+  permissions?: unknown;
 }
 
 interface AdminAccount {
@@ -165,7 +192,7 @@ export default function OwnerDashboard() {
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [roles, setRoles] = useState<RoleData[]>([]);
   const [auditLog, setAuditLog] = useState<{data: AuditLog[], total: number}>({ data: [], total: 0 });
-  const [auditActions, setAuditActions] = useState<string[]>([]);
+  const [auditActions, setAuditActions] = useState<AuditAction[]>([]);
   const [auditFilter, setAuditFilter] = useState({ action: '', page: 0 });
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [loginStats, setLoginStats] = useState<LoginStats>({});
@@ -185,17 +212,16 @@ export default function OwnerDashboard() {
   const [showSysAnnCreator, setShowSysAnnCreator] = useState(false);
   const [newSysAnn, setNewSysAnn] = useState({ title: '', message: '', type: 'info', dismissible: true });
   // Wave 3 states
-  const [activityStats, setActivityStats] = useState<Record<string, unknown>>({});
-  const [integrations, setIntegrations] = useState<Record<string, unknown>[]>([]);
+  const [activityStats, setActivityStats] = useState<ActivityStats>({});
+  const [integrations, setIntegrations] = useState<Record<string, any>[]>([]);
   const [showIntCreator, setShowIntCreator] = useState(false);
   const [newInt, setNewInt] = useState({ name: '', type: 'webhook' });
-  const [retentionRules, setRetentionRules] = useState<Record<string, unknown>[]>([]);
-  const [changelog, setChangelog] = useState<Record<string, unknown>[]>([]);
-  const [tickets, setTickets] = useState<Record<string, unknown>[]>([]);
-  const [usageAnalytics, setUsageAnalytics] = useState<Record<string, unknown>>({});
-  // Edit states
+  const [retentionRules, setRetentionRules] = useState<Record<string, any>[]>([]);
+  const [changelog, setChangelog] = useState<Record<string, any>[]>([]);
+  const [tickets, setTickets] = useState<Record<string, any>[]>([]);
+  const [usageAnalytics, setUsageAnalytics] = useState<UsageAnalytics>({});
   const [editRole, setEditRole] = useState<RoleData | null>(null);
-  const [editForm, setEditForm] = useState({ role: '', role_level: 1 });
+  const [editForm, setEditForm] = useState({ role: '', role_level: 1 as string | number });
   const [showBUCreator, setShowBUCreator] = useState(false);
   const [newBU, setNewBU] = useState({ unit_code: '', unit_name: '', description: '' });
   const [editBU, setEditBU] = useState<BusinessUnit | null>(null);
@@ -309,7 +335,7 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     setLoading(true);
-    const loaders = { overview: loadOverview, modules: loadModules, tiers: loadModules, roles: loadModules, audit: loadAuditLog, security: loadSecurity, bu: loadModules, employees: loadEmployees, announcements: loadAnnouncements, notifications: loadNotifConfig, sysann: loadSysAnnouncements, activity: loadActivity, integrations: loadIntegrations, retention: loadRetention, changelog: loadChangelog, support: loadTickets, analytics: loadAnalytics, access: loadAccessControl };
+    const loaders: Record<string, () => Promise<void>> = { overview: loadOverview, modules: loadModules, tiers: loadModules, roles: loadModules, audit: loadAuditLog, security: loadSecurity, bu: loadModules, employees: loadEmployees, announcements: loadAnnouncements, notifications: loadNotifConfig, sysann: loadSysAnnouncements, activity: loadActivity, integrations: loadIntegrations, retention: loadRetention, changelog: loadChangelog, support: loadTickets, analytics: loadAnalytics, access: loadAccessControl };
     (loaders[activeTab] || loadModules)().finally(() => setLoading(false));
   }, [activeTab, loadOverview, loadModules, loadAuditLog, loadSecurity, loadEmployees, loadAnnouncements, loadNotifConfig, loadSysAnnouncements, loadActivity, loadIntegrations, loadRetention, loadChangelog, loadTickets, loadAnalytics, loadAccessControl]);
 
@@ -320,7 +346,7 @@ export default function OwnerDashboard() {
   }
   async function updateRole() {
     if (!editRole) return;
-    await rpc('owner_update_role', { p_nrp: editRole.nrp, p_role: editForm.role, p_role_level: parseInt(editForm.role_level) });
+    await rpc('owner_update_role', { p_nrp: editRole.nrp, p_role: editForm.role, p_role_level: parseInt(String(editForm.role_level)) });
     setEditRole(null);
     loadModules();
   }
@@ -469,8 +495,8 @@ export default function OwnerDashboard() {
             {activeTab === 'modules' && (
               <div className="space-y-6">
                 {modules.length === 0 ? <div className="text-gray-400 py-10 text-center">Tidak ada modul</div> : (() => {
-                  const industryIcons = { mining: 'Mine', estate: 'Palm', mill: 'Factory' };
-                  const industryLabels = { mining: 'Tambang', estate: 'Perkebunan', mill: 'Pabrik' };
+                  const industryIcons: Record<string, string> = { mining: 'Mine', estate: 'Palm', mill: 'Factory' };
+                  const industryLabels: Record<string, string> = { mining: 'Tambang', estate: 'Perkebunan', mill: 'Pabrik' };
                   const groups: Record<string, Module[]> = {};
                   modules.forEach(m => {
                     const prefix = m.module_code.split('_')[0];
@@ -480,7 +506,7 @@ export default function OwnerDashboard() {
                     groups[groupKey].push(m);
                   });
                   const order = ['CORE','PLATFORM','GOVERNANCE','industry_mining','industry_estate','industry_mill'];
-                  const groupMeta = { CORE: { label: 'Core HR', color: 'blue' }, PLATFORM: { label: 'Platform', color: 'purple' }, GOVERNANCE: { label: 'Governance', color: 'yellow' } };
+                  const groupMeta: Record<string, { label: string; color: string }> = { CORE: { label: 'Core HR', color: 'blue' }, PLATFORM: { label: 'Platform', color: 'purple' }, GOVERNANCE: { label: 'Governance', color: 'yellow' } };
                   return order.filter(k => groups[k]).map(groupKey => {
                     const isIndustry = groupKey.startsWith('industry_');
                     const prefix = groupKey.replace('industry_','');
@@ -533,7 +559,7 @@ export default function OwnerDashboard() {
                     </div>
                     <div className="flex gap-2 mb-4">
                       {[0,1,2,3,4].map(t => (
-                        <button key={t} onClick={() => setTier(bu.id || bu.bu_id, t)} className={(bu.tier ?? 0) === t ? "w-12 h-12 rounded-lg text-sm font-bold bg-amber-500 text-white shadow-lg" : "w-12 h-12 rounded-lg text-sm font-bold bg-gray-700/50 text-gray-400 hover:bg-gray-600/50"}>T{t}</button>
+                        <button key={t} onClick={() => setTier((bu.id || bu.bu_id) as string, t)} className={(bu.tier ?? 0) === t ? "w-12 h-12 rounded-lg text-sm font-bold bg-amber-500 text-white shadow-lg" : "w-12 h-12 rounded-lg text-sm font-bold bg-gray-700/50 text-gray-400 hover:bg-gray-600/50"}>T{t}</button>
                       ))}
                     </div>
                     <div className="text-xs text-gray-500">
@@ -553,8 +579,8 @@ export default function OwnerDashboard() {
                 {roles.length === 0 ? <div className="text-gray-400 py-10 text-center">Tidak ada data role</div> : (() => {
                   const byBU: Record<string, RoleData[]> = {};
                   roles.forEach(r => { const bu = r.business_unit || 'HQ'; if (!byBU[bu]) byBU[bu] = []; byBU[bu].push(r); });
-                  const lc = { 5: 'bg-red-500/20 text-red-400', 4: 'bg-purple-500/20 text-purple-400', 3: 'bg-blue-500/20 text-blue-400', 2: 'bg-green-500/20 text-green-400', 1: 'bg-gray-500/20 text-gray-400' };
-                  const ll = { 5: 'C-Suite', 4: 'Director', 3: 'Manager', 2: 'Admin', 1: 'Worker' };
+                  const lc: Record<number, string> = { 5: 'bg-red-500/20 text-red-400', 4: 'bg-purple-500/20 text-purple-400', 3: 'bg-blue-500/20 text-blue-400', 2: 'bg-green-500/20 text-green-400', 1: 'bg-gray-500/20 text-gray-400' };
+                  const ll: Record<number, string> = { 5: 'C-Suite', 4: 'Director', 3: 'Manager', 2: 'Admin', 1: 'Worker' };
                   return Object.entries(byBU).map(([bu, list]) => (
                     <div key={bu} className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
                       <div className="px-5 py-3 border-b border-gray-700/50 flex items-center justify-between">
@@ -593,7 +619,7 @@ export default function OwnerDashboard() {
                           </select></div>
                         <div><label className="text-gray-400 text-xs">Level</label>
                           <div className="flex gap-2 mt-1">{[1,2,3,4,5].map(l => (
-                            <button key={l} onClick={() => setEditForm({...editForm, role_level: l})} className={'w-10 h-10 rounded-lg text-sm font-bold ' + (parseInt(editForm.role_level) === l ? 'bg-amber-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600')}>{l}</button>
+                            <button key={l} onClick={() => setEditForm({...editForm, role_level: l})} className={'w-10 h-10 rounded-lg text-sm font-bold ' + (parseInt(String(editForm.role_level)) === l ? 'bg-amber-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600')}>{l}</button>
                           ))}</div></div>
                       </div>
                       <div className="flex gap-2 mt-6">
@@ -723,8 +749,8 @@ export default function OwnerDashboard() {
                         {bu.description && <p className="text-gray-500 text-xs mt-1">{bu.description}</p>}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => { setEditBU(bu); setEditBUForm({ unit_name: bu.unit_name, description: bu.description || '' }); }} className="px-3 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">Edit</button>
-                        <button onClick={() => deleteBU(bu.id || bu.bu_id)} className="px-3 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30">Hapus</button>
+                        <button onClick={() => { setEditBU(bu); setEditBUForm({ unit_name: bu.unit_name ?? '', description: bu.description || '' }); }} className="px-3 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600">Edit</button>
+                        <button onClick={() => deleteBU((bu.id || bu.bu_id) as string)} className="px-3 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30">Hapus</button>
                       </div>
                     </div>
                   </div>
@@ -990,7 +1016,7 @@ export default function OwnerDashboard() {
                           <span className="text-gray-400 text-xs w-4">{i + 1}</span>
                           <span className="text-gray-200 text-sm font-mono flex-1">{a.action}</span>
                           <div className="w-32 bg-gray-700/50 rounded-full h-4 overflow-hidden">
-                            <div className="bg-amber-500/60 h-full rounded-full" style={{ width: Math.max(10, (a.count / Math.max(...activityStats.top_actions.map(x => x.count), 1)) * 100) + '%' }} />
+                            <div className="bg-amber-500/60 h-full rounded-full" style={{ width: Math.max(10, ((a.count ?? 0) / Math.max(...(activityStats.top_actions ?? []).map(x => x.count ?? 0), 1)) * 100) + '%' }} />
                           </div>
                           <span className="text-gray-400 text-xs w-8 text-right">{a.count}</span>
                         </div>
@@ -1130,8 +1156,8 @@ export default function OwnerDashboard() {
                     <h4 className="text-white font-bold text-xs mb-4">Daily Actions</h4>
                     <div className="flex items-end gap-1 h-32">
                       {usageAnalytics.daily_actions.map((d, i) => {
-                        const max = Math.max(...usageAnalytics.daily_actions.map(x => x.count), 1);
-                        return <div key={i} className="flex-1 bg-amber-500/60 rounded-t" style={{ height: Math.max(4, (d.count / max) * 100) + '%' }} title={d.date + ': ' + d.count} />;
+                        const max = Math.max(...(usageAnalytics.daily_actions ?? []).map(x => x.count ?? 0), 1);
+                        return <div key={i} className="flex-1 bg-amber-500/60 rounded-t" style={{ height: Math.max(4, ((d.count ?? 0) / max) * 100) + '%' }} title={(d.date ?? '') + ': ' + (d.count ?? 0)} />;
                       })}
                     </div>
                     <div className="flex justify-between mt-2">
@@ -1145,12 +1171,12 @@ export default function OwnerDashboard() {
                     <h4 className="text-white font-bold text-xs mb-4">Action Distribution</h4>
                     <div className="space-y-2">
                       {usageAnalytics.action_distribution.map((a, i) => {
-                        const max = Math.max(...usageAnalytics.action_distribution.map(x => x.count), 1);
+                        const max = Math.max(...(usageAnalytics.action_distribution ?? []).map(x => x.count ?? 0), 1);
                         return (
                           <div key={i} className="flex items-center gap-3">
                             <span className="text-gray-200 text-sm font-mono flex-1 truncate">{a.action}</span>
                             <div className="w-32 bg-gray-700/50 rounded-full h-4 overflow-hidden">
-                              <div className="bg-cyan-500/60 h-full rounded-full" style={{ width: Math.max(10, (a.count / max) * 100) + '%' }} />
+                              <div className="bg-cyan-500/60 h-full rounded-full" style={{ width: Math.max(10, ((a.count ?? 0) / max) * 100) + '%' }} />
                             </div>
                             <span className="text-gray-400 text-xs w-8 text-right">{a.count}</span>
                           </div>

@@ -12,7 +12,13 @@ import {
 } from '@/lib/design-system';
 
 // Inline Modal
-function Modal({ onClose, title, children }) {
+interface ModalProps {
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+
+function Modal({ onClose, title, children }: ModalProps) {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -37,16 +43,39 @@ const CHECKLIST_ITEMS = [
   { key: 'exit_interview', label: '🎤 Exit Interview', icon: '🎤' },
 ];
 
-const STATUS_COLORS = { pending: 'yellow', completed: 'green', in_progress: 'blue' };
+const STATUS_COLORS: Record<string, string> = { pending: 'yellow', completed: 'green', in_progress: 'blue' };
+
+interface ExitInterview {
+  nama?: string;
+  nrp?: string;
+  reason?: string;
+  alasan?: string;
+  date?: string;
+  tanggal?: string;
+  feedback?: string;
+  [key: string]: unknown;
+}
+
+interface Settlement {
+  nama?: string;
+  nrp?: string;
+  total_settlement?: number;
+  amount?: number;
+  status?: string;
+  basic_salary?: number;
+  severance?: number;
+  leave_pay?: number;
+  [key: string]: unknown;
+}
 
 export default function Offboarding() {
   const [loading, setLoading] = useState(true);
-  const [exitInterviews, setExitInterviews] = useState<any[]>([]);
-  const [settlements, setSettlements] = useState<any[]>([]);
+  const [exitInterviews, setExitInterviews] = useState<ExitInterview[]>([]);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [tab, setTab] = useState('overview');
-  const [selectedEmp, setSelectedEmp] = useState<any>(null);
-  const [checklist, setChecklist] = useState({});
-  const [showDetail, setShowDetail] = useState<any>(null);
+  const [selectedEmp, setSelectedEmp] = useState<ExitInterview | null>(null);
+  const [checklist, setChecklist] = useState<Record<string, string>>({});
+  const [showDetail, setShowDetail] = useState<boolean>(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -61,32 +90,32 @@ export default function Offboarding() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const fetchChecklist = async (nrp) => {
+  const fetchChecklist = async (nrp: string) => {
     try {
       const { data } = await supabase.rpc('get_offboarding_checklist', { p_nrp: nrp });
       if (data?.ok) {
-        const map = {};
-        (data.data || []).forEach(item => { map[item.step] = item.status; });
+        const map: Record<string, string> = {};
+        (data.data || []).forEach((item: { step: string; status: string }) => { map[item.step] = item.status; });
         setChecklist(map);
       }
     } catch (e) { }
   };
 
-  const handleShowDetail = async (emp) => {
+  const handleShowDetail = async (emp: ExitInterview) => {
     setSelectedEmp(emp);
-    await fetchChecklist(emp.nrp);
+    if (emp.nrp) await fetchChecklist(emp.nrp);
     setShowDetail(true);
   };
 
-  const completedCount = Object.values(checklist).filter(s => s === 'completed').length;
+  const completedCount = Object.values(checklist).filter((s: string) => s === 'completed').length;
   const totalCount = CHECKLIST_ITEMS.length;
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const tabs = [
-    { key: 'overview', label: '📊 Overview' },
-    { key: 'exit', label: '🎤 Exit Interview' },
-    { key: 'settlement', label: '💰 Settlement' },
-    { key: 'checklist', label: '✅ Checklist' },
+    { id: 'overview', label: '📊 Overview' },
+    { id: 'exit', label: '🎤 Exit Interview' },
+    { id: 'settlement', label: '💰 Settlement' },
+    { id: 'checklist', label: '✅ Checklist' },
   ];
 
   return (
@@ -109,15 +138,17 @@ export default function Offboarding() {
                 ) : (
                   <>
                     {exitInterviews.map((e, idx) => (
-                      <GlassCard key={idx} className="p-3 cursor-pointer" onClick={() => handleShowDetail(e)}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-white text-sm font-medium">{e.nama || e.nrp}</p>
-                            <p className="text-slate-400 text-xs">Alasan: {e.reason || e.alasan || '-'}</p>
+                      <div key={idx} className="cursor-pointer" onClick={() => handleShowDetail(e)}>
+                        <GlassCard className="p-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-white text-sm font-medium">{e.nama || e.nrp}</p>
+                              <p className="text-slate-400 text-xs">Alasan: {e.reason || e.alasan || '-'}</p>
+                            </div>
+                            <Badge status="🎤 Interview" type="info" />
                           </div>
-                          <Badge color="blue">🎤 Interview</Badge>
-                        </div>
-                      </GlassCard>
+                        </GlassCard>
+                      </div>
                     ))}
                     {settlements.map((s, idx) => (
                       <GlassCard key={`s${idx}`} className="p-3">
@@ -126,7 +157,7 @@ export default function Offboarding() {
                             <p className="text-white text-sm font-medium">{s.nama || s.nrp}</p>
                             <p className="text-slate-400 text-xs">Total: Rp {(s.total_settlement || s.amount || 0).toLocaleString('id-ID')}</p>
                           </div>
-                          <Badge color={s.status === 'completed' ? 'green' : 'yellow'}>{s.status || 'pending'}</Badge>
+                          <Badge status={s.status || 'pending'} type={s.status === 'completed' ? 'success' : 'warning'} />
                         </div>
                       </GlassCard>
                     ))}
@@ -163,7 +194,7 @@ export default function Offboarding() {
                 <GlassCard key={idx} className="p-3">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-white text-sm font-medium">{s.nama || s.nrp}</p>
-                    <Badge color={s.status === 'completed' ? 'green' : 'yellow'}>{s.status || 'pending'}</Badge>
+                    <Badge status={s.status || 'pending'} type={s.status === 'completed' ? 'success' : 'warning'} />
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <p className="text-slate-400">Gaji Pokok: <span className="text-white">Rp {(s.basic_salary || 0).toLocaleString('id-ID')}</span></p>
@@ -184,7 +215,7 @@ export default function Offboarding() {
 
       {/* Detail Modal */}
       {showDetail && selectedEmp && (
-        <Modal onClose={() => setShowDetail(null)} title={`🚪 Offboarding: ${selectedEmp.nama || selectedEmp.nrp}`}>
+        <Modal onClose={() => setShowDetail(false)} title={`🚪 Offboarding: ${selectedEmp.nama || selectedEmp.nrp}`}>
           <div className="space-y-3">
             <div className="bg-slate-800/50 rounded-lg p-3 text-center">
               <p className="text-2xl font-bold text-white">{progress}%</p>
@@ -198,9 +229,10 @@ export default function Offboarding() {
             {CHECKLIST_ITEMS.map((item) => (
               <div key={item.key} className="flex items-center justify-between bg-slate-800/30 rounded-lg p-3">
                 <span className="text-white text-sm">{item.icon} {item.label}</span>
-                <Badge color={STATUS_COLORS[checklist[item.key]] || 'slate'}>
-                  {checklist[item.key] === 'completed' ? '✅ Selesai' : checklist[item.key] === 'in_progress' ? '🔄 Proses' : '⏳ Pending'}
-                </Badge>
+                <Badge
+                  status={checklist[item.key] === 'completed' ? '✅ Selesai' : checklist[item.key] === 'in_progress' ? '🔄 Proses' : '⏳ Pending'}
+                  type={STATUS_COLORS[checklist[item.key]] || 'default'}
+                />
               </div>
             ))}
           </div>

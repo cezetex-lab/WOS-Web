@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, EmptyState, SectionHeader, useToast } from '@/lib/design-system';
 
-const STATUS_COLOR = { 'OPERATIONAL': 'success', 'MAINTENANCE': 'warning', 'BREAKDOWN': 'danger', 'IDLE': 'info' };
+const STATUS_COLOR: Record<string, string> = { 'OPERATIONAL': 'success', 'MAINTENANCE': 'warning', 'BREAKDOWN': 'danger', 'IDLE': 'info' };
 const EQUIPMENT_TYPES = ['Excavator', 'Dump Truck', 'Bulldozer', 'Wheel Loader', 'Drill Rig', 'Grader'];
 
 export default function HeavyEquipment() {

@@ -10,7 +10,7 @@ import {
   StatItem, SectionHeader
 } from '@/lib/design-system';
 
-const fmt = (n) => Number(n || 0).toLocaleString('id-ID');
+const fmt = (n: any) => Number(n || 0).toLocaleString('id-ID');
 
 export default function CompensationIntel() {
   const nrp = getSession()?.nrp || 'NRP001';

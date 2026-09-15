@@ -9,7 +9,7 @@ import {
   PageLayout, MetricCard, GlassCard, Badge, LoadingSpinner, EmptyState, Button
 } from '@/lib/design-system';
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
   Hadir:     { icon: '✅', color: 'green', label: 'Hadir' },
   Terlambat: { icon: '⏰', color: 'warning', label: 'Terlambat' },
   Sakit:     { icon: '🏥', color: 'red', label: 'Sakit' },
@@ -57,7 +57,7 @@ export default function WorkerAttendance() {
     if (r.jam_masuk && r.jam_keluar) {
       const masuk = new Date(`2000-01-01T${r.jam_masuk}`);
       const keluar = new Date(`2000-01-01T${r.jam_keluar}`);
-      return s + Math.max(0, (keluar - masuk) / (1000 * 60 * 60));
+      return s + Math.max(0, (keluar.getTime() - masuk.getTime()) / (1000 * 60 * 60));
     }
     return s;
   }, 0);
@@ -80,7 +80,7 @@ export default function WorkerAttendance() {
   for (let i = 0; i < firstDay; i++) calendarDays.push(null);
   for (let d = 1; d <= daysInMonth; d++) calendarDays.push(d);
 
-  const getRecordForDay = (day) => {
+  const getRecordForDay = (day: number | null) => {
     if (!day) return null;
     const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return monthRecords.find(r => r.date === dateStr);

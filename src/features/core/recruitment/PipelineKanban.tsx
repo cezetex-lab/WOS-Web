@@ -4,6 +4,16 @@ import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, Badge, Button, LoadingSpinner, EmptyState } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
+interface Candidate {
+  id: string;
+  stage: string;
+  candidate_name?: string;
+  candidate_email?: string;
+  rating?: number;
+  notes?: string;
+  [key: string]: unknown;
+}
+
 const STAGES = [
   { id: 'Applied', label: 'Applied', color: 'blue', icon: '📥' },
   { id: 'Screening', label: 'Screening', color: 'teal', icon: '🔍' },
@@ -15,20 +25,21 @@ const STAGES = [
 export default function PipelineKanban() {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   const [loading, setLoading] = useState(true);
-  const [candidates, setCandidates] = useState<any[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const result = await rpc('get_candidate_pipeline');
-      setCandidates(Array.isArray(result) ? result : result?.data || []);
+      const raw = Array.isArray(result) ? result : (result?.data ?? []);
+      setCandidates(Array.isArray(raw) ? raw : []);
     } catch (e) { }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const moveCandidate = async (id, newStage) => {
+  const moveCandidate = async (id: string, newStage: string) => {
     try {
       await rpc('move_candidate', { p_id: id, p_stage: newStage });
       setCandidates(candidates.map(c => c.id === id ? { ...c, stage: newStage } : c));
@@ -47,12 +58,12 @@ export default function PipelineKanban() {
               <div className={`rounded-xl p-3 mb-3 bg-slate-800/50 border border-${stage.color}-500/20`}>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-white">{stage.icon} {stage.label}</span>
-                  <Badge status={stageCandidates.length} type={stage.color} />
+                  <Badge status={String(stageCandidates.length)} type={stage.color} />
                 </div>
               </div>
               <div className="space-y-2 min-h-[200px]">
                 {stageCandidates.map(c => (
-                  <GlassCard key={c.id} accent={stage.color} className="p-3">
+                  <GlassCard key={c.id} accent={stage.color as 'blue' | 'teal' | 'orange' | 'green' | 'red' | 'purple' | 'slate'} className="p-3">
                     <h4 className="text-sm font-semibold text-white mb-1">{c.candidate_name}</h4>
                     <p className="text-[11px] text-slate-400 mb-2">{c.candidate_email || '-'}</p>
                     <div className="flex items-center gap-1 mb-2">

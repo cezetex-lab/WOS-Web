@@ -17,14 +17,14 @@ export default function SuccessionPlanning() {
     <PageLayout title="Rencana Suksesi" subtitle="Perencanaan penerus jabatan strategis">
       <GlassCard>
         {loading ? <LoadingSpinner /> : data.length === 0 ? (
-          <EmptyState message="Belum ada data rencana suksesi" />
+          <EmptyState title="Belum ada data rencana suksesi" />
         ) : (
           <DataTable data={data} columns={[
             { key: 'position', label: 'Posisi' },
             { key: 'incumbent', label: 'Pemegang Saat Ini' },
             { key: 'successor_1', label: 'Kandidat 1' },
             { key: 'successor_2', label: 'Kandidat 2' },
-            { key: 'readiness', label: 'Kesiapan', render: v => <Badge variant={v === "ready" ? "success" : v === "development" ? "warning" : "default"}>{v}</Badge> },
+            { key: 'readiness', label: 'Kesiapan', render: (v: unknown) => <Badge status={String(v)} type={v === "ready" ? "success" : v === "development" ? "warning" : "default"} /> },
             { key: 'target_date', label: 'Target Date' },
           ]} />
         )}

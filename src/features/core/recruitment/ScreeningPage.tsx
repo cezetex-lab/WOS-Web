@@ -21,7 +21,7 @@ export default function ScreeningPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const types = ['Background', 'Medical', 'Reference', 'Education'];
-  const typeCount = types.reduce((acc, t) => {
+  const typeCount = types.reduce<Record<string, number>>((acc, t) => {
     acc[t] = data.filter(d => d.check_type === t).length;
     return acc;
   }, {});

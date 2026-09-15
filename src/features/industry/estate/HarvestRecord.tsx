@@ -29,7 +29,7 @@ export default function HarvestRecord() {
 
   async function handleSubmit() {
     if (!formWeight || Number(formWeight) <= 0) {
-      toast('Berat harus lebih dari 0', 'error');
+      toast.error('Berat harus lebih dari 0');
       return;
     }
     setSubmitting(true);
@@ -41,14 +41,14 @@ export default function HarvestRecord() {
         p_quality: formQuality,
       });
       if (r?.ok) {
-        toast(r.msg || 'Panen tercatat', 'success');
+        toast.success(r.msg || 'Panen tercatat');
         setFormWeight('');
         loadData();
       } else {
-        toast(r?.msg || 'Gagal mencatat panen', 'error');
+        toast.error(r?.msg || 'Gagal mencatat panen');
       }
     } catch (e) {
-      toast('Gagal mencatat panen', 'error');
+      toast.error('Gagal mencatat panen');
     }
     setSubmitting(false);
   }

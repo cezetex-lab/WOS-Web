@@ -66,7 +66,7 @@ export default function ResetPassword() {
   };
 
   // Reset password
-  const handleReset = async (e) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setResult(null);
 

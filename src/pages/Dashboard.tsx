@@ -1,8 +1,8 @@
-// Dashboard.jsx — Manager Dashboard (design-system Tailwind)
 import { useState, useEffect, useRef } from 'react';
 import { rpc, getSession, clearSession, signOutAuth } from '@/lib/supabase-browser';
 import { MetricCard, GlassCard, QuickTile, Badge, ActionItem, EmptyState, LoadingSpinner, Avatar, SectionHeader, useToast } from '@/lib/design-system';
 import { createPageErrorLogger } from '@/lib/log-error';
+import { UserSession } from '@/types';
 
 const logError = createPageErrorLogger('Dashboard');
 
@@ -17,29 +17,65 @@ const MENU_CATEGORIES = [
   { title: 'Eksekutif', items: [{ icon: '🏢', label: 'Exec Summary', color: 'blue', detail: 'exec' }, { icon: '🏗️', label: 'Health Score', color: 'green', detail: 'health' }, { icon: '⚠️', label: 'Early Warning', color: 'red', detail: 'warning' }, { icon: '🤖', label: 'Auto-Healing', color: 'purple', detail: 'autoheal' }, { icon: '📋', label: 'Planning', color: 'teal', detail: 'planning' }] },
 ];
 
+interface DashboardStatsData {
+  attendance_rate?: number;
+  avg_kpi?: number;
+  ok?: boolean;
+}
+
+interface TeamData {
+  id?: string;
+  [key: string]: unknown;
+}
+
+interface RequestData {
+  id: string;
+  status: string;
+  type?: string;
+  nrp?: string;
+  note?: string;
+  created_at?: string;
+}
+
+interface ExecSummary {
+  headcount?: number;
+  avg_kpi?: number;
+  turnover_rate?: number;
+  ok?: boolean;
+}
+
+interface NarrativeData {
+  narrative?: string;
+  ok?: boolean;
+}
+
+interface WarningData {
+  nrp?: string;
+  title?: string;
+  message?: string;
+  ok?: boolean;
+}
+
 export default function DashboardPage() {
   const toast = useToast();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserSession | null>(null);
   const [noAccess, setNoAccess] = useState(false);
   const [activeTab, setActiveTab] = useState('beranda');
-  const [menuDetail, setMenuDetail] = useState<any>(null);
+  const [menuDetail, setMenuDetail] = useState<string | null>(null);
   const [menuSearch, setMenuSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
-  const [team, setTeam] = useState<any[]>([]);
-  const [teamRequests, setTeamRequests] = useState<any[]>([]);
-  const [execSummary, setExecSummary] = useState<any>(null);
-  const [teamNarrative, setTeamNarrative] = useState<any>(null);
-  const [earlyWarning, setEarlyWarning] = useState<any[]>([]);
-  const [actionLoading, setActionLoading] = useState<any>(null);
+  const [stats, setStats] = useState<DashboardStatsData | null>(null);
+  const [team, setTeam] = useState<TeamData[]>([]);
+  const [teamRequests, setTeamRequests] = useState<RequestData[]>([]);
+  const [execSummary, setExecSummary] = useState<ExecSummary | null>(null);
+  const [teamNarrative, setTeamNarrative] = useState<NarrativeData | null>(null);
+  const [earlyWarning, setEarlyWarning] = useState<WarningData[]>([]);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshY, setRefreshY] = useState(0);
   const pullStartY = useRef(0);
 
   useEffect(() => {
-    // Isolasi 3 page: dashboard HANYA menerima sesi dari tab login dashboard
-    // (session.entry === 'dashboard'). Sesi worker/admin yang mencoba buka
-    // /dashboard langsung dikembalikan ke login (bukan auto-redirect).
     const u = getSession();
     if (!u) { window.location.href = '/'; return; }
     if (u.entry && u.entry !== 'dashboard' && u.role !== 'owner') {
@@ -48,24 +84,56 @@ export default function DashboardPage() {
       return;
     }
     if (u.role === 'worker') { setNoAccess(true); setLoading(false); return; }
-    setUser(u); loadData(u.nrp);
+    setUser(u); loadData(u.nrp as string);
   }, []);
 
-  async function loadData(nrp) {
+  function toArray<T>(val: unknown): T[] {
+    if (Array.isArray(val)) return val as T[];
+    return [];
+  }
+
+  async function loadData(nrp: string) {
     setLoading(true);
     try {
-      const r = await Promise.all([rpc('get_dashboard_stats'), rpc('get_team_data', { p_nrp: nrp }), rpc('get_team_requests', { p_nrp: nrp }), rpc('get_executive_summary'), rpc('get_team_narrative', { p_nrp: nrp }), rpc('get_early_warning')]);
+      const r = await Promise.all([
+        rpc<{ data?: DashboardStatsData }>('get_dashboard_stats'), 
+        rpc<{ data?: TeamData[] }>('get_team_data', { p_nrp: nrp }), 
+        rpc<{ data?: RequestData[] }>('get_team_requests', { p_nrp: nrp }), 
+        rpc<{ data?: ExecSummary }>('get_executive_summary'), 
+        rpc<{ data?: NarrativeData }>('get_team_narrative', { p_nrp: nrp }), 
+        rpc<{ data?: WarningData[] }>('get_early_warning')
+      ]);
       const [s, t, tr, es, tn, ew] = r;
-      if (s?.ok) setStats(s); if (t?.ok && t.data) setTeam(t.data); if (tr?.ok && tr.data) setTeamRequests(tr.data); if (es?.ok) setExecSummary(es); if (tn?.ok) setTeamNarrative(tn); if (ew?.ok && ew.data) setEarlyWarning(ew.data);
+      
+      const sr = s as { ok?: boolean; data?: DashboardStatsData } | null;
+      if (sr?.ok && sr.data) setStats(sr.data);
+      else if (sr?.ok) setStats(sr as unknown as DashboardStatsData);
+
+      const trr = t as { ok?: boolean; data?: TeamData[] } | null;
+      if (trr?.ok && trr.data) setTeam(toArray<TeamData>(trr.data));
+
+      const trd = tr as { ok?: boolean; data?: RequestData[] } | null;
+      if (trd?.ok && trd.data) setTeamRequests(toArray<RequestData>(trd.data));
+
+      const er = es as { ok?: boolean; data?: ExecSummary } | null;
+      if (er?.ok && er.data) setExecSummary(er.data);
+      else if (er?.ok) setExecSummary(er as unknown as ExecSummary);
+
+      const tnr = tn as { ok?: boolean; data?: NarrativeData } | null;
+      if (tnr?.ok && tnr.data) setTeamNarrative(tnr.data);
+      else if (tnr?.ok) setTeamNarrative(tnr as unknown as NarrativeData);
+
+      const ewr = ew as { ok?: boolean; data?: WarningData[] } | null;
+      if (ewr?.ok && ewr.data) setEarlyWarning(toArray<WarningData>(ewr.data));
     } catch (e) { logError('loadData', e); }
     setLoading(false);
   }
 
-  function onTouchStart(e) { pullStartY.current = e.touches[0].clientY; }
-  function onTouchMove(e) { const dy = e.touches[0].clientY - pullStartY.current; if (dy > 0 && dy < 150) setRefreshY(dy); }
-  async function onTouchEnd() { if (refreshY > 80) { setRefreshing(true); await loadData(user?.nrp); setRefreshing(false); toast.success('Data diperbarui'); } setRefreshY(0); }
+  function onTouchStart(e: React.TouchEvent) { pullStartY.current = e.touches[0].clientY; }
+  function onTouchMove(e: React.TouchEvent) { const dy = e.touches[0].clientY - pullStartY.current; if (dy > 0 && dy < 150) setRefreshY(dy); }
+  async function onTouchEnd() { if (refreshY > 80) { setRefreshing(true); await loadData((user?.nrp as string) || ''); setRefreshing(false); toast.success('Data diperbarui'); } setRefreshY(0); }
 
-  async function handleRequestAction(id, status) {
+  async function handleRequestAction(id: string, status: string) {
     setActionLoading(id);
     try { await rpc('approve_team_request', { p_id: id, p_status: status, p_note: status }); setTeamRequests(teamRequests.filter(r => r.id !== id)); toast.success('Request ' + status); } catch (e) { logError('handleRequestAction', e); toast.error('Gagal memproses request'); }
     setActionLoading(null);
@@ -90,7 +158,7 @@ export default function DashboardPage() {
     </GlassCard>
     <SectionHeader title="Quick Access" />
     <div className="grid grid-cols-3 gap-2 mb-4">
-      {[{ icon: '👥', label: 'Tim', color: 'green', d: 'team' }, { icon: '📈', label: 'KPI', color: 'teal', d: 'kpi' }, { icon: '⚠️', label: 'Flight Risk', color: 'red', d: 'flight' }, { icon: '🏢', label: 'Exec Summary', color: 'blue', d: 'exec' }, { icon: '💰', label: 'Keuangan', color: 'green', d: 'financial' }, { icon: '🌳', label: 'Org Tree', color: 'purple', d: 'tree' }].map((item, i) => <QuickTile key={i} icon={item.icon} label={item.label} color={item.color} onClick={() => setMenuDetail(item.d)} />)}
+      {[{ icon: '👥', label: 'Tim', color: 'green' as const, d: 'team' }, { icon: '📈', label: 'KPI', color: 'teal' as const, d: 'kpi' }, { icon: '⚠️', label: 'Flight Risk', color: 'red' as const, d: 'flight' }, { icon: '🏢', label: 'Exec Summary', color: 'blue' as const, d: 'exec' }, { icon: '💰', label: 'Keuangan', color: 'green' as const, d: 'financial' }, { icon: '🌳', label: 'Org Tree', color: 'purple' as const, d: 'tree' }].map((item, i) => <QuickTile key={i} icon={item.icon} label={item.label} color={item.color} onClick={() => setMenuDetail(item.d)} />)}
     </div>
     {teamNarrative?.narrative && <GlassCard title="💡 Insight Tim" accent="teal" className="mb-4"><p className="text-sm text-slate-300 leading-relaxed">{teamNarrative.narrative}</p></GlassCard>}
     {execSummary && <GlassCard title="🏢 Executive Summary" accent="blue" className="mb-4"><div className="grid grid-cols-3 gap-3 text-center"><div><div className="text-xl font-bold text-blue-400">{execSummary.headcount || 0}</div><div className="text-[11px] text-slate-400">Headcount</div></div><div><div className="text-xl font-bold text-emerald-400">{execSummary.avg_kpi || 0}</div><div className="text-[11px] text-slate-400">Avg KPI</div></div><div><div className="text-xl font-bold text-amber-400">{execSummary.turnover_rate || 0}%</div><div className="text-[11px] text-slate-400">Turnover</div></div></div></GlassCard>}
@@ -104,7 +172,7 @@ export default function DashboardPage() {
       <input type="text" placeholder="Cari menu atau fitur..." value={menuSearch} onChange={e => setMenuSearch(e.target.value)} className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none" />
       {menuSearch && <button onClick={() => setMenuSearch('')} className="text-slate-500 hover:text-white text-xs">✕</button>}
     </div>
-    {MENU_CATEGORIES.map(cat => { const f = cat.items.filter(item => !menuSearch || item.label.toLowerCase().includes(menuSearch.toLowerCase())); if (f.length === 0) return null; return <div key={cat.title} className="mb-4"><SectionHeader title={cat.title} /><div className="grid grid-cols-4 gap-2">{f.map((item, i) => <QuickTile key={i} icon={item.icon} label={item.label} color={item.color} onClick={() => setMenuDetail(item.detail)} />)}</div></div>; })}
+    {MENU_CATEGORIES.map(cat => { const f = cat.items.filter(item => !menuSearch || item.label.toLowerCase().includes(menuSearch.toLowerCase())); if (f.length === 0) return null; return <div key={cat.title} className="mb-4"><SectionHeader title={cat.title} /><div className="grid grid-cols-4 gap-2">{f.map((item, i) => <QuickTile key={i} icon={item.icon} label={item.label} color={item.color as 'blue' | 'teal' | 'orange' | 'red' | 'purple' | 'green' | 'slate'} onClick={() => setMenuDetail(item.detail)} />)}</div></div>; })}
   </>);
 
   const notifContent = (<>
@@ -131,7 +199,7 @@ export default function DashboardPage() {
       </div>
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/90 backdrop-blur-xl border-t border-white/10">
         <div className="max-w-7xl mx-auto flex items-center justify-around h-16">
-          {[{ id: 'beranda', icon: '🏠', label: 'Beranda' }, { id: 'menu', icon: '📋', label: 'Menu' }, { id: 'notifikasi', icon: '🔔', label: 'Notifikasi', badge: pendingItems.length }].map(tab => (
+          {[{ id: 'beranda', icon: '🏠', label: 'Beranda', badge: 0 }, { id: 'menu', icon: '📋', label: 'Menu', badge: 0 }, { id: 'notifikasi', icon: '🔔', label: 'Notifikasi', badge: pendingItems.length }].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all ${activeTab === tab.id ? 'text-teal-400 bg-teal-400/10' : 'text-slate-400 hover:text-white'}`}>
               <span className="text-xl relative">{tab.icon}{tab.badge > 0 && <span className="absolute -top-1 -right-2 min-w-[14px] h-3.5 flex items-center justify-center bg-red-500 text-white text-[8px] font-bold rounded-full px-0.5">{tab.badge > 9 ? '9+' : tab.badge}</span>}</span>
               <span className="text-[11px] font-medium mt-0.5">{tab.label}</span>

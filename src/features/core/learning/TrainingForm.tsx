@@ -65,7 +65,7 @@ export default function TrainingForm() {
   };
 
   // ── CANCEL (#26) ──
-  const handleCancel = async (item) => {
+  const handleCancel = async (item: any) => {
     if (!confirm(`Batalkan training "${item.name || item.nama || item.title}"?`)) return;
     try {
       await rpc('create_worker_request', {

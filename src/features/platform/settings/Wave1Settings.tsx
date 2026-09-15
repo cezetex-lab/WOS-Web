@@ -13,7 +13,7 @@ export default function Wave1Settings() {
   const [loading, setLoading] = useState(true);
   const [pkwtAlerts, setPkwtAlerts] = useState<any[]>([]);
   const [passwordForm, setPasswordForm] = useState({ old: '', new: '', confirm: '' });
-  const [passwordMsg, setPasswordMsg] = useState<any>(null);
+  const [passwordMsg, setPasswordMsg] = useState<{type: string; text: string} | null>(null);
   const [changing, setChanging] = useState(false);
 
   useEffect(() => {
@@ -23,13 +23,13 @@ export default function Wave1Settings() {
   async function loadData() {
     setLoading(true);
     try {
-      const { data } = await rpc('get_pkwt_expiry_alert');
-      setPkwtAlerts(data?.data || []);
+      const result = await rpc('get_pkwt_expiry_alert');
+      setPkwtAlerts(Array.isArray(result) ? result : (result?.data as Record<string, unknown>[] || []));
     } catch (e) { }
     setLoading(false);
   }
 
-  async function handleChangePassword(e) {
+  async function handleChangePassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPasswordMsg(null);
 
@@ -49,13 +49,13 @@ export default function Wave1Settings() {
         p_new_password: passwordForm.new
       });
       if (result?.ok) {
-        setPasswordMsg({ type: 'success', text: result.msg });
+        setPasswordMsg({ type: 'success', text: String(result.msg) });
         setPasswordForm({ old: '', new: '', confirm: '' });
       } else {
-        setPasswordMsg({ type: 'error', text: result?.msg || 'Gagal mengubah password' });
+        setPasswordMsg({ type: 'error', text: String(result?.msg || 'Gagal mengubah password') });
       }
-    } catch (e) {
-      setPasswordMsg({ type: 'error', text: 'Error: ' + e.message });
+    } catch (e: unknown) {
+      setPasswordMsg({ type: 'error', text: 'Error: ' + (e instanceof Error ? e.message : String(e)) });
     }
     setChanging(false);
   }

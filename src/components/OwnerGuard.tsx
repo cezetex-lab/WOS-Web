@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase-browser';
  * Server-side: check_owner_identity() verifies auth_id in system_owner_identity.
  * Client-side: checks Supabase Auth session + role === 'owner'.
  */
-export default function OwnerGuard({ children }) {
+export default function OwnerGuard({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);

@@ -46,7 +46,7 @@ export default function BoilerMonitor() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-[11px] text-slate-500 uppercase">Status</p>
-                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${STATUS_COLORS[b.status]}`}>{b.status}</span>
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${STATUS_COLORS[b.status as keyof typeof STATUS_COLORS] || ''}`}>{b.status}</span>
               </div>
               <div>
                 <p className="text-[11px] text-slate-500 uppercase">Suhu</p>

@@ -53,7 +53,7 @@ export const CHART_DEFAULTS = {
 };
 
 // Reusable chart hook
-export function useChart(configFn: (Chart: any) => any, deps: any[] = []) {
+export function useChart(configFn: ((Chart: any) => any) | null, deps: unknown[] = []) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<any>(null);
 
@@ -68,6 +68,7 @@ export function useChart(configFn: (Chart: any) => any, deps: any[] = []) {
         chartRef.current.destroy();
       }
 
+      if (!configFn) return;
       const cfg = configFn(Chart);
       chartRef.current = new Chart(canvasRef.current, cfg);
     }

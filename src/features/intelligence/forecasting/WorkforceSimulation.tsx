@@ -11,7 +11,8 @@ import {
   EmptyState, Input, StatItem, Divider
 } from '@/lib/design-system';
 
-function Modal({ onClose, title, children }) {
+interface ModalProps { onClose: () => void; title: string; children: React.ReactNode; }
+function Modal({ onClose, title, children }: ModalProps) {
   useAdminAuth(["admin_pusat"]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -45,8 +46,8 @@ export default function WorkforceSimulation() {
   const [loading, setLoading] = useState(true);
   const [simulating, setSimulating] = useState(false);
   const [simulations, setSimulations] = useState<any[]>([]);
-  const [selectedScenario, setSelectedScenario] = useState<any>(null);
-  const [params, setParams] = useState({ turnover: 0, hiring: 0, budget: 0, kpi: 0 });
+  const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
+  const [params, setParams] = useState<Record<string, number>>({ turnover: 0, hiring: 0, budget: 0, kpi: 0 });
   const [result, setResult] = useState<any>(null);
 
   const fetchSimulations = useCallback(async () => {
@@ -109,7 +110,7 @@ export default function WorkforceSimulation() {
     setSimulating(false);
   };
 
-  const applyPreset = (preset) => {
+  const applyPreset = (preset: { name: string; turnover: number; hiring: number; budget: number; kpi: number }) => {
     setParams({ turnover: preset.turnover, hiring: preset.hiring, budget: preset.budget, kpi: preset.kpi });
     setSelectedScenario(preset.name);
   };
@@ -177,17 +178,17 @@ export default function WorkforceSimulation() {
         {result && !result.error && (
           <GlassCard className="p-4">
             <p className="text-white font-semibold text-sm mb-3">📊 Hasil Simulasi</p>
-            <p className="text-slate-300 text-xs mb-3">{result.headline}</p>
+            <p className="text-slate-300 text-xs mb-3">{String(result.headline)}</p>
             <div className="grid grid-cols-2 gap-3">
-              <StatItem label="Headcount" value={result.result.new_hc || '-'} color="blue" />
-              <StatItem label="Turnover Loss" value={result.result.turnover_loss || 0} color="red" />
-              <StatItem label="Hiring Gain" value={result.result.hiring_gain || 0} color="green" />
-              <StatItem label="Cost Change" value={`Rp ${((result.result.cost_change || 0) / 1000000).toFixed(1)}M`} color={result.result.cost_change > 0 ? 'red' : 'green'} />
+              <StatItem label="Headcount" value={Number((result.result as Record<string, unknown>)?.new_hc) || 0} color="blue" />
+              <StatItem label="Turnover Loss" value={Number((result.result as Record<string, unknown>)?.turnover_loss) || 0} color="red" />
+              <StatItem label="Hiring Gain" value={Number((result.result as Record<string, unknown>)?.hiring_gain) || 0} color="green" />
+              <StatItem label="Cost Change" value={`Rp ${((Number((result.result as Record<string, unknown>)?.cost_change) || 0) / 1000000).toFixed(1)}M`} color={Number((result.result as Record<string, unknown>)?.cost_change) > 0 ? 'red' : 'green'} />
             </div>
-            {result.result.profit_impact !== undefined && (
+            {(result.result as Record<string, unknown>)?.profit_impact !== undefined && (
               <div className="mt-3 bg-slate-800/50 rounded-lg p-3 text-center">
-                <p className={`text-2xl font-bold ${result.result.profit_impact >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {result.result.profit_impact >= 0 ? '+' : ''}Rp {(result.result.profit_impact / 1000000).toFixed(1)}M
+                <p className={`text-2xl font-bold ${Number((result.result as Record<string, unknown>)?.profit_impact) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {Number((result.result as Record<string, unknown>)?.profit_impact) >= 0 ? '+' : ''}Rp {(Number((result.result as Record<string, unknown>)?.profit_impact) / 1000000).toFixed(1)}M
                 </p>
                 <p className="text-xs text-slate-400">Profit Impact (est.)</p>
               </div>

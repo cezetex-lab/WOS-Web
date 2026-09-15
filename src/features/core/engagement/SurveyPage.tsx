@@ -12,7 +12,12 @@ import {
 } from '@/lib/design-system';
 
 // Inline Modal
-function Modal({ onClose, title, children }) {
+interface ModalProps {
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+function Modal({ onClose, title, children }: ModalProps) {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -33,11 +38,11 @@ const ENPS_LABELS = [
   { min: 9, max: 10, label: 'Promoter', color: 'green', icon: '😊' },
 ];
 
-function getEnpsLabel(score) {
+function getEnpsLabel(score: number) {
   return ENPS_LABELS.find(l => score >= l.min && score <= l.max) || ENPS_LABELS[0];
 }
 
-function getEnpsColor(enps) {
+function getEnpsColor(enps: number) {
   if (enps >= 50) return 'green';
   if (enps >= 0) return 'yellow';
   return 'red';
@@ -47,12 +52,12 @@ export default function SurveyPage() {
   const nrp = getSession()?.nrp;
   const role = getSession()?.role;
   const [loading, setLoading] = useState(true);
-  const [surveys, setSurveys] = useState<any[]>([]);
-  const [activeSurvey, setActiveSurvey] = useState<any>(null);
-  const [answers, setAnswers] = useState({});
+  const [surveys, setSurveys] = useState<Record<string, any>[]>([]);
+  const [activeSurvey, setActiveSurvey] = useState<Record<string, any> | null>(null);
+  const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [score, setScore] = useState(7);
   const [submitting, setSubmitting] = useState(false);
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<Record<string, any> | null>(null);
   const [tab, setTab] = useState(role === 'admin' ? 'results' : 'list');
 
   const fetchSurveys = useCallback(async () => {
@@ -67,7 +72,7 @@ export default function SurveyPage() {
 
   useEffect(() => { fetchSurveys(); }, [fetchSurveys]);
 
-  const fetchResults = async (surveyId) => {
+  const fetchResults = async (surveyId: string | number) => {
     try {
       const { data } = await supabase.rpc('get_survey_results', { p_survey_id: surveyId });
       if (data?.ok) setResults(data);
@@ -92,8 +97,8 @@ export default function SurveyPage() {
   };
 
   const tabs = role === 'admin'
-    ? [{ key: 'list', label: '📋 Survei' }, { key: 'results', label: '📊 Hasil & eNPS' }]
-    : [{ key: 'list', label: '📋 Survei Tersedia' }];
+    ? [{ id: 'list', label: '📋 Survei' }, { id: 'results', label: '📊 Hasil & eNPS' }]
+    : [{ id: 'list', label: '📋 Survei Tersedia' }];
 
   return (
     <PageLayout title="📊 eNPS & Survei Kepuasan">
@@ -120,7 +125,7 @@ export default function SurveyPage() {
                       {role !== 'admin' ? (
                         <Button onClick={() => setActiveSurvey(s)} size="sm">📝 Isi</Button>
                       ) : (
-                        <Button onClick={() => { fetchResults(s.id); }} variant="secondary" size="sm">📊 Hasil</Button>
+                        <Button onClick={() => { fetchResults(s.id as string | number); }} variant="outline" size="sm">📊 Hasil</Button>
                       )}
                     </div>
                   </GlassCard>
@@ -145,9 +150,7 @@ export default function SurveyPage() {
                   <div className="mt-3 bg-slate-800/50 rounded-lg p-3 text-center">
                     <p className="text-3xl font-bold text-white">{results.enps || 0}</p>
                     <p className="text-xs text-slate-400">Net Promoter Score</p>
-                    <Badge color={getEnpsColor(results.enps)} className="mt-2">
-                      {(results.enps || 0) >= 50 ? '🏆 Excellent' : (results.enps || 0) >= 0 ? '👍 Good' : '⚠️ Needs Improvement'}
-                    </Badge>
+                    <Badge status={(results.enps as number || 0) >= 50 ? 'Excellent' : (results.enps as number || 0) >= 0 ? 'Good' : 'Needs Improvement'} type={getEnpsColor(results.enps as number || 0) === 'green' ? 'success' : getEnpsColor(results.enps as number || 0) === 'yellow' ? 'warning' : 'danger'} className="mt-2" />
                   </div>
                 </GlassCard>
               </div>
@@ -189,14 +192,14 @@ export default function SurveyPage() {
             </div>
 
             {/* Optional Comments */}
-            {activeSurvey.questions && Array.isArray(activeSurvey.questions) && activeSurvey.questions.map((q, idx) => (
+            {activeSurvey.questions && Array.isArray(activeSurvey.questions) && activeSurvey.questions.map((q: unknown, idx: number) => (
               <div key={idx}>
-                <p className="text-white text-xs mb-1">{q}</p>
+                <p className="text-white text-xs mb-1">{String(q ?? '')}</p>
                 <textarea
                   className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white text-sm resize-none"
                   rows={2}
-                  value={answers[idx] || ''}
-                  onChange={(e) => setAnswers({ ...answers, [idx]: e.target.value })}
+                  value={String(answers[idx] ?? '')}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAnswers({ ...answers, [idx]: e.target.value })}
                   placeholder="Jawaban Anda..."
                 />
               </div>

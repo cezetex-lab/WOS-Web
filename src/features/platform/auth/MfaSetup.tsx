@@ -4,10 +4,19 @@ import { callEdgeFunctionAuth } from '@/lib/edge-functions';
 import { PageLayout, SectionHeader } from '@/lib/design-system';
 import { Button, Input, Badge, GlassCard, MetricCard, LoadingSpinner, EmptyState } from '@/lib/design-system';
 
-function mfaAction(action, data = {}) {
+interface MfaResponse {
+  ok?: boolean;
+  mfa_enabled?: boolean;
+  factor_id?: string;
+  secret?: string;
+  otpauth_url?: string;
+  msg?: string;
+}
+
+function mfaAction(action: string, data: Record<string, unknown> = {}): Promise<MfaResponse> {
   // Hardened mfa-service butuh JWT user (auth.uid() harus map ke NRP) —
   // bukan anon key. Tanpa JWT, enroll/disable akan ditolak 401.
-  return callEdgeFunctionAuth('mfa-service', { action, ...data });
+  return callEdgeFunctionAuth('mfa-service', { action, ...data }) as Promise<MfaResponse>;
 }
 
 export default function MfaSetup() {
@@ -30,7 +39,7 @@ export default function MfaSetup() {
     // Get NRP from session
     const session = getSession();
     if (session) {
-      setNrp(session.nrp || session.id || '');
+      setNrp(session.nrp || '');
     }
     checkStatus();
   }, []);
@@ -38,12 +47,12 @@ export default function MfaSetup() {
   async function checkStatus() {
     try {
       const session = getSession();
-      const userNrp = session?.nrp || session?.id || '';
+      const userNrp = session?.nrp || '';
       if (!userNrp) { setStep('error'); return; }
-      
+
       const d = await mfaAction('check', { nrp: userNrp });
-      setMfaEnabled(d.mfa_enabled);
-      setStep(d.mfa_enabled ? 'status' : 'status');
+      setMfaEnabled(d.mfa_enabled || false);
+      setStep('status');
     } catch (e) {
       setStep('status');
     }
@@ -55,9 +64,9 @@ export default function MfaSetup() {
     try {
       const d = await mfaAction('enroll', { nrp, label: 'insightWOS' });
       if (d.ok) {
-        setFactorId(d.factor_id);
-        setSecret(d.secret);
-        setOtpauthUrl(d.otpauth_url);
+        setFactorId(d.factor_id || '');
+        setSecret(d.secret || '');
+        setOtpauthUrl(d.otpauth_url || '');
         setStep('enroll');
       } else {
         setError(d.msg || 'Gagal enroll MFA');
@@ -115,7 +124,7 @@ export default function MfaSetup() {
 
   if (step === 'error') return (
     <PageLayout>
-      <SectionHeader title="🔐 Multi-Factor Authentication" desc="Keamanan tambahan untuk akun Anda" />
+      <SectionHeader title="🔐 Multi-Factor Authentication" />
       <GlassCard>
         <div className="text-center py-8">
           <p className="text-4xl mb-4">🔒</p>
@@ -129,7 +138,7 @@ export default function MfaSetup() {
 
   return (
     <PageLayout>
-      <SectionHeader title="🔐 Multi-Factor Authentication" desc="Keamanan tambahan untuk akun Anda" />
+      <SectionHeader title="🔐 Multi-Factor Authentication" />
 
       {/* Status */}
       {step === 'status' && (
@@ -142,9 +151,7 @@ export default function MfaSetup() {
                   {mfaEnabled ? 'Aktif — akun Anda terlindungi dengan TOTP' : 'Nonaktif — akun hanya menggunakan OTP'}
                 </p>
               </div>
-              <Badge variant={mfaEnabled ? 'success' : 'warning'}>
-                {mfaEnabled ? 'AKTIF' : 'NONAKTIF'}
-              </Badge>
+              <Badge status={mfaEnabled ? 'AKTIF' : 'NONAKTIF'} type={mfaEnabled ? 'success' : 'warning'} />
             </div>
           </GlassCard>
 
@@ -153,7 +160,7 @@ export default function MfaSetup() {
 
           <div className="flex gap-3">
             {!mfaEnabled ? (
-              <Button onClick={handleEnroll} variant="primary">
+              <Button onClick={handleEnroll} variant="solid">
                 Aktifkan MFA
               </Button>
             ) : (
@@ -164,9 +171,8 @@ export default function MfaSetup() {
                   value={code}
                   onChange={e => setCode(e.target.value)}
                   placeholder="000000"
-                  maxLength={6}
                 />
-                <Button onClick={handleDisable} variant="danger">
+                <Button onClick={handleDisable} color="red">
                   Nonaktifkan MFA
                 </Button>
               </div>
@@ -204,16 +210,15 @@ export default function MfaSetup() {
               value={code}
               onChange={e => setCode(e.target.value)}
               placeholder="000000"
-              maxLength={6}
             />
             {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
           </GlassCard>
 
           <div className="flex gap-3">
-            <Button onClick={handleActivate} variant="primary">
+            <Button onClick={handleActivate} variant="solid">
               Aktifkan MFA
             </Button>
-            <Button onClick={() => setStep('status')} variant="secondary">
+            <Button onClick={() => setStep('status')} variant="outline">
               Batal
             </Button>
           </div>
@@ -229,7 +234,7 @@ export default function MfaSetup() {
             <p className="text-slate-400 mb-6">
               Setiap kali login, Anda akan diminta memasukkan kode dari authenticator app.
             </p>
-            <Button onClick={() => setStep('status')} variant="primary">
+            <Button onClick={() => setStep('status')} variant="solid">
               Kembali
             </Button>
           </div>

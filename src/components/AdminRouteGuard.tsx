@@ -7,7 +7,7 @@ import { getSession } from '@/lib/supabase-browser';
  * Used inside admin sub-pages to enforce least-privilege access.
  */
 
-const ROLE_ACCESS = {
+const ROLE_ACCESS: Record<string, string[]> = {
 
   '/admin/analytics': ["admin_pusat"],
 

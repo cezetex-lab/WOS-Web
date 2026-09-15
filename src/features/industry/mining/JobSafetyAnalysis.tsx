@@ -29,7 +29,7 @@ export default function JobSafetyAnalysis() {
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat JSA..." /></div>;
 
-  const riskColor = { LOW: 'success', MEDIUM: 'info', HIGH: 'warning', CRITICAL: 'danger' };
+  const riskColor: Record<string, string> = { LOW: 'success', MEDIUM: 'info', HIGH: 'warning', CRITICAL: 'danger' };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 pb-24">
@@ -52,7 +52,7 @@ export default function JobSafetyAnalysis() {
               <div className="mb-3">
                 <div className="text-[11px] text-red-400 font-bold mb-1">⚠️ HAZARDS:</div>
                 <div className="space-y-1">
-                  {jsa.hazards.map((h, j) => (
+                  {jsa.hazards.map((h: any, j: number) => (
                     <div key={j} className="text-xs text-slate-300 bg-red-500/5 border border-red-500/10 rounded px-2 py-1">• {h}</div>
                   ))}
                 </div>
@@ -61,7 +61,7 @@ export default function JobSafetyAnalysis() {
               <div className="mb-2">
                 <div className="text-[11px] text-emerald-400 font-bold mb-1">✅ CONTROLS:</div>
                 <div className="space-y-1">
-                  {jsa.controls.map((c, j) => (
+                  {jsa.controls.map((c: any, j: number) => (
                     <div key={j} className="text-xs text-slate-300 bg-emerald-500/5 border border-emerald-500/10 rounded px-2 py-1">• {c}</div>
                   ))}
                 </div>

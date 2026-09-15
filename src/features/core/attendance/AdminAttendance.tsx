@@ -5,7 +5,7 @@ import { PageLayout, GlassCard, DataTable, MetricCard, LoadingSpinner, EmptyStat
 export default function AdminAttendance() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({});
+  const [stats, setStats] = useState<Record<string, any>>({});
 
   useEffect(() => {
     rpc('admin_get_timesheet', {}).then(r => {

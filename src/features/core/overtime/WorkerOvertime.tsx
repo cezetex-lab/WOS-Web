@@ -10,14 +10,16 @@ import {
   LoadingSpinner, EmptyState, Tabs, SectionHeader, useToast
 } from '@/lib/design-system';
 
-const RATE_MULTIPLIERS = {
+type OvertimeType = 'weekday' | 'saturday' | 'holiday' | 'night';
+
+const RATE_MULTIPLIERS: Record<OvertimeType, { label: string; rate: number; color: string }> = {
   weekday:   { label: 'Hari Kerja',   rate: 1.5, color: 'blue' },
   saturday:  { label: 'Sabtu',        rate: 2.0, color: 'orange' },
   holiday:   { label: 'Hari Libur',   rate: 3.0, color: 'red' },
   night:     { label: 'Malam (22-07)', rate: 2.0, color: 'purple' },
 };
 
-function getOvertimeType(dateStr) {
+function getOvertimeType(dateStr: string): OvertimeType {
   if (!dateStr) return 'weekday';
   const d = new Date(dateStr);
   const day = d.getDay();
@@ -28,11 +30,19 @@ function getOvertimeType(dateStr) {
   return 'weekday';
 }
 
+interface OvertimeRow {
+  id?: string;
+  created_at?: string;
+  type?: string;
+  detail?: string;
+  status?: string;
+}
+
 export default function WorkerOvertime() {
   const toast = useToast();
   const nrp = getSession()?.nrp || 'NRP001';
   const [loading, setLoading] = useState(true);
-  const [overtime, setOvertime] = useState<any[]>([]);
+  const [overtime, setOvertime] = useState<OvertimeRow[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [submitting, setSubmitting] = useState(false);
@@ -41,15 +51,15 @@ export default function WorkerOvertime() {
   const [formDate, setFormDate] = useState('');
   const [formHours, setFormHours] = useState('');
   const [formReason, setFormReason] = useState('');
-  const [formType, setFormType] = useState('weekday');
+  const [formType, setFormType] = useState<OvertimeType>('weekday');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await rpc('get_worker_overtime', { p_nrp: nrp });
-      const items = result?.data || result || [];
+      const result = await rpc<{ data?: OvertimeRow[] }>('get_worker_overtime', { p_nrp: nrp });
+      const items = result?.data || [];
       setOvertime(Array.isArray(items) ? items : []);
-    } catch (err) {
+    } catch (err: unknown) {
       setOvertime([]);
     }
     setLoading(false);
@@ -83,7 +93,7 @@ export default function WorkerOvertime() {
       setFormHours('');
       setFormReason('');
       fetchData();
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error('Gagal mengajukan lembur');
     }
     setSubmitting(false);
@@ -96,7 +106,7 @@ export default function WorkerOvertime() {
     {
       key: 'created_at',
       label: 'Tanggal',
-      render: (val) => (
+      render: (val: string) => (
         <span className="text-xs text-slate-300">
           {val ? new Date(val).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
         </span>
@@ -105,9 +115,9 @@ export default function WorkerOvertime() {
     {
       key: 'type',
       label: 'Tipe',
-      render: (val, row) => {
+      render: (val: string, row: OvertimeRow) => {
         const t = (val || '').toLowerCase();
-        const typeKey = t.includes('sabtu') ? 'saturday' : t.includes('libur') ? 'holiday' : t.includes('malam') ? 'night' : 'weekday';
+        const typeKey: OvertimeType = t.includes('sabtu') ? 'saturday' : t.includes('libur') ? 'holiday' : t.includes('malam') ? 'night' : 'weekday';
         const cfg = RATE_MULTIPLIERS[typeKey];
         return <Badge status={`${cfg.label} (${cfg.rate}x)`} type="info" />;
       },
@@ -115,14 +125,14 @@ export default function WorkerOvertime() {
     {
       key: 'detail',
       label: 'Detail',
-      render: (val) => (
+      render: (val: string) => (
         <span className="text-xs text-slate-400 truncate block max-w-[120px]">{val || '-'}</span>
       ),
     },
     {
       key: 'status',
       label: 'Status',
-      render: (val) => {
+      render: (val: string) => {
         const t = (val || '').toLowerCase();
         const bt = t === 'approved' || t === 'active' ? 'success' : t === 'pending' ? 'warning' : 'danger';
         return <Badge status={val || 'Pending'} type={bt} />;
@@ -131,7 +141,7 @@ export default function WorkerOvertime() {
   ];
 
   // Rate card data
-  const rates = Object.entries(RATE_MULTIPLIERS);
+  const rates = Object.entries(RATE_MULTIPLIERS) as [OvertimeType, { label: string; rate: number; color: string }][];
 
   return (
     <PageLayout backTo="/worker" title="Pengajuan Lembur" subtitle={`${overtime.length} pengajuan`}>

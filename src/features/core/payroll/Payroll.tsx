@@ -9,9 +9,49 @@ import { supabase, rpc } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
-  Tabs, LoadingSpinner, EmptyState, Button, Avatar, StatItem
+  Tabs, LoadingSpinner, EmptyState, Button, Avatar, StatItem, type CardColor
 } from '@/lib/design-system';
 import { formatRupiah, getCurrentPeriod, getPeriodLabel, getRecentPeriods } from '@/lib/format';
+
+interface PayrollRow {
+  nama?: string;
+  nrp?: string;
+  divisi?: string;
+  gross_salary?: number;
+  total_gaji?: number;
+  total_potongan?: number;
+  deductions?: number;
+  nett_salary?: number;
+  gaji_bersih?: number;
+  status?: string;
+  jenis?: string;
+  bpjs_kes?: number;
+  bpjs_health?: number;
+  bpjs_tk?: number;
+  bpjs_employment?: number;
+  pph21?: number;
+  tax?: number;
+  pinjaman?: number;
+  loan?: number;
+  other_deductions?: number;
+  potongan_lain?: number;
+  no_rekening?: string;
+  bank_account?: string;
+  no_rek?: string;
+  bank_name?: string;
+  nama_bank?: string;
+  payment_date?: string;
+  tgl_bayar?: string;
+  contract_type?: string;
+  [key: string]: unknown;
+}
+
+interface PayrollSummary {
+  total_net?: number;
+  total_employees?: number;
+  avg_salary?: number;
+  total_deduction_items?: number;
+}
 
 // ──────────────────────────────────────────────────────────────
 // MAIN COMPONENT
@@ -20,11 +60,11 @@ export default function Payroll() {
   useAdminAuth(["admin_pusat", "admin_finance"]);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [payroll, setPayroll] = useState<any[]>([]);
-  const [summary, setSummary] = useState({});
+  const [payroll, setPayroll] = useState<PayrollRow[]>([]);
+  const [summary, setSummary] = useState<PayrollSummary>({});
   const [period, setPeriod] = useState(getCurrentPeriod());
   const [activeTab, setActiveTab] = useState('all');
-  const [selected, setSelected] = useState<any>(null);
+  const [selected, setSelected] = useState<PayrollRow | null>(null);
 
   const periods = getRecentPeriods();
 
@@ -38,17 +78,17 @@ export default function Payroll() {
       ]);
 
       // Payroll data
-      if (payrollResult?.ok !== false && Array.isArray(payrollResult)) {
-        setPayroll(payrollResult);
-      } else if (payrollResult?.data && Array.isArray(payrollResult.data)) {
-        setPayroll(payrollResult.data);
+      if ((payrollResult as { ok?: boolean })?.ok !== false && Array.isArray(payrollResult)) {
+        setPayroll(payrollResult as PayrollRow[]);
+      } else if ((payrollResult as { data?: PayrollRow[] })?.data && Array.isArray((payrollResult as { data?: PayrollRow[] }).data)) {
+        setPayroll((payrollResult as { data: PayrollRow[] }).data);
       } else {
         setPayroll([]);
       }
 
       // Summary
       if (summaryResult && typeof summaryResult === 'object') {
-        setSummary(summaryResult);
+        setSummary(summaryResult as PayrollSummary);
       }
     } catch (err) { }
     setLoading(false);
@@ -77,28 +117,28 @@ export default function Payroll() {
       value: formatRupiah(summary.total_net || totalNett),
       label: 'Total Gaji Bersih',
       trend: getPeriodLabel(period),
-      color: 'green',
+      color: 'green' as CardColor,
     },
     {
       icon: '👥',
-      value: summary.total_employees || payroll.length || 0,
+      value: String(summary.total_employees || payroll.length || 0),
       label: 'Karyawan',
       trend: 'Diproses',
-      color: 'blue',
+      color: 'blue' as CardColor,
     },
     {
       icon: '📈',
       value: formatRupiah(summary.avg_salary || (payroll.length > 0 ? totalNett / payroll.length : 0)),
       label: 'Rata-rata Gaji',
       trend: 'Per Orang',
-      color: 'teal',
+      color: 'teal' as CardColor,
     },
     {
       icon: '📋',
       value: formatRupiah(totalPotongan),
       label: 'Total Potongan',
       trend: `${summary.total_deduction_items || '-'} Item`,
-      color: 'orange',
+      color: 'orange' as CardColor,
     },
   ];
 
@@ -107,12 +147,12 @@ export default function Payroll() {
     {
       key: 'nama',
       label: 'Nama',
-      render: (val, row) => (
+      render: (val: unknown, row: Record<string, unknown>) => (
         <div className="flex items-center gap-2">
-          <Avatar name={val} size="sm" />
+          <Avatar name={val as string} size="sm" />
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-white truncate">{val}</div>
-            <div className="text-[11px] text-slate-500">{row.nrp || '-'}</div>
+            <div className="text-xs font-semibold text-white truncate">{val as string}</div>
+            <div className="text-[11px] text-slate-500">{(row.nrp as string) || '-'}</div>
           </div>
         </div>
       ),
@@ -120,41 +160,41 @@ export default function Payroll() {
     {
       key: 'divisi',
       label: 'Divisi',
-      render: (val) => (
-        <span className="text-xs text-slate-300">{val || '-'}</span>
+      render: (val: unknown) => (
+        <span className="text-xs text-slate-300">{(val as string) || '-'}</span>
       ),
     },
     {
       key: 'gross_salary',
       label: 'Gross',
-      render: (val, row) => {
-        const v = val || row.total_gaji || 0;
+      render: (val: unknown, row: Record<string, unknown>) => {
+        const v = (val as number) || (row.total_gaji as number) || 0;
         return <span className="text-xs font-semibold text-white">{formatRupiah(v)}</span>;
       },
     },
     {
       key: 'total_potongan',
       label: 'Potongan',
-      render: (val, row) => {
-        const v = val || row.deductions || 0;
+      render: (val: unknown, row: Record<string, unknown>) => {
+        const v = (val as number) || (row.deductions as number) || 0;
         return <span className="text-xs text-red-400">-{formatRupiah(v)}</span>;
       },
     },
     {
       key: 'nett_salary',
       label: 'Bersih',
-      render: (val, row) => {
-        const v = val || row.gaji_bersih || 0;
+      render: (val: unknown, row: Record<string, unknown>) => {
+        const v = (val as number) || (row.gaji_bersih as number) || 0;
         return <span className="text-xs font-bold text-emerald-400">{formatRupiah(v)}</span>;
       },
     },
     {
       key: 'status',
       label: 'Status',
-      render: (val) => {
-        const v = (val || '').toLowerCase();
+      render: (val: unknown) => {
+        const v = ((val as string) || '').toLowerCase();
         const t = v === 'paid' || v === 'processed' ? 'success' : v === 'pending' || v === 'draft' ? 'warning' : 'default';
-        return <Badge status={val || 'Draft'} type={t} />;
+        return <Badge status={(val as string) || 'Draft'} type={t} />;
       },
     },
   ];
@@ -201,22 +241,22 @@ export default function Payroll() {
         <div className="grid grid-cols-2 gap-3">
           <StatItem
             label="Gross Salary"
-            value={formatRupiah(totalGross)}
+            value={totalGross}
             color="#38bdf8"
           />
           <StatItem
             label="Total Potongan"
-            value={formatRupiah(totalPotongan)}
+            value={totalPotongan}
             color="#f87171"
           />
           <StatItem
             label="Nett Salary"
-            value={formatRupiah(totalNett)}
+            value={totalNett}
             color="#34d399"
           />
           <StatItem
             label="Avg per Karyawan"
-            value={payroll.length > 0 ? formatRupiah(totalNett / payroll.length) : '-'}
+            value={payroll.length > 0 ? Math.round(totalNett / payroll.length) : 0}
             color="#818cf8"
           />
         </div>
@@ -272,9 +312,9 @@ export default function Payroll() {
 
         <DataTable
           columns={columns}
-          data={filtered}
+          data={filtered as Record<string, unknown>[]}
           searchPlaceholder="Cari nama, NRP, divisi..."
-          onRowClick={(row) => setSelected(row)}
+          onRowClick={(row) => setSelected(row as unknown as PayrollRow)}
           emptyMessage={`Tidak ada data payroll untuk ${getPeriodLabel(period)}`}
         />
       </GlassCard>
@@ -284,7 +324,7 @@ export default function Payroll() {
         <PayrollDetail
           data={selected}
           onClose={() => setSelected(null)}
-          onNavigate={(path) => {
+          onNavigate={(path: string) => {
             setSelected(null);
             navigate(path);
           }}
@@ -297,7 +337,13 @@ export default function Payroll() {
 // ──────────────────────────────────────────────────────────────
 // PAYROLL DETAIL MODAL
 // ──────────────────────────────────────────────────────────────
-function PayrollDetail({ data, onClose, onNavigate }) {
+interface PayrollDetailProps {
+  data: PayrollRow;
+  onClose: () => void;
+  onNavigate: (path: string) => void;
+}
+
+function PayrollDetail({ data, onClose, onNavigate }: PayrollDetailProps) {
   const d = data;
 
   const gross = d.gross_salary || d.total_gaji || 0;

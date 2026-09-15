@@ -9,7 +9,7 @@ import {
   PageLayout, MetricCard, GlassCard, Badge, LoadingSpinner, EmptyState, Button, Tabs
 } from '@/lib/design-system';
 
-const TYPE_CONFIG = {
+const TYPE_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
   Training:     { icon: '🎓', color: 'blue', label: 'Training' },
   Certification:{ icon: '📜', color: 'teal', label: 'Sertifikasi' },
   Workshop:     { icon: '🛠️', color: 'orange', label: 'Workshop' },
@@ -17,7 +17,7 @@ const TYPE_CONFIG = {
   default:      { icon: '📖', color: 'slate', label: 'Lainnya' },
 };
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
   completed:    { icon: '✅', color: 'success', label: 'Selesai' },
   in_progress:  { icon: '🔄', color: 'warning', label: 'Berlangsung' },
   enrolled:     { icon: '📝', color: 'info', label: 'Terdaftar' },
@@ -64,7 +64,7 @@ export default function WorkerLearning() {
     return (l.status || '').toLowerCase() === activeTab;
   });
 
-  const getProgress = (item) => {
+  const getProgress = (item: any) => {
     if ((item.status || '').toLowerCase() === 'completed') return 100;
     if ((item.status || '').toLowerCase() === 'in_progress') return 60;
     if ((item.status || '').toLowerCase() === 'enrolled') return 20;

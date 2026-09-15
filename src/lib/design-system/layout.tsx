@@ -1,7 +1,17 @@
 // Design System — Layout Components
+import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export function PageLayout({ title, subtitle, backTo, children, transparent, className = '' }) {
+interface PageLayoutProps {
+  title?: string;
+  subtitle?: string;
+  backTo?: string;
+  children: ReactNode;
+  transparent?: boolean;
+  className?: string;
+}
+
+export function PageLayout({ title, subtitle, backTo, children, transparent, className = '' }: PageLayoutProps) {
   return (
     <div className={`min-h-screen ${transparent ? '' : 'bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900'} ${className}`}>
       {(title || backTo) && (
@@ -22,7 +32,11 @@ export function PageLayout({ title, subtitle, backTo, children, transparent, cla
   );
 }
 
-function BackButton({ to }) {
+interface BackButtonProps {
+  to: string;
+}
+
+function BackButton({ to }: BackButtonProps) {
   const navigate = useNavigate();
   return (
     <button onClick={() => navigate(to)} className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all active:scale-95">
@@ -31,7 +45,13 @@ function BackButton({ to }) {
   );
 }
 
-export function SectionHeader({ title, action, icon }) {
+interface SectionHeaderProps {
+  title: string;
+  action?: ReactNode;
+  icon?: string;
+}
+
+export function SectionHeader({ title, action, icon }: SectionHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-2">
@@ -43,6 +63,10 @@ export function SectionHeader({ title, action, icon }) {
   );
 }
 
-export function Divider({ className = '' }) {
+interface DividerProps {
+  className?: string;
+}
+
+export function Divider({ className = '' }: DividerProps) {
   return <div className={`border-t border-white/5 ${className}`} />;
 }

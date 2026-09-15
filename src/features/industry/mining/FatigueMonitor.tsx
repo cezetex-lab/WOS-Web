@@ -33,7 +33,7 @@ export default function FatigueMonitor() {
   const low = workers.filter(w => w.fatigue_level === 'LOW').length;
   const med = workers.filter(w => w.fatigue_level === 'MEDIUM').length;
   const high = workers.filter(w => w.fatigue_level === 'HIGH').length;
-  const fatigueColor = { LOW: 'success', MEDIUM: 'warning', HIGH: 'danger' };
+  const fatigueColor: Record<string, string> = { LOW: 'success', MEDIUM: 'warning', HIGH: 'danger' };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 pb-24">

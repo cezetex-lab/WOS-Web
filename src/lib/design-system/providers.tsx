@@ -1,9 +1,18 @@
 // Design System — Providers (Theme + Toast)
-import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from 'react';
 
-const ThemeCtx = createContext({ isDark: true, toggle: () => {} });
+interface ThemeContextType {
+  isDark: boolean;
+  toggle: () => void;
+}
 
-export function ThemeProvider({ children }) {
+const ThemeCtx = createContext<ThemeContextType>({ isDark: true, toggle: () => {} });
+
+interface ThemeProviderProps {
+  children: ReactNode;
+}
+
+export function ThemeProvider({ children }: ThemeProviderProps) {
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('wos_theme');
@@ -37,15 +46,33 @@ export function useTheme() {
   return useContext(ThemeCtx);
 }
 
-const ToastCtx = createContext({ toast: { success: () => {}, error: () => {}, info: () => {}, warning: () => {} } });
+interface ToastType {
+  success: (message: string, duration?: number) => void;
+  error: (message: string, duration?: number) => void;
+  info: (message: string, duration?: number) => void;
+  warning: (message: string, duration?: number) => void;
+}
+
+interface ToastContextType {
+  toast: ToastType;
+}
+
+const ToastCtx = createContext<ToastContextType>({ toast: { success: () => {}, error: () => {}, info: () => {}, warning: () => {} } });
+
+interface ToastItem {
+  id: number;
+  type: string;
+  message: string;
+  exiting: boolean;
+}
 
 let _toastId = 0;
-let _listeners = new Set();
-let _toasts = [];
+let _listeners = new Set<(toasts: ToastItem[]) => void>();
+let _toasts: ToastItem[] = [];
 
-function _notify(type, message, duration = 3000) {
+function _notify(type: string, message: string, duration = 3000) {
   const id = ++_toastId;
-  const t = { id, type, message, exiting: false };
+  const t: ToastItem = { id, type, message, exiting: false };
   _toasts = [..._toasts, t];
   _listeners.forEach(fn => fn([..._toasts]));
   setTimeout(() => {
@@ -58,7 +85,7 @@ function _notify(type, message, duration = 3000) {
   }, duration);
 }
 
-const _toast = {
+const _toast: ToastType = {
   success: (m, d) => _notify('success', m, d),
   error: (m, d) => _notify('error', m, d),
   warning: (m, d) => _notify('warning', m, d),
@@ -69,11 +96,15 @@ export function useToast() {
   return useContext(ToastCtx).toast;
 }
 
-export function ToastProvider({ children }) {
+interface ToastProviderProps {
+  children: ReactNode;
+}
+
+export function ToastProvider({ children }: ToastProviderProps) {
   const [items, setItems] = useState(_toasts);
   useEffect(() => {
     _listeners.add(setItems);
-    return () => _listeners.delete(setItems);
+    return () => { _listeners.delete(setItems); };
   }, []);
   return (
     <ToastCtx.Provider value={{ toast: _toast }}>
@@ -90,7 +121,11 @@ export function ToastProvider({ children }) {
   );
 }
 
-export function Providers({ children }) {
+interface ProvidersProps {
+  children: ReactNode;
+}
+
+export function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider>
       <ToastProvider>

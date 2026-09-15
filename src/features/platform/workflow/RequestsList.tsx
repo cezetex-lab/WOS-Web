@@ -11,12 +11,12 @@ import {
   Tabs, LoadingSpinner, EmptyState, Button, Avatar
 } from '@/lib/design-system';
 
-const TYPE_ICONS = {
+const TYPE_ICONS: Record<string, string> = {
   Cuti: '✈️', Izin: '📌', Sakit: '🏥', Lembur: '⏰',
   Training: '🎓', Dinas: '🚗', Reimbursement: '💰',
 };
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   Pending: 'warning', Approved: 'success', Rejected: 'danger',
 };
 
@@ -45,7 +45,7 @@ export default function RequestsList() {
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
-  const handleApprove = async (requestId) => {
+  const handleApprove = async (requestId: string) => {
     setProcessing(true);
     try {
       // p_approver dihapus dari kontrak RPC (migration 194): approver
@@ -60,7 +60,7 @@ export default function RequestsList() {
     setProcessing(false);
   };
 
-  const handleReject = async (requestId) => {
+  const handleReject = async (requestId: string) => {
     setProcessing(true);
     try {
       await rpc('process_request', {
@@ -87,10 +87,10 @@ export default function RequestsList() {
   const rejectedCount = requests.filter(r => (r.status || '').toLowerCase() === 'rejected').length;
 
   const statCards = [
-    { icon: '⏳', value: pendingCount, label: 'Pending', trend: 'Perlu diproses', color: 'orange' },
-    { icon: '✅', value: approvedCount, label: 'Approved', trend: 'Selesai', color: 'green' },
-    { icon: '❌', value: rejectedCount, label: 'Rejected', trend: 'Ditolak', color: 'red' },
-    { icon: '📋', value: requests.length, label: 'Total', trend: 'Semua', color: 'blue' },
+    { icon: '⏳', value: pendingCount, label: 'Pending', trend: 'Perlu diproses', color: 'orange' as const },
+    { icon: '✅', value: approvedCount, label: 'Approved', trend: 'Selesai', color: 'green' as const },
+    { icon: '❌', value: rejectedCount, label: 'Rejected', trend: 'Ditolak', color: 'red' as const },
+    { icon: '📋', value: requests.length, label: 'Total', trend: 'Semua', color: 'blue' as const },
   ];
 
   // ── TABLE COLUMNS ──
@@ -98,12 +98,12 @@ export default function RequestsList() {
     {
       key: 'nama',
       label: 'Karyawan',
-      render: (val, row) => (
+      render: (val: unknown, row: Record<string, unknown>) => (
         <div className="flex items-center gap-2">
-          <Avatar name={val || row.nrp} size="sm" />
+          <Avatar name={(val as string) || (row.nrp as string)} size="sm" />
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-white truncate">{val || row.nrp}</div>
-            <div className="text-[11px] text-slate-500">{row.nrp}</div>
+            <div className="text-xs font-semibold text-white truncate">{(val as string) || (row.nrp as string)}</div>
+            <div className="text-[11px] text-slate-500">{row.nrp as string}</div>
           </div>
         </div>
       ),
@@ -111,29 +111,29 @@ export default function RequestsList() {
     {
       key: 'type',
       label: 'Jenis',
-      render: (val) => (
+      render: (val: unknown) => (
         <div className="flex items-center gap-1.5">
-          <span>{TYPE_ICONS[val] || '📋'}</span>
-          <span className="text-xs text-slate-300">{val}</span>
+          <span>{TYPE_ICONS[val as string] || '📋'}</span>
+          <span className="text-xs text-slate-300">{val as string}</span>
         </div>
       ),
     },
     {
       key: 'divisi',
       label: 'Divisi',
-      render: (val) => <span className="text-xs text-slate-400">{val || '-'}</span>,
+      render: (val: unknown) => <span className="text-xs text-slate-400">{(val as string) || '-'}</span>,
     },
     {
       key: 'status',
       label: 'Status',
-      render: (val) => (
-        <Badge status={val} type={STATUS_COLORS[val] || 'default'} />
+      render: (val: unknown) => (
+        <Badge status={val as string} type={STATUS_COLORS[val as string] || 'default'} />
       ),
     },
     {
       key: 'created_at',
       label: 'Tanggal',
-      render: (val) => (
+      render: (val: any) => (
         <span className="text-[11px] text-slate-500">
           {val ? new Date(val).toLocaleDateString('id-ID') : '-'}
         </span>
@@ -192,19 +192,19 @@ export default function RequestsList() {
             <div className="px-5 pb-8">
               {/* Header */}
               <div className="flex items-center gap-3 mb-5">
-                <span className="text-3xl">{TYPE_ICONS[selected.type] || '📋'}</span>
+                <span className="text-3xl">{TYPE_ICONS[selected.type as string] || '📋'}</span>
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-white">{selected.type} — {selected.nama || selected.nrp}</h2>
                   <p className="text-xs text-slate-400">{selected.nrp} • {selected.divisi || '-'}</p>
                 </div>
-                <Badge status={selected.status} type={STATUS_COLORS[selected.status] || 'default'} />
+                <Badge status={selected.status} type={STATUS_COLORS[selected.status as string] || 'default'} />
               </div>
 
               {/* Details */}
               <GlassCard accent="blue" className="mb-4">
                 <div className="space-y-1">
                   {[
-                    { label: 'Jenis', value: `${TYPE_ICONS[selected.type] || '📋'} ${selected.type}` },
+                    { label: 'Jenis', value: `${TYPE_ICONS[selected.type as string] || '📋'} ${selected.type}` },
                     { label: 'Status', value: selected.status },
                     { label: 'Catatan', value: selected.note || selected.details_json || '-' },
                     { label: 'Diajukan', value: selected.created_at ? new Date(selected.created_at).toLocaleString('id-ID') : '-' },
