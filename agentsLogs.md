@@ -18,11 +18,27 @@
 selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat commit lengkap:
 `git log --oneline` (640 commit di semua ref).
 
+## [2026-09-15] Deploy fix — `typescript-eslint` dihapus (peer range excl. TS 7 memblokir `npm ci` di Vercel) — DONE
+- Status: DONE
+- Commit: `e978f3e` (deploy: production `insightwos-5hyrbs2vv-cezetex-lab.vercel.app` ● Ready 29s,
+  alias https://insightwos.vercel.app HTTP 200)
+- Ringkasan: `vercel --prod` gagal `npm install`. Di-reproduksi lokal via `npm ci` clean-dir:
+  ERESOLVE — `typescript-eslint@8.70.0` peer `typescript >=4.8.4 <6.1.0` vs proyek TS `^7.0.2`
+  (TypeScript 7 native port). Package itu memang TIDAK dipakai (eslint.config.ts pakai
+  @babel/eslint-parser; 0 import di src/tests) — sisa `devDependencies` lama yang kelewat,
+  terinstal lokal karena node_modules sudah ada. Dihapus dari `package.json` + regenerasi
+  `package-lock.json`; `npm ci` clean-dir kini sukses.
+- Bukti: `npm ci` (dir bersih) EXIT 0 → gate tsc 0 error / lint 0 error / vitest 100/100 /
+  build EXIT 0 → deploy Vercel ● Ready, prod alias 200.
+- Dampak lintas-page: worker → admin → dashboard → owner — tidak ada perubahan kode runtime
+  (devDependency tak terpakai saja); bundle identik, ke-4 page tidak berubah perilaku.
+
 ---
 
 ## [2026-09-15] TypeScript Migration — Phase 3: `tests/` + config → TS, gate tsc diperluas — DONE
 - Status: DONE
-- Commit: (pending)
+- Commit: `eebc2b0` (deploy: production `insightwos-5hyrbs2vv-cezetex-lab.vercel.app` ● Ready,
+  alias https://insightwos.vercel.app HTTP 200; follow-up dep fix `e978f3e`)
 - Ringkasan: Sisa file non-TS dimigrasikan (32 file, `git mv` agar history utuh):
   1. **Config (6)**: `vite.config.js`, `vitest.config.js`, `tailwind.config.js`,
      `postcss.config.js`, `playwright.config.js`, `eslint.config.js` → `.ts`
@@ -39,7 +55,8 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
      `typescript-eslint` TIDAK dipakai: crash vs TypeScript 7 ("reading 'Cjs'") → parser Babel
      (pola lama repo) + tsc sebagai pemilik kebenaran tipe.
 - Bukti: `npx tsc --noEmit` = 0 error (src+tests+config, 188 file TS), `npm run lint` = 0 error
-  (38 warning lama non-blocking), `vitest` 14/14 file hijau, `vite build` EXIT 0.
+  (38 warning lama non-blocking), `vitest` 14/14 file hijau (100/100 test), `vite build` EXIT 0,
+  Playwright E2E **51 passed / 13 skipped** (identik pra-migrasi, 0 regresi), deploy Vercel ● Ready.
 - Dampak lintas-page: worker → admin → dashboard → owner — 1 perubahan menyentuh kode bersama:
   `src/lib/validation/schemas.ts` (`/^[\d\-\+\s]+$/` → `/^[\d+\s-]+$/`, arti char-class identik)
   dipakai form Worker & Admin → diverifikasi ulang via tsc + unit test + build; sisanya
@@ -47,7 +64,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-15] LIVE DB — registrasi migration 220 + repair checksum 219 + verifikasi audit chain — DONE
 - Status: DONE
-- Commit: (pending)
+- Commit: `eebc2b0` (deploy: production ● Ready — bookkeeping/metrik terbawa di AGENTS.md + log ini)
 - Ringkasan: Migration checker melaporkan `220_audit_hash_chain.sql` UNAPPLIED padahal objeknya
   sudah ada di DB live (kolom `prev_hash`/`row_hash`, trigger `trg_audit_hash_chain`,
   `audit_log_hash_chain()`, `verify_audit_chain()`) — jadi masalahnya **bookkeeping**, bukan schema.
@@ -67,7 +84,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-15] AGENTS.md — aturan TS diperluas + §0.5 GOLDEN RULES (keterkaitan 4 page) — DONE
 - Status: DONE
-- Commit: (pending)
+- Commit: `eebc2b0` (deploy: production ● Ready)
 - Ringkasan:
   1. **§3.11 (diperluas)**: TypeScript wajib untuk SEMUA kode — `src/`, `tests/`, dan config
      (`*.config.ts`). Dilarang membuat `.js`/`.jsx` baru; `allowJs: false` membuat file JS
@@ -87,7 +104,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-15] AGENTS.md Restructuring + Grand Design — DONE
 - Status: DONE
-- Commit: (pending)
+- Commit: `d2a4773` (deploy: production — docs-only)
 - Ringkasan: Restructurisasi besar AGENTS.md:
   1. Pindahkan semua item DONE ke log (§4 F-10, §6 Login Refactor, §7 Migration Gap, §9 A7/O5/TypeScript)
   2. Hapus duplicate §11 (sama dengan §8)
