@@ -18,6 +18,26 @@
 selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat commit lengkap:
 `git log --oneline` (640 commit di semua ref).
 
+## [2026-09-15] KEPUTUSAN USER — Upstash tetap + catatan keamanan CSP + migrasi region ke Singapore — DECIDED (open items di AGENTS.md §5.5)
+- Status: DECIDED (eksekusi nanti; state open ada di AGENTS.md §5.5)
+- Commit: lihat entri berikutnya (docs-only)
+- Ringkasan: Setelah analisa kecocokan stack (Supabase + Vercel + Upstash), user memutuskan:
+  1. **Upstash Redis TETAP** di stack — jangan hapus `@upstash/redis`, edge `cache-service`,
+     env, atau CSP-nya; akan dipakai untuk caching tier (FuturePlans.md).
+  2. **Catatan keamanan**: CSP `connect-src https://alive-robin-191313.upstash.io`
+     (vercel.json) memang mengizinkan browser→Redis langsung, tapi saat integrasi caching
+     nanti itu DILARANG — akses Redis hanya dari sisi server (edge function).
+  3. **Migrasi region SEMUA → Singapore (ap-southeast-1)** disetujui (Supabase + Vercel +
+     Upstash + env edge), waktunya nanti/maintenance window. Jalur & risiko dicatat di §5.5.
+- Bukti: analisa berbasis kode — cache-service 0 pemanggil dari frontend, rate-limit aktif
+  adalah DB-backed (api_rate_limits/ai_rate_limits + hit_rate_limit), rate-limiter edge
+  comment "no Upstash needed", CSP vercel.json berisi host Upstash.
+- Dampak lintas-page: worker → admin → dashboard → owner — tidak ada perubahan kode saat ini;
+  keputusan hanya mencatat arah infrastruktur. Saat migrasi region dieksekusi nanti, ke-4 page
+  wajib smoke test ulang (env Supabase URL berganti).
+
+---
+
 ## [2026-09-15] Deploy fix — `typescript-eslint` dihapus (peer range excl. TS 7 memblokir `npm ci` di Vercel) — DONE
 - Status: DONE
 - Commit: `e978f3e` (deploy: production `insightwos-5hyrbs2vv-cezetex-lab.vercel.app` ● Ready 29s,

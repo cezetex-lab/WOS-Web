@@ -72,7 +72,8 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
   Migrasi Google Apps Script → Supabase.
 - Frontend: React + Vite (:5173), deploy Vercel CLI (insightwos.vercel.app), repo GitHub
   `cezetex-lab/WOS-Web`, branch kerja `migrasi-vite`.
-- Backend: Supabase `verwobaejumvpagwynae` (ap-northeast-1).
+- Backend: Supabase `verwobaejumvpagwynae` (ap-northeast-1; keputusan migrasi ke
+  ap-southeast-1/Singapore ada di §5.5).
 - 17 worker seed (NRP001–NRP010 + NRP100–106); NRP001 = admin_pusat + worker.
 - Arsitektur auth (JANGAN diubah tanpa keputusan user): worker login email+password →
   RPC `login_worker_by_email` → fast path `signInWithPassword` → fallback edge `worker-auth-sync`.
@@ -161,6 +162,29 @@ Kolom yang butuh UI form:
 - `lokasi_penempatan`, `updated_by`, `status_kerja_internal`
 
 **Butuh keputusan user**: apakah semua kolom ini perlu form input sekarang, atau fokus ke modul lain dulu?
+
+## 5.5 STATE OPEN — Infrastruktur: Upstash Redis + Migrasi Region ke Singapore (keputusan 2026-09-15)
+
+> Keputusan user (2026-09-15): **Upstash TETAP dipertahankan** (tidak dihapus), sampai nanti
+> dipakai untuk caching tier (FuturePlans.md). Migrasi region: disetujui, waktunya nanti.
+
+- [x] **Upstash Redis tetap di stack** — `@upstash/redis` (deps), edge `cache-service`, env
+      `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, CSP `connect-src` tidak diubah/dihapus.
+      Status sekarang: underutilized (cache-service belum pernah di-invoke dari frontend).
+- [ ] **Catatan keamanan (wajib diingat saat integrasi nanti):** CSP `connect-src
+      https://alive-robin-191313.upstash.io` (vercel.json) mengizinkan browser akses Redis
+      LANGSUNG — ini DILARANG saat dipakai nanti. Upstash URL+token hanya boleh hidup di
+      sisi server (edge function); frontend harus tetap lewat Supabase/edge, JANGAN
+      client-to-Redis. Cek juga region instance `alive-robin-191313` (kalau bukan Tokyo/
+      Singapore, tiap cache hit bayar RTT lintas-region).
+- [ ] **Migrasi region → Singapore (ap-southeast-1), SEMUA sekaligus** (keputusan user;
+      belum dijadwalkan): Supabase project `verwobaejumvpagwynae` (sekarang
+      ap-northeast-1/Tokyo) + Vercel region/functions + Upstash Redis instance + env edge
+      functions. Alasan: user utama Indonesia (RTT ke Tokyo ~60–100ms/RPC). CATATAN BESAR:
+      bukan 1x klik — Supabase TIDAK mendukung pindah region in-place. Jalur: project baru
+      ap-southeast-1 → apply 146 migrations + restore data (pg_dump/PITR) → update env
+      (Vercel + `.env.local` + edge) → smoke 4 page → cutover domain. Jadwalkan di
+      maintenance window; RPO/RTO §9 tetap berlaku.
 
 ## 6. JEBAKAN LINGKUNGAN (Windows / PowerShell / Supabase)
 
