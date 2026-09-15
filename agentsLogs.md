@@ -20,7 +20,9 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-15] KEPUTUSAN USER — Upstash tetap + catatan keamanan CSP + migrasi region ke Singapore — DECIDED (open items di AGENTS.md §5.5)
 - Status: DECIDED (eksekusi nanti; state open ada di AGENTS.md §5.5)
-- Commit: lihat entri berikutnya (docs-only)
+- Commit: `968c74b` (deploy: docs-only — build tidak berubah, production masih
+  `insightwos-5hyrbs2vv` ● Ready; catatan: baris env var di entri ini hanya NAMA variabel,
+  bukan nilai rahasia)
 - Ringkasan: Setelah analisa kecocokan stack (Supabase + Vercel + Upstash), user memutuskan:
   1. **Upstash Redis TETAP** di stack — jangan hapus `@upstash/redis`, edge `cache-service`,
      env, atau CSP-nya; akan dipakai untuk caching tier (FuturePlans.md).
