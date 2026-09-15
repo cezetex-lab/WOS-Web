@@ -183,11 +183,7 @@
 - [ ] PWA offline mode tests (Service Worker caching)
 
 ~~### A7: Migration Versioning System~~ ✅ DONE (migration 219) — schema_migrations table + apply_migration/check_migrations/verify_migration_checksum functions
-### TypeScript Migration
-- [x] Convert SQL RPCs to TypeScript edge functions (Supabase Edge Functions) — DONE (Phase 1: core lib files + types)
-- [x] Type-safe RPC calls with generated Supabase types — DONE (src/lib/supabase-rpc.ts + src/types/index.ts)
-- [x] Shared validation library (Zod) for input validation — DONE (src/lib/validation/schemas.ts)
-- [ ] Remove raw SQL from frontend, use typed client — Phase 2 (convert .jsx → .tsx)### Other TODOs (OPEN)
+### Other TODOs (OPEN)
 - [x] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash) — DONE: migration 220, prev_hash+row_hash columns, BEFORE INSERT trigger, verify_audit_chain() function
 
 
