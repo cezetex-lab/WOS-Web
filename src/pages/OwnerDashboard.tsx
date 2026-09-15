@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, ReactNode } from 'react';
 import { rpc, clearSession, signOutAuth } from '@/lib/supabase-browser';
 import { useNavigate } from 'react-router-dom';
 import { createPageErrorLogger } from '@/lib/log-error';
 import LogoUploader from '@/components/LogoUploader';
 
 // Factory per halaman: console.error (dev) + PostHog trackError (prod).
-// Lihat src/lib/log-error.js — plugin strip-console membuang console.*
+// Lihat src/lib/log-error.js â€” plugin strip-console membuang console.*
 // di build production, sehingga trackError satu-satunya jalur pantau di prod.
 const logError = createPageErrorLogger('OwnerDashboard');
 
@@ -14,59 +14,198 @@ const logError = createPageErrorLogger('OwnerDashboard');
 // sehingga modal Edit Role (di luar scope) selalu ReferenceError 'ro is not defined'.
 const ROLE_OPTIONS = ['admin_pusat', 'admin_hrd', 'admin_operasional', 'admin_finance', 'manager', 'supervisor', 'worker'];
 
+
+interface Stats {
+  total_employees?: number;
+  active_employees?: number;
+  enabled_modules?: number;
+  total_modules?: number;
+  total_business_units?: number;
+  pending_requests?: number;
+  recent_logins_24h?: number;
+  total_departments?: number;
+  db_size?: string;
+  [key: string]: unknown;
+}
+
+interface EmployeesByBU {
+  unit_name: string;
+  total_employees: number;
+  active_employees: number;
+}
+
+interface Module {
+  module_code: string;
+  module_name?: string;
+  module_group: string;
+  is_enabled: boolean;
+  business_unit_id: string;
+}
+
+interface BusinessUnit {
+  id?: string;
+  bu_id?: string;
+  unit_code: string;
+  unit_name: string;
+  description?: string;
+  tier?: number;
+  is_active?: boolean;
+}
+
+interface RoleData {
+  id?: string;
+  nrp: string;
+  name?: string;
+  nama?: string;
+  role: string;
+  role_level: number;
+  business_unit?: string;
+}
+
+interface AuditLog {
+  created_at: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  new_value?: unknown;
+}
+
+interface AuditAction {
+  action: string;
+  count: number;
+}
+
+interface SessionData {
+  nrp: string;
+  nama?: string;
+  divisi?: string;
+  type: string;
+  created_at: string;
+}
+
+interface LoginStats {
+  success_24h?: number;
+  failed_24h?: number;
+  locked_accounts?: number;
+  unique_users_24h?: number;
+  [key: string]: unknown;
+}
+
+interface SecuritySetting {
+  label: string;
+  description: string;
+  config_value: any;
+}
+
+interface EmployeeData {
+  nrp: string;
+  nama: string;
+  email?: string;
+  divisi?: string;
+  posisi?: string;
+  business_unit?: string;
+  status_kerja?: string;
+  is_active?: boolean;
+}
+
+interface AnnouncementData {
+  id: string | number;
+  title: string;
+  priority: string;
+  target_audience: string;
+  message?: string;
+  created_at: string;
+  expiry_date?: string;
+}
+
+interface NotifConfig {
+  id: string | number;
+  event_type: string;
+  label: string;
+  email_enabled: boolean;
+  push_enabled: boolean;
+  updated_at: string;
+}
+
+interface SysAnnouncement {
+  id: string | number;
+  title: string;
+  type: string;
+  dismissible: boolean;
+  message?: string;
+  created_at: string;
+  end_at?: string;
+}
+
+interface AdminRole {
+  id: string;
+  role_code: string;
+  role_name: string;
+  scope_type: string;
+  scope_id?: string;
+  is_active: boolean;
+}
+
+interface AdminAccount {
+  nrp: string;
+  nama?: string;
+  role_code: string;
+  role_name?: string;
+  assigned_at: string;
+}
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
 
   // Data states
-  const [stats, setStats] = useState({});
-  const [employeesByBU, setEmployeesByBU] = useState<any[]>([]);
-  const [modules, setModules] = useState<any[]>([]);
-  const [businessUnits, setBusinessUnits] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [auditLog, setAuditLog] = useState({ data: [], total: 0 });
-  const [auditActions, setAuditActions] = useState<any[]>([]);
+  const [stats, setStats] = useState<Stats>({});
+  const [employeesByBU, setEmployeesByBU] = useState<EmployeesByBU[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [roles, setRoles] = useState<RoleData[]>([]);
+  const [auditLog, setAuditLog] = useState<{data: AuditLog[], total: number}>({ data: [], total: 0 });
+  const [auditActions, setAuditActions] = useState<string[]>([]);
   const [auditFilter, setAuditFilter] = useState({ action: '', page: 0 });
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [loginStats, setLoginStats] = useState({});
-  const [securitySettings, setSecuritySettings] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<SessionData[]>([]);
+  const [loginStats, setLoginStats] = useState<LoginStats>({});
+  const [securitySettings, setSecuritySettings] = useState<SecuritySetting[]>([]);
 
   // Wave 2 states
-  const [employees, setEmployees] = useState({ data: [], total: 0 });
+  const [employees, setEmployees] = useState<{data: EmployeeData[], total: number}>({ data: [], total: 0 });
   const [empFilter, setEmpFilter] = useState({ bu: '', search: '', page: 0 });
   const [showEmpCreator, setShowEmpCreator] = useState(false);
   const [newEmp, setNewEmp] = useState({ nrp: '', nama: '', email: '', divisi: '', posisi: '', bu_id: '', role: 'worker', role_level: 1 });
-  const [editEmp, setEditEmp] = useState<any>(null);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [editEmp, setEditEmp] = useState<EmployeeData | null>(null);
+  const [announcements, setAnnouncements] = useState<AnnouncementData[]>([]);
   const [showAnnCreator, setShowAnnCreator] = useState(false);
   const [newAnn, setNewAnn] = useState({ title: '', message: '', priority: 'NORMAL', target_audience: 'ALL' });
-  const [notifConfig, setNotifConfig] = useState<any[]>([]);
-  const [sysAnnouncements, setSysAnnouncements] = useState<any[]>([]);
+  const [notifConfig, setNotifConfig] = useState<NotifConfig[]>([]);
+  const [sysAnnouncements, setSysAnnouncements] = useState<SysAnnouncement[]>([]);
   const [showSysAnnCreator, setShowSysAnnCreator] = useState(false);
   const [newSysAnn, setNewSysAnn] = useState({ title: '', message: '', type: 'info', dismissible: true });
   // Wave 3 states
-  const [activityStats, setActivityStats] = useState({});
-  const [integrations, setIntegrations] = useState<any[]>([]);
+  const [activityStats, setActivityStats] = useState<Record<string, unknown>>({});
+  const [integrations, setIntegrations] = useState<Record<string, unknown>[]>([]);
   const [showIntCreator, setShowIntCreator] = useState(false);
   const [newInt, setNewInt] = useState({ name: '', type: 'webhook' });
-  const [retentionRules, setRetentionRules] = useState<any[]>([]);
-  const [changelog, setChangelog] = useState<any[]>([]);
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [usageAnalytics, setUsageAnalytics] = useState({});
+  const [retentionRules, setRetentionRules] = useState<Record<string, unknown>[]>([]);
+  const [changelog, setChangelog] = useState<Record<string, unknown>[]>([]);
+  const [tickets, setTickets] = useState<Record<string, unknown>[]>([]);
+  const [usageAnalytics, setUsageAnalytics] = useState<Record<string, unknown>>({});
   // Edit states
-  const [editRole, setEditRole] = useState<any>(null);
+  const [editRole, setEditRole] = useState<RoleData | null>(null);
   const [editForm, setEditForm] = useState({ role: '', role_level: 1 });
   const [showBUCreator, setShowBUCreator] = useState(false);
   const [newBU, setNewBU] = useState({ unit_code: '', unit_name: '', description: '' });
-  const [editBU, setEditBU] = useState<any>(null);
+  const [editBU, setEditBU] = useState<BusinessUnit | null>(null);
   const [editBUForm, setEditBUForm] = useState({ unit_name: '', description: '' });
-  // Wave 4 — Access Control states
-  const [adminRoles, setAdminRoles] = useState<any[]>([]);
-  const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
+  // Wave 4 â€” Access Control states
+  const [adminRoles, setAdminRoles] = useState<AdminRole[]>([]);
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
   const [showRoleCreator, setShowRoleCreator] = useState(false);
   const [newRole, setNewRole] = useState({ role_code: '', role_name: '', scope_type: 'global', scope_id: '', permissions: '[]' });
-  const [editRoleAdmin, setEditRoleAdmin] = useState<any>(null);
+  const [editRoleAdmin, setEditRoleAdmin] = useState<AdminRole | null>(null);
   const [editRoleForm, setEditRoleForm] = useState({ role_name: '', permissions: '' });
   const [assignUser, setAssignUser] = useState({ nrp: '', role_code: '' });
 
@@ -76,7 +215,7 @@ export default function OwnerDashboard() {
       const [s, b] = await Promise.all([rpc('get_owner_overview_stats'), rpc('get_owner_employees_by_bu')]);
       setStats(s || {});
       setEmployeesByBU(Array.isArray(b) ? b : []);
-    } catch (e) { logError('loadOverview', e); }
+    } catch (e: unknown) { logError('loadOverview', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadModules = useCallback(async () => {
@@ -85,7 +224,7 @@ export default function OwnerDashboard() {
       setModules(Array.isArray(m) ? m : []);
       setBusinessUnits(Array.isArray(bu) ? bu : []);
       setRoles(Array.isArray(r) ? r : []);
-    } catch (e) { logError('loadModules', e); }
+    } catch (e: unknown) { logError('loadModules', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadAuditLog = useCallback(async () => {
@@ -96,7 +235,7 @@ export default function OwnerDashboard() {
       ]);
       setAuditLog(log || { data: [], total: 0 });
       setAuditActions(Array.isArray(actions) ? actions : []);
-    } catch (e) { logError('loadAuditLog', e); }
+    } catch (e: unknown) { logError('loadAuditLog', e instanceof Error ? e.message : String(e)); }
   }, [auditFilter.action, auditFilter.page]);
 
   const loadSecurity = useCallback(async () => {
@@ -105,59 +244,59 @@ export default function OwnerDashboard() {
       setSessions(Array.isArray(s) ? s : []);
       setLoginStats(ls || {});
       setSecuritySettings(Array.isArray(ss) ? ss : []);
-    } catch (e) { logError('loadSecurity', e); }
+    } catch (e: unknown) { logError('loadSecurity', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadEmployees = useCallback(async () => {
     try {
       const r = await rpc('owner_get_employees', { p_bu_id: empFilter.bu || null, p_search: empFilter.search || null, p_limit: 50, p_offset: empFilter.page * 50 });
       setEmployees(r || { data: [], total: 0 });
-    } catch (e) { logError('loadEmployees', e); }
+    } catch (e: unknown) { logError('loadEmployees', e instanceof Error ? e.message : String(e)); }
   }, [empFilter.bu, empFilter.search, empFilter.page]);
 
   const loadAnnouncements = useCallback(async () => {
     try {
       const r = await rpc('owner_get_announcements');
       setAnnouncements(Array.isArray(r) ? r : []);
-    } catch (e) { logError('loadAnnouncements', e); }
+    } catch (e: unknown) { logError('loadAnnouncements', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadNotifConfig = useCallback(async () => {
     try {
       const r = await rpc('get_notification_config');
       setNotifConfig(Array.isArray(r) ? r : []);
-    } catch (e) { logError('loadNotifConfig', e); }
+    } catch (e: unknown) { logError('loadNotifConfig', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadSysAnnouncements = useCallback(async () => {
     try {
       const r = await rpc('owner_get_system_announcements');
       setSysAnnouncements(Array.isArray(r) ? r : []);
-    } catch (e) { logError('loadSysAnnouncements', e); }
+    } catch (e: unknown) { logError('loadSysAnnouncements', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadActivity = useCallback(async () => {
-    try { const r = await rpc('owner_get_activity_stats'); setActivityStats(r || {}); } catch (e) { logError('loadActivity', e); }
+    try { const r = await rpc('owner_get_activity_stats'); setActivityStats(r || {}); } catch (e: unknown) { logError('loadActivity', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadIntegrations = useCallback(async () => {
-    try { const r = await rpc('owner_get_integrations'); setIntegrations(Array.isArray(r) ? r : []); } catch (e) { logError('loadIntegrations', e); }
+    try { const r = await rpc('owner_get_integrations'); setIntegrations(Array.isArray(r) ? r : []); } catch (e: unknown) { logError('loadIntegrations', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadRetention = useCallback(async () => {
-    try { const r = await rpc('owner_get_retention_rules'); setRetentionRules(Array.isArray(r) ? r : []); } catch (e) { logError('loadRetention', e); }
+    try { const r = await rpc('owner_get_retention_rules'); setRetentionRules(Array.isArray(r) ? r : []); } catch (e: unknown) { logError('loadRetention', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadChangelog = useCallback(async () => {
-    try { const r = await rpc('owner_get_changelog'); setChangelog(Array.isArray(r) ? r : []); } catch (e) { logError('loadChangelog', e); }
+    try { const r = await rpc('owner_get_changelog'); setChangelog(Array.isArray(r) ? r : []); } catch (e: unknown) { logError('loadChangelog', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadTickets = useCallback(async () => {
-    try { const r = await rpc('owner_get_tickets'); setTickets(Array.isArray(r) ? r : []); } catch (e) { logError('loadTickets', e); }
+    try { const r = await rpc('owner_get_tickets'); setTickets(Array.isArray(r) ? r : []); } catch (e: unknown) { logError('loadTickets', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadAnalytics = useCallback(async () => {
-    try { const r = await rpc('owner_get_usage_analytics'); setUsageAnalytics(r || {}); } catch (e) { logError('loadAnalytics', e); }
+    try { const r = await rpc('owner_get_usage_analytics'); setUsageAnalytics(r || {}); } catch (e: unknown) { logError('loadAnalytics', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   const loadAccessControl = useCallback(async () => {
@@ -165,7 +304,7 @@ export default function OwnerDashboard() {
       const [r, a] = await Promise.all([rpc('owner_get_admin_roles'), rpc('owner_get_admin_accounts')]);
       setAdminRoles(Array.isArray(r) ? r : []);
       setAdminAccounts(Array.isArray(a) ? a : []);
-    } catch (e) { logError('loadAccessControl', e); }
+    } catch (e: unknown) { logError('loadAccessControl', e instanceof Error ? e.message : String(e)); }
   }, []);
 
   useEffect(() => {
@@ -175,7 +314,7 @@ export default function OwnerDashboard() {
   }, [activeTab, loadOverview, loadModules, loadAuditLog, loadSecurity, loadEmployees, loadAnnouncements, loadNotifConfig, loadSysAnnouncements, loadActivity, loadIntegrations, loadRetention, loadChangelog, loadTickets, loadAnalytics, loadAccessControl]);
 
   // Actions
-  async function toggleLock(code, current, buId) {
+  async function toggleLock(code: string, current: boolean, buId: string) {
     await rpc('owner_toggle_lock', { p_module_code: code, p_enable: !current, p_bu_id: buId });
     loadModules();
   }
@@ -185,7 +324,7 @@ export default function OwnerDashboard() {
     setEditRole(null);
     loadModules();
   }
-  async function setTier(buId, tier) {
+  async function setTier(buId: string, tier: number) {
     await rpc('owner_set_tier', { p_bu_id: buId, p_tier: tier });
     loadModules();
   }
@@ -202,12 +341,12 @@ export default function OwnerDashboard() {
     setEditBU(null);
     loadModules();
   }
-  async function deleteBU(id) {
+  async function deleteBU(id: string) {
     if (!confirm('Hapus Business Unit ini?')) return;
     await rpc('owner_delete_bu', { p_bu_id: id });
     loadModules();
   }
-  async function forceLogout(nrp) {
+  async function forceLogout(nrp: string) {
     if (!confirm('Force logout ' + nrp + '?')) return;
     await rpc('owner_force_logout', { p_nrp: nrp });
     loadSecurity();
@@ -223,7 +362,7 @@ export default function OwnerDashboard() {
     await rpc('owner_update_admin_role', { p_role_id: editRoleAdmin.id, p_role_name: editRoleForm.role_name, p_permissions: JSON.parse(editRoleForm.permissions || '[]'), p_is_active: true });
     setEditRoleAdmin(null); loadAccessControl();
   }
-  async function deleteAdminRole(id) {
+  async function deleteAdminRole(id: string) {
     if (!confirm('Deactivate?')) return;
     await rpc('owner_update_admin_role', { p_role_id: id, p_role_name: null, p_permissions: null, p_is_active: false });
     loadAccessControl();
@@ -265,7 +404,7 @@ export default function OwnerDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => navigate('/owner/dashboard/config')} className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 text-sm font-medium">Config</button>
-            <button onClick={() => setActiveTab('branding')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'branding' ? 'bg-amber-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>🎨 Branding</button>
+            <button onClick={() => setActiveTab('branding')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'branding' ? 'bg-amber-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>ðŸŽ¨ Branding</button>
             <button onClick={() => { clearSession(); signOutAuth().catch(()=>{}); navigate('/owner'); }} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">Logout</button>
           </div>
         </div>
@@ -278,7 +417,7 @@ export default function OwnerDashboard() {
         </div>
         {loading ? <div className="text-center py-20 text-gray-400">Loading...</div> : (
           <>
-            {/* BRANDING TAB — Owner-configurable via update_branding RPC */}
+            {/* BRANDING TAB â€” Owner-configurable via update_branding RPC */}
             {activeTab === 'branding' && (
               <div className="max-w-xl">
                 <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-6">
@@ -332,7 +471,7 @@ export default function OwnerDashboard() {
                 {modules.length === 0 ? <div className="text-gray-400 py-10 text-center">Tidak ada modul</div> : (() => {
                   const industryIcons = { mining: 'Mine', estate: 'Palm', mill: 'Factory' };
                   const industryLabels = { mining: 'Tambang', estate: 'Perkebunan', mill: 'Pabrik' };
-                  const groups = {};
+                  const groups: Record<string, Module[]> = {};
                   modules.forEach(m => {
                     const prefix = m.module_code.split('_')[0];
                     const isIndustry = ['mining','estate','mill'].includes(prefix);
@@ -412,7 +551,7 @@ export default function OwnerDashboard() {
             {activeTab === 'roles' && (
               <div className="space-y-4">
                 {roles.length === 0 ? <div className="text-gray-400 py-10 text-center">Tidak ada data role</div> : (() => {
-                  const byBU = {};
+                  const byBU: Record<string, RoleData[]> = {};
                   roles.forEach(r => { const bu = r.business_unit || 'HQ'; if (!byBU[bu]) byBU[bu] = []; byBU[bu].push(r); });
                   const lc = { 5: 'bg-red-500/20 text-red-400', 4: 'bg-purple-500/20 text-purple-400', 3: 'bg-blue-500/20 text-blue-400', 2: 'bg-green-500/20 text-green-400', 1: 'bg-gray-500/20 text-gray-400' };
                   const ll = { 5: 'C-Suite', 4: 'Director', 3: 'Manager', 2: 'Admin', 1: 'Worker' };
@@ -444,12 +583,12 @@ export default function OwnerDashboard() {
                 })()}
                 {editRole && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setEditRole(null)}>
-                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <h3 className="text-white font-bold mb-4">Edit Role - {editRole.nrp}</h3>
                       <p className="text-gray-400 text-sm mb-4">{editRole.nama}</p>
                       <div className="space-y-3">
                         <div><label className="text-gray-400 text-xs">Role</label>
-                          <select value={editForm.role} onChange={e => setEditForm({...editForm, role: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
+                          <select value={editForm.role} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setEditForm({...editForm, role: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
                             {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                           </select></div>
                         <div><label className="text-gray-400 text-xs">Level</label>
@@ -471,7 +610,7 @@ export default function OwnerDashboard() {
             {activeTab === 'audit' && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <select value={auditFilter.action} onChange={e => setAuditFilter({ ...auditFilter, action: e.target.value, page: 0 })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
+                  <select value={auditFilter.action} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setAuditFilter({ ...auditFilter, action: e.target.value, page: 0 })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
                     <option value="">Semua Aksi</option>
                     {auditActions.map(a => <option key={a.action} value={a.action}>{a.action} ({a.count})</option>)}
                   </select>
@@ -592,12 +731,12 @@ export default function OwnerDashboard() {
                 ))}
                 {showBUCreator && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowBUCreator(false)}>
-                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <h3 className="text-white font-bold mb-4">Tambah Business Unit</h3>
                       <div className="space-y-3">
-                        <div><label className="text-gray-400 text-xs">Unit Code</label><input value={newBU.unit_code} onChange={e => setNewBU({...newBU, unit_code: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="e.g. MINING" /></div>
-                        <div><label className="text-gray-400 text-xs">Unit Name</label><input value={newBU.unit_name} onChange={e => setNewBU({...newBU, unit_name: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="e.g. Unit Tambang" /></div>
-                        <div><label className="text-gray-400 text-xs">Description</label><input value={newBU.description} onChange={e => setNewBU({...newBU, description: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="Optional" /></div>
+                        <div><label className="text-gray-400 text-xs">Unit Code</label><input value={newBU.unit_code} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewBU({...newBU, unit_code: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="e.g. MINING" /></div>
+                        <div><label className="text-gray-400 text-xs">Unit Name</label><input value={newBU.unit_name} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewBU({...newBU, unit_name: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="e.g. Unit Tambang" /></div>
+                        <div><label className="text-gray-400 text-xs">Description</label><input value={newBU.description} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewBU({...newBU, description: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="Optional" /></div>
                       </div>
                       <div className="flex gap-2 mt-6">
                         <button onClick={() => setShowBUCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
@@ -608,11 +747,11 @@ export default function OwnerDashboard() {
                 )}
                 {editBU && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setEditBU(null)}>
-                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <h3 className="text-white font-bold mb-4">Edit BU - {editBU.id}</h3>
                       <div className="space-y-3">
-                        <div><label className="text-gray-400 text-xs">Unit Name</label><input value={editBUForm.unit_name} onChange={e => setEditBUForm({...editBUForm, unit_name: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Description</label><input value={editBUForm.description} onChange={e => setEditBUForm({...editBUForm, description: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Unit Name</label><input value={editBUForm.unit_name} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setEditBUForm({...editBUForm, unit_name: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Description</label><input value={editBUForm.description} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setEditBUForm({...editBUForm, description: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
                       </div>
                       <div className="flex gap-2 mt-6">
                         <button onClick={() => setEditBU(null)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
@@ -627,8 +766,8 @@ export default function OwnerDashboard() {
             {activeTab === 'employees' && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <input value={empFilter.search} onChange={e => setEmpFilter({ ...empFilter, search: e.target.value, page: 0 })} placeholder="Search NRP/Nama/Email..." className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm flex-1 min-w-[200px]" />
-                  <select value={empFilter.bu} onChange={e => setEmpFilter({ ...empFilter, bu: e.target.value, page: 0 })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
+                  <input value={empFilter.search} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setEmpFilter({ ...empFilter, search: e.target.value, page: 0 })} placeholder="Search NRP/Nama/Email..." className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm flex-1 min-w-[200px]" />
+                  <select value={empFilter.bu} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setEmpFilter({ ...empFilter, bu: e.target.value, page: 0 })} className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm">
                     <option value="">Semua BU</option>
                     {businessUnits.map(bu => <option key={bu.id} value={bu.id}>{bu.unit_name}</option>)}
                   </select>
@@ -671,15 +810,15 @@ export default function OwnerDashboard() {
                 )}
                 {showEmpCreator && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowEmpCreator(false)}>
-                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-[500px]" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-[500px]" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <h3 className="text-white font-bold mb-4">Tambah Karyawan</h3>
                       <div className="grid grid-cols-2 gap-3">
-                        <div><label className="text-gray-400 text-xs">NRP *</label><input value={newEmp.nrp} onChange={e => setNewEmp({...newEmp, nrp: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Nama *</label><input value={newEmp.nama} onChange={e => setNewEmp({...newEmp, nama: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Email</label><input value={newEmp.email} onChange={e => setNewEmp({...newEmp, email: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Divisi</label><input value={newEmp.divisi} onChange={e => setNewEmp({...newEmp, divisi: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Posisi</label><input value={newEmp.posisi} onChange={e => setNewEmp({...newEmp, posisi: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">BU</label><select value={newEmp.bu_id} onChange={e => setNewEmp({...newEmp, bu_id: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="">Pilih BU</option>{businessUnits.map(bu => <option key={bu.id} value={bu.id}>{bu.unit_name}</option>)}</select></div>
+                        <div><label className="text-gray-400 text-xs">NRP *</label><input value={newEmp.nrp} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewEmp({...newEmp, nrp: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Nama *</label><input value={newEmp.nama} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewEmp({...newEmp, nama: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Email</label><input value={newEmp.email} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewEmp({...newEmp, email: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Divisi</label><input value={newEmp.divisi} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewEmp({...newEmp, divisi: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Posisi</label><input value={newEmp.posisi} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewEmp({...newEmp, posisi: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">BU</label><select value={newEmp.bu_id} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewEmp({...newEmp, bu_id: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="">Pilih BU</option>{businessUnits.map(bu => <option key={bu.id} value={bu.id}>{bu.unit_name}</option>)}</select></div>
                       </div>
                       <div className="flex gap-2 mt-6">
                         <button onClick={() => setShowEmpCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
@@ -720,14 +859,14 @@ export default function OwnerDashboard() {
                 ))}
                 {showAnnCreator && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowAnnCreator(false)}>
-                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-[500px]" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-[500px]" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <h3 className="text-white font-bold mb-4">Buat Pengumuman</h3>
                       <div className="space-y-3">
-                        <div><label className="text-gray-400 text-xs">Title *</label><input value={newAnn.title} onChange={e => setNewAnn({...newAnn, title: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Message</label><textarea value={newAnn.message} onChange={e => setNewAnn({...newAnn, message: e.target.value})} rows={3} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Title *</label><input value={newAnn.title} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewAnn({...newAnn, title: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Message</label><textarea value={newAnn.message} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewAnn({...newAnn, message: e.target.value})} rows={3} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
                         <div className="grid grid-cols-2 gap-3">
-                          <div><label className="text-gray-400 text-xs">Priority</label><select value={newAnn.priority} onChange={e => setNewAnn({...newAnn, priority: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="NORMAL">Normal</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select></div>
-                          <div><label className="text-gray-400 text-xs">Target</label><select value={newAnn.target_audience} onChange={e => setNewAnn({...newAnn, target_audience: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="ALL">Semua</option><option value="ADMIN">Admin Only</option><option value="WORKER">Worker Only</option></select></div>
+                          <div><label className="text-gray-400 text-xs">Priority</label><select value={newAnn.priority} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewAnn({...newAnn, priority: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="NORMAL">Normal</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select></div>
+                          <div><label className="text-gray-400 text-xs">Target</label><select value={newAnn.target_audience} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewAnn({...newAnn, target_audience: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="ALL">Semua</option><option value="ADMIN">Admin Only</option><option value="WORKER">Worker Only</option></select></div>
                         </div>
                       </div>
                       <div className="flex gap-2 mt-6">
@@ -804,13 +943,13 @@ export default function OwnerDashboard() {
                 ))}
                 {showSysAnnCreator && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowSysAnnCreator(false)}>
-                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-[500px]" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-[500px]" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <h3 className="text-white font-bold mb-4">Buat System Banner</h3>
                       <div className="space-y-3">
-                        <div><label className="text-gray-400 text-xs">Title *</label><input value={newSysAnn.title} onChange={e => setNewSysAnn({...newSysAnn, title: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Message</label><textarea value={newSysAnn.message} onChange={e => setNewSysAnn({...newSysAnn, message: e.target.value})} rows={3} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Title *</label><input value={newSysAnn.title} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewSysAnn({...newSysAnn, title: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Message</label><textarea value={newSysAnn.message} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewSysAnn({...newSysAnn, message: e.target.value})} rows={3} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
                         <div className="grid grid-cols-2 gap-3">
-                          <div><label className="text-gray-400 text-xs">Type</label><select value={newSysAnn.type} onChange={e => setNewSysAnn({...newSysAnn, type: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option></select></div>
+                          <div><label className="text-gray-400 text-xs">Type</label><select value={newSysAnn.type} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewSysAnn({...newSysAnn, type: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option></select></div>
                           <div><label className="text-gray-400 text-xs">Dismissible</label><button onClick={() => setNewSysAnn({...newSysAnn, dismissible: !newSysAnn.dismissible})} className={'w-full mt-1 px-3 py-2 rounded-lg text-sm border ' + (newSysAnn.dismissible ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-gray-700 border-gray-600 text-gray-400')}>{newSysAnn.dismissible ? 'Ya' : 'Tidak'}</button></div>
                         </div>
                       </div>
@@ -886,11 +1025,11 @@ export default function OwnerDashboard() {
                 ))}
                 {showIntCreator && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowIntCreator(false)}>
-                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <h3 className="text-white font-bold mb-4">Tambah Integrasi</h3>
                       <div className="space-y-3">
-                        <div><label className="text-gray-400 text-xs">Name *</label><input value={newInt.name} onChange={e => setNewInt({...newInt, name: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Type</label><select value={newInt.type} onChange={e => setNewInt({...newInt, type: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="webhook">Webhook</option><option value="api_key">API Key</option><option value="email">Email</option><option value="sms">SMS</option></select></div>
+                        <div><label className="text-gray-400 text-xs">Name *</label><input value={newInt.name} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewInt({...newInt, name: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Type</label><select value={newInt.type} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewInt({...newInt, type: e.target.value})} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="webhook">Webhook</option><option value="api_key">API Key</option><option value="email">Email</option><option value="sms">SMS</option></select></div>
                       </div>
                       <div className="flex gap-2 mt-6">
                         <button onClick={() => setShowIntCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
@@ -1054,8 +1193,8 @@ export default function OwnerDashboard() {
                   <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
                     <h3 className="text-white font-bold text-sm mb-4">Assign User to Role</h3>
                     <div className="space-y-3">
-                      <div><label className="text-gray-400 text-xs">NRP</label><input value={assignUser.nrp} onChange={e => setAssignUser({ ...assignUser, nrp: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                      <div><label className="text-gray-400 text-xs">Role</label><select value={assignUser.role_code} onChange={e => setAssignUser({ ...assignUser, role_code: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="">Pilih Role</option>{adminRoles.filter(r => r.is_active).map(r => <option key={r.role_code} value={r.role_code}>{r.role_name}</option>)}</select></div>
+                      <div><label className="text-gray-400 text-xs">NRP</label><input value={assignUser.nrp} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setAssignUser({ ...assignUser, nrp: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                      <div><label className="text-gray-400 text-xs">Role</label><select value={assignUser.role_code} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setAssignUser({ ...assignUser, role_code: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="">Pilih Role</option>{adminRoles.filter(r => r.is_active).map(r => <option key={r.role_code} value={r.role_code}>{r.role_name}</option>)}</select></div>
                       <button onClick={assignAdminUser} className="w-full px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold">Assign</button>
                     </div>
                     <div className="mt-4">
@@ -1074,14 +1213,14 @@ export default function OwnerDashboard() {
                 </div>
                 {showRoleCreator && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowRoleCreator(false)}>
-                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <h3 className="text-white font-bold mb-4">Create Admin Role</h3>
                       <div className="space-y-3">
-                        <div><label className="text-gray-400 text-xs">Role Code *</label><input value={newRole.role_code} onChange={e => setNewRole({ ...newRole, role_code: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Role Name *</label><input value={newRole.role_name} onChange={e => setNewRole({ ...newRole, role_name: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Scope Type</label><select value={newRole.scope_type} onChange={e => setNewRole({ ...newRole, scope_type: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="global">Global</option><option value="function">Function</option><option value="industry">Industry</option></select></div>
-                        <div><label className="text-gray-400 text-xs">Scope ID</label><input value={newRole.scope_id} onChange={e => setNewRole({ ...newRole, scope_id: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="e.g. hrd, mining" /></div>
-                        <div><label className="text-gray-400 text-xs">Permissions (JSON)</label><textarea value={newRole.permissions} onChange={e => setNewRole({ ...newRole, permissions: e.target.value })} rows={2} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder='["*"] or ["employees.*"]' /></div>
+                        <div><label className="text-gray-400 text-xs">Role Code *</label><input value={newRole.role_code} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewRole({ ...newRole, role_code: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Role Name *</label><input value={newRole.role_name} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewRole({ ...newRole, role_name: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Scope Type</label><select value={newRole.scope_type} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewRole({ ...newRole, scope_type: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"><option value="global">Global</option><option value="function">Function</option><option value="industry">Industry</option></select></div>
+                        <div><label className="text-gray-400 text-xs">Scope ID</label><input value={newRole.scope_id} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewRole({ ...newRole, scope_id: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder="e.g. hrd, mining" /></div>
+                        <div><label className="text-gray-400 text-xs">Permissions (JSON)</label><textarea value={newRole.permissions} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewRole({ ...newRole, permissions: e.target.value })} rows={2} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" placeholder='["*"] or ["employees.*"]' /></div>
                       </div>
                       <div className="flex gap-2 mt-6">
                         <button onClick={() => setShowRoleCreator(false)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
@@ -1092,11 +1231,11 @@ export default function OwnerDashboard() {
                 )}
                 {editRoleAdmin && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setEditRoleAdmin(null)}>
-                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={e => e.stopPropagation()}>
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-96" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <h3 className="text-white font-bold mb-4">Edit Role - {editRoleAdmin.role_code}</h3>
                       <div className="space-y-3">
-                        <div><label className="text-gray-400 text-xs">Role Name</label><input value={editRoleForm.role_name} onChange={e => setEditRoleForm({ ...editRoleForm, role_name: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
-                        <div><label className="text-gray-400 text-xs">Permissions (JSON)</label><textarea value={editRoleForm.permissions} onChange={e => setEditRoleForm({ ...editRoleForm, permissions: e.target.value })} rows={2} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Role Name</label><input value={editRoleForm.role_name} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setEditRoleForm({ ...editRoleForm, role_name: e.target.value })} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
+                        <div><label className="text-gray-400 text-xs">Permissions (JSON)</label><textarea value={editRoleForm.permissions} onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setEditRoleForm({ ...editRoleForm, permissions: e.target.value })} rows={2} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm" /></div>
                       </div>
                       <div className="flex gap-2 mt-6">
                         <button onClick={() => setEditRoleAdmin(null)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>

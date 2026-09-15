@@ -19,6 +19,12 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 `git log --oneline` (640 commit di semua ref).
 
 ---
+## [2026-09-15] Phase 2 helper fix — OwnerDashboard `\n` corruption — DONE
+- Status: DONE
+- Commit: (pending)
+- Ringkasan: Helper `scripts/fix_dashboard.ts` (Phase 2 .jsx→.tsx typing codemod) interrupted mid-write at line 146 — injected literal `\n` instead of a real newline, so `src/pages/OwnerDashboard.tsx` line 156 became `\nexport default function OwnerDashboard() {` (TS1127 invalid character). Fixed the file to a clean `export default function OwnerDashboard() {` and repaired the helper (its `interfaces` template already ends in a newline, so it now injects without the stray `\n`). Build restored to green.
+- Bukti: pre-fix `npm run build` FAILED (TS1127); post-fix `npm run build` EXIT 0 (built 17.7s). `tsc --noEmit` still lists hundreds of pre-existing strict-type errors across the 70-file WIP — out of scope for this ticket (project gate = vite build, not a clean tsc).
+- Catatan: mojibake `â€”` in comments is pre-existing WIP noise in the working tree, left untouched.
 ## [2026-09-13] I1 — Forensic audit duplicate tables + drop legacy — DONE
 - Status: DONE
 - Commit: e659ead
