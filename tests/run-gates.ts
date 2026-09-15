@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * run-gates.mjs — Cross-platform test gate runner L1-L9
- * Usage: node tests/run-gates.mjs "postgresql://..."
+ * run-gates.ts — Cross-platform test gate runner L1-L9
+ * Usage: node tests/run-gates.ts "postgresql://..."
  * Works on Windows, Mac, Linux (no bash needed)
  */
-import { execSync } from 'child_process';
+import { execSync, type ExecSyncOptions } from 'child_process';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -14,11 +14,11 @@ const ROOT = join(__dirname, '..');
 const CONN = process.argv[2];
 
 if (!CONN) {
-  console.error('Usage: node tests/run-gates.mjs "postgresql://..."');
+  console.error('Usage: node tests/run-gates.ts "postgresql://..."');
   process.exit(1);
 }
 
-function run(name, cmd, opts = {}) {
+function run(name: string, cmd: string, opts: ExecSyncOptions = {}): { ok: boolean; output: string } {
   try {
     const result = execSync(cmd, {
       cwd: ROOT,
@@ -26,14 +26,15 @@ function run(name, cmd, opts = {}) {
       timeout: 60000,
       stdio: ['pipe', 'pipe', 'pipe'],
       ...opts,
-    });
+    } as ExecSyncOptions) as string;
     return { ok: true, output: result.trim() };
   } catch (e) {
-    return { ok: false, output: (e.stdout || '') + '\n' + (e.stderr || '') };
+    const err = e as { stdout?: string; stderr?: string };
+    return { ok: false, output: (err.stdout || '') + '\n' + (err.stderr || '') };
   }
 }
 
-function runSQL(sqlFile) {
+function runSQL(sqlFile: string) {
   const r = run('SQL', `node supabase/migrations/run_171.mjs "${CONN}" ${sqlFile}`);
   const match = r.output.match(/Result: (\d+) succeeded, (\d+) failed/);
   if (match) {
@@ -72,7 +73,7 @@ console.log('');
 //   - --format=compact is uit core ESLint verwijderd sinds v9 → command faalde
 //     altijd met "The compact formatter is no longer part of core ESLint".
 console.log('── L2: ESLint ──');
-const eslint = run('ESLint', 'npx eslint src/');
+const eslint = run('ESLint', 'npx eslint src/ tests/');
 const errors = (eslint.output.match(/error/g) || []).length;
 if (eslint.ok) {
   console.log('  ✅ L2 PASS — 0 errors');
@@ -186,7 +187,7 @@ console.log('');
 
 // ── L8: Performance ──
 console.log('── L8: Performance (api-bench) ──');
-const perf = run('Perf', `node tests/performance/api-bench.js "${CONN}"`);
+const perf = run('Perf', `node tests/performance/api-bench.ts "${CONN}"`);
 const pMatch = perf.output.match(/Result: (\d+) passed, (\d+) failed/);
 if (pMatch && parseInt(pMatch[2]) === 0) {
   console.log(`  ✅ L8 PASS — ${pMatch[1]} queries < 500ms`);

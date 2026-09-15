@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock sessionStorage
-const mockStorage = {};
+const mockStorage: Record<string, string> = {};
 const sessionStorageMock = {
-  getItem: vi.fn((key) => mockStorage[key] || null),
-  setItem: vi.fn((key, value) => { mockStorage[key] = value; }),
-  removeItem: vi.fn((key) => { delete mockStorage[key]; }),
+  getItem: vi.fn((key: string) => mockStorage[key] || null),
+  setItem: vi.fn((key: string, value: string) => { mockStorage[key] = value; }),
+  removeItem: vi.fn((key: string) => { delete mockStorage[key]; }),
   clear: vi.fn(() => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }),
 };
 Object.defineProperty(globalThis, 'sessionStorage', { value: sessionStorageMock });
@@ -19,7 +19,7 @@ describe('Supabase Browser - Session Management', () => {
 
   it('setSession stores JSON correctly', async () => {
     const { setSession } = await import('../../src/lib/supabase-browser.js');
-    const user = { nrp: 'NRP001', nama: 'Test', role: 'worker', role_level: 3 };
+    const user = { nrp: 'NRP001', nama: 'Test', role: 'worker', role_level: 3, business_unit_id: 'BU-HQ' };
     setSession(user);
     expect(sessionStorageMock.setItem).toHaveBeenCalledWith('wos_user', JSON.stringify(user));
   });
@@ -54,6 +54,7 @@ describe('Supabase Browser - Session Management', () => {
   it('setSession handles null/undefined gracefully', async () => {
     const { setSession } = await import('../../src/lib/supabase-browser.js');
     expect(() => setSession(null)).not.toThrow();
+    // @ts-expect-error — runtime guard: plain-JS callers may pass undefined.
     expect(() => setSession(undefined)).not.toThrow();
   });
 });

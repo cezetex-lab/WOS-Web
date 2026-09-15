@@ -14,7 +14,7 @@ function stripConsole() {
   return {
     name: 'strip-console',
     enforce: 'post',
-    transform(code, id) {
+    transform(code: string, id: string) {
       if (id.includes('node_modules') || !id.match(/\.(js|jsx|ts|tsx)$/)) return null;
       if (process.env.NODE_ENV !== 'production') return null;
       // Neuter console.log/warn/info/error: prefix → `void(`. Hasil:

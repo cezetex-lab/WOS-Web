@@ -1,5 +1,5 @@
 /**
- * worker-auth-mfa-flow.spec.js — Worker login → MFA → route access (Q6).
+ * worker-auth-mfa-flow.spec.ts — Worker login → MFA → route access (Q6).
  *
  * Covers the fixed auth flow end-to-end against a mocked backend:
  *  1. Plain worker login → lands on /worker → dynamic routes reachable
@@ -11,7 +11,7 @@
  *     real credentials (not the old fake 'mfa-sync-<nrp>' path).
  *  4. Wrong TOTP keeps the user on the MFA step with an error.
  *
- * All backend calls are intercepted (mock-supabase.js) — no real
+ * All backend calls are intercepted (mock-supabase.ts) — no real
  * credentials needed, deterministic in CI.
  */
 import { test, expect } from '@playwright/test';
@@ -27,11 +27,11 @@ const AUTH_SYNC_URL = `${SUPA}/functions/v1/worker-auth-sync`;
 
 test.describe('L7: Worker login → auth-sync → route access', () => {
   test('plain worker login provisions auth account and dynamic routes stay reachable', async ({ page }) => {
-    const authSyncCalls = [];
+    const authSyncCalls: Array<Record<string, any>> = [];
     // mockSupabase dulu, lalu unroute handler generic-nya dan pasang recorder.
     // Playwright mencocokkan route TERAKHIR yang terdaftar lebih dulu, jadi
     // recorder yang didaftarkan SEBELUM mockSupabase tidak pernah terpakai
-    // (kontrak yang didokumentasikan di mock-supabase.js: unroute per-test).
+    // (kontrak yang didokumentasikan di mock-supabase.ts: unroute per-test).
     await mockSupabase(page);
     await page.unroute(AUTH_SYNC_URL);
     await page.route(AUTH_SYNC_URL, async (route) => {
@@ -86,7 +86,7 @@ test.describe('L7: Worker login → auth-sync → route access', () => {
 
 test.describe('L7: Worker login with MFA enabled', () => {
   test('MFA-enabled worker pauses at MFA step, then proceeds after valid TOTP', async ({ page }) => {
-    const authSyncCalls = [];
+    const authSyncCalls: Array<Record<string, any>> = [];
     // Sama seperti test pertama: recorder SETELAH mockSupabase (unroute dulu),
     // agar handler generic tidak menimpanya (last-registered-first).
     await mockSupabase(page);

@@ -1,8 +1,9 @@
 /**
- * tab-click-test.spec.js — Click every admin tab, verify component loads, capture RPC errors.
+ * tab-click-test.spec.ts — Click every admin tab, verify component loads, capture RPC errors.
  * Efficient: short timeouts, skip hangs, focus on real errors.
  */
 import { test, expect } from '@playwright/test';
+import type { Page, ConsoleMessage } from '@playwright/test';
 
 // Live-backend diagnostic: uses real credentials against a running deployment.
 // Opt in with E2E_LIVE=1 so the default suite stays hermetic (mocked) and green.
@@ -10,6 +11,16 @@ test.skip(!process.env.E2E_LIVE, 'Live diagnostic — set E2E_LIVE=1 and TEST_BA
 
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:5173';
 const ADMIN = { email: 'pusat@insightwos.com', pass: 'Admin123!' };
+
+/** One finding collected while sweeping admin tabs. */
+type TabFinding = {
+  route: string;
+  type: string;
+  msg?: string;
+  pageErrors?: string[];
+  console?: string[];
+  body?: string;
+};
 
 // Core admin routes to test (most commonly used)
 const ADMIN_ROUTES = [
@@ -36,7 +47,7 @@ const ADMIN_ROUTES = [
   '/admin/field',
 ];
 
-async function loginAdmin(page) {
+async function loginAdmin(page: Page) {
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 15000 });
   await page.waitForTimeout(1000);
   const consent = page.locator('button:has-text("Saya Setuju")');
@@ -55,9 +66,9 @@ async function loginAdmin(page) {
 
 test('Admin: login + click every tab + check errors', async ({ page }) => {
   test.setTimeout(600000); // 10 min for 60 routes
-  const errors = [];
-  const passed = [];
-  const redirected = [];
+  const errors: TabFinding[] = [];
+  const passed: string[] = [];
+  const redirected: Array<{ route: string; actual: string }> = [];
 
   const ok = await loginAdmin(page);
   console.log('Login: ' + (ok ? 'OK' : 'FAIL'));
@@ -68,16 +79,16 @@ test('Admin: login + click every tab + check errors', async ({ page }) => {
   }
 
   for (const route of ADMIN_ROUTES) {
-    const consoleMsgs = [];
-    const pageErrors = [];
+    const consoleMsgs: string[] = [];
+    const pageErrors: string[] = [];
 
-    const handler = (m) => {
+    const handler = (m: ConsoleMessage) => {
       const t = m.text();
       if (m.type() === 'error' && !t.includes('favicon') && !t.includes('SW registered') && !t.includes('Download the React DevTools')) {
         consoleMsgs.push(t.slice(0, 200));
       }
     };
-    const errHandler = (e) => pageErrors.push(String(e.message || e).slice(0, 200));
+    const errHandler = (e: Error) => pageErrors.push(String(e.message || e).slice(0, 200));
 
     page.on('console', handler);
     page.on('pageerror', errHandler);

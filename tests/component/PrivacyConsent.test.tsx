@@ -4,18 +4,18 @@ import React from 'react';
 
 // Mock localStorage
 const localStorageMock = (() => {
-  let store = {};
+  let store: Record<string, string> = {};
   return {
-    getItem: (key) => store[key] || null,
-    setItem: (key, value) => { store[key] = value; },
-    removeItem: (key) => { delete store[key]; },
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => { store[key] = value; },
+    removeItem: (key: string) => { delete store[key]; },
     clear: () => { store = {}; },
   };
 })();
 Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock });
 
 // Simple test component that mimics PrivacyConsent logic
-function PrivacyConsent({ onAccept }) {
+function PrivacyConsent({ onAccept }: { onAccept?: () => void }) {
   const [show, setShow] = React.useState(() => localStorage.getItem('wos_privacy_consent') !== 'true');
 
   const accept = () => {

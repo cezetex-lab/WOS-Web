@@ -3,7 +3,7 @@ import React from 'react';
 
 // Mock react-router-dom
 vi.mock('react-router-dom', () => ({
-  Navigate: ({ to }) => React.createElement('div', { 'data-testid': 'navigate', 'data-to': to }),
+  Navigate: ({ to }: { to: string }) => React.createElement('div', { 'data-testid': 'navigate', 'data-to': to }),
   useLocation: () => ({ pathname: '/admin' }),
 }));
 
@@ -23,9 +23,7 @@ describe('SessionGuard', () => {
 
   it('SessionGuard renders children when session exists', async () => {
     const { default: SessionGuard } = await import('../../src/components/SessionGuard.jsx');
-    const { createRoot } = await import('react-dom/client');
-    const { JSDOM } = await import('jsdom');
-    
+
     // Simple existence check
     expect(SessionGuard).toBeDefined();
   });

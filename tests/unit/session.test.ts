@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock sessionStorage
-const mockStorage = {};
+const mockStorage: Record<string, string> = {};
 const sessionStorageMock = {
-  getItem: vi.fn((key) => mockStorage[key] || null),
-  setItem: vi.fn((key, value) => { mockStorage[key] = value; }),
-  removeItem: vi.fn((key) => { delete mockStorage[key]; }),
+  getItem: vi.fn((key: string) => mockStorage[key] || null),
+  setItem: vi.fn((key: string, value: string) => { mockStorage[key] = value; }),
+  removeItem: vi.fn((key: string) => { delete mockStorage[key]; }),
   clear: vi.fn(() => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }),
 };
 
@@ -20,7 +20,7 @@ describe('Session Management', () => {
 
   it('setSession stores user data as JSON', async () => {
     const { setSession } = await import('../../src/lib/supabase-browser.js');
-    const user = { nrp: 'NRP001', nama: 'Test User', role: 'worker' };
+    const user = { nrp: 'NRP001', nama: 'Test User', role: 'worker', role_level: 1, business_unit_id: 'BU-HQ' };
     
     setSession(user);
     

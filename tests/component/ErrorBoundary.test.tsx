@@ -2,9 +2,11 @@ import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render } from '@testing-library/react';
 
-// ErrorBoundary implementation (same as src/components/ErrorBoundary.jsx)
-class ErrorBoundary extends React.Component {
-  constructor(props) {
+// ErrorBoundary implementation (same as src/components/ErrorBoundary.tsx)
+type ErrorBoundaryProps = { fallbackName: string; children: React.ReactNode };
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, { hasError: boolean }> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
@@ -17,7 +19,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-function ThrowingComponent() {
+function ThrowingComponent(): React.ReactNode {
   throw new Error('Test error');
 }
 
@@ -44,7 +46,7 @@ describe('L4: ErrorBoundary Component', () => {
         <ThrowingComponent />
       </ErrorBoundary>
     );
-    expect(document.querySelector('[data-testid="error-fallback"]').textContent).toContain('MyPage');
+    expect(document.querySelector('[data-testid="error-fallback"]')?.textContent).toContain('MyPage');
     spy.mockRestore();
   });
 });

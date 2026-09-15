@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 // Live-backend diagnostic: uses real credentials against a running deployment.
 // Opt in with E2E_LIVE=1 so the default suite stays hermetic (mocked) and green.
@@ -6,7 +7,7 @@ test.skip(!process.env.E2E_LIVE, 'Live diagnostic — set E2E_LIVE=1 and TEST_BA
 
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:5173';
 
-async function acceptConsent(page) {
+async function acceptConsent(page: Page) {
   // L-4: dialog renders async — poll instead of instant count() check
   const consent = page.locator('div[role="dialog"] button:has-text("Saya Setuju")');
   try {
@@ -17,11 +18,11 @@ async function acceptConsent(page) {
 }
 
 // L-4: poll for login completion instead of fixed wait (edge fallback can take >5s)
-async function waitForLogin(page, pathPrefix, timeoutMs = 30000) {
+async function waitForLogin(page: Page, pathPrefix: string, timeoutMs = 30000) {
   await page.waitForFunction(
     (prefix) => {
       try {
-        const hasToken = !!JSON.parse(sessionStorage.getItem('wos_user'));
+        const hasToken = !!JSON.parse(sessionStorage.getItem('wos_user') || 'null');
         const onPath = window.location.pathname.startsWith(prefix);
         return hasToken && onPath;
       } catch { return false; }
@@ -32,9 +33,9 @@ async function waitForLogin(page, pathPrefix, timeoutMs = 30000) {
   await page.waitForTimeout(300); // settle
 }
 
-async function loginWorker(page, nrp, nik, pass) {
-  const logs = [];
-  const responses = [];
+async function loginWorker(page: Page, nrp: string, nik: string, pass: string) {
+  const logs: string[] = [];
+  const responses: string[] = [];
   page.on('console', (m) => logs.push('[' + m.type() + '] ' + m.text()));
   page.on('response', (r) => {
     if (r.url().includes('rpc') || r.url().includes('auth')) {
@@ -52,12 +53,12 @@ async function loginWorker(page, nrp, nik, pass) {
   await waitForLogin(page, '/worker');
   const url = page.url();
   const hasToken = await page.evaluate(() => {
-    try { return !!JSON.parse(sessionStorage.getItem('wos_user')); } catch { return false; }
+    try { return !!JSON.parse(sessionStorage.getItem('wos_user') || 'null'); } catch { return false; }
   });
   return { url, hasToken, logs, responses };
 }
 
-async function loginAdmin(page, email, pass) {
+async function loginAdmin(page: Page, email: string, pass: string) {
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(1000);
   await acceptConsent(page);
@@ -71,7 +72,7 @@ async function loginAdmin(page, email, pass) {
   await waitForLogin(page, '/admin');
   const url = page.url();
   const hasToken = await page.evaluate(() => {
-    try { return !!JSON.parse(sessionStorage.getItem('wos_user')); } catch { return false; }
+    try { return !!JSON.parse(sessionStorage.getItem('wos_user') || 'null'); } catch { return false; }
   });
   return { url, hasToken };
 }
@@ -115,7 +116,7 @@ test('Admin: hrd@insightwos.com + Hrd123!', async ({ page }) => {
   await waitForLogin(page, '/admin');
   const url = page.url();
   const hasToken = await page.evaluate(() => {
-    try { return !!JSON.parse(sessionStorage.getItem('wos_user')); } catch { return false; }
+    try { return !!JSON.parse(sessionStorage.getItem('wos_user') || 'null'); } catch { return false; }
   });
   console.log('Admin/hrd → url=' + url + ' token=' + hasToken);
 });

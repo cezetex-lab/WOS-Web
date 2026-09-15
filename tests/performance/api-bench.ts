@@ -1,6 +1,6 @@
 /**
  * L8: API Performance Benchmarks
- * Run: node tests/performance/api-bench.js "postgresql://..."
+ * Run: node tests/performance/api-bench.ts "postgresql://..."
  *
  * Tests response times for critical RPCs.
  * Threshold: < 500ms for single-row queries, < 2000ms for aggregation.
@@ -8,11 +8,11 @@
 import pg from 'pg';
 
 const CONN = process.argv[2];
-if (!CONN) { console.error('Usage: node api-bench.js <DATABASE_URL>'); process.exit(1); }
+if (!CONN) { console.error('Usage: node api-bench.ts <DATABASE_URL>'); process.exit(1); }
 
 const client = new pg.Client({ connectionString: CONN, ssl: { rejectUnauthorized: false } });
 
-const BENCHMARKS = [
+const BENCHMARKS: Array<[string, string, number]> = [
   // name, query, maxMs
   // Thresholds include ~200ms network latency to Supabase pooler
   ['login_worker (exists check)', "SELECT 1 FROM pg_proc WHERE proname='login_worker'", 500],

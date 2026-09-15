@@ -1,5 +1,5 @@
 /**
- * drawer-navigation.spec.js — AppDrawer regression spec.
+ * drawer-navigation.spec.ts — AppDrawer regression spec.
  *
  * Promoted from the one-off click-through that verified the drawer refactor:
  * fallback constants de-duplicated, area filter centralized in
@@ -17,11 +17,15 @@
  * COSMETIC by design; real access control stays in DynamicRoutes + RLS.
  */
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { mockSupabase } from './helpers/mock-supabase';
 
 // ── Fixtures ─────────────────────────────────────────────────────────
 
 const EXP = '2099-01-01T00:00:00Z'; // far-future expiry for loadSessionCache
+
+/** One drawer link row extracted from the DOM. */
+type LinkRow = { href: string; text: string };
 
 const SESSIONS = {
   admin_pusat: { token: 'mock', nrp: 'NRP001', nama: 'T Pusat', role: 'admin_pusat', role_level: 4, business_unit: 'HQ', tier: 9, expires_at: EXP },
@@ -34,7 +38,7 @@ const SESSIONS = {
 // module_definitions row for the DB-driven /dashboard route (DynamicRoutes
 // only renders /dashboard when such a row exists). role_access controls which
 // role sees it in the MENU (buildMenu) without affecting the route itself.
-function ceoDashboardRow(roleAccess, name = 'Dashboard', group = 'DASHBOARD') {
+function ceoDashboardRow(roleAccess: string[], name = 'Dashboard', group = 'DASHBOARD') {
   return {
     module_code: 'ceo_dashboard', module_name: name, module_group: group,
     menu_icon: '📊', menu_order: 1, minimum_tier_required: 0,
@@ -45,7 +49,7 @@ function ceoDashboardRow(roleAccess, name = 'Dashboard', group = 'DASHBOARD') {
 
 // ── Setup helpers ────────────────────────────────────────────────────
 
-async function injectSession(page, session) {
+async function injectSession(page: Page, session: Record<string, unknown>) {
   // mockSupabase answers get_current_user_context with { nrp: null } when no
   // Supabase-auth user exists. initSession treats ANY truthy payload as a
   // valid context, so SessionGuard would see nrp=null and bounce to '/'.
@@ -62,7 +66,7 @@ async function injectSession(page, session) {
 // Override get_enabled_modules. Registered AFTER mockSupabase's generic RPC
 // route — Playwright evaluates matching routes last-registered-first, so this
 // wins for exactly this RPC while everything else stays mocked.
-async function mockModules(page, rows) {
+async function mockModules(page: Page, rows: Array<Record<string, unknown>>) {
   await page.route('**/rest/v1/rpc/get_enabled_modules*', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) })
   );
@@ -71,18 +75,18 @@ async function mockModules(page, rows) {
 // The drawer panel: the only fixed element spanning all three edges
 // top+left+bottom (BottomNav is left+bottom+right; ChatCopilot's panel is
 // inset-x-0; the overlay is inset-0).
-function drawer(page) {
+function drawer(page: Page) {
   return page.locator('div.fixed.top-0.left-0.bottom-0');
 }
 
-async function openDrawer(page) {
+async function openDrawer(page: Page) {
   const toggle = page.getByRole('button', { name: 'Buka menu navigasi' });
   await expect(toggle).toBeVisible();
   await toggle.click();
   await expect(drawer(page)).toBeVisible();
 }
 
-async function drawerContent(page) {
+async function drawerContent(page: Page) {
   const titles = (await drawer(page).locator('h4').allInnerTexts()).map((t) => t.trim());
   const links = await drawer(page)
     .locator('a')
@@ -90,14 +94,14 @@ async function drawerContent(page) {
       els.map((e) => ({
         href: e.getAttribute('href') || '',
         // Label lives in its own span (the first span is the emoji icon).
-        text: (e.querySelector('span:last-child')?.innerText || '').trim(),
+        text: ((e.querySelector('span:last-child') as HTMLElement | null)?.innerText || '').trim(),
       }))
     );
   return { titles, links };
 }
 
-const labelsOf = (links) => links.map((l) => l.text);
-const hrefsOf = (links) => links.map((l) => l.href);
+const labelsOf = (links: LinkRow[]) => links.map((l) => l.text);
+const hrefsOf = (links: LinkRow[]) => links.map((l) => l.href);
 
 // ── Fallback path (the refactored constants + shared area filter) ────
 

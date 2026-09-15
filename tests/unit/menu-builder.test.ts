@@ -38,7 +38,7 @@ describe('pathInArea', () => {
   it('rejects modules without a usable path', async () => {
     const { pathInArea } = await import('../../src/lib/menu-builder.js');
     expect(pathInArea('', 'worker')).toBe(false);
-    expect(pathInArea(null, 'worker')).toBe(false);
+    expect(pathInArea(null as unknown as string, 'worker')).toBe(false);
     expect(pathInArea('#', 'worker')).toBe(false);
   });
 
@@ -93,7 +93,7 @@ describe('Menu Builder', () => {
 
   it('buildMenu returns empty array on error', async () => {
     const { supabase } = await import('../../src/lib/supabase-browser.js');
-    supabase.rpc.mockResolvedValueOnce({ data: null, error: { message: 'fail' } });
+    (supabase.rpc as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ data: null, error: { message: 'fail' } });
     const { buildMenu } = await import('../../src/lib/menu-builder.js');
     const menu = await buildMenu();
     expect(menu).toEqual([]);

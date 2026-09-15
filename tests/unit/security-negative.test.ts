@@ -13,8 +13,8 @@ describe('SECURITY: Worker IDOR Prevention', () => {
   it('should block worker from accessing another workers payroll', () => {
     // Simulate: NRP001 calls get_worker_payroll('NRP002')
     // Expected: { ok: false, msg: 'Akses ditolak' }
-    const callerNRP = 'NRP001';
-    const targetNRP = 'NRP002';
+    const callerNRP: string = 'NRP001';
+    const targetNRP: string = 'NRP002';
     const isAdmin = false;
 
     // Logic from migration 131
@@ -23,8 +23,8 @@ describe('SECURITY: Worker IDOR Prevention', () => {
   });
 
   it('should block worker from accessing another workers profile', () => {
-    const callerNRP = 'NRP001';
-    const targetNRP = 'NRP002';
+    const callerNRP: string = 'NRP001';
+    const targetNRP: string = 'NRP002';
     const isAdmin = false;
 
     const isAllowed = isAdmin || (targetNRP === callerNRP);
@@ -32,8 +32,8 @@ describe('SECURITY: Worker IDOR Prevention', () => {
   });
 
   it('should block worker from viewing another workers leave', () => {
-    const callerNRP = 'NRP001';
-    const targetNRP = 'NRP002';
+    const callerNRP: string = 'NRP001';
+    const targetNRP: string = 'NRP002';
     const isAdmin = false;
 
     const isAllowed = isAdmin || (targetNRP === callerNRP);
@@ -41,8 +41,8 @@ describe('SECURITY: Worker IDOR Prevention', () => {
   });
 
   it('should allow worker to access own data', () => {
-    const callerNRP = 'NRP001';
-    const targetNRP = 'NRP001';
+    const callerNRP: string = 'NRP001';
+    const targetNRP: string = 'NRP001';
     const isAdmin = false;
 
     const isAllowed = isAdmin || (targetNRP === callerNRP);
@@ -50,8 +50,8 @@ describe('SECURITY: Worker IDOR Prevention', () => {
   });
 
   it('should allow admin to access any workers data', () => {
-    const callerNRP = 'NRP100';
-    const targetNRP = 'NRP001';
+    const callerNRP: string = 'NRP100';
+    const targetNRP: string = 'NRP001';
     const isAdmin = true;
 
     const isAllowed = isAdmin || (targetNRP === callerNRP);
@@ -104,8 +104,8 @@ describe('SECURITY: Admin BU Isolation', () => {
   // P0-3: admin_mining should only see MINING data
 
   it('should block admin_mining from seeing HRD data', () => {
-    const callerBU = 'MINING';
-    const targetBU = 'HRD';
+    const callerBU: string = 'MINING';
+    const targetBU: string = 'HRD';
     const isPusat = false;
 
     const canAccess = isPusat || (targetBU === callerBU);
@@ -113,8 +113,8 @@ describe('SECURITY: Admin BU Isolation', () => {
   });
 
   it('should block admin_estate from seeing MILL data', () => {
-    const callerBU = 'ESTATE';
-    const targetBU = 'MILL';
+    const callerBU: string = 'ESTATE';
+    const targetBU: string = 'MILL';
     const isPusat = false;
 
     const canAccess = isPusat || (targetBU === callerBU);
@@ -122,8 +122,8 @@ describe('SECURITY: Admin BU Isolation', () => {
   });
 
   it('should allow admin_pusat to see all BU data', () => {
-    const callerBU = 'HQ';
-    const targetBU = 'MINING';
+    const callerBU: string = 'HQ';
+    const targetBU: string = 'MINING';
     const isPusat = true;
 
     const canAccess = isPusat || (targetBU === callerBU);
@@ -210,13 +210,13 @@ describe('SECURITY: Session Validation', () => {
   // Session must have valid structure
 
   it('should reject session without nrp', () => {
-    const session = { role: 'worker' };
+    const session: { nrp?: string; role?: string } = { role: 'worker' };
     const isValid = !!(session && session.nrp && session.nrp.length > 0);
     expect(isValid).toBe(false);
   });
 
   it('should reject session without role', () => {
-    const session = { nrp: 'NRP001' };
+    const session: { nrp?: string; role?: string } = { nrp: 'NRP001' };
     const isValid = !!(session && session.role && session.role.length > 0);
     expect(isValid).toBe(false);
   });
@@ -233,8 +233,8 @@ describe('SECURITY: Data Sensitivity', () => {
 
   it('should block worker from viewing other workers salary', () => {
     const callerRole = 'worker';
-    const callerNRP = 'NRP001';
-    const targetNRP = 'NRP002';
+    const callerNRP: string = 'NRP001';
+    const targetNRP: string = 'NRP002';
     const isFinanceOrPusat = false;
 
     const canView = isFinanceOrPusat || (targetNRP === callerNRP);
@@ -262,13 +262,13 @@ describe('SECURITY: Input Validation', () => {
   // RPCs should reject empty/invalid inputs
 
   it('should reject empty NRP', () => {
-    const nrp = '';
+    const nrp: string = '';
     const isValid = !!(nrp && nrp.trim().length > 0);
     expect(isValid).toBe(false);
   });
 
   it('should reject null NRP', () => {
-    const nrp = null;
+    const nrp = null as string | null;
     const isValid = !!(nrp !== null && nrp.trim().length > 0);
     expect(isValid).toBe(false);
   });

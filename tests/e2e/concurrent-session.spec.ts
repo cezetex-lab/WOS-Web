@@ -1,5 +1,5 @@
 /**
- * concurrent-session.spec.js — Q5 Flow 5: Concurrent session handling
+ * concurrent-session.spec.ts — Q5 Flow 5: Concurrent session handling
  *
  * With a mocked Supabase backend:
  *  - SessionGuard registers a session per page load (multi-tab → multi-session).

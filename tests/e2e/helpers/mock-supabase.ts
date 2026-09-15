@@ -1,5 +1,5 @@
 /**
- * mock-supabase.js — Deterministic Supabase mock for E2E tests (Q5).
+ * mock-supabase.ts — Deterministic Supabase mock for E2E tests (Q5).
  *
  * Intercepts every network call the frontend makes to Supabase (REST RPC,
  * Auth REST, Edge Functions) and serves canned responses, so the 5 Q5 flows
@@ -17,12 +17,13 @@
  *   });
  */
 import { expect } from '@playwright/test';
+import type { Page, Route } from '@playwright/test';
 
 // .env.local is loaded by playwright.config.js — VITE_SUPABASE_URL must be
 // the same URL the app embeds, otherwise interception patterns won't match.
 export const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 
-const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // ─────────────────────────────────────────────────────────────
 // Mock users (worker + admin roles used across the 5 flows)
@@ -30,7 +31,21 @@ const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** OTP digit string the mocked edge/RPC layer accepts. */
 export const MOCK_OTP = '123456';
 
-export const MOCK_USERS = {
+/** Shape of the mocked user records used by every E2E flow. */
+export type MockUser = {
+  id: string;
+  email: string;
+  nrp: string;
+  nama: string;
+  role: string;
+  role_level: number;
+  business_unit_id: string;
+  business_unit: string;
+  unit_code: string;
+  tier: number;
+};
+
+export const MOCK_USERS: Record<string, MockUser> = {
   worker: {
     id: '00000000-0000-0000-0000-000000000001',
     email: 'budi@insightwos.test',
@@ -116,7 +131,7 @@ function makeAttendanceRecords() {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
-  const records = [];
+  const records: Array<Record<string, string | number>> = [];
   for (let d = 1; d <= 5; d++) {
     records.push({
       date: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
@@ -133,7 +148,7 @@ function makeAttendanceRecords() {
 // ─────────────────────────────────────────────────────────────
 // Per-RPC responses
 // ─────────────────────────────────────────────────────────────
-function handleRpc(fn, params, state) {
+function handleRpc(fn: string, params: Record<string, any>, state: MockState): unknown {
   const u = state.user;
   switch (fn) {
     case 'get_branding':
@@ -297,7 +312,7 @@ function handleRpc(fn, params, state) {
   }
 }
 
-function buildAuthSession(user) {
+function buildAuthSession(user: MockUser) {
   const now = Math.floor(Date.now() / 1000);
   return {
     access_token: `mock-access-token-${user.id}`,
@@ -321,20 +336,31 @@ function buildAuthSession(user) {
  * Server-side mock state (per test, can be shared across tabs/pages so the
  * concurrent-session simulation behaves like a real backend).
  */
-export function createMockState({ maxSessions = Infinity, user = null } = {}) {
-  return { user, maxSessions, registeredSessions: new Set() };
+export type MockState = {
+  user: MockUser | null;
+  maxSessions: number;
+  registeredSessions: Set<string>;
+};
+
+export function createMockState({
+  maxSessions = Infinity,
+  user = null,
+}: { maxSessions?: number; user?: MockUser | null } = {}): MockState {
+  return { user, maxSessions, registeredSessions: new Set<string>() };
 }
 
 /**
  * Set up all Supabase mocks on a page. Call once per test (before navigation).
  *
- * @param {import('@playwright/test').Page} page
- * @param {object} [opts]
- * @param {number} [opts.maxSessions] — simulate concurrent-session limit for login_worker
- * @param {object} [opts.user] — pre-authenticated user (context)
- * @param {object} [opts.state] — shared mock state (from createMockState / a previous call)
+ * @param page — Playwright page
+ * @param opts.maxSessions — simulate concurrent-session limit for login_worker
+ * @param opts.user — pre-authenticated user (context)
+ * @param opts.state — shared mock state (from createMockState / a previous call)
  */
-export async function mockSupabase(page, { maxSessions = Infinity, user = null, state } = {}) {
+export async function mockSupabase(
+  page: Page,
+  { maxSessions = Infinity, user = null, state }: { maxSessions?: number; user?: MockUser | null; state?: MockState } = {}
+) {
   if (!state) state = createMockState({ maxSessions, user });
   else {
     // Reuse shared state; apply overrides if provided.
@@ -342,7 +368,7 @@ export async function mockSupabase(page, { maxSessions = Infinity, user = null, 
     if (user) state.user = user;
   }
 
-  const json = (route, body, status = 200) =>
+  const json = (route: Route, body: unknown, status = 200) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
   // 1) Neutralize the service worker entirely. The real sw.js (network-first
@@ -357,7 +383,7 @@ export async function mockSupabase(page, { maxSessions = Infinity, user = null, 
         navigator.serviceWorker.getRegistrations().then((regs) =>
           regs.forEach((r) => r.unregister())
         );
-        navigator.serviceWorker.register = () => Promise.resolve({});
+        (navigator.serviceWorker as { register: unknown }).register = () => Promise.resolve({});
       }
       if (window.caches) {
         caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
@@ -376,7 +402,7 @@ export async function mockSupabase(page, { maxSessions = Infinity, user = null, 
     json(route, { message: 'Mock AI response.', sources: [] })
   );
   // worker-auth-sync: default = provisioning sukses (dapat di-unroute
-  // per-test untuk skenario MFA/gagal — lihat worker-auth-mfa-flow.spec.js).
+  // per-test untuk skenario MFA/gagal — lihat worker-auth-mfa-flow.spec.ts).
   await page.route(`${SUPABASE_URL}/functions/v1/worker-auth-sync`, (route) =>
     json(route, {
       ok: true,
@@ -447,7 +473,7 @@ export async function mockSupabase(page, { maxSessions = Infinity, user = null, 
   // 5) Supabase REST RPC.
   await page.route(new RegExp(`^${esc(SUPABASE_URL)}/rest/v1/rpc/([^/?]+)`), async (route) => {
     const match = route.request().url().match(new RegExp(`${esc(SUPABASE_URL)}/rest/v1/rpc/([^/?]+)`));
-    const fn = decodeURIComponent(match[1]);
+    const fn = decodeURIComponent(match![1]);
     const params = route.request().postDataJSON?.() || {};
     return json(route, handleRpc(fn, params, state));
   });
@@ -455,7 +481,7 @@ export async function mockSupabase(page, { maxSessions = Infinity, user = null, 
   return {
     state,
     /** Swap the "current user" (e.g. to simulate an immediate role change). */
-    setUser: (u) => { state.user = u; },
+    setUser: (u: MockUser) => { state.user = u; },
   };
 }
 
@@ -463,7 +489,7 @@ export async function mockSupabase(page, { maxSessions = Infinity, user = null, 
  * Perform a full worker login via Email+Password (default mode).
  * Assumes mockSupabase(page) was already called.
  */
-export async function loginAsWorker(page) {
+export async function loginAsWorker(page: Page) {
   await page.goto('/');
   await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
   await page.locator('input[placeholder*="email"]').fill(WORKER_LOGIN.email);
@@ -478,7 +504,7 @@ export async function loginAsWorker(page) {
  * Clicks "Masuk dengan NRP" toggle first, then fills the NRP form.
  * Assumes mockSupabase(page) was already called.
  */
-export async function loginAsWorkerByNrp(page) {
+export async function loginAsWorkerByNrp(page: Page) {
   await page.goto('/');
   await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
   await page.locator('text=Masuk dengan NRP').click();
@@ -493,9 +519,9 @@ export async function loginAsWorkerByNrp(page) {
 
 /**
  * Perform a full admin login through the real UI (with mocked backend).
- * @param {string} role - one of MOCK_USERS keys (admin_pusat | admin_finance | admin_hrd)
+ * @param role - one of MOCK_USERS keys (admin_pusat | admin_finance | admin_hrd)
  */
-export async function loginAsAdmin(page, role = 'admin_pusat') {
+export async function loginAsAdmin(page: Page, role = 'admin_pusat') {
   const u = MOCK_USERS[role];
   await page.goto('/');
   await page.locator('button', { hasText: 'Admin' }).click();

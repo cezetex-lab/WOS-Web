@@ -5,9 +5,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./tests/setup.js'],
+    setupFiles: ['./tests/setup.ts'],
     css: false,
-    include: ['tests/**/*.test.{js,jsx,ts,tsx}'],
+    include: ['tests/**/*.test.{ts,tsx}'],
     // pool=threads: default 'forks' spawns a full Node process per worker —
     // on Windows aangenaam flaky ("Timeout waiting for worker to respond")
     // onder resource contention. Threads = 1 process, stabiel.

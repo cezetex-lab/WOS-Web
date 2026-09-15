@@ -1,5 +1,5 @@
 /**
- * login-flow.spec.js — Q5 Flow 1: Login -> Dashboard -> Logout
+ * login-flow.spec.ts — Q5 Flow 1: Login -> Dashboard -> Logout
  *
  * Two layers:
  *  1. UI-only tests (always run) — form rendering, tab switching, validation.
@@ -112,14 +112,14 @@ test.describe('L7: Live Worker Login (opt-in, needs real backend)', () => {
     // Switch to NRP mode for NRP+NIK login
     await page.locator('text=Masuk dengan NRP').click();
     await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
-    await page.locator('input[placeholder*="NRP"]').fill(WORKER_NRP);
-    await page.locator('input[placeholder*="NIK"]').fill(WORKER_NIK);
-    await page.locator('input[type="password"]').fill(WORKER_PASS);
+    await page.locator('input[placeholder*="NRP"]').fill(WORKER_NRP!);
+    await page.locator('input[placeholder*="NIK"]').fill(WORKER_NIK!);
+    await page.locator('input[type="password"]').fill(WORKER_PASS!);
     await page.locator('button[type="submit"]').click();
     await page.waitForURL('**/worker', { timeout: 15000 });
     expect(page.url()).toContain('/worker');
     await page.waitForLoadState('networkidle');
     const body = await page.locator('body').textContent();
-    expect(body.length).toBeGreaterThan(100);
+    expect(body?.length ?? 0).toBeGreaterThan(100);
   });
 });

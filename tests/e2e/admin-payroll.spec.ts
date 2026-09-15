@@ -1,5 +1,5 @@
 /**
- * admin-payroll.spec.js — Q5 Flow 2: Admin login -> Payroll -> Filter
+ * admin-payroll.spec.ts — Q5 Flow 2: Admin login -> Payroll -> Filter
  *
  * 1. UI-only tests (always run) — admin form rendering, empty submit, redirects.
  * 2. Full admin login -> payroll -> filter flow with a mocked Supabase backend
@@ -112,12 +112,12 @@ test.describe('L7: Live Admin Login (opt-in, needs real backend)', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     await page.locator('button', { hasText: 'Admin' }).click();
-    await page.locator('input[type="email"]').fill(ADMIN_EMAIL);
-    await page.locator('input[type="password"]').fill(ADMIN_PASS);
+    await page.locator('input[type="email"]').fill(ADMIN_EMAIL!);
+    await page.locator('input[type="password"]').fill(ADMIN_PASS!);
     await page.locator('button[type="submit"]').click();
     await page.waitForURL('**/admin', { timeout: 15000 });
     expect(page.url()).toContain('/admin');
     const body = await page.locator('body').textContent();
-    expect(body.length).toBeGreaterThan(100);
+    expect(body?.length ?? 0).toBeGreaterThan(100);
   });
 });

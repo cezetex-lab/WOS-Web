@@ -1,21 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock localStorage
-const localStorageMock = {};
+const localStorageMock: Record<string, string> = {};
 const localStorage = {
-  getItem: vi.fn((key) => localStorageMock[key] || null),
-  setItem: vi.fn((key, value) => { localStorageMock[key] = value; }),
-  removeItem: vi.fn((key) => { delete localStorageMock[key]; }),
+  getItem: vi.fn((key: string) => localStorageMock[key] || null),
+  setItem: vi.fn((key: string, value: string) => { localStorageMock[key] = value; }),
+  removeItem: vi.fn((key: string) => { delete localStorageMock[key]; }),
   clear: vi.fn(() => { Object.keys(localStorageMock).forEach(k => delete localStorageMock[k]); }),
 };
 Object.defineProperty(globalThis, 'localStorage', { value: localStorage });
 
 // Mock sessionStorage
-const sessionStorageMock = {};
+const sessionStorageMock: Record<string, string> = {};
 const sessionStorage = {
-  getItem: vi.fn((key) => sessionStorageMock[key] || null),
-  setItem: vi.fn((key, value) => { sessionStorageMock[key] = value; }),
-  removeItem: vi.fn((key) => { delete sessionStorageMock[key]; }),
+  getItem: vi.fn((key: string) => sessionStorageMock[key] || null),
+  setItem: vi.fn((key: string, value: string) => { sessionStorageMock[key] = value; }),
+  removeItem: vi.fn((key: string) => { delete sessionStorageMock[key]; }),
 };
 Object.defineProperty(globalThis, 'sessionStorage', { value: sessionStorage });
 

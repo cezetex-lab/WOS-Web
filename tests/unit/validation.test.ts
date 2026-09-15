@@ -25,7 +25,7 @@ describe('Input Validation Utilities', () => {
   });
 
   it('validates password strength', () => {
-    const isStrongPassword = (p) => p.length >= 8 && /[A-Z]/.test(p) && /[0-9]/.test(p);
+    const isStrongPassword = (p: string) => p.length >= 8 && /[A-Z]/.test(p) && /[0-9]/.test(p);
     expect(isStrongPassword('Password1')).toBe(true);
     expect(isStrongPassword('weak')).toBe(false);
     expect(isStrongPassword('nouppercase1')).toBe(false);
@@ -40,7 +40,7 @@ describe('Input Validation Utilities', () => {
   });
 
   it('sanitizes HTML input', () => {
-    const sanitize = (str) => str.replace(/<[^>]*>/g, '');
+    const sanitize = (str: string) => str.replace(/<[^>]*>/g, '');
     expect(sanitize('<script>alert("xss")</script>')).toBe('alert("xss")');
     expect(sanitize('Hello <b>World</b>')).toBe('Hello World');
     expect(sanitize('No tags')).toBe('No tags');
@@ -54,20 +54,20 @@ describe('Input Validation Utilities', () => {
 
 describe('Number Formatting', () => {
   it('formats currency IDR', () => {
-    const formatIDR = (n) => 'Rp ' + n.toLocaleString('id-ID');
+    const formatIDR = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
     expect(formatIDR(1000000)).toBe('Rp 1.000.000');
     expect(formatIDR(0)).toBe('Rp 0');
   });
 
   it('formats percentage', () => {
-    const formatPct = (n) => (n * 100).toFixed(1) + '%';
+    const formatPct = (n: number) => (n * 100).toFixed(1) + '%';
     expect(formatPct(0.85)).toBe('85.0%');
     expect(formatPct(0)).toBe('0.0%');
     expect(formatPct(1)).toBe('100.0%');
   });
 
   it('formats large numbers with K/M suffix', () => {
-    const formatShort = (n) => {
+    const formatShort = (n: number) => {
       if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
       if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
       return n.toString();

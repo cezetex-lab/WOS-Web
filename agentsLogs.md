@@ -20,6 +20,71 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ---
 
+## [2026-09-15] TypeScript Migration — Phase 3: `tests/` + config → TS, gate tsc diperluas — DONE
+- Status: DONE
+- Commit: (pending)
+- Ringkasan: Sisa file non-TS dimigrasikan (32 file, `git mv` agar history utuh):
+  1. **Config (6)**: `vite.config.js`, `vitest.config.js`, `tailwind.config.js`,
+     `postcss.config.js`, `playwright.config.js`, `eslint.config.js` → `.ts`
+  2. **Tests (26)**: 12 unit `.test.js` → `.ts`, 2 component `.test.jsx` → `.tsx`,
+     11 e2e `.spec.js` → `.spec.ts`, `helpers/mock-supabase.js` → `.ts`,
+     `performance/api-bench.js` → `.ts`, `tests/setup.js` → `.ts`, `run-gates.mjs` → `.ts`
+  3. **tsconfig**: `include: [src, tests, *.config.ts]`, `allowJs: false` (file JS baru = error),
+     `types: [vitest/globals, node]`; `check:types` = `tsc --noEmit` (tanpa fallback echo)
+  4. **eslint.config.ts**: cakupan `src/` + `tests/` + config; `src/**/*.ts` kini BELAKANGAN di-lint
+     (dulu hanya `src/**/*.tsx`) → menemukan 2 error nyata yang langsung diperbaiki
+  5. **Fix 194 error tipe** di tests (implicit any, literal-type comparison, `JSON.parse(null)`,
+     Playwright `Page`/`Route`/`ConsoleMessage` typing, regex escape) — 0 error
+  6. Dep baru: `@types/node`, `@types/pg`, `jiti@2` (wajib untuk `eslint.config.ts`).
+     `typescript-eslint` TIDAK dipakai: crash vs TypeScript 7 ("reading 'Cjs'") → parser Babel
+     (pola lama repo) + tsc sebagai pemilik kebenaran tipe.
+- Bukti: `npx tsc --noEmit` = 0 error (src+tests+config, 188 file TS), `npm run lint` = 0 error
+  (38 warning lama non-blocking), `vitest` 14/14 file hijau, `vite build` EXIT 0.
+- Dampak lintas-page: worker → admin → dashboard → owner — 1 perubahan menyentuh kode bersama:
+  `src/lib/validation/schemas.ts` (`/^[\d\-\+\s]+$/` → `/^[\d+\s-]+$/`, arti char-class identik)
+  dipakai form Worker & Admin → diverifikasi ulang via tsc + unit test + build; sisanya
+  murni config/test (tak mengubah bundle runtime) sehingga ke-4 page tidak berubah perilaku.
+
+## [2026-09-15] LIVE DB — registrasi migration 220 + repair checksum 219 + verifikasi audit chain — DONE
+- Status: DONE
+- Commit: (pending)
+- Ringkasan: Migration checker melaporkan `220_audit_hash_chain.sql` UNAPPLIED padahal objeknya
+  sudah ada di DB live (kolom `prev_hash`/`row_hash`, trigger `trg_audit_hash_chain`,
+  `audit_log_hash_chain()`, `verify_audit_chain()`) — jadi masalahnya **bookkeeping**, bukan schema.
+  1. Registrasi 220 via `apply_migration('220', '220_audit_hash_chain.sql', <sha256 file real>, ...)`
+     → `schema_migrations` = 146 (146/146 file disk terdaftar)
+  2. Repair checksum 219 (placeholder `sha256(search_path)` bawaan migration) → sha256 file real
+     (`35af805e…` → `cda752ea…`) → "All checksums match"
+  3. Smoke test trigger 220 di dalam transaksi + ROLLBACK: `prev_hash` terisi, `row_hash` 64 hex,
+     `audit_log` tetap 169 baris (tidak ada row nyata tertulis)
+  4. `verify_audit_chain()` → 0 issue (tidak ada BROKEN_LINK / TAMPERED)
+  5. Metrik live di-refresh: tables 256, functions 667, migrations tracked 146, pg_cron 6,
+     SECDEF search_path violation 0
+- Bukti: `check_migrations_20260914.py` → ✅ All files applied / ✅ All checksums match
+  (sisa 4 "duplicate version" = by-design: 176/186/208/215 memang 2 file per nomor, filename unik).
+- Dampak lintas-page: worker → admin → dashboard → owner — `audit_log` dibaca Admin (Audit Log)
+  dan Owner (Audit Chain); chain bersih 0 issue, tidak ada perubahan kontrak API/route/session.
+
+## [2026-09-15] AGENTS.md — aturan TS diperluas + §0.5 GOLDEN RULES (keterkaitan 4 page) — DONE
+- Status: DONE
+- Commit: (pending)
+- Ringkasan:
+  1. **§3.11 (diperluas)**: TypeScript wajib untuk SEMUA kode — `src/`, `tests/`, dan config
+     (`*.config.ts`). Dilarang membuat `.js`/`.jsx` baru; `allowJs: false` membuat file JS
+     menggagalkan gate tipe. Pengecualian tunggal: `public/sw.js` (Service Worker).
+  2. **§3.10 (gate)**: tambah `npm run check:types` (0 error) + syarat smoke lintas-page.
+  3. **§3.12 (baru)**: keterkaitan 4 page = hukum, bukan preferensi.
+  4. **§0.5 GOLDEN RULES (baru)**: G1 default asumsi "TERDAMPAK", G2 perbaikan di lapisan
+     bersama (bukan hack per-page), G3 kontrak bersama = breaking change (RPC/route/module code/
+     session/kolom/prop/types → wajib grep + verifikasi 4 page), G4 data worker = input rantai
+     hilir (approval Admin → KPI Dashboard → analitik Owner), G5 isolasi role jangan dilemahkan,
+     G6 gate verifikasi lintas-page (tsc/unit/build/smoke 4 page/E2E route-role), G7 entri log
+     wajib memuat baris `Dampak lintas-page: worker → admin → dashboard → owner`.
+  5. Sinkronisasi fakta live: §4 nama spec `.spec.ts`, §7.4 metrik DB, §7.5 TS 188 file.
+- Bukti: AGENTS.md dibaca ulang (struktur §0 → §0.5 → §1..§9 konsisten, tanpa item DONE nyangkut).
+- Dampak lintas-page: worker → admin → dashboard → owner — tidak ada perubahan kode runtime;
+  aturan baru justru mewajibkan analisa dampak ke-4 page di setiap perubahan.
+
 ## [2026-09-15] AGENTS.md Restructuring + Grand Design — DONE
 - Status: DONE
 - Commit: (pending)

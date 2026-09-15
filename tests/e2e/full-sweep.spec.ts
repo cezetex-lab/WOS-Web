@@ -1,18 +1,22 @@
 /**
- * full-sweep.spec.js — Comprehensive login + route sweep for all roles.
+ * full-sweep.spec.ts — Comprehensive login + route sweep for all roles.
  *
  * Tests every login tab (Worker, Admin, Dashboard/Owner) and sweeps
  * all routes after each successful login. Reports errors per route.
  *
- * Run: TEST_BASE_URL=https://insightwos-dp7cr9wl7-cezetex-lab.vercel.app npx playwright test tests/e2e/full-sweep.spec.js
+ * Run: TEST_BASE_URL=https://insightwos-dp7cr9wl7-cezetex-lab.vercel.app npx playwright test tests/e2e/full-sweep.spec.ts
  */
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 // Live-backend diagnostic: uses real credentials against a running deployment.
 // Opt in with E2E_LIVE=1 so the default suite stays hermetic (mocked) and green.
 test.skip(!process.env.E2E_LIVE, 'Live diagnostic — set E2E_LIVE=1 and TEST_BASE_URL to run');
 
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:5173';
+
+/** One route-sweep finding (mirrors the shape pushed by sweepRoutes). */
+type SweepError = { role: string; route: string; type: string; msg: string };
 
 // Credentials from live DB verification
 const WORKER = { nrp: 'NRP002', nik: '3204000000000002', pass: '3204000000000002' };
@@ -46,7 +50,7 @@ const ROUTES = {
   ],
 };
 
-async function acceptConsent(page) {
+async function acceptConsent(page: Page) {
   // L-4: dialog renders async — poll instead of instant count() check
   const consent = page.locator('div[role="dialog"] button:has-text("Saya Setuju")');
   try {
@@ -56,18 +60,18 @@ async function acceptConsent(page) {
   } catch { /* no consent dialog — continue */ }
 }
 
-async function checkToken(page) {
+async function checkToken(page: Page) {
   return page.evaluate(() => {
-    try { return !!JSON.parse(sessionStorage.getItem('wos_user')); } catch { return false; }
+    try { return !!JSON.parse(sessionStorage.getItem('wos_user') || 'null'); } catch { return false; }
   });
 }
 
 // L-4: poll for login completion instead of fixed wait (edge fallback can take >5s)
-async function waitForLogin(page, pathPrefix, timeoutMs = 30000) {
+async function waitForLogin(page: Page, pathPrefix: string, timeoutMs = 30000) {
   await page.waitForFunction(
     (prefix) => {
       try {
-        const hasToken = !!JSON.parse(sessionStorage.getItem('wos_user'));
+        const hasToken = !!JSON.parse(sessionStorage.getItem('wos_user') || 'null');
         const onPath = window.location.pathname.startsWith(prefix);
         return hasToken && onPath;
       } catch { return false; }
@@ -78,7 +82,7 @@ async function waitForLogin(page, pathPrefix, timeoutMs = 30000) {
   await page.waitForTimeout(300); // settle
 }
 
-async function sweepRoutes(page, routes, role, errors) {
+async function sweepRoutes(page: Page, routes: string[], role: string, errors: SweepError[]) {
   for (const r of routes) {
     const before = errors.length;
     try {
@@ -107,7 +111,7 @@ async function sweepRoutes(page, routes, role, errors) {
 test.describe('Full Production Sweep', () => {
 
   test('Worker: login + route sweep', async ({ page }) => {
-    const errors = [];
+    const errors: SweepError[] = [];
     await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(1000);
     await acceptConsent(page);
@@ -132,7 +136,7 @@ test.describe('Full Production Sweep', () => {
   });
 
   test('Admin: login + route sweep', async ({ page }) => {
-    const errors = [];
+    const errors: SweepError[] = [];
     await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(1000);
     await acceptConsent(page);
@@ -159,7 +163,7 @@ test.describe('Full Production Sweep', () => {
   });
 
   test('Dashboard/Owner: login + route sweep', async ({ page }) => {
-    const errors = [];
+    const errors: SweepError[] = [];
     await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(1000);
     await acceptConsent(page);

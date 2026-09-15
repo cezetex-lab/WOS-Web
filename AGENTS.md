@@ -25,6 +25,47 @@
 7. **Rahasia**: kredensial akun ada di `supabase/akun/akun.txt` (gitignored, plaintext —
    bagikan per-orang lalu hapus). Tidak pernah commit kredensial apa pun.
 
+## 0.5 GOLDEN RULES (WAJIB) — KETERKAITAN 4 PAGE: worker ⇄ admin ⇄ dashboard ⇄ owner
+
+> **PRINSIP DASAR:** insightWOS = **SATU sistem terintegrasi**, bukan 4 aplikasi terpisah.
+> Halaman **Worker**, **Admin**, **Dashboard**, dan **OwnerDashboard** memakai **DB, RPC, authz,
+> session, menu/route, design system, dan types yang SAMA**. Karena itu **satu perubahan di
+> halaman Worker HAMPIR SELALU berdampak ke Admin, Dashboard, dan Owner** (dan sebaliknya).
+> Bekerjalah SELALU dengan asumsi keterkaitan erat ini.
+
+**Rantai dampak data (hafalkan):**
+```
+Worker (input: absensi, izin, lembur, produksi, dokumen)
+  → Admin (approval queue, koreksi, payroll run, master karyawan)
+     → Dashboard (KPI agregat, monitoring, laporan)
+        → Owner (analitik lintas-BU, branding, konfigurasi global, audit)
+```
+
+1. **G1 — Default asumsi: TERDAMPAK.** Setiap koding di salah satu page, anggap 4 page lain
+   terdampak sampai dibuktikan sebaliknya. Dilarang menyimpulkan "ini hanya perubahan page
+   worker" tanpa mengecek Admin/Dashboard/Owner.
+2. **G2 — Perbaiki di lapisan bersama, bukan hack per-page.** Solusi harus di layer bersama
+   (RPC/DB, `src/lib/*`, `src/types/index.ts`, `route-config.ts`, `menu-builder.ts`,
+   `design-system/*`, authz). Jangan patch lokal per-page (mis. rename/override RPC hanya di
+   Worker). Perbedaan kebutuhan antar-page = parameter/role, bukan duplikasi logika.
+3. **G3 — Kontrak bersama = breaking change.** Perubahan pada nama/param/return RPC,
+   `module_code`/`route_path`/`route_component`, bentuk `session`/`entry`, kolom tabel
+   (`employees_core` dkk), prop design-system, atau interface di `src/types` → WAJIB grep semua
+   pemakai di `src/` lalu verifikasi ke-4 page.
+4. **G4 — Data worker = input rantai hilir.** Mengubah bentuk/validasi data tulisan worker
+   (absensi, izin, lembur, item payroll) mengubah konsumennya (approval Admin → KPI Dashboard →
+   analitik Owner). Cek pembaca hilir (VIEW/MV/report/RPC) SEBELUM mengubah penulis.
+5. **G5 — Isolasi role JANGAN dilemahkan.** Perbaikan lintas-page tidak boleh melonggarkan
+   `RoleGuard` + cek `session.entry` + authz DB (3 layer, §7.2). Membuka akses hanya jika
+   user memutuskan.
+6. **G6 — Gate verifikasi lintas-page.** Bukti minimal sebelum commit untuk perubahan
+   fungsional: (a) `npm run check:types` 0 error, (b) unit test hijau, (c) `npm run build`
+   EXIT 0, (d) smoke putar 4 page (worker → admin → dashboard → owner), (e) E2E
+   `full-sweep`/`tab-click-test`/`role-change` bila menyentuh route/menu/role.
+7. **G7 — Catat dampak di log.** Entri `agentsLogs.md` wajib memuat baris
+   `Dampak lintas-page: worker → admin → dashboard → owner` berisi hasil pengecekan tiap page
+   (termasuk "tidak terdampak" + alasannya).
+
 ## 1. KONTEKS PROYEK (handoff)
 
 - Aplikasi: insightWOS (WOS-Web) — HR/workforce + modul industri (mining/estate/mill).
@@ -81,22 +122,30 @@
    `const { error } = await ...; if (error) {...}`.
 9. Branding (nama/logo) = konfigurasi OWNER (`branding` table + `update_branding` owner-only).
    **Jangan hardcode di JS.** UI: tab 🎨 Branding OwnerDashboard.
-10. Verifikasi gate sebelum commit: `npm run lint` (0 error), `npm test` (unit 100/100),
-    `npm run build` (EXIT 0), secret scan.
-11. **TypeScript wajib** — semua file `src/` harus `.ts`/`.tsx`. Jangan buat `.js`/`.jsx` baru.
-    `tsc --noEmit` harus 0 error sebelum commit.
+10. Verifikasi gate sebelum commit: `npm run check:types` (0 error), `npm run lint` (0 error),
+    `npm test` (unit 100/100), `npm run build` (EXIT 0), secret scan. Untuk perubahan
+    fungsional, tambah smoke lintas-page (§0.5 G6).
+11. **TypeScript wajib untuk SEMUA kode** (aturan keras): `src/`, `tests/`, dan file konfigurasi
+    (`vite/vitest/playwright/tailwind/postcss/eslint.config.ts`) harus `.ts`/`.tsx`/`.config.ts`.
+    **DILARANG membuat file `.js`/`.jsx` baru** — termasuk test/E2E spec. `tsconfig.json` memakai
+    `allowJs: false`, jadi file `.js` di `src/`/`tests/`/config menggagalkan gate tipe.
+    Satu-satunya pengecualian: `public/sw.js` (Service Worker — di-serve apa adanya oleh browser).
+    Skrip tooling DB di `supabase/**/*.mjs` (mis. `run_171.mjs`) di luar cakupan — dijalankan
+    langsung oleh Node dan dikelola terpisah.
+12. **Keterkaitan 4 page adalah hukum, bukan preferensi** — setiap perubahan pada satu page
+    (worker/admin/dashboard/owner) WAJIB dievaluasi & diverifikasi lintas-page (§0.5 G1–G7).
 
 ## 4. STATE OPEN — E2E Tests (Q5)
 
 > 51/64 tests passed (13 skipped = live-backend tests yang butuh credentials).
 > 6/7 items Q5 sudah ter-cover. Sisa: PWA offline mode.
 
-- [x] Login → Dashboard load → Logout flow (`login-flow.spec.js`)
-- [x] Admin login → Payroll view → Filter by BU (`admin-payroll.spec.js`)
-- [x] Worker login → Check attendance → Request leave (`worker-attendance.spec.js`)
-- [x] Role change → Verify new permissions active immediately (`role-change.spec.js`)
-- [x] Concurrent session limit test (`concurrent-session.spec.js`)
-- [x] Dashboard rendering tests (`full-sweep.spec.js`, `tab-click-test.spec.js`)
+- [x] Login → Dashboard load → Logout flow (`login-flow.spec.ts`)
+- [x] Admin login → Payroll view → Filter by BU (`admin-payroll.spec.ts`)
+- [x] Worker login → Check attendance → Request leave (`worker-attendance.spec.ts`)
+- [x] Role change → Verify new permissions active immediately (`role-change.spec.ts`)
+- [x] Concurrent session limit test (`concurrent-session.spec.ts`)
+- [x] Dashboard rendering tests (`full-sweep.spec.ts`, `tab-click-test.spec.ts`)
 - [ ] **PWA offline mode tests** (Service Worker caching) — **belum ada spec**
 
 ## 5. STATE OPEN — UI Forms untuk Kolom Baru Karyawan
@@ -184,20 +233,20 @@ Layer 3: DB-level (authz functions)
 | Audit Fix | ✅ DONE | 141-153 | Comprehensive security remediation |
 | GAS Migration | ✅ DONE | 154-168 | Google Apps Script → Supabase |
 | Cleanup | ✅ DONE | 191-220 | Dead forms, REVOKE, search_path, versioning |
-| TypeScript | ✅ DONE | — | Full .jsx→.tsx conversion (154 files, 0 tsc errors) |
+| TypeScript | ✅ DONE | — | 188 file TS total (154 `src` + 28 `tests` + 6 config), 0 tsc errors — `tsconfig` mencakup `src`+`tests`+`*.config.ts`, `allowJs: false` |
 
 ### 7.4 Database Status (Live)
 
 | Metric | Count | Notes |
 |---|---|---|
-| Tables | 253 | Including 38 attendance partitions |
-| Functions | 617 | 28 overloads (legacy renamed `_legacy_*`) |
-| Migrations tracked | 145 | Via `schema_migrations` table (migration 219) |
+| Tables | 256 | Including 38 attendance partitions |
+| Functions | 667 | 28 overloads (legacy renamed `_legacy_*`) |
+| Migrations tracked | 146 | Via `schema_migrations` (migration 219); 220 terdaftar 2026-09-15 |
 | RLS policies | All tables | Force-enabled, no USING(true) |
 | SECDEF search_path | 0 violations | Fixed via migration 207 |
 | anon/PUBLIC grants | 129 | Remaining: pgvector internals + login-flow |
 | pg_cron jobs | 6 | Active: MV refresh, cleanup, OTP |
-| Audit chain | 162 rows | Hash-chain verified (migration 220) |
+| Audit chain | 169 rows | Hash-chain live, `verify_audit_chain()` = 0 issues (migration 220) |
 
 ### 7.5 Frontend Status
 

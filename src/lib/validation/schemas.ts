@@ -129,7 +129,7 @@ export const TaskSchema = z.object({
 export const ProfileUpdateSchema = z.object({
   nama: z.string().min(2).max(100).optional(),
   email: z.string().email().optional(),
-  no_hp: z.string().regex(/^[\d\-\+\s]+$/, 'Format nomor HP tidak valid').optional(),
+  no_hp: z.string().regex(/^[\d+\s-]+$/, 'Format nomor HP tidak valid').optional(),
   alamat: z.string().max(500).optional(),
 });
 

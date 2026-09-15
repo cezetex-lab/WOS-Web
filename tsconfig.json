@@ -13,7 +13,12 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    "allowJs": true,
+    /* TypeScript-only codebase: src/, tests/ and *.config.ts are all TS.
+       allowJs=false makes a stray .js/.jsx file a hard error (rule §3.11). */
+    "allowJs": false,
+
+    /* Global type packages available everywhere (vitest globals, node builtins). */
+    "types": ["vitest/globals", "node"],
 
     /* Strict mode */
     "strict": true,
@@ -28,6 +33,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "include": ["src", "tests", "*.config.ts"],
+  "exclude": ["node_modules", "dist", "scripts"]
 }

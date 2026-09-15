@@ -1,5 +1,5 @@
 /**
- * role-change.spec.js — Q5 Flow 4: Role change -> permissions active immediately
+ * role-change.spec.ts — Q5 Flow 4: Role change -> permissions active immediately
  *
  * Verifies RBAC at the route level with mocked Supabase sessions:
  *  - /owner/* requires owner authentication.
@@ -19,7 +19,7 @@ test.describe('L7: Role-Based Route Protection', () => {
     await page.goto('/owner');
     await expect(page.url()).toContain('/owner');
     const body = await page.locator('body').textContent();
-    expect(body.length).toBeGreaterThan(0);
+    expect(body?.length ?? 0).toBeGreaterThan(0);
   });
 
   test('/owner/dashboard redirects to owner login when not authenticated', async ({ page }) => {

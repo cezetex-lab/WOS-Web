@@ -1,5 +1,5 @@
 /**
- * worker-attendance.spec.js — Q5 Flow 3: Worker login -> Attendance -> Leave
+ * worker-attendance.spec.ts — Q5 Flow 3: Worker login -> Attendance -> Leave
  *
  * 1. Protected-route redirects for /worker and sub-routes (always run).
  * 2. Full worker flow with a mocked Supabase backend: login, open the
