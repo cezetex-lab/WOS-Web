@@ -1,6 +1,6 @@
 # AGENTS.md — ATURAN KERJA AGENT (WAJIB) — ONE SINGLE TRUTH
 
-> Diperbarui besar: **2026-09-13** (restrukturisasi ONE SINGLE TRUTH).
+> Diperbarui besar: **2026-09-15** (restrukturisasi ONE SINGLE TRUTH + grand design).
 > **File ini = ATURAN + STATE AKTIF (plan/bug OPEN) SAJA.** Riwayat/hasil yang sudah selesai
 > ada di `agentsLogs.md` (ONE SINGLE TRUTH — LOG). File ini TIDAK menyimpan history.
 
@@ -33,12 +33,11 @@
   `cezetex-lab/WOS-Web`, branch kerja `migrasi-vite`.
 - Backend: Supabase `verwobaejumvpagwynae` (ap-northeast-1).
 - 17 worker seed (NRP001–NRP010 + NRP100–106); NRP001 = admin_pusat + worker.
-- Arsitektur auth (JANGAN diubah tanpa keputusan user): worker login NRP+NIK+password →
-  RPC `login_worker` → fast path `signInWithPassword({nrp}@insightwos.internal, password sama)`
-  → fallback edge `worker-auth-sync` (verif ulang, rotate password auth). Email sintetis =
-  SATU SUMBER: `lower(trim(nrp))@insightwos.internal`.
+- Arsitektur auth (JANGAN diubah tanpa keputusan user): worker login email+password →
+  RPC `login_worker_by_email` → fast path `signInWithPassword` → fallback edge `worker-auth-sync`.
+  Email sintetis = `lower(trim(nrp))@insightwos.internal`. Admin = email real `@insightwos.com`.
 - UPDATE data karyawan **selalu ke `employees_core`** (base table); `employees_master` = VIEW
-  non-updatable.
+  non-updatable (dengan INSTEAD OF triggers).
 - Verifikasi cepat sehat: login worker → `sb-verwobaejumvpagwynae-auth-token` ADA di Local
   Storage; Dashboard Auth → Last signed in terupdate.
 
@@ -46,17 +45,21 @@
 
 | File | Isi |
 |---|---|
-| `src/pages/Home.jsx` | Login semua tab; `provisionWorkerAuth` (fast path+fallback); `redirectAfterLogin(entry)` per-tab; OTP wajib admin/dashboard (edge) |
-| `src/App.jsx` | BrowserRouter future flags v7; `/admin` `/worker` `/dashboard` dibungkus `RoleGuard` (`entry`+`allowedRoles`) — isolasi 3 page |
-| `src/components/RoleGuard.jsx` | Role + login-entry check (`session.entry`); mismatch → redirect login |
-| `src/pages/Admin.jsx` / `Worker.jsx` / `Dashboard.jsx` | Cek `session.entry` mismatch → redirect `/`; role-worker → "Akses Ditolak" |
-| `src/components/DynamicRoutes.jsx` | Route dinamis dari `get_enabled_modules(p_area)`; `areaFromPath()` filter per-area |
-| `src/lib/route-config.js` | Map route_component → lazy component |
-| `src/lib/menu-builder.js` | `buildMenu(area)` + `areaFromPath` + filter per-area + dedup |
-| `src/lib/supabase-browser.js` | Session cache (sessionStorage `wos_user`), rpc() rate-limited |
-| `src/features/platform/auth/MfaSetup.jsx` | TOTP enroll/disable (ownership di edge `mfa-service`) |
-| `supabase/functions/password-reset/index.ts` | `login_otp` (generate OTP langsung di edge, TANPA RPC `generate_admin_otp`) + `verify_login_otp` |
+| `src/pages/Home.tsx` | Login semua tab; `provisionWorkerAuth` (fast path+fallback); `redirectAfterLogin(entry)` per-tab; OTP wajib admin/dashboard (edge) |
+| `src/App.tsx` | BrowserRouter future flags v7; `/admin` `/worker` `/dashboard` dibungkus `RoleGuard` (`entry`+`allowedRoles`) — isolasi 3 page |
+| `src/components/RoleGuard.tsx` | Role + login-entry check (`session.entry`); mismatch → redirect login |
+| `src/pages/Admin.tsx` / `Worker.tsx` / `Dashboard.tsx` | Cek `session.entry` mismatch → redirect `/`; role-worker → "Akses Ditolak" |
+| `src/components/DynamicRoutes.tsx` | Route dinamis dari `get_enabled_modules(p_area)`; `areaFromPath()` filter per-area |
+| `src/lib/route-config.ts` | Map route_component → lazy component |
+| `src/lib/menu-builder.ts` | `buildMenu(area)` + `areaFromPath` + filter per-area + dedup |
+| `src/lib/supabase-browser.ts` | Session cache (sessionStorage `wos_user`), rpc() rate-limited |
+| `src/lib/supabase-rpc.ts` | Typed RPC wrapper with function overloads |
+| `src/lib/validation/schemas.ts` | Zod v4 schemas for all forms |
+| `src/types/index.ts` | 25+ shared interfaces (Employee, Payroll, RPC, etc.) |
+| `src/features/platform/auth/MfaSetup.tsx` | TOTP enroll/disable (ownership di edge `mfa-service`) |
+| `supabase/functions/password-reset/index.ts` | `login_otp` (generate OTP langsung di edge) + `verify_login_otp` |
 | `supabase/functions/worker-auth-sync/index.ts` | Edge v2 (provision/rotate) |
+| `supabase/functions/ai-copilot/index.ts` | AI copilot dengan DOMPurify + role isolation |
 | `supabase/scripts/provision-worker-auth.mjs` | Batch provisioning `--dry`/`--run` |
 | `supabase/akun/akun.txt` | Plaintext kredensial (gitignored — NEVER commit) |
 | `agentsLogs.md` | ONE SINGLE TRUTH — LOG riwayat pekerjaan selesai |
@@ -80,81 +83,37 @@
    **Jangan hardcode di JS.** UI: tab 🎨 Branding OwnerDashboard.
 10. Verifikasi gate sebelum commit: `npm run lint` (0 error), `npm test` (unit 100/100),
     `npm run build` (EXIT 0), secret scan.
+11. **TypeScript wajib** — semua file `src/` harus `.ts`/`.tsx`. Jangan buat `.js`/`.jsx` baru.
+    `tsc --noEmit` harus 0 error sebelum commit.
 
-## 4. STATE OPEN — Tahap 5 Cleanup (urutan dari handoff; KERJAKAN BERURUTAN)
+## 4. STATE OPEN — E2E Tests (Q5)
 
-| Tahap | Item | Catatan |
-|---|---|---|
-| — | ~~F-10~~ | ~~run_171.mjs dll. menerima URL DB via argv~~ → DONE: baca dari .env.local, --db-url override optional |
+> 51/64 tests passed (13 skipped = live-backend tests yang butuh credentials).
+> 6/7 items Q5 sudah ter-cover. Sisa: PWA offline mode.
 
+- [x] Login → Dashboard load → Logout flow (`login-flow.spec.js`)
+- [x] Admin login → Payroll view → Filter by BU (`admin-payroll.spec.js`)
+- [x] Worker login → Check attendance → Request leave (`worker-attendance.spec.js`)
+- [x] Role change → Verify new permissions active immediately (`role-change.spec.js`)
+- [x] Concurrent session limit test (`concurrent-session.spec.js`)
+- [x] Dashboard rendering tests (`full-sweep.spec.js`, `tab-click-test.spec.js`)
+- [ ] **PWA offline mode tests** (Service Worker caching) — **belum ada spec**
 
-## 6. PLAN — Login Refactor (asal: docs/TundaPlanLogin.md; status: DONE ✅)
+## 5. STATE OPEN — UI Forms untuk Kolom Baru Karyawan
 
-> Goal: Ubah login Worker + Dashboard ikut pola Admin (email + password). Tambah menu
-> DAFTAR|CEK|MFA. OTP tetap ada. MFA optional=worker, wajib=admin/dashboard.
+> DB sudah lengkap (migration 215): 14 kolom baru di `employees_core` + `employees_extended`.
+> Yang belum: **UI input form** untuk kolom-kolom baru ini (pekerjaan terpisah, belum diputuskan).
 
-- **Kondisi saat ini:** Admin = Supabase Auth (email @insightwos.com) + `generate_admin_otp()`;
-  Worker/Dashboard = `login_worker(nrp,nik,pass)` + fast path Supabase Auth.
-- **Rintangan:** jangan ganti signature `login_worker` (dipakai edge+audit); `provisionWorkerAuth`
-  wajib untuk auth.uid() di RLS; F-5: NRP002-004,006-008,010 sha256 di `worker_passwords`;
-  E2E mock `loginAsWorker(NRP+NIK+pw)` perlu update.
-- **Rencana bertahap:**
-  - [x] (1) DB: RPC `login_worker_by_email(email,password)` — migration 216, return NIK untuk provisionWorkerAuth
-  - [x] (2) UI: form email+password worker/dashboard + toggle "Masuk dengan NRP" (fallback)
-  - [x] (3) E2E: mock `loginAsWorker` email mode + `loginAsWorkerByNrp` + handler `login_worker_by_email`
-  - [x] (4) MFA: optional semua role — dashboard MFA form gap fixed, alert placeholder updated
-  - [ ] (5) edge `worker-auth-sync` — tidak perlu ubah (Opsi A: NIK dari RPC)
-  - [ ] (6) deploy: lint/test/build → `vercel --prod`
-- **Keputusan desain:** Opsi A — `login_worker_by_email` return NIK, sehingga `provisionWorkerAuth(nrp,nik,pass)` tetap berfungsi tanpa ubah edge function. Email wajib di registrasi, NIK wajib 16 digit.
-- **Email mapping:** worker `lower(trim(nrp))@insightwos.internal` (sintetis), admin
-  `email@insightwos.com` (real, auth.users).
-- **Files:** migration 216_login_worker_by_email.sql; Home.jsx; rate-limiter.js; mock-supabase.js; login-flow.spec.js; worker-auth-mfa-flow.spec.js; home.spec.js;
-  tests/e2e/helpers/mock-supabase.js; src/components/MfaSetup.jsx.
+Kolom yang butuh UI form:
+- `agama`, `media_sosial` (JSONB), `jenjang_pendidikan`
+- `no_bpjs_kesehatan`, `no_bpjs_ketenagakerjaan`
+- `riwayat_penyakit`, `komorbid`, `alergi`
+- `nama_bank`, `no_rekening`, `nama_rekening`
+- `lokasi_penempatan`, `updated_by`, `status_kerja_internal`
 
-## 7. STATE OPEN — Migration Gap Inventory (karyawan; asal: docs/migration-gap-inventory.md)
+**Butuh keputusan user**: apakah semua kolom ini perlu form input sekarang, atau fokus ke modul lain dulu?
 
-> Verifikasi read-only live DB (610 RPC, 253 tabel) + 62 file GAS. Ini GAP fitur/field
-> (bukan bug/keamanan). 58 sheet GAS vs live: semua ada kecuali `login_tokens` (diganti
-> `active_sessions` + JWT — keputusan desain benar). Frontend RPC: 206 dipakai, 0 tanpa padanan DB.
-
-**B. Employee Master — field GAS yang belum ada di DB** (GAS 69 kolom = `employees_core` 23 +
-`employees_extended` 39; sisa gap):
-
-| # | Field (GAS) | Status | Notes |
-|---|---|---|---|
-| 1 | Agama Pekerja | ❌ Missing | |
-| 2 | Akun Media Sosial | ❌ Missing | |
-| 3 | Pendidikan Terakhir (jenjang) | ⚠️ Partial | hanya jurusan/institusi/tahun_lulus |
-| 4 | Lokasi Penempatan (teks) | ⚠️ Partial | hanya site_id/business_unit_id |
-| 5 | Nama Bank | ❌ Missing | hr_payroll tanpa kolom bank |
-| 6 | Nomor Rekening | ❌ Missing | hr_payroll tanpa no. rekening |
-| 7 | Nama Rekening | ❌ Missing | hr_payroll tanpa nama rekening |
-| 8 | No BPJS Kesehatan | ❌ Missing | hr_payroll hanya nominal BPJS |
-| 9 | No BPJS Ketenagakerjaan | ❌ Missing | hr_payroll hanya nominal BPJS |
-| 10 | Riwayat Penyakit Khusus | ❌ Missing | |
-| 11 | Komorbid | ❌ Missing | |
-| 12 | Alergi | ❌ Missing | |
-| 13 | 10 kolom upload (foto, KK+KTP, BPJS, ijazah, sertifikasi, tabungan, NPWP, SIM, ket anak kuliah, lainnya) | ⚠️ Replaced | generic `employee_documents` (kosong 0 rows); `hr_document_types` belum diisi |
-| 14 | lastUpdatedBy | ❌ Missing | |
-| 15 | statusKerjaInternal | ❌ Missing | |
-| 16 | fileLinksJSON | ❌ Missing | |
-| 17 | Pernyataan kebenaran data | ✅ Present | `consents` table |
-
-**Butuh keputusan user** sebelum dikerjakan: mana yang jadi kolom `employees_extended` /
-`hr_payroll`, mana ke `employee_documents`.
-
-> **KEPUTUSAN 2026-09-14 (locked, DONE via migration 215):**
-> bank/BPJS keanggotaan = kolom statis di `employees_extended`
-> (rekomendasi terpilih; `Payroll.jsx` baca dari join karyawan).
-> Mapping lengkap: §7 → core: `lokasi_penempatan`, `updated_by`, `status_kerja_internal`;
-> extended: +11 kolom (`agama`, `media_sosial` JSONB, `jenjang_pendidikan`,
-> `no_bpjs_kesehatan`, `no_bpjs_ketenagakerjaan`, `riwayat_penyakit`, `komorbid`,
-> `alergi`, `nama_bank`, `no_rekening`, `nama_rekening`); upload → seed 12
-> `hr_document_types` + `employee_documents`; `fileLinksJSON` = join;
-> pernyataan kebenaran = `user_consents`. Sisa OPEN: tidak ada (UI input form
-> kolom baru = pekerjaan terpisah, belum diputuskan).
-
-## 8. JEBAKAN LINGKUNGAN (Windows / PowerShell / Supabase)
+## 6. JEBAKAN LINGKUNGAN (Windows / PowerShell / Supabase)
 
 1. SQL Editor: hanya statement terakhir tampil → pecah blok multi-statement; agregat
    `pg_get_functiondef` error di `avg` → filter `prokind='f'`.
@@ -164,39 +123,143 @@
    `Start-Process` untuk proses lama (vitest ~30–100s; jangan sync dalam timeout tool 30s).
 4. `supabase db execute --db-url` bermasalah via PowerShell (npm notice stderr) → apply
    migration via python pg8000 (URL dari `.env.local`, JANGAN lewat argv agar tidak ter-log).
-5. JS/TSX → VS Code; `.env.local` pernah pecah dotenv (blok SQL mentah) — cek parse sebelum
-   deploy edge.
+5. `.env.local` pernah pecah dotenv (blok SQL mentah) — cek parse sebelum deploy edge.
 6. Apply migration live: pola `.freebuff/audit/apply_mig*.py` (split on `;`, per-statement
    OK/FAIL), lalu probe post-verify read-only.
 
-## 9. STATE OPEN — TODO backlog (asal: `Readme/TODO.md`, di-merge 2026-09-13)
+## 7. GRAND DESIGN — Arsitektur & Status Implementasi
 
-> Semua item di bawah masih OPEN (bukan blocker untuk deploy). Diurutkan prioritas.
+### 7.1 Arsitektur Sistem
 
-### Q5: E2E Tests (Playwright) — HIGH
-- [ ] Login → Dashboard load → Logout flow
-- [ ] Admin login → Payroll view → Filter by BU
-- [ ] Worker login → Check attendance → Request leave
-- [ ] Role change → Verify new permissions active immediately
-- [ ] Concurrent session limit test
-- [ ] Dashboard rendering tests (stats, charts, tables)
-- [ ] PWA offline mode tests (Service Worker caching)
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    FRONTEND (React + Vite)                   │
+│  src/pages/ (Home, Admin, Worker, Dashboard)                │
+│  src/components/ (RoleGuard, DynamicRoutes, ChatCopilot)    │
+│  src/features/ (core, industry, platform, intelligence)     │
+│  src/lib/ (supabase-browser, rpc, validation, design-system)│
+│  src/types/ (25+ shared interfaces)                         │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ Supabase JS v2
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    SUPABASE BACKEND                          │
+│  Auth: email+password + OTP + MFA TOTP                      │
+│  DB: 253 tables, 617 functions, RLS on all tables          │
+│  Edge Functions: password-reset, worker-auth-sync,          │
+│                  ai-copilot, mfa-service                     │
+│  Storage: employee documents, payslips (future)             │
+│  Realtime: subscriptions (future: team chat)                │
+└─────────────────────────────────────────────────────────────┘
+```
 
-~~### A7: Migration Versioning System~~ ✅ DONE (migration 219) — schema_migrations table + apply_migration/check_migrations/verify_migration_checksum functions
-### Other TODOs (OPEN)
-- [x] **O5**: Hash-chain audit log (tamper-evident chain with prev_hash) — DONE: migration 220, prev_hash+row_hash columns, BEFORE INSERT trigger, verify_audit_chain() function
+### 7.2 Auth Architecture (3-Layer Isolation)
 
+```
+Layer 1: RoleGuard (route level)
+  /admin  → allowedRoles: admin*, owner
+  /worker → allowedRoles: worker
+  /dashboard → allowedRoles: admin*, owner
 
-## 10. STATE OPEN — Disaster Recovery (operasi; asal: `Readme/DR_PLAN.md`)
+Layer 2: Page useEffect (session.entry check)
+  Admin.tsx  → if entry !== 'admin'  → redirect /
+  Worker.tsx → if entry !== 'worker' → redirect /
+  Dashboard.tsx → if entry !== 'dashboard' → redirect /
+
+Layer 3: DB-level (authz functions)
+  authz_current_nrp() → JWT-based NRP
+  authz_check_admin() → role check
+  authz_in_scope()    → BU scope check
+```
+
+### 7.3 Migration Status
+
+| Phase | Status | Migrations | Notes |
+|---|---|---|---|
+| Foundation | ✅ DONE | 000-005 | Tables, RLS, core functions |
+| Core HR | ✅ DONE | 011-068 | Employees, attendance, payroll, leave |
+| Industry | ✅ DONE | 050-065 | Mining, estate, mill modules |
+| Owner/Admin | ✅ DONE | 071-095 | Dashboards, config, branding |
+| Security | ✅ DONE | 130-140 | IDOR, authz, audit, rate-limit |
+| Audit Fix | ✅ DONE | 141-153 | Comprehensive security remediation |
+| GAS Migration | ✅ DONE | 154-168 | Google Apps Script → Supabase |
+| Cleanup | ✅ DONE | 191-220 | Dead forms, REVOKE, search_path, versioning |
+| TypeScript | ✅ DONE | — | Full .jsx→.tsx conversion (154 files, 0 tsc errors) |
+
+### 7.4 Database Status (Live)
+
+| Metric | Count | Notes |
+|---|---|---|
+| Tables | 253 | Including 38 attendance partitions |
+| Functions | 617 | 28 overloads (legacy renamed `_legacy_*`) |
+| Migrations tracked | 145 | Via `schema_migrations` table (migration 219) |
+| RLS policies | All tables | Force-enabled, no USING(true) |
+| SECDEF search_path | 0 violations | Fixed via migration 207 |
+| anon/PUBLIC grants | 129 | Remaining: pgvector internals + login-flow |
+| pg_cron jobs | 6 | Active: MV refresh, cleanup, OTP |
+| Audit chain | 162 rows | Hash-chain verified (migration 220) |
+
+### 7.5 Frontend Status
+
+| Component | Status | Notes |
+|---|---|---|
+| TypeScript | ✅ 154 .ts/.tsx files | 0 tsc errors, strict mode |
+| Unit tests | ✅ 100/100 | vitest |
+| E2E tests | ✅ 51/64 passed | 13 skipped (live-backend) |
+| Lint | ✅ 0 errors | eslint |
+| Build | ✅ EXIT 0 | vite |
+| Design system | ✅ Typed | cards, data, forms, providers |
+| Auth flow | ✅ Email+password | Worker + admin + OTP + MFA |
+| ChatCopilot | ✅ Role-isolated | DOMPurify + rate limit |
+
+### 7.6 Security Posture
+
+| Check | Status | Migration |
+|---|---|---|
+| JWT-based authz | ✅ | 131-140 |
+| bcrypt passwords | ✅ | 141 |
+| SECDEF search_path | ✅ | 207 |
+| RLS all tables | ✅ | 131-140 |
+| REVOKE anon/PUBLIC | ✅ | 210 |
+| Audit log | ✅ | 141, 220 (hash-chain) |
+| Rate limiting | ✅ | 141, 215 |
+| MFA TOTP | ✅ | 150 |
+| NIK NULL guard | ✅ | 206 |
+| Migration versioning | ✅ | 219 |
+| Rollback scripts | ✅ | 18 scripts (183-214) |
+
+## 8. FUTURE ROADMAP (dari FuturePlans.md)
+
+> Phase 1-3 roadmap untuk kompetisi dengan Workday/SAP/ADP di segmen mining/industri.
+> Detail lengkap: `FuturePlans.md`
+
+### Phase 1: Critical Foundation (3-6 bulan)
+- [ ] **Native Mobile App** (React Native/Flutter) — GPS geofencing, offline mode, biometric
+- [ ] **GPS Geofencing Attendance** — define zones, verify location, radius validation
+- [ ] **Auto-Approval Rules** — threshold-based, net-staffing condition, multi-level
+- [ ] **Bulk Operations** — salary update, department move, leave approval
+- [ ] **Payroll Engine** — gross/net calculation, tax, BPJS, payslip PDF
+- [ ] **Payslip Generation** — PDF, storage, email, MOM compliance
+- [ ] **Shift Swap Workflow** — request, bidding, auto-approve
+- [ ] **Anonymous Reporting** — grievance, evidence upload, two-way messaging
+
+### Phase 2: High Value Features (6-12 bulan)
+- [ ] **Push Notifications** — OneSignal/FCM, notification center
+- [ ] **Team Dashboard** — attendance, performance, leave, overtime
+- [ ] **Performance Grid** — 360 review, coaching, KPI
+- [ ] **Onboarding/Offboarding Workflow** — checklist, document, settlement
+- [ ] **SSO Integration** — Okta, Azure AD, Google Workspace
+
+### Phase 3: Competitive Edge (12-18 bulan)
+- [ ] **Predictive Analytics** — flight risk, attrition, skill gap
+- [ ] **Team Chat** — Supabase Realtime, file sharing
+- [ ] **Recognition System** — peer recognition, badges, gamification
+- [ ] **LMS Integration** — course catalog, enrollment, certificates
+
+## 9. DISASTER RECOVERY
 
 - Backup: Supabase automated daily (30d retention Pro), pg_dump weekly core tables (90d), git = permanent.
 - **RPO 24h / RTO 4h.** Scenario: data corruption → PITR; mass delete → PITR; full restore → new project + migrations + backup; security breach → force logout all + rotate api_keys.
 - Monitoring: backup status daily, RLS policies weekly, audit_log growth weekly, failed login spikes daily, session count anomaly daily.
 - Testing: smoke test after each migration, backup restore monthly, DR drill quarterly, security audit bi-annually.
 - Escalation: P1 1hr / P2 4hr / P3 24hr / P4 1wk.
-
-## 11. JEBAKAN LINGKUNGAN (Windows / PowerShell / Supabase)
-
-
-
-

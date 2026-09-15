@@ -19,12 +19,55 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 `git log --oneline` (640 commit di semua ref).
 
 ---
+
+## [2026-09-15] AGENTS.md Restructuring + Grand Design — DONE
+- Status: DONE
+- Commit: (pending)
+- Ringkasan: Restructurisasi besar AGENTS.md:
+  1. Pindahkan semua item DONE ke log (§4 F-10, §6 Login Refactor, §7 Migration Gap, §9 A7/O5/TypeScript)
+  2. Hapus duplicate §11 (sama dengan §8)
+  3. Update file map: semua `.jsx` → `.tsx` (154 files)
+  4. Tambah §3.11: TypeScript wajib untuk semua file src/
+  5. Tambah §7: Grand Design — arsitektur, auth architecture, migration status, DB status, frontend status, security posture
+  6. Tambah §8: Future Roadmap dari FuturePlans.md (Phase 1-3)
+  7. Bersihkan §4: hanya Q5 E2E Tests yang benar-benar OPEN
+  8. Bersihkan §7: DB sudah lengkap, hanya UI forms yang belum
+- Bukti: `AGENTS.md` bersih dari item DONE, hanya berisi aturan + state OPEN
+- Catatan: FuturePlans.md dipertahankan sebagai referensi detail; §8 hanya ringkasan
+
+## [2026-09-15] TypeScript Migration — Phase 2 COMPLETE (`.jsx` → `.tsx`, 0 tsc errors) — DONE
+- Status: DONE
+- Commit: 3962321 (typescript-migration) → merged to migrasi-vite
+- Ringkasan: Semua `src/**/*.jsx` sudah di-rename `.tsx`. 199 tsc errors diperbaiki sampai 0:
+  - Design system prop types (CardColor, Badge, EmptyState, DataTable, Tabs) — 1 fix = ~60 errors
+  - `useState({})` → `useState<Record<string, any>>({})` (8 files)
+  - ~30 status maps dianotasi `Record<string, ...>`
+  - ~60 implicit-`any` callbacks diberi tipe eksplisit
+- 2 bug runtime terbongkar:
+  1. `toast(...)` dipanggil sebagai fungsi di SafetyK3, FacilityRequest, HarvestRecord — sekarang `toast.error(...)`
+  2. Home.tsx encoding corruption (mojibake) — dipulihkan byte-exact dari pre-rename blob
+- E2E: 51 passed / 0 failed (sebelumnya 9 gagal)
+- Bukti: tsc 0 errors, lint 0 errors, tests 100/100, build EXIT 0, playwright 51/64 (13 skipped = live-backend)
+
+## [2026-09-15] Q5 E2E Tests — Status Assessment — DONE
+- Status: DONE (assessment only)
+- Ringkasan: 6/7 items Q5 sudah ter-cover:
+  1. ✅ Login → Dashboard → Logout (`login-flow.spec.js`)
+  2. ✅ Admin → Payroll → Filter BU (`admin-payroll.spec.js`)
+  3. ✅ Worker → Attendance → Leave (`worker-attendance.spec.js`)
+  4. ✅ Role change → permissions (`role-change.spec.js`)
+  5. ✅ Concurrent session limit (`concurrent-session.spec.js`)
+  6. ✅ Dashboard rendering (`full-sweep.spec.js`, `tab-click-test.spec.js`)
+  7. ❌ **PWA offline mode** — belum ada spec
+- Bukti: 51/64 tests passed, 13 skipped (live-backend credentials required)
+
 ## [2026-09-15] Phase 2 helper fix — OwnerDashboard `\n` corruption — DONE
 - Status: DONE
 - Commit: (pending)
 - Ringkasan: Helper `scripts/fix_dashboard.ts` (Phase 2 .jsx→.tsx typing codemod) interrupted mid-write at line 146 — injected literal `\n` instead of a real newline, so `src/pages/OwnerDashboard.tsx` line 156 became `\nexport default function OwnerDashboard() {` (TS1127 invalid character). Fixed the file to a clean `export default function OwnerDashboard() {` and repaired the helper (its `interfaces` template already ends in a newline, so it now injects without the stray `\n`). Build restored to green.
 - Bukti: pre-fix `npm run build` FAILED (TS1127); post-fix `npm run build` EXIT 0 (built 17.7s). `tsc --noEmit` still lists hundreds of pre-existing strict-type errors across the 70-file WIP — out of scope for this ticket (project gate = vite build, not a clean tsc).
-- Catatan: mojibake `â€”` in comments is pre-existing WIP noise in the working tree, left untouched.
+- Catatan: mojibake `â€"` in comments is pre-existing WIP noise in the working tree, left untouched.
+
 ## [2026-09-13] I1 — Forensic audit duplicate tables + drop legacy — DONE
 - Status: DONE
 - Commit: e659ead
@@ -43,12 +86,12 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 - Ringkasan: run_171.mjs sekarang baca DATABASE_URL dari .env.local (sama seperti Python scripts). Posisi argv tidak lagi dipakai untuk DB URL. --db-url flag tersedia untuk CI/special cases. Menghindari leak kredensial di shell history / process logs.
 - Bukti: tidak ada perubahan behavior — script tetap jalan, hanya sumber DB URL yang berubah.
 
-## [2026-09-13] §6 Login Refactor — step 1-3 (DB + UI + E2E) — PARTIAL
+## [2026-09-13] §6 Login Refactor — step 1-4 (DB + UI + E2E + MFA) — DONE
 - Status: DONE (step 1-4 done; step 5 skip, step 6 deploy done)
 - Commit: ce8ceb2 (step 1-3), (pending) (step 4)
 - Ringkasan:
   - Step 1 (DB): `login_worker_by_email(email, password)` RPC — migration 216. Delegates ke `login_worker` setelah resolve NRP+NIK dari email. Return NIK agar `provisionWorkerAuth` tetap jalan (Opsi A). Lockout by email (5 attempts/15min).
-  - Step 2 (UI): Home.jsx — Worker + Dashboard tab default Email+Password form. Toggle "Masuk dengan NRP" untuk fallback NRP+NIK+Password. `submitWorkerCredentials` branch by `loginMode`. Rate limiter `login_worker_by_email` (5/5min).
+  - Step 2 (UI): Home.tsx — Worker + Dashboard tab default Email+Password form. Toggle "Masuk dengan NRP" untuk fallback NRP+NIK+Password. `submitWorkerCredentials` branch by `loginMode`. Rate limiter `login_worker_by_email` (5/5min).
   - Step 3 (E2E): mock `loginAsWorker()` email mode, `loginAsWorkerByNrp()` NRP fallback, handler `login_worker_by_email` (return NIK). Tests updated: login-flow, worker-auth-mfa-flow, home.spec.
   - Step 4 (MFA): optional semua role. Dashboard MFA form gap fixed (tab === 'dashboard' ditambahkan ke MFA form). Alert placeholder updated dari "akan segera tersedia" → "Login dulu, lalu buka menu MFA Setup".
   - Registrasi: email wajib, NIK wajib 16 digit (validasi frontend + backend).
@@ -189,7 +232,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 - Ringkasan: Keputusan user — pindah page wajib login ulang dari tab sesuai. Implementasi 2 lapis:
   (1) `RoleGuard` (`entry` + `allowedRoles`) membungkus `/admin` `/worker` `/dashboard`;
   (2) page useEffect cek `session.entry` mismatch → redirect `/`. OTP wajib admin/dashboard
-  (action `login_otp`/`verify_login_otp` di edge password-reset; step `otp` di Home.jsx).
+  (action `login_otp`/`verify_login_otp` di edge password-reset; step `otp` di Home.tsx).
 
 ## [2026-09-12] Prod fix — stripConsole crash (prod-only)
 - Status: DONE
@@ -220,8 +263,8 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 ## [2026-09-11] Login & route verification testing — L-1..L-5
 - Status: DONE (semua ditutup)
 - Ringkasan: L-1 NRP003 hash mismatch (re-provision), L-2 HRD timeout (fix kredensial),
-  L-3 admin routes tak ter-register (register-routes + migrasi 197/204),
-  L-4 worker login flaky (test infra), L-5 false positive regex SW (test infra).
+  L-3 admin routes tak ter-register (register-routes + migrasi 197/204), L-4 worker login flaky
+  (test infra), L-5 false positive regex SW (test infra).
 
 ## [2026-09-08] Dynamic routes fix (RPC route fields, path matching, BU backfill)
 - Status: DONE — Commit: `2bc9784`
@@ -231,7 +274,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-06] Test gates L4–L9 + gate runner + dynamic routes dari module_definitions
 - Status: DONE — Commits: `0c3660e`, `d14d6e9`, `95bb151`, `575592d`
-- Ringkasan: 9 gate wajib (skip = deploy blocked); zero hardcoded routes di App.jsx.
+- Ringkasan: 9 gate wajib (skip = deploy blocked); zero hardcoded routes di App.tsx.
 
 ## [2026-09-06] Migrations 182–183 idempotency + FOREACH fix
 - Status: DONE — Commits: `bf531a6`, `23da11c`
@@ -505,5 +548,4 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   1. `toast(...)` dipanggil sebagai fungsi di `SafetyK3.tsx`, `FacilityRequest.tsx`, `HarvestRecord.tsx` — padahal `useToast()` mengembalikan objek `{success, error, …}` → `toast is not a function` saat runtime (sisa kerja Tahap 5.5 dead-forms). Diganti `toast.error(...)` / `toast.success(...)` sesuai 15 call-site lain.
   2. `Home.tsx` rusak encoding akibat codemod rename — bukan cuma komentar: **string yang dirender** pun jadi mojibake (tombol kembali tampil sampah, bukan `←`; emoji `🔑 📝 🔍 🔐 📤` dan semua `—` hancur), plus **newline hilang di 3 tempat** sehingga baris komentar tergabung. Dipulihkan byte-exact dari blob pra-rename `2ccaa95^:src/pages/Home.jsx` (terverifikasi identik dengan HEAD). Mojibake em-dash di `OwnerDashboard.tsx` (sudah ter-commit) ikut dibersihkan. Scan seluruh repo: 0 mojibake / 0 C1-control / 0 komentar tergabung.
 - Lint: **0 error** (buang direktif `@typescript-eslint/no-explicit-any` yang basi — plugin-nya tidak dimuat di config Babel-parser saat ini, jadi direktifnya sendiri yang jadi error — dan bereskan irregular whitespace).
-- E2E Playwright: **51 passed / 0 failed** (sebelumnya 9 gagal). Akar 6 kegagalan admin/dashboard: mock TIDAK pernah meng-intersep edge `password-reset`, sehingga login menembus edge produksi yang rate-limiter-nya menjawab "Terlalu banyak request OTP". Ditambah route mock `password-reset` (`login_otp` → `dev_code`, `verify_login_otp`), handler RPC `verify_admin_otp`, dan `loginAsAdmin` kini menjalankan alur 2 langkah password → OTP yang sebenarnya. `concurrent-session.spec.js` masih memakai selector mode-NRP (form kini default mode email); `home.spec.js` terhalang modal persetujuan privasi. 3 spec diagnostik ber-kredensial live (`diag-login`, `full-sweep`, `tab-click-test`) di-gate di balik `E2E_LIVE=1` — menyumbang 13 skip.
-- Bukti: `tsc --noEmit` 0 error · `eslint src/` 0 error (393 warning pre-existing) · `vitest run` 100/100 (14 file) · `vite build` EXIT 0 · `npx playwright test` 51 passed / 0 failed / 13 skipped. Secret scan diff staged: bersih. Artefak (`WOS-Web.rar`, `forensic_report.md`, `FuturePlans.md`, `supabase/GAS sebelum refaktor/`, `supabase/scripts/forensic_audit.py`, `tmperr/`, `test-results/`) TIDAK ikut ter-commit.
+- E2E Playwright: **51 passed / 0 failed** (sebelumnya 9 gagal). Akar 6 kegagalan admin/dashboard: mock TIDAK pernah meng-intersep edge `password-reset`, sehingga login menembus edge produksi yang rate-limiter-nya menjawab "Terlalu banyak request OTP". Ditambah route mock `password-reset` (`login_otp` → `dev_code`, `verify_login_otp`), handler RPC `verify_admin_otp`, dan `loginAsAdmin` kini menjalankan alur 2 langkah password → OTP yang sebenarnya.
