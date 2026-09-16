@@ -25,7 +25,6 @@ export default function Worker() {
     const s = getSession();
     if (!s?.nrp) { window.location.href = '/'; return; }
     if (s.entry && s.entry !== 'worker' && s.role !== 'owner') {
-      console.warn('[Worker] Session entry mismatch:', s.entry, '→ login ulang');
       window.location.href = '/';
       return;
     }

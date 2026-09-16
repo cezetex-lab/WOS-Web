@@ -40,7 +40,7 @@ async function fetchAllRouteConfig(pArea?: string) {
   // Admin TIDAK bisa akses worker routes, worker TIDAK bisa akses admin routes.
   const res = await rpc('get_enabled_modules', pArea ? { p_area: pArea } : {});
   const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
-  if (!list.length) console.warn('[DynamicRoutes] get_enabled_modules returned no rows for area:', pArea);
+  // empty list handled by caller (0 routes → loading state)
 
   return list
     .filter((m: any) => m.route_path && m.route_component)
@@ -100,7 +100,7 @@ export default function DynamicRoutes({ withNav }: DynamicRoutesProps) {
 
   const Component = getComponent(match.componentName);
   if (!Component) {
-    console.warn(`[DynamicRoutes] Unknown component: ${match.componentName} for module ${match.code}`);
+    // Unknown component — redirect to login.
     return <Navigate to="/" replace />;
   }
 

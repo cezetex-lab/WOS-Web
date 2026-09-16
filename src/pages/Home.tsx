@@ -17,11 +17,8 @@ async function provisionWorkerAuth(nrp: string, nik: string, password: string) {
     // FAST PATH - akun Supabase Auth sudah ada -> sign-in langsung
     const syntheticEmail = String(nrp).toLowerCase().trim() + '@insightwos.internal';
     const direct = await syncSupabaseAuth(syntheticEmail, password);
-    if (direct) {
-      console.info('[auth-sync] fast path OK');
-      return true;
-    }
-    console.info('[auth-sync] fast path gagal -> fallback edge');
+    if (direct) return true;
+    // fast path gagal -> fallback edge
 
     // Timeout 5s: auth-sync bersifat best-effort — edge function yang hang
     // tidak boleh memblokir redirect login (fetch default tidak pernah timeout).
@@ -35,7 +32,7 @@ async function provisionWorkerAuth(nrp: string, nik: string, password: string) {
     const accessToken = d?.session?.access_token;
     const refreshToken = d?.session?.refresh_token;
     if (!d?.ok || !accessToken || !refreshToken) {
-      console.warn('[auth-sync] tidak berhasil:', d?.msg || 'respons tidak lengkap');
+      // provisionWorkerAuth tidak berhasil — user akan dapat alert warning
       return false;
     }
     const { error: setErr } = await supabase.auth.setSession({
@@ -43,12 +40,10 @@ async function provisionWorkerAuth(nrp: string, nik: string, password: string) {
       refresh_token: refreshToken,
     });
     if (setErr) {
-      console.warn('[auth-sync] setSession gagal untuk', d.email, setErr.message);
       return false;
     }
     return true;
   } catch (err: any) {
-    console.warn('[auth-sync] error:', err?.message);
     return false;
   }
 }
@@ -277,7 +272,6 @@ export default function Home() {
       // V6: Use Supabase Auth directly for admin login
       const authResult = await syncSupabaseAuth(adminEmail, adminPass);
       if (!authResult) {
-        console.error('[Admin Login] Supabase auth failed');
         setError('Email atau password salah');
         setLoading(false);
         return;
@@ -285,7 +279,6 @@ export default function Home() {
       // Look up employee by auth_id
       const ctx = await rpc('get_user_context_by_auth_id', { p_auth_id: authResult.user.id });
       if (!ctx.ok) {
-        console.error('[Admin Login] User context lookup failed:', ctx.msg);
         setError(ctx.msg || 'Akun tidak ditemukan di sistem');
         setLoading(false);
         return;
@@ -311,7 +304,6 @@ export default function Home() {
       setValidatedNrp(ctx.nrp);
       await requestAdminOtpForEntry(ctx.nrp, 'admin');
     } catch (err: any) {
-      console.error('[Admin Login] Exception during login:', err);
       setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
     setLoading(false);

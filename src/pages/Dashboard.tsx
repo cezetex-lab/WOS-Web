@@ -79,7 +79,6 @@ export default function DashboardPage() {
     const u = getSession();
     if (!u) { window.location.href = '/'; return; }
     if (u.entry && u.entry !== 'dashboard' && u.role !== 'owner') {
-      console.warn('[Dashboard] Session entry mismatch:', u.entry, '→ login ulang');
       window.location.href = '/';
       return;
     }

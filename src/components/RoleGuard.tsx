@@ -58,6 +58,7 @@ export default function RoleGuard({ children, allowedRoles = [], entry = null, r
           if (isOwner) {
             setAuthorized(true);
           } else if (allowedRoles.length === 0) {
+            // eslint-disable-next-line no-console -- fail-closed: dev-time diagnostic, stripped in prod
             console.error('[RoleGuard] allowedRoles kosong — akses ditolak (fail-closed)');
             navigate(redirectTo, { replace: true });
           } else if (allowedRoles.includes(userRole)) {
@@ -70,6 +71,7 @@ export default function RoleGuard({ children, allowedRoles = [], entry = null, r
           setChecking(false);
         }
       } catch (err) {
+        // eslint-disable-next-line no-console -- catch-all: dev-time diagnostic, stripped in prod
         console.error('[RoleGuard] Exception during authorization check:', err);
         if (!cancelled) { navigate(redirectTo, { replace: true }); setChecking(false); }
       }

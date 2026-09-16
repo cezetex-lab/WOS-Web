@@ -152,12 +152,10 @@ export default function Admin() {
 
   useEffect(() => {
     if (!session || !session.nrp) {
-      console.error('[Admin Dashboard] No valid session found, redirecting to login');
       window.location.href = '/';
       return;
     }
     if (session.entry && session.entry !== 'admin' && session.role !== 'owner') {
-      console.warn('[Admin] Session entry mismatch:', session.entry, '→ login ulang');
       window.location.href = '/';
       return;
     }

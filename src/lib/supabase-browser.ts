@@ -31,7 +31,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
  * terpengaruh sehingga migrasi bisa bertahap (241 call site).
  */
 function rpcError(fn: string, kind: RpcErrorKind, msg: string): RpcError {
-  console.error(`[RPC] ${kind} on ${fn}: ${msg}`);
   return { ok: false, msg, kind };
 }
 

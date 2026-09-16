@@ -18,7 +18,6 @@ export default function useAdminAuth(allowedRoles: string[] = []) {
     if (allowedRoles.length === 0) return;
     if (role === 'owner' || role === 'admin_pusat') return; // owner & pusat bypass
     if (!allowedRoles.includes(role)) {
-      console.warn(`[AdminAuth] Role "${role}" not in [${allowedRoles}]. Redirecting.`);
       navigate('/admin', { replace: true });
     }
   }, [role, navigate]);

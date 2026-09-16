@@ -12,6 +12,7 @@ import { trackError } from './posthog';
 
 export function logError(page: string, loader: string, err: Error | unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
+  // eslint-disable-next-line no-console -- central error logger: dev-time log + PostHog production tracking
   console.error(`[${page}:${loader}]`, err);
   trackError(err instanceof Error ? err : new Error(msg), { page, loader });
 }

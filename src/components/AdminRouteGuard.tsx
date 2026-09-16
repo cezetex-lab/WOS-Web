@@ -128,7 +128,6 @@ export default function AdminRouteGuard({ children }: AdminRouteGuardProps) {
     // Check exact match first, then try parent path
     const allowed = ROLE_ACCESS[path] || ROLE_ACCESS[path.replace(/\/[^/]+$/, '')] || ROLE_ACCESS['/admin'];
     if (allowed && !allowed.includes(role)) {
-      console.warn(`[AdminRouteGuard] Role "${role}" not allowed at "${path}". Redirecting.`);
       navigate('/admin', { replace: true });
     }
   }, [location.pathname, role, navigate]);

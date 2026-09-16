@@ -187,6 +187,7 @@ export function AppDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
       setDynamicGroups(groups);
       setLoading(false);
     }).catch(err => {
+      // eslint-disable-next-line no-console -- menu build failure: dev-time diagnostic, stripped in prod
       console.error('[AppDrawer] Failed to build menu:', err);
       setLoading(false);
     });
