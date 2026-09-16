@@ -20,7 +20,9 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-16] Kontrak `rpc()` jujur: kegagalan jadi `RpcError` bertipe, bukan di-cast `as T` (L1 upppp.txt) — DONE
 - Status: DONE
-- Commit: `PENDING_HASH` (deploy: `PENDING_DEPLOY`)
+- Commit: `6bf86f3` (16 file, +256/−84) — deploy: production `insightwos-7bjvcpsxk` ● Ready
+  (alias https://insightwos.vercel.app HTTP 200). Perubahan ini frontend-only — tidak ada
+  perubahan edge.
 - Ringkasan:
   1. **Kontrak baru di satu tempat.** `rpc()` (`src/lib/supabase-browser.ts`) sekarang mengembalikan
      `Promise<T | RpcError>`: sukses = payload apa adanya, gagal = `RpcError` (`{ ok:false, msg, kind }`)
