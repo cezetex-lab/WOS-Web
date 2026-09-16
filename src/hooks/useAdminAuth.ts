@@ -20,7 +20,7 @@ export default function useAdminAuth(allowedRoles: string[] = []) {
     if (!allowedRoles.includes(role)) {
       navigate('/admin', { replace: true });
     }
-  }, [role, navigate]);
+  }, [role, navigate, allowedRoles]);
 
   return { role, isAllowed: allowedRoles.length === 0 || role === 'owner' || role === 'admin_pusat' || allowedRoles.includes(role) };
 }

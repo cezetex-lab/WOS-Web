@@ -70,7 +70,6 @@ export default function DynamicRoutes({ withNav }: DynamicRoutesProps) {
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   if (loading) return <div className="p-4 text-white">Loading routes...</div>;

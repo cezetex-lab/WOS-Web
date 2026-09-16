@@ -217,6 +217,7 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }: DetailPag
       }
     } catch (err) { }
     setLoading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- config & params derived from pageKey+nrp; data is only set, not read
   }, [pageKey, nrp]);
 
   useEffect(() => { fetchData(); }, [fetchData]);

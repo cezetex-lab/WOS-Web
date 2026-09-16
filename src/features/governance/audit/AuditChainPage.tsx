@@ -27,6 +27,7 @@ export default function AuditChainPage() {
       setData(items as AuditRow[]);
     } catch (e: unknown) { }
     setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rpc is stable; data is only set, not read
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);

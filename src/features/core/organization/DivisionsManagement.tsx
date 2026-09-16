@@ -35,6 +35,7 @@ export default function DivisionsManagement() {
       setData(Array.isArray(result) ? result : result?.data ?? []);
     } catch (e) { }
     setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rpc is stable; data is only set, not read
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);

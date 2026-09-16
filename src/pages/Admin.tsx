@@ -205,6 +205,7 @@ export default function Admin() {
       setLoading(false);
     };
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- session is read once on mount; nrp is the meaningful trigger
   }, [session?.nrp]);
 
   if (loading) return <LoadingSpinner text="Memuat data admin..." />;

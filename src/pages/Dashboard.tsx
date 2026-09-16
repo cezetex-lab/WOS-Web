@@ -84,6 +84,7 @@ export default function DashboardPage() {
     }
     if (u.role === 'worker') { setNoAccess(true); setLoading(false); return; }
     setUser(u); loadData(u.nrp as string);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData is defined inline; runs once on mount
   }, []);
 
   function toArray<T>(val: unknown): T[] {

@@ -80,6 +80,7 @@ export function useChart(configFn: ((Chart: any) => any) | null, deps: unknown[]
         chartRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps is a caller-provided array parameter, not an array literal
   }, deps);
 
   return canvasRef;

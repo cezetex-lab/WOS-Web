@@ -31,6 +31,7 @@ export default function MasterDataPage() {
       setData(Array.isArray(r) ? r : r?.data || []);
     } catch (e) { }
     setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rpc is stable; data is only set, not read
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
