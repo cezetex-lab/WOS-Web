@@ -855,4 +855,48 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   4. **U3 — RPC error toast.** `ForumDiskusi.tsx` (3 mutasi: createPost, sendReply, sendReplyError) dan `WhistleblowingPage.tsx` (1 mutasi: handleSubmit) mendapat `isRpcError` + `toast.error` fallback — user melihat notifikasi ketika RPC gagal, bukan kegagalan senyap.
   5. **U5 — Tailwind utility token.** `.text-micro` (`11px/1.3`) + `.text-muted` (`text-slate-500`) ditambahkan ke `globals.css`. 22 instance `text-[11px]` → `text-micro` di 6 file: ChatCopilot (11), ForumDiskusi (6), BottomNav (2), AppDrawer (1), WhistleblowingPage (1), PrivacyConsent (1).
 - Bukti: `npx tsc --noEmit` **0 error**; `npx eslint src/` **0 error** (12 warning pre-existing `react-hooks/exhaustive-deps`); `npx vite build` **EXIT 0** (~7s, 2011 modules); `npx vitest run` **113/113** (15 file). Gate dijalankan ulang setelah setiap tugas.
-- Dampak lintas-page: worker → admin → dashboard → owner — RPC layer (`useRpcQuery`) adalah lapisan bersama yang dipakai di seluruh page; perubahan ini menormalisasi fetch pattern lintas worker (WorkerAttendance/WorkerPayroll/WorkerLearning), admin (AdminAttendance/Employees/ForumDiskusi), dan dashboard/recruitment (RecruitmentDashboard/WorkerLeave). Toast system berlaku untuk semua role. Tidak ada kontrak RPC/menu/route/authz/types yang diubah — tidak ada perubahan perilaku untuk admin/dashboard/owner selain peningkatan UX error handling. Keempat area ter-smoke via tsc+lint+build+tests.
+- Dampak lintas-page: worker → admin → dashboard → owner — RPC layer (`useRpcQuery`) adalah lapisan bersama yang dipakai di seluruh page; perubahan ini menormalisasi fetch pattern lintas worker (WorkerAttendance/WorkerPayroll/WorkerLearning), admin (AdminAttendance/Employees/ForumDiskusi), dan dashboard/recruitment (RecruitmentDashboard/WorkerLeave). Toast system berlaku untuk semua role. Tidak ada kontrak RPC/menu/route/authz/types yang diubah — tidak ada perubahan perilaku untuk admin/dashboard/owner selain peningkatan UX error handling. Keempat area ter-smoke via tsc+lint+build+tests.---
+
+## [2026-09-16] Anon/PUBLIC grants audit — 7 dangerous functions REVOKE from DB live — DONE
+- Status: DONE — migration 221 applied to live DB, verified, committed, pushed.
+- Commit: `21f3f95` (1 file, +79) — branch `migrasi-vite`
+- DB: `verwobaejumvpagwynae` (ap-northeast-1) — verified via `information_schema.role_routine_grants`
+- Ringkasan:
+  1. **Live DB audit confirmed 7 SECURITY DEFINER functions exploitable by anon/PUBLIC:**
+     - `admin_get_payroll(text)` — anon could view all employee salaries
+     - `process_request(text,text,text)` — anon could approve/reject requests
+       (migration 194 only revoked from anon; PUBLIC grant was missed!)
+     - `apply_migration(text,text,text,text,int)` — anon could execute DB migrations
+     - `audit_log_hash_chain()` — audit trail info leak
+     - `verify_audit_chain(int,int)` — audit detail info leak
+     - `check_migrations(text[])` — migration status info leak
+     - `verify_migration_checksum(text,text)` — migration checksum info leak
+  2. **Root cause chain mapped:**
+     - Migrasi 043: GRANT admin functions to anon (wrong pattern)
+     - Migrasi 172: GRANT login/auth to anon (correct)
+     - Migrasi 190: GRANT admin_get_payroll to anon (BUG)
+     - Migrasi 194: REVOKE anon from process_request (partial — missed PUBLIC)
+     - Migrasi 215: RE-GRANT admin_get_payroll to anon (BUG override!)
+     - Migrasi 216: GRANT login_worker_by_email to anon (correct)
+  3. **Migration 221 (supabase/migrations/221_revoke_anon_admin_grants.sql):**
+     - REVOKE from anon: all 7 functions
+     - REVOKE from PUBLIC: all 7 functions + 3 employees_master trigger functions
+     - RE-GRANT to authenticated: admin_get_payroll, process_request
+     - No re-grant for apply_migration/audit/verify/check functions
+  4. **Post-verify on DB live (0 rows for all 7 functions against anon/PUBLIC):**
+     - `admin_get_payroll`: CLEAN ✅
+     - `process_request`: CLEAN ✅
+     - `apply_migration`: CLEAN ✅
+     - `audit_log_hash_chain`: CLEAN ✅
+     - `verify_audit_chain`: CLEAN ✅
+     - `check_migrations`: CLEAN ✅
+     - `verify_migration_checksum`: CLEAN ✅
+  5. **Legitimate anon functions preserved (all 9 verified):**
+     - `login_worker`, `login_worker_by_email`, `generate_worker_otp`,
+       `verify_worker_otp`, `submit_registration`, `get_branding_public`,
+       `get_enabled_modules`, `hit_rate_limit`, `register_session`
+  6. **change_password(text,text,text) — VERIFIED SAFE:**
+     - Only granted to `authenticated`, `postgres`, `service_role`
+     - NOT in anon or PUBLIC — no action needed
+  7. **Counts after fix:** anon 140 (was 146), PUBLIC 53 (was 63)
+  8. **No frontend impact** — DB-only change, no deploy needed.
