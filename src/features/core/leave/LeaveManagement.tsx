@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback, ReactNode } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import { rpc, isRpcError } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
@@ -40,7 +40,8 @@ export default function LeaveManagement() {
     setLoading(true);
     try {
       const result = await rpc<LeaveResponse>('admin_get_leave');
-      const data = Array.isArray(result) ? result
+      const data = isRpcError(result) ? []
+        : Array.isArray(result) ? result
         : result?.data && Array.isArray(result.data) ? result.data : [];
       setLeaveData(data);
     } catch (err: unknown) { }

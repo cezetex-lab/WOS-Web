@@ -3,7 +3,7 @@
  * P2 FIX: Removed session fallback — auth.uid() is the only source of truth
  */
 import { useState, useEffect } from 'react';
-import { supabase, rpc } from '@/lib/supabase-browser';
+import { supabase, rpc, isRpcError } from '@/lib/supabase-browser';
 import type { UserContext } from '@/types';
 
 export function useModuleAccess(moduleCode: string, requiredRoleLevel: number = 1) {
@@ -38,7 +38,7 @@ export function useEnabledModules() {
     (async () => {
       const result = await rpc<any[]>('get_enabled_modules');
       if (!cancelled) {
-        setModules(result || []);
+        setModules(isRpcError(result) ? [] : result || []);
         setLoading(false);
       }
     })();
@@ -67,7 +67,8 @@ export function useCurrentUserContext() {
 
       const result = await rpc<Partial<UserContext>>('get_user_context_by_auth_id', { p_auth_id: user.id });
       if (!cancelled) {
-        setCtx({
+        // Kegagalan transport tidak boleh di-spread menjadi "context" palsu.
+        setCtx(isRpcError(result) ? null : {
           ...result,
           ok: result?.ok ?? true,
           is_owner: result?.role === 'owner',

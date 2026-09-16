@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import { rpc, isRpcError } from '@/lib/supabase-browser';
 
 interface LogoUploaderProps {
   onSaved?: () => void;
@@ -30,7 +30,7 @@ export default function LogoUploader({ onSaved }: LogoUploaderProps) {
   // (get_branding public; update tetap owner-only via RPC update_branding).
   useEffect(() => {
     rpc<BrandingResult>('get_branding', {}).then(d => {
-      if (d) {
+      if (!isRpcError(d)) {
         setCompanyName(d.company_name || '');
         setTagline(d.tagline || '');
         setLogoUrl(d.logo_url || '');

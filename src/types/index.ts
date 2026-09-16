@@ -38,9 +38,13 @@ export interface RpcOk<T = Record<string, unknown>> {
   msg?: string;
 }
 
+/** Kenapa panggilan RPC gagal — pemanggil bisa bedakan yang layak di-retry. */
+export type RpcErrorKind = 'rate_limited' | 'transport' | 'no_response';
+
 export interface RpcError {
   ok: false;
   msg: string;
+  kind: RpcErrorKind;
 }
 
 export type RpcResult<T = Record<string, unknown>> = RpcOk<T> | RpcError;

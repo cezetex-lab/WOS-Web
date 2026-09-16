@@ -102,8 +102,8 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
 | `src/components/DynamicRoutes.tsx` | Route dinamis dari `get_enabled_modules(p_area)`; `areaFromPath()` filter per-area |
 | `src/lib/route-config.ts` | Map route_component → lazy component |
 | `src/lib/menu-builder.ts` | `buildMenu(area)` + `areaFromPath` + filter per-area + dedup |
-| `src/lib/supabase-browser.ts` | Session cache (sessionStorage `wos_user`), rpc() rate-limited |
-| `src/lib/supabase-rpc.ts` | Typed RPC wrapper with function overloads |
+| `src/lib/supabase-browser.ts` | Session cache (`wos_user_v2`, wajib `expires_at`), `rpc()` rate-limited + kontrak `T \| RpcError` + guard `isRpcError()` |
+| `src/lib/supabase-rpc.ts` | Typed wrappers RPC — delegasi ke `supabase-browser` (satu sumber kebenaran), hasil `T \| RpcError` |
 | `src/lib/validation/schemas.ts` | Zod v4 schemas for all forms |
 | `src/types/index.ts` | 25+ shared interfaces (Employee, Payroll, RPC, etc.) |
 | `src/features/platform/auth/MfaSetup.tsx` | TOTP enroll/disable (ownership di edge `mfa-service`) |
@@ -218,14 +218,13 @@ Kolom yang butuh UI form:
 > Ditambah entri log **`[2026-09-16] Sesi fail-closed`**: S6 (token app-level tidak dipersist +
 > edge tidak mengembalikan password), S7/L4 (expiry wajib, fail-closed), S9 (key `wos_user_v2`,
 > sesi legacy dipaksa login ulang).
+> Ditambah entri log **`[2026-09-16] Kontrak rpc() jujur`**: L1 (`rpc()` mengembalikan
+> `T | RpcError` dengan `kind` eksplisit + guard `isRpcError()`, 9 pemakai dimigrasikan, dan
+> salinan implementasi `rpc()` di `supabase-rpc.ts` disatukan ke satu sumber kebenaran).
 > Yang tersisa (masih OPEN) ada di daftar di bawah — jangan dihapus dari file ini sampai selesai.
 
 ### [ ] OPEN — P1 (keamanan / benar-salah)
 
-- [ ] **L1 kontrak `rpc()` menelan error.** Error & rate-limit dikembalikan sebagai
-      `{ ok: false, msg }` lalu di-cast `as T` (`supabase-browser.ts:23-39`) → pemanggil yang
-      mengharap array/objek dapat bentuk salah TANPA error tipe. Perbaiki kontrak (result
-      discriminated + pembaca bertipe) SEBELUM menambah pemakai baru.
 - [ ] **S4 CSP Upstash masih hidup.** `connect-src https://alive-robin-191313.upstash.io`
       masih ada di `vercel.json` — **sengaja dipertahankan** (§5.5 keputusan user), dan
       **WAJIB dihapus saat cache-tier diintegrasikan** (browser→Redis dilarang).
@@ -377,7 +376,7 @@ Layer 3: DB-level (authz functions)
 | Component | Status | Notes |
 |---|---|---|
 | TypeScript | ✅ 156 .ts/.tsx files (132 `.tsx` + 24 `.ts`) | 0 tsc errors (re-verifikasi 2026-09-16), strict mode, `allowJs: false` |
-| Unit tests | ✅ 107/107 | vitest |
+| Unit tests | ✅ 113/113 | vitest |
 | E2E tests | ✅ 51/64 passed | 13 skipped (live-backend) |
 | Lint | ✅ 0 errors | eslint |
 | Build | ✅ EXIT 0 | vite |

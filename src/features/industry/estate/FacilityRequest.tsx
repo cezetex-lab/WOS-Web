@@ -1,6 +1,6 @@
 // FacilityRequest.jsx — Estate Facility Request (Mess, Kerja, Dll)
 import { useState, useEffect } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import { rpc, isRpcError } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';
 
 interface FacilityReq {
@@ -33,7 +33,7 @@ export default function FacilityRequest() {
     setLoading(true);
     try {
       const r = await rpc<{ data?: FacilityReq[] }>('admin_get_facility_requests');
-      setRequests(r?.data || []);
+      setRequests(isRpcError(r) ? [] : (r?.data ?? []));
     } catch (e: unknown) {
       setRequests([]);
     }

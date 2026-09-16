@@ -7,7 +7,7 @@
 
 import { createClient, Session, User } from '@supabase/supabase-js';
 import { checkRateLimit } from './rate-limiter';
-import type { UserSession, CurrentUserContext } from '@/types';
+import type { UserSession, CurrentUserContext, RpcError, RpcErrorKind } from '@/types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -20,22 +20,52 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // (no static column info). Known RPCs are typed explicitly via typed-wrapped
 // helpers that pass `<ConcreteType>`; untyped call sites get `any` (as in the
 // original JS client), NOT a forced `unknown` that would cascade into setState.
+
+/**
+ * Kontrak RPC (audit L1) — kegagalan TIDAK lagi disamarkan sebagai hasil sukses:
+ *  - sukses  → payload apa adanya (`T`)
+ *  - gagal   → `RpcError` (`{ ok: false, msg, kind }`) yang eksplisit di tipe
+ * Versi lama mengembalikan `{ ok:false, msg } as T`, sehingga pemanggil yang
+ * mengharap array/objek menerima bentuk salah TANPA error tipe. Pemanggil
+ * bertipe kini WAJIB mempersempit; pemanggil tanpa generic (`T = any`) tidak
+ * terpengaruh sehingga migrasi bisa bertahap (241 call site).
+ */
+function rpcError(fn: string, kind: RpcErrorKind, msg: string): RpcError {
+  console.error(`[RPC] ${kind} on ${fn}: ${msg}`);
+  return { ok: false, msg, kind };
+}
+
 export async function rpc<T = any>(
   fn: string,
   params: Record<string, unknown> = {},
-): Promise<T> {
+): Promise<T | RpcError> {
   const { allowed, retryAfter } = checkRateLimit(fn);
   if (!allowed) {
-    console.error(`[RPC] Rate limited for ${fn}. Retry in ${retryAfter}s`);
-    return { ok: false, msg: `Rate limited. Retry in ${retryAfter}s.` } as T;
+    return rpcError(fn, 'rate_limited', `Rate limited. Retry in ${retryAfter}s.`);
   }
 
   const { data, error } = await supabase.rpc(fn, params);
-  if (error) {
-    console.error(`[RPC] Error calling ${fn}:`, error);
-    return { ok: false, msg: error.message } as T;
+  if (error) return rpcError(fn, 'transport', error.message);
+  // Hanya null/undefined yang dianggap "tidak ada respons". Nilai falsy yang SAH
+  // (mis. `false` dari check_module_access) adalah hasil sukses — versi lama
+  // memakai `data || {...}` sehingga `false` berubah menjadi error palsu.
+  if (data === null || data === undefined) {
+    return rpcError(fn, 'no_response', 'No response');
   }
-  return (data || { ok: false, msg: 'No response' }) as T;
+  return data;
+}
+
+/**
+ * Type guard untuk mempersempit hasil `rpc()`. Sengaja memeriksa `kind` (bukan hanya
+ * `ok: false`) supaya kegagalan TRANSPORT tidak tertukar dengan payload domain yang
+ * memang mengembalikan `{ ok: false, msg }` (mis. kredensial login salah) — payload
+ * seperti itu tetap hasil sukses dari sudut pandang transport.
+ */
+export function isRpcError(x: unknown): x is RpcError {
+  if (typeof x !== 'object' || x === null) return false;
+  const kind = (x as { kind?: unknown }).kind;
+  return (x as { ok?: unknown }).ok === false
+    && (kind === 'rate_limited' || kind === 'transport' || kind === 'no_response');
 }
 
 // ─── Session Management ───────────────────────────────────────

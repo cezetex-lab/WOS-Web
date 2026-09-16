@@ -1,6 +1,6 @@
 // TimesheetPage.jsx — Catatan jam kerja harian
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import { rpc, isRpcError } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
@@ -24,7 +24,7 @@ export default function TimesheetPage() {
     setLoading(true);
     try {
       const result = await rpc<{ data?: TimesheetRow[] }>('admin_get_timesheet');
-      const items = (Array.isArray(result) ? result : result?.data) || [];
+      const items = isRpcError(result) ? [] : (Array.isArray(result) ? result : result?.data) || [];
       setData(items as TimesheetRow[]);
     } catch (e: unknown) { }
     setLoading(false);

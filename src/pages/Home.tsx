@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { rpc, setSession, getSession, supabase, syncSupabaseAuth } from '@/lib/supabase-browser';
 import { callEdgeFunction } from '@/lib/edge-functions';
-import type { RpcResult, LoginWorkerResponse, UserSession } from '@/types';
+import type { UserSession } from '@/types';
 
 // Root-cause fix (audit): worker tidak pernah punya akun Supabase Auth →
 // auth.uid() NULL → authz_current_nrp()/get_enabled_modules() menolak

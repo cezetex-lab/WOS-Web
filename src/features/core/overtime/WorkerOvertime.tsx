@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, requireNrp } from '@/lib/supabase-browser';
+import { supabase, rpc, requireNrp, isRpcError } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Input, Badge, DataTable,
   LoadingSpinner, EmptyState, Tabs, SectionHeader, useToast
@@ -57,7 +57,7 @@ export default function WorkerOvertime() {
     setLoading(true);
     try {
       const result = await rpc<{ data?: OvertimeRow[] }>('get_worker_overtime', { p_nrp: nrp });
-      const items = result?.data || [];
+      const items = isRpcError(result) ? [] : (result?.data ?? []);
       setOvertime(Array.isArray(items) ? items : []);
     } catch (err: unknown) {
       setOvertime([]);

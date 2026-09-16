@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '@/lib/supabase-browser';
+import { supabase, rpc, getSession, isRpcError } from '@/lib/supabase-browser';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, LoadingSpinner, EmptyState, Avatar, Badge, Input, Button
@@ -32,7 +32,7 @@ export default function OrgSubtree() {
     setLoading(true);
     try {
       const result = await rpc<{ data?: OrgNode[] }>('admin_get_org_structure');
-      const items = (Array.isArray(result) ? result : result?.data) || [];
+      const items = isRpcError(result) ? [] : (Array.isArray(result) ? result : result?.data) || [];
       setOrgData(items as OrgNode[]);
     } catch (err: unknown) {
       setOrgData([]);

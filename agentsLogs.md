@@ -18,6 +18,50 @@
 selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat commit lengkap:
 `git log --oneline` (640 commit di semua ref).
 
+## [2026-09-16] Kontrak `rpc()` jujur: kegagalan jadi `RpcError` bertipe, bukan di-cast `as T` (L1 upppp.txt) — DONE
+- Status: DONE
+- Commit: `PENDING_HASH` (deploy: `PENDING_DEPLOY`)
+- Ringkasan:
+  1. **Kontrak baru di satu tempat.** `rpc()` (`src/lib/supabase-browser.ts`) sekarang mengembalikan
+     `Promise<T | RpcError>`: sukses = payload apa adanya, gagal = `RpcError` (`{ ok:false, msg, kind }`)
+     dengan `kind` eksplisit (`rate_limited` | `transport` | `no_response`). Cast `as T` pada jalur
+     gagal DIHAPUS — itulah yang dulu membuat pemanggil menerima bentuk salah tanpa error tipe.
+  2. **Guard `isRpcError()`** ditambahkan dan sengaja memeriksa `kind`, bukan hanya `ok: false`,
+     supaya kegagalan TRANSPORT tidak tertukar dengan payload domain yang memang mengembalikan
+     `{ ok:false, msg }` (mis. kredensial login salah) — payload seperti itu tetap hasil sukses.
+  3. **Bug lama terbongkar:** versi lama memakai `data || { ok:false, ... }`, jadi nilai falsy yang
+     SAH berubah menjadi error palsu (contoh: `check_module_access` mengembalikan `false`). Kini
+     hanya `null`/`undefined` yang dianggap `no_response`.
+  4. **9 pemakai dimigrasikan** (blast radius nyata hanya 16 error tsc, bukan 241 call site, karena
+     pemanggil tanpa generic tetap aman: `any | RpcError` = `any`): `LogoUploader`, `WhistleblowingPage`,
+     `LeaveManagement`, `OrgSubtree`, `WorkerOvertime`, `TimesheetPage`, `AuditChainPage`,
+     `FacilityRequest`, `useModuleAccess` (2 titik). `useModuleAccess` sekarang TIDAK lagi
+     menyebar kegagalan transport menjadi "user context" palsu (`setCtx(null)`).
+  5. **Duplikasi dihapus.** `src/lib/supabase-rpc.ts` ternyata punya SALINAN implementasi `rpc()`
+     dengan bug `as T` yang sama (dan 0 konsumen). Kini ia hanya me-reexport implementasi kanonik
+     + wrappers bertipe `Promise<T | RpcError>` → satu sumber kebenaran (G2).
+- Bukti: `tsc --noEmit` **0 error**; `npm run lint` **0 error** (38 warning, turun dari 41 setelah
+  membuang import sisa di `Home.tsx`); `npm run build` **EXIT 0** (✓ built in 14.16s); unit test
+  **113/113** (15 file) dengan **6 test baru** di `tests/unit/rpc-contract.test.ts` yang mengunci
+  kontrak: payload sukses apa adanya, `false` tidak jadi error palsu, `kind` transport /
+  no_response / rate_limited (panggilan ke-31 TIDAK menembus network), dan `isRpcError()` tidak
+  salah menandai kegagalan domain. E2E Playwright **51 passed / 0 failed / 13 skipped**.
+  CATATAN JUJUR soal E2E: run final butuh 5 retry (46 passed + 5 flaky) dan run `--retries=0`
+  sempat 13 gagal — penyebabnya terkonfirmasi **beban mesin**, bukan logika: 4 dari 5 artefak
+  kegagalan berbunyi `Test timeout of 60000ms exceeded` saat `page.goto` menunggu `load` (satu
+  halaman butuh >60 detik untuk load), dan durasi suite naik 1.8m → 7.0m pada kode yang sama.
+  Pola ini sudah tercatat di log 2026-09-14 ("beban mesin … bukan kegagalan logika").
+- Dampak lintas-page: worker → admin → dashboard → owner — `rpc()` adalah lapisan bersama yang
+  dipanggil **241 kali** di seluruh `src/`, jadi perubahan ini menyentuh keempat page sekaligus.
+  Yang berubah bagi mereka: pemanggil bertipe kini WAJIB mempersempit hasil (worker: `WorkerOvertime`,
+  `WorkerPayroll`; admin: `TimesheetPage`, `LeaveManagement`, `AuditChainPage`, `OrgSubtree`,
+  `LogoUploader`; dashboard/owner: `FacilityRequest`, `useModuleAccess`), sementara pemanggil tanpa
+  generic tidak berubah perilaku. Tidak ada kontrak RPC/menu/route/authz yang diubah. Keempat area
+  ter-smoke ulang via E2E `login-flow`, `role-change`, `drawer-navigation`, `worker-attendance`,
+  `worker-auth-mfa-flow`, `admin-payroll` — semua hijau.
+
+---
+
 ## [2026-09-16] Sesi fail-closed + edge tidak lagi mengembalikan password (S6/S7/L4/S9 upppp.txt) — DONE
 - Status: DONE
 - Commit: `3a537b6` (15 file, +362/−107) — deploy: **frontend** production

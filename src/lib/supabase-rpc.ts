@@ -1,17 +1,21 @@
 /**
- * supabase-rpc.ts — Type-safe RPC wrapper for insightWOS
+ * supabase-rpc.ts — typed wrappers untuk RPC yang sudah dikenal.
  *
- * Drop-in replacement for the untyped `rpc()` in supabase-browser.js.
- * Provides typed overloads for known RPCs + a generic fallback.
+ * Implementasi `rpc()` TIDAK diduplikasi di sini (audit L1). File ini me-reexport
+ * implementasi kanonik dari `supabase-browser` supaya hanya ada SATU kontrak:
+ * sukses mengembalikan payload apa adanya, gagal mengembalikan `RpcError`
+ * (`{ ok: false, msg, kind }`). Sebelumnya file ini punya salinan sendiri yang
+ * mengembalikan `{ ok: false, msg } as T` — jadi perbaikan di satu tempat tidak
+ * berlaku di tempat lain, dan pemanggil bisa menerima bentuk yang salah tanpa
+ * error tipe.
  *
  * Usage:
- *   import { rpc } from '@/lib/supabase-rpc';
- *   const result = await rpc('login_worker_by_email', { p_email: '...', p_password: '...' });
- *   if (result.ok) { /* typed as LoginWorkerByEmailResponse * / }
+ *   import { rpcGetBranding, isRpcError } from '@/lib/supabase-rpc';
+ *   const d = await rpcGetBranding();
+ *   if (isRpcError(d)) return;   // kegagalan transport / rate-limit
  */
 
-import { supabase } from './supabase-browser';
-import { checkRateLimit } from './rate-limiter';
+import { rpc, isRpcError } from './supabase-browser';
 import type {
   LoginWorkerResponse,
   LoginWorkerByEmailResponse,
@@ -28,41 +32,21 @@ import type {
   LeaveQuota,
   LeaveRequest,
   AttendanceRecord,
-  Employee,
+  RpcError,
 } from '@/types';
 
-// ─── Generic RPC ──────────────────────────────────────────────
-
-/**
- * Type-safe RPC call. Use the typed overloads for known functions,
- * or the generic fallback for unknown ones.
- */
-export async function rpc<T = Record<string, unknown>>(
-  fn: string,
-  params: Record<string, unknown> = {},
-): Promise<T> {
-  const { allowed, retryAfter } = checkRateLimit(fn);
-  if (!allowed) {
-    console.error(`[RPC] Rate limited for ${fn}. Retry in ${retryAfter}s`);
-    return { ok: false, msg: `Rate limited. Retry in ${retryAfter}s.` } as T;
-  }
-
-  const { data, error } = await supabase.rpc(fn, params);
-  if (error) {
-    console.error(`[RPC] Error calling ${fn}:`, error);
-    return { ok: false, msg: error.message } as T;
-  }
-  return (data || { ok: false, msg: 'No response' }) as T;
-}
+export { rpc, isRpcError };
 
 // ─── Typed RPC Functions ──────────────────────────────────────
+// Setiap wrapper mengembalikan `T | RpcError` supaya pemanggil WAJIB menangani
+// kegagalan transport — bukan menganggapnya sebagai data.
 
 /** Login worker by NRP+NIK+Password */
 export function rpcLoginWorker(params: {
   p_nrp: string;
   p_nik: string;
   p_password: string;
-}): Promise<LoginWorkerResponse> {
+}): Promise<LoginWorkerResponse | RpcError> {
   return rpc<LoginWorkerResponse>('login_worker', params);
 }
 
@@ -70,66 +54,66 @@ export function rpcLoginWorker(params: {
 export function rpcLoginWorkerByEmail(params: {
   p_email: string;
   p_password: string;
-}): Promise<LoginWorkerByEmailResponse> {
+}): Promise<LoginWorkerByEmailResponse | RpcError> {
   return rpc<LoginWorkerByEmailResponse>('login_worker_by_email', params);
 }
 
 /** Get user context by auth ID */
 export function rpcGetUserContextByAuthId(params: {
   p_auth_id: string;
-}): Promise<UserContext> {
+}): Promise<UserContext | RpcError> {
   return rpc<UserContext>('get_user_context_by_auth_id', params);
 }
 
 /** Get current user context (from JWT) */
-export function rpcGetCurrentUserContext(): Promise<CurrentUserContext> {
+export function rpcGetCurrentUserContext(): Promise<CurrentUserContext | RpcError> {
   return rpc<CurrentUserContext>('get_current_user_context');
 }
 
 /** Get enabled modules for an area */
 export function rpcGetEnabledModules(params: {
   p_area: string;
-}): Promise<ModuleRoute[]> {
+}): Promise<ModuleRoute[] | RpcError> {
   return rpc<ModuleRoute[]>('get_enabled_modules', params);
 }
 
 /** Get branding */
-export function rpcGetBranding(): Promise<Branding> {
+export function rpcGetBranding(): Promise<Branding | RpcError> {
   return rpc<Branding>('get_branding');
 }
 
 /** Get worker status */
-export function rpcGetWorkerStatus(): Promise<WorkerStatus> {
+export function rpcGetWorkerStatus(): Promise<WorkerStatus | RpcError> {
   return rpc<WorkerStatus>('get_worker_status');
 }
 
 /** Get worker narrative */
-export function rpcGetWorkerNarrative(): Promise<WorkerNarrative> {
+export function rpcGetWorkerNarrative(): Promise<WorkerNarrative | RpcError> {
   return rpc<WorkerNarrative>('get_worker_narrative');
 }
 
 /** Get announcements */
-export function rpcGetAnnouncements(): Promise<{ data: Announcement[] }> {
+export function rpcGetAnnouncements(): Promise<{ data: Announcement[] } | RpcError> {
   return rpc<{ data: Announcement[] }>('get_announcements');
 }
 
 /** Get payroll data (admin) */
-export function rpcAdminGetPayroll(): Promise<PayrollRow[]> {
+export function rpcAdminGetPayroll(): Promise<PayrollRow[] | RpcError> {
   return rpc<PayrollRow[]>('admin_get_payroll');
 }
 
 /** Get payroll summary (admin) */
-export function rpcAdminGetPayrollSummary(): Promise<PayrollSummary> {
+export function rpcAdminGetPayrollSummary(): Promise<PayrollSummary | RpcError> {
   return rpc<PayrollSummary>('admin_get_payroll_summary');
 }
 
 /** Get dashboard stats */
-export function rpcGetDashboardStats(): Promise<DashboardStats> {
+export function rpcGetDashboardStats(): Promise<DashboardStats | RpcError> {
   return rpc<DashboardStats>('get_dashboard_stats');
 }
 
 /** Get worker leave quota */
-export function rpcGetWorkerLeave(): Promise<LeaveQuota> {
+export function rpcGetWorkerLeave(): Promise<LeaveQuota | RpcError> {
   return rpc<LeaveQuota>('get_worker_leave');
 }
 
@@ -137,12 +121,12 @@ export function rpcGetWorkerLeave(): Promise<LeaveQuota> {
 export function rpcGetWorkerRequests(): Promise<{
   ok: boolean;
   data: LeaveRequest[];
-}> {
+} | RpcError> {
   return rpc<{ ok: boolean; data: LeaveRequest[] }>('get_worker_requests');
 }
 
 /** Get worker attendance */
-export function rpcGetWorkerAttendance(): Promise<AttendanceRecord[]> {
+export function rpcGetWorkerAttendance(): Promise<AttendanceRecord[] | RpcError> {
   return rpc<AttendanceRecord[]>('get_worker_attendance');
 }
 
@@ -150,13 +134,13 @@ export function rpcGetWorkerAttendance(): Promise<AttendanceRecord[]> {
 export function rpcCheckLoginLockout(params: {
   p_identifier: string;
   p_attempt_type: string;
-}): Promise<{ locked: boolean; reason?: string }> {
+}): Promise<{ locked: boolean; reason?: string } | RpcError> {
   return rpc<{ locked: boolean; reason?: string }>('check_login_lockout', params);
 }
 
 /** Register session */
 export function rpcRegisterSession(params: {
   p_session_id: string;
-}): Promise<{ ok: boolean }> {
+}): Promise<{ ok: boolean } | RpcError> {
   return rpc<{ ok: boolean }>('register_session', params);
 }

@@ -1,6 +1,6 @@
 // AuditChainPage.jsx — Rantai audit transparan (hash-chain)
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import { rpc, isRpcError } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
@@ -23,7 +23,7 @@ export default function AuditChainPage() {
     setLoading(true);
     try {
       const result = await rpc<{ data?: AuditRow[] }>('admin_get_audit_chain');
-      const items = (Array.isArray(result) ? result : result?.data) || [];
+      const items = isRpcError(result) ? [] : (Array.isArray(result) ? result : result?.data) || [];
       setData(items as AuditRow[]);
     } catch (e: unknown) { }
     setLoading(false);
