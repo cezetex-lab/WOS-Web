@@ -200,25 +200,22 @@ Kolom yang butuh UI form:
 > sudah dicek ulang langsung ke kode live — bukan mengutip laporan. ✅ = sudah beres & terverifikasi;
 > `[ ]` = masih OPEN (belum dikerjakan).
 >
-> **CATATAN PROSES PENTING:** perbaikan audit 2026-09-16 (CSP, RoleGuard fail-closed,
-> `requireNrp`) **masih UNCOMMITTED (±22 file di working tree) dan BELUM di-deploy** — jadi
-> statusnya PARTIAL, bukan DONE (lihat §7.3). Sebelum commit, tree ini SEMPAT rusak:
-> `tsc --noEmit` = **7 error** (`requireNrp` dipanggil tanpa import di 5 file + `React` UMD di
-> `src/main.tsx`). Sudah diperbaiki di sesi yang sama → `tsc` 0 error, lint 0 error, build EXIT 0.
+> **STATUS PROSES:** perbaikan audit 2026-09-16 (CSP, RoleGuard fail-closed, `requireNrp`) sudah
+> **COMMIT `81a5bf5` → PUSH → DEPLOY production** (`insightwos-lo3gcmyg9` ● Ready, alias HTTP 200,
+> CSP prod + 0 inline script terverifikasi live) — bukti lengkap di `agentsLogs.md` entri
+> `[2026-09-16] Cross-check audit`. Sebelum commit, tree ini SEMPAT rusak: `tsc --noEmit` =
+> **7 error** (`requireNrp` dipanggil tanpa import di 5 file + `React` UMD di `src/main.tsx`);
+> sudah diperbaiki → `tsc` 0 error, lint 0 error, build EXIT 0.
 
-### ✅ Sudah dikerjakan (terbukti live)
+### ✅ Sudah dikerjakan → DIPINDAH ke `agentsLogs.md` (aturan §0.4)
 
-| ID | Temuan | Bukti verifikasi |
-|---|---|---|
-| S1 | CSP `script-src` `unsafe-inline` + `unsafe-eval` | `script-src 'self' https://*.posthog.com`; 0 `unsafe-eval`; 2 inline script `index.html` → modul TS `src/lib/error-suppressor.ts` + `src/lib/register-sw.ts` (dimuat `src/main.tsx`) |
-| S2 | CSP `img-src https:` (wildcard) | `img-src 'self' data: blob: https://verwobaejumvpagwynae.supabase.co` |
-| S3 | `connect-src` vercel.com + fonts.googleapis.com | keduanya hilang; font tetap di `style-src`/`font-src` |
-| S5 | Tidak ada meta CSP | Info/OK — CSP lewat header `vercel.json` (header tidak berlaku di dev lokal) |
-| S8 | RoleGuard `allowedRoles` kosong = buka semua | fail-closed: `length === 0` → tolak + `console.error` (`src/components/RoleGuard.tsx`) |
-| S10 | Rate-limit server-side di path login | `check_login_lockout` benar-benar dipanggil (`Home.tsx` worker + admin); edge `password-reset` pakai RPC `hit_rate_limit` (migration 193); `rate-limiter.ts` client = friksi UX saja (dokumentasinya sudah benar) |
-| — | Identitas hardcoded `'NRP001'` | 0 pemakaian di `src/` (sisa 1 komentar di `supabase-browser.ts`); semua lewat `requireNrp()` / `requireSession()` |
-| U4 | Tabel ad-hoc per page | `DataTable` bersama sudah dipakai ≥10 page (AdminAttendance, Timesheet, Career*, Learning, VoiceIdeas, Whistleblowing, TrainingForm, …) — sisa: tabel dengan definisi kolom masih inline |
-| — | Gate TypeScript | `tsc --noEmit` **0 error**, `npm run lint` **0 error**, `npm run build` **EXIT 0** (diukur ulang sesi ini) |
+> Temuan yang sudah beres beserta bukti & commit-nya ada di entri log
+> **`[2026-09-16] Cross-check audit Readme/upppp.txt`** (commit `81a5bf5`):
+> S1 (`script-src` tanpa `unsafe-inline`/`unsafe-eval`, inline script → modul TS), S2 (`img-src`
+> eksplisit), S3 (`connect-src` vercel/fonts dibuang), S5, S8 (RoleGuard fail-closed),
+> S10 (`check_login_lockout` + `hit_rate_limit` server-side), `'NRP001'` hardcoded = 0 di `src/`,
+> U4 (`DataTable` bersama ≥10 page), gate `tsc`/lint/build hijau.
+> Yang tersisa (masih OPEN) ada di daftar di bawah — jangan dihapus dari file ini sampai selesai.
 
 ### [ ] OPEN — P1 (keamanan / benar-salah)
 
@@ -360,7 +357,7 @@ Layer 3: DB-level (authz functions)
 | GAS Migration | ✅ DONE | 154-168 | Google Apps Script → Supabase |
 | Cleanup | ✅ DONE | 191-220 | Dead forms, REVOKE, search_path, versioning |
 | TypeScript | ✅ DONE | — | 188 file TS total (154 `src` + 28 `tests` + 6 config), 0 tsc errors — `tsconfig` mencakup `src`+`tests`+`*.config.ts`, `allowJs: false` |
-| Audit 2026-09-16 | 🟡 PARTIAL (uncommitted, belum deploy — rincian & sisa OPEN di §5.6) | — | Ringkasan: helper `requireNrp()`/`requireSession` di `src/lib/supabase-browser.ts` menggantikan fallback `'NRP001'` di 13 komponen; RoleGuard fail-closed (allowedRoles=0 ditolak); CSP `script-src` ditarik `unsafe-inline`/`unsafe-eval` via modul TS (error-suppressor & SW register); index.html inline script dipindah ke `src/main.tsx`; `vercel.json` CSP diperbaiki (`unsafe-eval` + `img-src https:` wildcard dibuang; entri `connect-src alive-robin` **sengaja dipertahankan** sesuai §5.5) — ⚠ file-file ini masih UNCOMMITTED; `tsc` sempat 7 error (import `requireNrp` hilang di 5 file + `React` UMD di `main.tsx`), sudah diperbaiki → tsc 0 error; sinkronisasi `areaFromPath`/`menu-builder`; 12 file `format.ts` dibersihkan komentar histori; build EXIT 0, lint 0 error, tsc 0 error, E2E 51/51 hijau. Detail: hardcode identitas `|| 'NRP001'` dihapus dari Worker.tsx, ForumDiskusi, TrainingForm, WorkerOvertime, CompensationIntel, WorkerPayroll, WorkerProfile, ContinuousPerf, PerformanceTrend, WorkerKpi, WorkerCareer, WorkerActivities. Branding FreeBuff sudah bersih di UI aktif. Komentar histori/banner dikompaktankan (jaga RoleGuard/DynamicRoutes/vite.config). Dampak lintas-page: worker→admin→dashboard→owner — semua component identitas sekarang melalui layer bersama, tidak ada patch per-page. |
+| Audit 2026-09-16 | ✅ DONE (`81a5bf5`, deployed — sisa OPEN audit di §5.6) | — | Ringkasan: helper `requireNrp()`/`requireSession` di `src/lib/supabase-browser.ts` menggantikan fallback `'NRP001'` di 13 komponen; RoleGuard fail-closed (allowedRoles=0 ditolak); CSP `script-src` ditarik `unsafe-inline`/`unsafe-eval` via modul TS (error-suppressor & SW register); index.html inline script dipindah ke `src/main.tsx`; `vercel.json` CSP diperbaiki (`unsafe-eval` + `img-src https:` wildcard dibuang; entri `connect-src alive-robin` **sengaja dipertahankan** sesuai §5.5) — ⚠ file-file ini masih UNCOMMITTED; `tsc` sempat 7 error (import `requireNrp` hilang di 5 file + `React` UMD di `main.tsx`), sudah diperbaiki → tsc 0 error. COMMIT `81a5bf5` → push → deploy production `insightwos-lo3gcmyg9` ● Ready (alias HTTP 200; CSP prod + 0 inline script terverifikasi via curl); sinkronisasi `areaFromPath`/`menu-builder`; 12 file `format.ts` dibersihkan komentar histori; build EXIT 0, lint 0 error, tsc 0 error, E2E 51/51 hijau. Detail: hardcode identitas `|| 'NRP001'` dihapus dari Worker.tsx, ForumDiskusi, TrainingForm, WorkerOvertime, CompensationIntel, WorkerPayroll, WorkerProfile, ContinuousPerf, PerformanceTrend, WorkerKpi, WorkerCareer, WorkerActivities. Branding FreeBuff sudah bersih di UI aktif. Komentar histori/banner dikompaktankan (jaga RoleGuard/DynamicRoutes/vite.config). Dampak lintas-page: worker→admin→dashboard→owner — semua component identitas sekarang melalui layer bersama, tidak ada patch per-page. |
 
 ### 7.4 Database Status (Live)
 
