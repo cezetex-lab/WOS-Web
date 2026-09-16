@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, getSession } from '@/lib/supabase-browser';
+import { isAdminRole } from '@/lib/role-utils';
 import {
   PageLayout, GlassCard, Button, Badge, LoadingSpinner,
   EmptyState, Input, Divider
@@ -136,7 +137,7 @@ export default function PerformanceNotes() {
       {showAdd && (
         <Modal onClose={() => setShowAdd(false)} title="➕ Tambah Catatan Kinerja">
           <div className="space-y-3">
-            {role === 'admin' || role === 'manager' ? (
+            {isAdminRole(role) || role === 'manager' ? (
               <Input label="Target NRP" value={targetNrp} onChange={setTargetNrp} placeholder="NRP karyawan (kosongkan untuk diri sendiri)" />
             ) : null}
             

@@ -35,6 +35,17 @@ export function getPeriodLabel(period: string): string {
 }
 
 /**
+ * Parse a date-only string ('yyyy-mm-dd') as LOCAL date, not UTC.
+ * `new Date('2026-09-16')` = UTC midnight = WIB 07:00 (same day OK) but
+ * `new Date('2026-09-15')` in WIB after midnight = UTC Sep 14 17:00 → wrong day.
+ * This function always returns the correct local calendar date.
+ */
+export function parseDateOnly(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/**
  * N periode terakhir (terbaru dulu) untuk filter dropdown.
  * @param count - number of periods to return
  * @returns Array<{id: string, label: string}> id 'YYYY-MM', label 'Sep 2026'

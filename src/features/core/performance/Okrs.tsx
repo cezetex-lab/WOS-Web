@@ -11,6 +11,7 @@ import {
   EmptyState, Tabs, Input, StatItem, Divider
 } from '@/lib/design-system';
 import { getCurrentPeriod } from '@/lib/format';
+import { isAdminRole } from '@/lib/role-utils';
 
 interface ModalProps {
   onClose: () => void;
@@ -73,7 +74,7 @@ export default function Okrs() {
     } catch (e) { }
   }, []);
 
-  useEffect(() => { fetchMyOkrs(); if (role === 'admin') fetchAdminOkrs(); }, [fetchMyOkrs, fetchAdminOkrs, role]);
+  useEffect(() => { fetchMyOkrs(); if (isAdminRole(role)) fetchAdminOkrs(); }, [fetchMyOkrs, fetchAdminOkrs, role]);
 
   const createOkr = async () => {
     if (!newObjective.trim()) return;
@@ -105,7 +106,7 @@ export default function Okrs() {
 
   const removeKr = (idx: number) => setKrList(krList.filter((_: { kr: string; target: string; unit: string }, i: number) => i !== idx));
 
-  const tabs = role === 'admin'
+  const tabs = isAdminRole(role)
     ? [{ id: 'my', label: '🎯 OKR Saya' }, { id: 'all', label: '📊 Semua OKR' }]
     : [{ id: 'my', label: '🎯 OKR Saya' }];
 

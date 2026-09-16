@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, getSession, rpc } from '@/lib/supabase-browser';
+import { parseDateOnly } from '@/lib/format';
 import {
   PageLayout, MetricCard, GlassCard, Badge, LoadingSpinner, EmptyState, Button
 } from '@/lib/design-system';
@@ -45,7 +46,7 @@ export default function WorkerAttendance() {
   // ── FILTER BY MONTH ──
   const monthRecords = records.filter(r => {
     if (!r.date) return false;
-    const d = new Date(r.date);
+    const d = parseDateOnly(r.date);
     return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
   });
 
@@ -170,7 +171,7 @@ export default function WorkerAttendance() {
                       <Badge status={rec.shift || '-'} type="info" />
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      {rec.date ? new Date(rec.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' }) : '-'}
+                      {rec.date ? parseDateOnly(rec.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' }) : '-'}
                     </p>
                   </div>
                   <div className="text-right">

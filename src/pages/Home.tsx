@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { rpc, setSession, getSession, supabase, syncSupabaseAuth } from '@/lib/supabase-browser';
 import { callEdgeFunction } from '@/lib/edge-functions';
+import { isAdminRole } from '@/lib/role-utils';
 import type { UserSession } from '@/types';
 
 // Root-cause fix (audit): worker tidak pernah punya akun Supabase Auth →
@@ -108,7 +109,7 @@ export default function Home() {
     const user = getSession();
     if (user) {
       const r = user.role || 'worker';
-      if (r.startsWith('admin_') || r === 'admin') window.location.href = '/admin';
+      if (isAdminRole(r)) window.location.href = '/admin';
       else if (r === 'manager') window.location.href = '/dashboard';
       else window.location.href = '/worker';
     }

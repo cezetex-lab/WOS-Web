@@ -242,17 +242,8 @@ Kolom yang butuh UI form:
 
 ### [ ] OPEN — P2 (kualitas / utang teknis)
 
-- [ ] **L2 / U6 tanggal date-only.** `new Date('yyyy-mm-dd')` di-parse sebagai UTC → di WIB bisa
-      tampil H-1 (attendance/training). Belum ada `parseDateOnly()` / `formatDateId()` di `src/lib/format.ts`.
-- [ ] **L3 role compare case-sensitive & campur gaya.** `role === 'admin'` TIDAK pernah match
-      (role asli `admin_pusat` dst.) di ≥10 file: `SurveyPage.tsx:61,66,99`, `Okrs.tsx:76,108`,
-      `PerformanceNotes.tsx:139`, `VoiceIdeasPage.tsx:12`, `WhistleblowingPage.tsx:22`,
-      `ReferralPage.tsx:12`, `BadgesPage.tsx:20` — bandingkan dengan `role.startsWith('admin_')`.
-      Belum ada helper bersama `isAdminRole()` (lapisan bersama, bukan patch per-page — G2).
 - [ ] **U2 / L5 hook `useRpcQuery`.** Belum ada; fetch per-page `setLoading/try/catch` masih tersebar
       (rawan setState-after-unmount & duplikasi). Satukan jadi satu hook bersama.
-- [ ] **L6 label kolom dari key.** `DetailPageFactory.tsx:155,351` `key.replace(/_/g, ' ')` →
-      kalau RPC ganti nama kolom, UI diam-diam menampilkan `-` tanpa error tipe. Ikat ke interface RPC (`src/types/index.ts`).
 - [ ] **L7 provisioning gagal senyap.** `Home.tsx:28` hanya `console.warn` → user tidak tahu
       provisioning auth gagal. Perlu surface minimal (toast/error UI).
 - [ ] **U1 Zod = dead code.** `src/lib/validation/schemas.ts` hanya meng-import `zod` untuk dirinya
@@ -261,9 +252,6 @@ Kolom yang butuh UI form:
 - [ ] **U3 / U5 wrapper error + token Tailwind.** Belum ada wrapper RPC dengan toast global
       (design-system `useToast` sudah ada); class Tailwind berulang (`text-[11px]`, `text-slate-500`)
       belum diformalkan jadi token/util (ChatCopilot 10×, ForumDiskusi 6×, WorkerAttendance 5×, …).
-- [ ] **S11 hardening DOMPurify.** Satu-satunya `dangerouslySetInnerHTML` (`ChatCopilot.tsx:27`)
-      sudah di-sanitize, tapi belum `ALLOWED_TAGS` ketat (bold/br) + config eksplisit → defense-in-depth
-      karena input berasal dari output LLM.
 - [ ] **Cleanup komentar historis.** `Home.tsx` 49 baris komentar; sweep `Kpi.tsx` (20),
       `Payroll.tsx` (19), `Employees.tsx` (18), `DetailPageFactory.tsx` (27), `AppDrawer.tsx` (25)
       → ringkas jadi ADR singkat / pindah ke `agentsLogs.md`.

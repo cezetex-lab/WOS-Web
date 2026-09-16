@@ -3,13 +3,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, Tabs, Input } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
+import { isAdminRole } from '@/lib/role-utils';
 
 export default function VoiceIdeasPage() {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   const session = getSession();
   const role = session?.role || 'worker';
   const nrp = session?.nrp || '';
-  const isAdmin = role.startsWith('admin_') || role === 'admin';
+  const isAdmin = isAdminRole(role);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<Record<string, unknown>[]>([]);

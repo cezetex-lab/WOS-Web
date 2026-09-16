@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, getSession } from '@/lib/supabase-browser';
+import { isAdminRole } from '@/lib/role-utils';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Badge, LoadingSpinner,
@@ -58,12 +59,12 @@ export default function SurveyPage() {
   const [score, setScore] = useState(7);
   const [submitting, setSubmitting] = useState(false);
   const [results, setResults] = useState<Record<string, any> | null>(null);
-  const [tab, setTab] = useState(role === 'admin' ? 'results' : 'list');
+  const [tab, setTab] = useState(isAdminRole(role) ? 'results' : 'list');
 
   const fetchSurveys = useCallback(async () => {
     setLoading(true);
     try {
-      const fn = role === 'admin' ? 'admin_get_surveys' : 'get_active_surveys';
+      const fn = isAdminRole(role) ? 'admin_get_surveys' : 'get_active_surveys';
       const { data } = await supabase.rpc(fn);
       if (data?.ok) setSurveys(data.data || []);
     } catch (e) { }
@@ -96,7 +97,7 @@ export default function SurveyPage() {
     setSubmitting(false);
   };
 
-  const tabs = role === 'admin'
+  const tabs = isAdminRole(role)
     ? [{ id: 'list', label: '📋 Survei' }, { id: 'results', label: '📊 Hasil & eNPS' }]
     : [{ id: 'list', label: '📋 Survei Tersedia' }];
 

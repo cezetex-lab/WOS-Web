@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
+import { isAdminRole } from '@/lib/role-utils';
 
 /** Extract array from RPC result (handles both direct array and {data: []} shape) */
 function toArray(result: unknown): Record<string, unknown>[] {
@@ -17,7 +18,7 @@ export default function BadgesPage() {
   const session = getSession();
   const role = session?.role || 'worker';
   const nrp = session?.nrp || '';
-  const isAdmin = role.startsWith('admin_') || role === 'admin';
+  const isAdmin = isAdminRole(role);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<Record<string, unknown>[]>([]);

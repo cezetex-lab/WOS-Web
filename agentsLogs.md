@@ -797,3 +797,28 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   - unit tests: 15/15 files, 113/113 tests pass ✅
   - Deploy: Vercel production ready, alias HTTP 200 ✅
 - Dampak lintas-page: worker → admin → dashboard → owner — tidak terdampak. Perubahan bersifat lintas-file (semua page), tapi hanya menghapus log output tanpa mengubah alur kontrol atau state management. `eslint-disable` hanya pada guard fail-closed yang sudah terisolasi.
+
+## [2026-09-16] Batch audit fix: S11 DOMPurify + L3 isAdminRole + L6 columnLabel + L2/U6 parseDateOnly — DONE
+- Status: DONE
+- Commit: `a738139` (16 files, +170/−31) — deploy: production `insightwos-pc6u0n7a3` ● Ready
+  (alias https://insightwos.vercel.app HTTP 200). Frontend-only — no edge changes.
+- Ringkasan:
+  1. **S11 — DOMPurify hardening** (`ChatCopilot.tsx`): `PURIFY_CONFIG` konstan dengan
+     `ALLOWED_TAGS: ['strong','em','pre','code','li','br']`, `ALLOWED_ATTR: ['class']`,
+     `ALLOW_DATA_ATTR: false`. Defense-in-depth untuk input LLM.
+  2. **L3 — Shared `isAdminRole()`** (`src/lib/role-utils.ts`): helper `isAdminRole(role)` =
+     `role.startsWith('admin_') || role === 'admin'`. 9 file dimigrasikan: SurveyPage (3 site),
+     Okrs (2), PerformanceNotes (1, dengan `|| role === 'manager'`), VoiceIdeasPage,
+     WhistleblowingPage, ReferralPage, BadgesPage, CertificationsPage, Home.tsx. Pattern A
+     (broken `role === 'admin'`) dan Pattern B (verbose `startsWith`) disatukan.
+  3. **L6 — Typed column labels** (`DetailPageFactory.tsx`): `COLUMN_LABEL_MAP` (~80 entries)
+     + `columnLabel(key)` helper — fall back ke auto-title-case untuk key tidak dikenal. 2 site
+     diganti (table header + detail modal).
+  4. **L2/U6 — `parseDateOnly()`** (`src/lib/format.ts`): `new Date(y, m-1, d)` untuk
+     local date parsing, mencegah drift H-1 di WIB. `WorkerAttendance.tsx` 2 site diganti
+     (filter bulan + display tanggal). ForumDiskusi/OwnerDashboard pakai datetime → out of scope.
+- Bukti: `tsc --noEmit` 0 error; `npm run lint` 0 error (14 warning); `npm run build` EXIT 0;
+  unit test 113/113 (15 file).
+- Dampak lintas-page: worker → admin → dashboard → owner — Tidak terdampak secara visual;
+  S11 di ChatCopilot (chat widget), L3 memperbaiki role check yang sebelumnya broken untuk
+  `admin_*` di 9 halaman, L6 hanya kosmetik label kolom, L2/U6 hanya tanggal display.

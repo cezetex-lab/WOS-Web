@@ -89,6 +89,90 @@ export const WORKER_PAGE_CONFIGS: Record<string, PageConfig> = {
 };
 
 // ──────────────────────────────────────────────────────────────
+// COLUMN LABEL MAP — human-readable labels for RPC keys
+// ──────────────────────────────────────────────────────────────
+const COLUMN_LABEL_MAP: Record<string, string> = {
+  nrp: 'NRP',
+  nama: 'Nama',
+  name: 'Name',
+  title: 'Judul',
+  type: 'Tipe',
+  status: 'Status',
+  divisi: 'Divisi',
+  division: 'Division',
+  jabatan: 'Jabatan',
+  position: 'Position',
+  created_at: 'Tanggal Dibuat',
+  date: 'Tanggal',
+  description: 'Deskripsi',
+  category: 'Kategori',
+  severity: 'Tingkat',
+  period: 'Periode',
+  score: 'Skor',
+  target: 'Target',
+  actual: 'Aktual',
+  achievement: 'Pencapaian',
+  amount: 'Jumlah',
+  total: 'Total',
+  unit: 'Satuan',
+  nip: 'NIP',
+  email: 'Email',
+  phone: 'Telepon',
+  location: 'Lokasi',
+  department: 'Department',
+  manager: 'Manager',
+  start_date: 'Tanggal Mulai',
+  end_date: 'Tanggal Selesai',
+  due_date: 'Batas Waktu',
+  updated_at: 'Terakhir Diubah',
+  approved_by: 'Disetujui Oleh',
+  rejected_by: 'Ditolak Oleh',
+  notes: 'Catatan',
+  reason: 'Alasan',
+  result: 'Hasil',
+  feedback: 'Umpan Balik',
+  priority: 'Prioritas',
+  progress: 'Progres',
+  count: 'Jumlah',
+  hours: 'Jam',
+  days: 'Hari',
+  level: 'Level',
+  point: 'Poin',
+  score_name: 'Nama Skor',
+  skill_name: 'Skill',
+  certificate_name: 'Sertifikasi',
+  expiry_date: 'Tanggal Kadaluarsa',
+  issued_by: 'Diterbitkan Oleh',
+  badge_name: 'Badge',
+  badge_type: 'Tipe Badge',
+  points: 'Poin',
+  tool_name: 'Nama Alat',
+  assignee: 'Penerima',
+  assigned_at: 'Tanggal Penugasan',
+  returned_at: 'Tanggal Pengembalian',
+  block_id: 'Blok',
+  facility_type: 'Tipe Fasilitas',
+  reported_by: 'Dilaporkan Oleh',
+  assigned_to: 'Ditugaskan Ke',
+  employee_name: 'Nama Karyawan',
+  company: 'Perusahaan',
+  product: 'Produk',
+  value: 'Nilai',
+  budget: 'Anggaran',
+  spent: 'Terpakai',
+  remaining: 'Sisa',
+  module_name: 'Modul',
+  is_enabled: 'Aktif',
+  feature_name: 'Fitur',
+  enabled: 'Aktif',
+};
+
+/** Map a snake_case RPC key to a human-readable label. Falls back to capitalised words. */
+function columnLabel(key: string): string {
+  return COLUMN_LABEL_MAP[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ──────────────────────────────────────────────────────────────
 // DETAIL PAGE COMPONENT
 // ═════════════════════════════════════════════════════════════
 // ============================================================
@@ -152,7 +236,7 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }: DetailPag
 
     return sorted.slice(0, 6).map(key => ({
       key,
-      label: key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      label: columnLabel(key),
       render: (val: unknown) => {
         if (val == null || val === '') return <span className="text-slate-500">-</span>;
         if (typeof val === 'boolean') return <Badge status={val ? 'Ya' : 'Tidak'} type={val ? 'success' : 'default'} />;
@@ -348,7 +432,7 @@ function DetailModal({ data, title, onClose, hasActions, onApprove, onReject }: 
           <div className="space-y-1 mb-5">
             {Object.entries(data).filter(([k]) => !k.startsWith('_') && k !== 'id').map(([key, val]) => (
               <div key={key} className="flex items-center justify-between py-2 border-b border-white/3">
-                <span className="text-xs text-slate-400 capitalize">{key.replace(/_/g, ' ')}</span>
+                <span className="text-xs text-slate-400 capitalize">{columnLabel(key)}</span>
                 <span className="text-xs font-semibold text-white text-right max-w-[60%] break-words">
                   {val == null ? '-' : typeof val === 'boolean' ? (val ? 'Ya' : 'Tidak') : String(val)}
                 </span>

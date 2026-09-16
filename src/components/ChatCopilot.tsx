@@ -3,7 +3,7 @@ interface ChatCopilotProps { open?: boolean; onClose?: () => void; context?: str
 // ChatCopilot.jsx — AI Copilot Chat UI (DOMPurify, role-isolated, DB data list)
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { callEdgeFunction } from '@/lib/edge-functions';
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config as PurifyConfig } from 'dompurify';
 
 function askCopilot(message: string, conversationHistory: Array<{ role: string; content: string }> = [], context = 'general') {
   return callEdgeFunction(
@@ -13,10 +13,18 @@ function askCopilot(message: string, conversationHistory: Array<{ role: string; 
   );
 }
 
+// DOMPurify config: explicit allowlist for defense-in-depth against LLM output.
+// Only tags/attrs actually produced by renderMessage's markdown→HTML conversion.
+const PURIFY_CONFIG: PurifyConfig = {
+  ALLOWED_TAGS: ['strong', 'em', 'pre', 'code', 'li', 'br'],
+  ALLOWED_ATTR: ['class'],
+  ALLOW_DATA_ATTR: false,
+};
+
 // Safe HTML renderer — DOMPurify sanitizes all output
 function renderMessage(text: string): string {
   if (!text) return '';
-  let html = text
+  const html = text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/```([\s\S]*?)```/g, '<pre class="bg-slate-900/60 rounded-lg p-3 my-2 text-xs overflow-x-auto font-mono text-emerald-400"><code>$1</code></pre>')
@@ -24,7 +32,7 @@ function renderMessage(text: string): string {
     .replace(/^- (.*$)/gm, '<li class="ml-4 list-disc text-slate-300">$1</li>')
     .replace(/^(\d+)\. (.*$)/gm, '<li class="ml-4 list-decimal text-slate-300">$2</li>')
     .replace(/\n/g, '<br/>');
-  return DOMPurify.sanitize(html);
+  return DOMPurify.sanitize(html, PURIFY_CONFIG);
 }
 
 function TypingIndicator() {
