@@ -5,7 +5,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, rpc, requireNrp } from '@/lib/supabase-browser';
+import { requireNrp } from '@/lib/supabase-browser';
+import { rpcGetWorkerProfile, rpcWorkerUpdateProfile, isRpcError } from '@/lib/supabase-rpc';
 import {
   PageLayout, GlassCard, Button, Input, Badge, Avatar,
   LoadingSpinner, StatItem, SectionHeader, useToast
@@ -32,6 +33,20 @@ interface WorkerProfileData {
   birth_date?: string;
   jenis_kelamin?: string;
   atasan_nrp?: string;
+  agama?: string;
+  media_sosial?: string | Record<string, any>;
+  jenjang_pendidikan?: string;
+  no_bpjs_kesehatan?: string;
+  no_bpjs_ketenagakerjaan?: string;
+  riwayat_penyakit?: string;
+  komorbid?: string;
+  alergi?: string;
+  nama_bank?: string;
+  no_rekening?: string;
+  nama_rekening?: string;
+  lokasi_penempatan?: string;
+  updated_by?: string;
+  status_kerja_internal?: string;
   [key: string]: unknown;
 }
 
@@ -40,6 +55,18 @@ interface ProfileForm {
   alamat: string;
   email: string;
   tanggal_lahir: string;
+  agama: string;
+  media_sosial: string;
+  jenjang_pendidikan: string;
+  no_bpjs_kesehatan: string;
+  no_bpjs_ketenagakerjaan: string;
+  riwayat_penyakit: string;
+  komorbid: string;
+  alergi: string;
+  nama_bank: string;
+  no_rekening: string;
+  nama_rekening: string;
+  lokasi_penempatan: string;
   [key: string]: string;
 }
 
@@ -52,24 +79,60 @@ export default function WorkerProfile() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<WorkerProfileData | null>(null);
-  const [form, setForm] = useState<ProfileForm>({ no_hp: '', alamat: '', email: '', tanggal_lahir: '' });
+  const [form, setForm] = useState<ProfileForm>({
+    no_hp: '',
+    alamat: '',
+    email: '',
+    tanggal_lahir: '',
+    agama: '',
+    media_sosial: '',
+    jenjang_pendidikan: '',
+    no_bpjs_kesehatan: '',
+    no_bpjs_ketenagakerjaan: '',
+    riwayat_penyakit: '',
+    komorbid: '',
+    alergi: '',
+    nama_bank: '',
+    no_rekening: '',
+    nama_rekening: '',
+    lokasi_penempatan: '',
+  });
 
   // ── FETCH PROFILE ──
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await rpc('get_worker_profile', { p_nrp: nrp });
-      const p = (result?.data || result || {}) as WorkerProfileData;
+      const result = await rpcGetWorkerProfile({ p_nrp: nrp });
+      if (isRpcError(result)) {
+        toast.error(result.msg || 'Gagal memuat profil');
+        setLoading(false);
+        return;
+      }
+      const p = (result?.data || {}) as WorkerProfileData;
       setProfile(p);
       setForm({
         no_hp: p.no_hp || p.phone || '',
         alamat: p.alamat || p.address || '',
         email: p.email || '',
         tanggal_lahir: p.tanggal_lahir || p.birth_date || '',
+        agama: (p.agama as string) || '',
+        media_sosial: typeof p.media_sosial === 'string' ? (p.media_sosial as string) : '',
+        jenjang_pendidikan: (p.jenjang_pendidikan as string) || '',
+        no_bpjs_kesehatan: (p.no_bpjs_kesehatan as string) || '',
+        no_bpjs_ketenagakerjaan: (p.no_bpjs_ketenagakerjaan as string) || '',
+        riwayat_penyakit: (p.riwayat_penyakit as string) || '',
+        komorbid: (p.komorbid as string) || '',
+        alergi: (p.alergi as string) || '',
+        nama_bank: (p.nama_bank as string) || '',
+        no_rekening: (p.no_rekening as string) || '',
+        nama_rekening: (p.nama_rekening as string) || '',
+        lokasi_penempatan: (p.lokasi_penempatan as string) || '',
       });
-    } catch (err) { }
+    } catch (err) {
+      toast.error('Gagal memuat profil');
+    }
     setLoading(false);
-  }, [nrp]);
+  }, [nrp, toast]);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
@@ -77,11 +140,28 @@ export default function WorkerProfile() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await rpc('worker_update_profile', {
+      const result = await rpcWorkerUpdateProfile({
         p_nrp: nrp,
-        p_no_hp: form.no_hp,
-        p_alamat: form.alamat,
+        p_no_hp: form.no_hp || null,
+        p_alamat: form.alamat || null,
+        p_agama: form.agama || null,
+        p_media_sosial: form.media_sosial || null,
+        p_jenjang_pendidikan: form.jenjang_pendidikan || null,
+        p_no_bpjs_kesehatan: form.no_bpjs_kesehatan || null,
+        p_no_bpjs_ketenagakerjaan: form.no_bpjs_ketenagakerjaan || null,
+        p_riwayat_penyakit: form.riwayat_penyakit || null,
+        p_komorbid: form.komorbid || null,
+        p_alergi: form.alergi || null,
+        p_nama_bank: form.nama_bank || null,
+        p_no_rekening: form.no_rekening || null,
+        p_nama_rekening: form.nama_rekening || null,
+        p_lokasi_penempatan: form.lokasi_penempatan || null,
       });
+      if (isRpcError(result)) {
+        toast.error(result.msg || 'Gagal memperbarui profil');
+        setSaving(false);
+        return;
+      }
       toast.success('Profil berhasil diperbarui!');
       setEditing(false);
       fetchProfile();
@@ -116,6 +196,18 @@ export default function WorkerProfile() {
     { label: 'Tanggal Lahir', value: p.tanggal_lahir || '-', icon: '🎂', editable: true, key: 'tanggal_lahir' },
     { label: 'Jenis Kelamin', value: p.jenis_kelamin || '-', icon: '⚧' },
     { label: 'Alamat', value: p.alamat || '-', icon: '📍', editable: true, key: 'alamat', wide: true },
+    { label: 'Agama', value: p.agama || '-', icon: '🕌', editable: true, key: 'agama' },
+    { label: 'Media Sosial', value: typeof p.media_sosial === 'string' ? (p.media_sosial as string) : '-', icon: '🌐', editable: true, key: 'media_sosial' },
+    { label: 'Pendidikan', value: p.jenjang_pendidikan || '-', icon: '🎓', editable: true, key: 'jenjang_pendidikan' },
+    { label: 'BPJS Kesehatan', value: p.no_bpjs_kesehatan || '-', icon: '🏥', editable: true, key: 'no_bpjs_kesehatan' },
+    { label: 'BPJS Ketenagakerjaan', value: p.no_bpjs_ketenagakerjaan || '-', icon: '🛡️', editable: true, key: 'no_bpjs_ketenagakerjaan' },
+    { label: 'Riwayat Penyakit', value: p.riwayat_penyakit || '-', icon: '🩺', editable: true, key: 'riwayat_penyakit', wide: true },
+    { label: 'Komorbid', value: p.komorbid || '-', icon: '⚠️', editable: true, key: 'komorbid', wide: true },
+    { label: 'Alergi', value: p.alergi || '-', icon: '🚫', editable: true, key: 'alergi', wide: true },
+    { label: 'Bank', value: p.nama_bank || '-', icon: '🏦', editable: true, key: 'nama_bank' },
+    { label: 'No. Rekening', value: p.no_rekening || '-', icon: '💳', editable: true, key: 'no_rekening' },
+    { label: 'Atas Nama Rekening', value: p.nama_rekening || '-', icon: '👤', editable: true, key: 'nama_rekening' },
+    { label: 'Lokasi Penempatan', value: p.lokasi_penempatan || '-', icon: '📍', editable: true, key: 'lokasi_penempatan' },
   ];
 
   return (
@@ -162,6 +254,90 @@ export default function WorkerProfile() {
               placeholder="Alamat lengkap"
               value={form.alamat}
               onChange={(e) => setForm({ ...form, alamat: e.target.value })}
+              icon="📍"
+            />
+            <Input
+              label="Agama"
+              placeholder="Agama"
+              value={form.agama}
+              onChange={(e) => setForm({ ...form, agama: e.target.value })}
+              icon="🕌"
+            />
+            <Input
+              label="Media Sosial"
+              placeholder="Media Sosial"
+              value={form.media_sosial}
+              onChange={(e) => setForm({ ...form, media_sosial: e.target.value })}
+              icon="🌐"
+            />
+            <Input
+              label="Jenjang Pendidikan"
+              placeholder="Jenjang Pendidikan"
+              value={form.jenjang_pendidikan}
+              onChange={(e) => setForm({ ...form, jenjang_pendidikan: e.target.value })}
+              icon="🎓"
+            />
+            <Input
+              label="No. BPJS Kesehatan"
+              placeholder="No. BPJS Kesehatan"
+              value={form.no_bpjs_kesehatan}
+              onChange={(e) => setForm({ ...form, no_bpjs_kesehatan: e.target.value })}
+              icon="🏥"
+            />
+            <Input
+              label="No. BPJS Ketenagakerjaan"
+              placeholder="No. BPJS Ketenagakerjaan"
+              value={form.no_bpjs_ketenagakerjaan}
+              onChange={(e) => setForm({ ...form, no_bpjs_ketenagakerjaan: e.target.value })}
+              icon="🛡️"
+            />
+            <Input
+              label="Riwayat Penyakit"
+              placeholder="Riwayat Penyakit"
+              value={form.riwayat_penyakit}
+              onChange={(e) => setForm({ ...form, riwayat_penyakit: e.target.value })}
+              icon="🩺"
+            />
+            <Input
+              label="Komorbid"
+              placeholder="Komorbid"
+              value={form.komorbid}
+              onChange={(e) => setForm({ ...form, komorbid: e.target.value })}
+              icon="⚠️"
+            />
+            <Input
+              label="Alergi"
+              placeholder="Alergi"
+              value={form.alergi}
+              onChange={(e) => setForm({ ...form, alergi: e.target.value })}
+              icon="🚫"
+            />
+            <Input
+              label="Nama Bank"
+              placeholder="Nama Bank"
+              value={form.nama_bank}
+              onChange={(e) => setForm({ ...form, nama_bank: e.target.value })}
+              icon="🏦"
+            />
+            <Input
+              label="No. Rekening"
+              placeholder="No. Rekening"
+              value={form.no_rekening}
+              onChange={(e) => setForm({ ...form, no_rekening: e.target.value })}
+              icon="💳"
+            />
+            <Input
+              label="Nama Rekening"
+              placeholder="Nama Rekening"
+              value={form.nama_rekening}
+              onChange={(e) => setForm({ ...form, nama_rekening: e.target.value })}
+              icon="👤"
+            />
+            <Input
+              label="Lokasi Penempatan"
+              placeholder="Lokasi Penempatan"
+              value={form.lokasi_penempatan}
+              onChange={(e) => setForm({ ...form, lokasi_penempatan: e.target.value })}
               icon="📍"
             />
             <div className="flex gap-2 mt-3">
@@ -217,10 +393,12 @@ function SupervisorInfo({ nrp }: { nrp: string }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const result = await rpc('get_worker_profile', { p_nrp: nrp });
-        if (result?.atasan_nrp) {
-          const supResult = await rpc('get_worker_profile', { p_nrp: result.atasan_nrp });
-          setSupervisor(supResult);
+        const result = await rpcGetWorkerProfile({ p_nrp: nrp });
+        if (!isRpcError(result) && result?.data?.atasan_nrp) {
+          const supResult = await rpcGetWorkerProfile({ p_nrp: result.data.atasan_nrp });
+          if (!isRpcError(supResult)) {
+            setSupervisor(supResult.data || null);
+          }
         }
       } catch (e) { }
     };

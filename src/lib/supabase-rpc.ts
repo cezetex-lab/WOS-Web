@@ -144,3 +144,65 @@ export function rpcRegisterSession(params: {
 }): Promise<{ ok: boolean } | RpcError> {
   return rpc<{ ok: boolean }>('register_session', params);
 }
+
+/** Get worker profile for self-service edit */
+export function rpcGetWorkerProfile(params: {
+  p_nrp: string;
+}): Promise<
+  | {
+      ok: boolean;
+      data: {
+        nrp?: string;
+        nik?: string;
+        nama?: string;
+        email?: string;
+        no_hp?: string;
+        alamat?: string;
+        divisi?: string;
+        posisi?: string;
+        status_kerja?: string;
+        tanggal_masuk?: string;
+        tanggal_lahir?: string;
+        jenis_kelamin?: string;
+        atasan_nrp?: string;
+        agama?: string;
+        media_sosial?: string | Record<string, any>;
+        jenjang_pendidikan?: string;
+        no_bpjs_kesehatan?: string;
+        no_bpjs_ketenagakerjaan?: string;
+        riwayat_penyakit?: string;
+        komorbid?: string;
+        alergi?: string;
+        nama_bank?: string;
+        no_rekening?: string;
+        nama_rekening?: string;
+        lokasi_penempatan?: string;
+        updated_by?: string;
+        status_kerja_internal?: string;
+      };
+    }
+  | RpcError
+> {
+  return rpc('get_worker_profile', params);
+}
+
+/** Update worker self-service profile fields */
+export function rpcWorkerUpdateProfile(params: {
+  p_nrp: string;
+  p_no_hp?: string | null;
+  p_alamat?: string | null;
+  p_agama?: string | null;
+  p_media_sosial?: string | Record<string, any> | null;
+  p_jenjang_pendidikan?: string | null;
+  p_no_bpjs_kesehatan?: string | null;
+  p_no_bpjs_ketenagakerjaan?: string | null;
+  p_riwayat_penyakit?: string | null;
+  p_komorbid?: string | null;
+  p_alergi?: string | null;
+  p_nama_bank?: string | null;
+  p_no_rekening?: string | null;
+  p_nama_rekening?: string | null;
+  p_lokasi_penempatan?: string | null;
+}): Promise<{ ok: boolean; msg?: string } | RpcError> {
+  return rpc('worker_update_profile', params);
+}
