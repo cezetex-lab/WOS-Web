@@ -22,7 +22,7 @@ async function waitForLogin(page: Page, pathPrefix: string, timeoutMs = 30000) {
   await page.waitForFunction(
     (prefix) => {
       try {
-        const hasToken = !!JSON.parse(sessionStorage.getItem('wos_user') || 'null');
+        const hasToken = !!JSON.parse(sessionStorage.getItem('wos_user_v2') || 'null');
         const onPath = window.location.pathname.startsWith(prefix);
         return hasToken && onPath;
       } catch { return false; }
@@ -53,7 +53,7 @@ async function loginWorker(page: Page, nrp: string, nik: string, pass: string) {
   await waitForLogin(page, '/worker');
   const url = page.url();
   const hasToken = await page.evaluate(() => {
-    try { return !!JSON.parse(sessionStorage.getItem('wos_user') || 'null'); } catch { return false; }
+    try { return !!JSON.parse(sessionStorage.getItem('wos_user_v2') || 'null'); } catch { return false; }
   });
   return { url, hasToken, logs, responses };
 }
@@ -72,7 +72,7 @@ async function loginAdmin(page: Page, email: string, pass: string) {
   await waitForLogin(page, '/admin');
   const url = page.url();
   const hasToken = await page.evaluate(() => {
-    try { return !!JSON.parse(sessionStorage.getItem('wos_user') || 'null'); } catch { return false; }
+    try { return !!JSON.parse(sessionStorage.getItem('wos_user_v2') || 'null'); } catch { return false; }
   });
   return { url, hasToken };
 }
@@ -116,7 +116,7 @@ test('Admin: hrd@insightwos.com + Hrd123!', async ({ page }) => {
   await waitForLogin(page, '/admin');
   const url = page.url();
   const hasToken = await page.evaluate(() => {
-    try { return !!JSON.parse(sessionStorage.getItem('wos_user') || 'null'); } catch { return false; }
+    try { return !!JSON.parse(sessionStorage.getItem('wos_user_v2') || 'null'); } catch { return false; }
   });
   console.log('Admin/hrd → url=' + url + ' token=' + hasToken);
 });

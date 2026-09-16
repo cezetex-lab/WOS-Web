@@ -312,6 +312,21 @@ function handleRpc(fn: string, params: Record<string, any>, state: MockState): u
   }
 }
 
+/**
+ * supabase-js `auth.setSession({ access_token })` men-DECODE access_token sebagai JWT
+ * dan membaca klaim `exp`. String sembarang ditolak ("Invalid JWT"), sehingga sesi
+ * tidak pernah tersimpan di localStorage dan tab BARU (sessionStorage kosong) kehilangan
+ * auth. Karena itu mock edge worker-auth-sync wajib mengirim JWT yang bisa didecode
+ * (signature tidak diverifikasi di client).
+ */
+export function mockJwt(userId: string, expSecondsFromNow = 36000): string {
+  const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64({ alg: 'HS256', typ: 'JWT' });
+  const payload = b64({ sub: userId, role: 'authenticated', aud: 'authenticated', exp: now + expSecondsFromNow });
+  return `${header}.${payload}.mock-signature`;
+}
+
 function buildAuthSession(user: MockUser) {
   const now = Math.floor(Date.now() / 1000);
   return {
@@ -403,14 +418,21 @@ export async function mockSupabase(
   );
   // worker-auth-sync: default = provisioning sukses (dapat di-unroute
   // per-test untuk skenario MFA/gagal — lihat worker-auth-mfa-flow.spec.ts).
-  await page.route(`${SUPABASE_URL}/functions/v1/worker-auth-sync`, (route) =>
-    json(route, {
+  // Edge menukar kredensial menjadi SESI (sejak audit S6 edge tidak pernah
+  // mengembalikan password). `state.user` di-set supaya `supabase.auth.setSession()`
+  // bisa hydrate user lewat /auth/v1/user.
+  await page.route(`${SUPABASE_URL}/functions/v1/worker-auth-sync`, (route) => {
+    state.user = MOCK_USERS.worker;
+    return json(route, {
       ok: true,
       email: 'budi@insightwos.test',
-      temp_password: 'mock-temp-pass-1234567890',
       auth_id: MOCK_USERS.worker.id,
-    })
-  );
+      session: {
+        access_token: mockJwt(MOCK_USERS.worker.id),
+        refresh_token: `mock-refresh-token-${MOCK_USERS.worker.id}`,
+      },
+    });
+  });
   // password-reset — OTP login for the admin/dashboard tabs.
   // Without this route the request reaches the REAL edge function, whose
   // rate limiter answers "Terlalu banyak request OTP", so admin login never

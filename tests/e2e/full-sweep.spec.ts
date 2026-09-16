@@ -62,7 +62,7 @@ async function acceptConsent(page: Page) {
 
 async function checkToken(page: Page) {
   return page.evaluate(() => {
-    try { return !!JSON.parse(sessionStorage.getItem('wos_user') || 'null'); } catch { return false; }
+    try { return !!JSON.parse(sessionStorage.getItem('wos_user_v2') || 'null'); } catch { return false; }
   });
 }
 
@@ -71,7 +71,7 @@ async function waitForLogin(page: Page, pathPrefix: string, timeoutMs = 30000) {
   await page.waitForFunction(
     (prefix) => {
       try {
-        const hasToken = !!JSON.parse(sessionStorage.getItem('wos_user') || 'null');
+        const hasToken = !!JSON.parse(sessionStorage.getItem('wos_user_v2') || 'null');
         const onPath = window.location.pathname.startsWith(prefix);
         return hasToken && onPath;
       } catch { return false; }

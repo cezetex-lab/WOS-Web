@@ -20,6 +20,7 @@ import {
   loginAsWorker,
   WORKER_LOGIN,
   MOCK_USERS,
+  mockJwt,
 } from './helpers/mock-supabase';
 
 const SUPA = process.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -36,15 +37,20 @@ test.describe('L7: Worker login → auth-sync → route access', () => {
     await page.unroute(AUTH_SYNC_URL);
     await page.route(AUTH_SYNC_URL, async (route) => {
       authSyncCalls.push(route.request().postDataJSON());
-      // Provisioned: client signs in via Supabase Auth with temp password
+      // Provisioned: edge menukar kredensial menjadi SESI (bukan password — audit S6),
+      // lalu client memasangnya via supabase.auth.setSession().
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
           email: 'budi@insightwos.test',
-          temp_password: 'mock-temp-pass-1234567890',
           auth_id: MOCK_USERS.worker.id,
+          session: {
+            // JWT yang bisa didecode — `auth.setSession()` membaca klaim `exp`.
+            access_token: mockJwt(MOCK_USERS.worker.id),
+            refresh_token: `mock-refresh-token-${MOCK_USERS.worker.id}`,
+          },
         }),
       });
     });
@@ -99,8 +105,12 @@ test.describe('L7: Worker login with MFA enabled', () => {
         body: JSON.stringify({
           ok: true,
           email: 'budi@insightwos.test',
-          temp_password: 'mock-temp-pass-1234567890',
           auth_id: MOCK_USERS.worker.id,
+          session: {
+            // JWT yang bisa didecode — `auth.setSession()` membaca klaim `exp`.
+            access_token: mockJwt(MOCK_USERS.worker.id),
+            refresh_token: `mock-refresh-token-${MOCK_USERS.worker.id}`,
+          },
         }),
       });
     });

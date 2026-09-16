@@ -41,15 +41,53 @@ export async function rpc<T = any>(
 // ─── Session Management ───────────────────────────────────────
 
 let _sessionCache: UserSession | null = null;
-const SESSION_STORAGE_KEY = 'wos_user';
+
+// Key v2: blok `wos_user` (skema lama — tanpa `entry`/`expires_at`, masih menyimpan
+// `token`) sengaja DITINGGALKAN supaya user lama dipaksa login ulang SEKALI. Inilah
+// yang menutup bypass isolasi sesi legacy, bukan cek longgar per-halaman.
+const SESSION_STORAGE_KEY = 'wos_user_v2';
+const LEGACY_SESSION_STORAGE_KEY = 'wos_user';
+
+// Batas umur cache sesi di client. Authz sesungguhnya tetap dari JWT Supabase +
+// authz_* di DB (jangan pernah percaya blob ini); TTL ini hanya memastikan sesi
+// yang tersimpan punya masa berlaku — bukan hidup selamanya.
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+
+/** Sesi valid WAJIB punya nrp + `expires_at` yang bisa diparse dan masih di masa depan (fail-closed). */
+function isSessionValid(s: UserSession | null): s is UserSession {
+  if (!s?.nrp || !s.expires_at) return false;
+  const exp = new Date(s.expires_at).getTime();
+  return Number.isFinite(exp) && exp > Date.now();
+}
+
+/** Hormati `expires_at` dari server bila valid & masih berlaku; selain itu stempel TTL lokal. */
+function normalizeExpiry(raw?: string): string {
+  const t = raw ? new Date(raw).getTime() : NaN;
+  if (Number.isFinite(t) && t > Date.now()) return new Date(t).toISOString();
+  return new Date(Date.now() + SESSION_TTL_MS).toISOString();
+}
+
+/** `entry` diturunkan dari role bila pemanggil tidak menyetelnya (satu choke point, G2). */
+function entryFromRole(role?: string, isOwner?: boolean): UserSession['entry'] {
+  if (isOwner || role === 'owner') return 'owner';
+  if (role?.startsWith('admin_')) return 'admin';
+  if (role === 'manager') return 'dashboard';
+  return 'worker';
+}
+
+function purgeLegacySession(): void {
+  try { sessionStorage.removeItem(LEGACY_SESSION_STORAGE_KEY); } catch { /* private mode */ }
+}
 
 function loadSessionCache(): UserSession | null {
-  if (_sessionCache) return _sessionCache;
+  purgeLegacySession();
+  if (_sessionCache && isSessionValid(_sessionCache)) return _sessionCache;
+  _sessionCache = null;
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw) as UserSession;
-      if (s?.nrp && (!s.expires_at || new Date(s.expires_at) > new Date())) {
+      if (isSessionValid(s)) {
         _sessionCache = s;
         return _sessionCache;
       }
@@ -60,19 +98,29 @@ function loadSessionCache(): UserSession | null {
 }
 
 export function setSession(user: UserSession | null): void {
-  _sessionCache = user;
-  try {
-    if (user) sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
-    else sessionStorage.removeItem(SESSION_STORAGE_KEY);
-  } catch { /* storage full / private mode */ }
+  if (!user) {
+    _sessionCache = null;
+    try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* private mode */ }
+    return;
+  }
+  // Satu choke point: `entry` dan `expires_at` SELALU terisi, sehingga tidak ada lagi
+  // sesi tanpa expiry (default-open) maupun sesi tanpa entry (legacy).
+  const stamped: UserSession = {
+    ...user,
+    entry: user.entry ?? entryFromRole(user.role, user.is_owner),
+    expires_at: normalizeExpiry(user.expires_at),
+  };
+  _sessionCache = stamped;
+  try { sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stamped)); } catch { /* storage full / private mode */ }
 }
 
 export function getSession(): UserSession | null {
+  purgeLegacySession();
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as UserSession;
-    if (s?.nrp && (!s.expires_at || new Date(s.expires_at) > new Date())) return s;
+    if (isSessionValid(s)) return s;
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
     return null;
   } catch {
@@ -129,8 +177,11 @@ export async function initSession(): Promise<UserSession | null> {
       }
     }
 
+    // Sesi cache hanya boleh menghidupkan ulang sesi yang MASIH BERLAKU (punya
+    // expires_at valid). Versi lama menerima `restored?.token` apa pun — token
+    // app-level itu sudah tidak dipersist lagi (authz dari JWT + RPC di server).
     const restored = loadSessionCache();
-    if (restored?.token) return restored;
+    if (restored) return restored;
 
     _sessionCache = null;
     return null;
@@ -142,6 +193,7 @@ export async function initSession(): Promise<UserSession | null> {
 
 export function clearSession(): void {
   _sessionCache = null;
+  purgeLegacySession();
   try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch {}
   supabase.auth.signOut().catch(() => {});
 }

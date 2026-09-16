@@ -27,12 +27,15 @@ const EXP = '2099-01-01T00:00:00Z'; // far-future expiry for loadSessionCache
 /** One drawer link row extracted from the DOM. */
 type LinkRow = { href: string; text: string };
 
+// Fixtures menulis sessionStorage LANGSUNG (bypass setSession), jadi harus memenuhi
+// kontrak sesi v2: `entry` + `expires_at` wajib ada. Tanpa `entry`, RoleGuard yang
+// fail-closed akan menolak (audit S9). `token` sudah tidak ada di UserSession.
 const SESSIONS = {
-  admin_pusat: { token: 'mock', nrp: 'NRP001', nama: 'T Pusat', role: 'admin_pusat', role_level: 4, business_unit: 'HQ', tier: 9, expires_at: EXP },
-  admin_hrd: { token: 'mock', nrp: 'NRP00H', nama: 'T HRD', role: 'admin_hrd', role_level: 3, business_unit: 'HQ', tier: 5, expires_at: EXP },
-  admin_finance: { token: 'mock', nrp: 'NRP00F', nama: 'T Fin', role: 'admin_finance', role_level: 3, business_unit: 'HQ', tier: 5, expires_at: EXP },
-  worker: { token: 'mock', nrp: 'NRP00W', nama: 'T Worker', role: 'worker', role_level: 1, business_unit: 'HQ', tier: 1, expires_at: EXP },
-  manager: { token: 'mock', nrp: 'NRP00M', nama: 'T Manager', role: 'manager', role_level: 4, business_unit: 'HQ', tier: 6, expires_at: EXP },
+  admin_pusat: { nrp: 'NRP001', nama: 'T Pusat', role: 'admin_pusat', role_level: 4, business_unit: 'HQ', tier: 9, entry: 'admin', expires_at: EXP },
+  admin_hrd: { nrp: 'NRP00H', nama: 'T HRD', role: 'admin_hrd', role_level: 3, business_unit: 'HQ', tier: 5, entry: 'admin', expires_at: EXP },
+  admin_finance: { nrp: 'NRP00F', nama: 'T Fin', role: 'admin_finance', role_level: 3, business_unit: 'HQ', tier: 5, entry: 'admin', expires_at: EXP },
+  worker: { nrp: 'NRP00W', nama: 'T Worker', role: 'worker', role_level: 1, business_unit: 'HQ', tier: 1, entry: 'worker', expires_at: EXP },
+  manager: { nrp: 'NRP00M', nama: 'T Manager', role: 'manager', role_level: 4, business_unit: 'HQ', tier: 6, entry: 'dashboard', expires_at: EXP },
 };
 
 // module_definitions row for the DB-driven /dashboard route (DynamicRoutes
@@ -54,12 +57,12 @@ async function injectSession(page: Page, session: Record<string, unknown>) {
   // Supabase-auth user exists. initSession treats ANY truthy payload as a
   // valid context, so SessionGuard would see nrp=null and bounce to '/'.
   // Fulfill literal null instead: initSession then falls through to the
-  // worker RPC-token path (loadSessionCache) and restores wos_user below.
+  // worker session-cache path (loadSessionCache) and restores wos_user_v2 below.
   await page.route('**/rest/v1/rpc/get_current_user_context*', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: 'null' })
   );
   await page.addInitScript((s) => {
-    sessionStorage.setItem('wos_user', JSON.stringify(s));
+    sessionStorage.setItem('wos_user_v2', JSON.stringify(s));
   }, session);
 }
 

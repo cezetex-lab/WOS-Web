@@ -18,6 +18,45 @@
 selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat commit lengkap:
 `git log --oneline` (640 commit di semua ref).
 
+## [2026-09-16] Sesi fail-closed + edge tidak lagi mengembalikan password (S6/S7/L4/S9 upppp.txt) — DONE
+- Status: DONE
+- Commit: `PENDING_HASH` (deploy: `PENDING_DEPLOY`)
+- Ringkasan:
+  1. **S6 — token & password tidak lagi menyentuh client.** Field `token` DIHAPUS dari `UserSession`
+     (`src/types/index.ts`); 7 call-site di `Home.tsx` dibersihkan (G3: kontrak berubah → semua pemakai
+     di-grep dan diperbaiki); `initSession()` tidak lagi menghidupkan sesi dari `restored?.token`.
+     Edge `worker-auth-sync` tidak lagi mengembalikan `temp_password`: password internal (tetap acak
+     24 karakter, jadi tidak bergantung kuat-lemahnya password user) DITUKAR menjadi sesi Supabase
+     lewat client anon (`mintSession()`), dan hanya `{ ok, email, auth_id, session }` yang dikirim.
+     `Home.tsx` memasangnya via `supabase.auth.setSession()`.
+  2. **S7/L4 — expiry fail-closed.** `isSessionValid()`: sesi tanpa `expires_at`, `expires_at` yang
+     tidak bisa diparse, atau sudah lewat → DITOLAK dan langsung dibuang dari storage. Sebelumnya
+     `!s.expires_at || ...` membuat sesi tanpa expiry hidup SELAMANYA. `setSession()` menstempel
+     `expires_at` (TTL 8 jam) di satu choke point sehingga tidak ada lagi sesi tanpa batas umur.
+  3. **S9 — bypass sesi legacy ditutup.** Key sessionStorage `wos_user` → `wos_user_v2` (sesi skema
+     lama diabaikan + dibersihkan, user lama dipaksa login sekali) dan `entry` SELALU distempel
+     (diturunkan dari role bila pemanggil tidak menyetelnya). Karena itu jalur longgar
+     `if (entry && s.entry && ...)` di `RoleGuard` dihapus → sesi tanpa `entry` kini DITOLAK.
+- Bukti: `tsc --noEmit` **0 error**; `npm run lint` **0 error** (41 warning); `npm run build` **EXIT 0**;
+  unit test **107/107** (14 file) dengan **7 test baru** untuk perilaku baru: tanpa `expires_at` ditolak,
+  sesi kedaluwarsa ditolak, `expires_at` tak valid ditolak, sesi skema lama (`wos_user`) diabaikan +
+  dibersihkan, dan `entry` diturunkan benar dari role (admin_/manager/owner/worker/is_owner).
+  E2E Playwright **51 passed / 0 failed / 13 skipped**. CATATAN: run E2E pertama sempat gagal
+  1 test + 5 flaky (`concurrent-session` “multiple tabs” → tab baru mendarat di halaman login).
+  Akarnya di MOCK, bukan kode produksi: `supabase.auth.setSession()` men-DECODE `access_token`
+  sebagai JWT dan membaca klaim `exp`, sedangkan mock mengirim string sembarang → sesi tak pernah
+  tersimpan di localStorage sehingga tab baru (sessionStorage kosong) tidak punya apa pun untuk boot.
+  Diperbaiki dengan helper `mockJwt()` (JWT yang bisa didecode, exp jauh) di harness E2E → 51/0.
+- Dampak lintas-page: worker → admin → dashboard → owner — lapisan sesi dipakai KEEMPAT page:
+  `RoleGuard` membungkus `/admin`, `/worker`, `/dashboard` dan `SessionGuard` membungkus SEMUA route;
+  produsen sesi ada di `Home.tsx` (tab Pekerja, tab Admin + OTP, tab Dashboard) dan `OwnerLogin`.
+  Semua kini lewat satu choke point `setSession()` → `entry`/`expires_at` konsisten per page, dan
+  owner mendapat `entry: 'owner'` (diturunkan dari role). **Tidak ada pelonggaran isolasi (G5) —
+  justru diperketat** (sesi tanpa `entry` ditolak). Verifikasi: E2E `role-change`, `drawer-navigation`,
+  `concurrent-session`, `worker-auth-mfa-flow` semua hijau = keempat area ter-smoke.
+
+---
+
 ## [2026-09-16] Cross-check audit `Readme/upppp.txt` → sisa OPEN masuk AGENTS.md §5.6 + perbaikan 7 error `tsc` yang tertinggal — DONE (commit `81a5bf5` + push + deploy production)
 - Status: DONE — commit → push → deploy production selesai. Gate dijalankan ulang pada tree yang SAMA sebelum commit (§0.8 terpenuhi).
 - Commit: `81a5bf5` (25 file, +212/−72) — deploy: production `insightwos-lo3gcmyg9-cezetex-lab.vercel.app` ● Ready, alias https://insightwos.vercel.app HTTP 200.

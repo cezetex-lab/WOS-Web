@@ -215,22 +215,13 @@ Kolom yang butuh UI form:
 > eksplisit), S3 (`connect-src` vercel/fonts dibuang), S5, S8 (RoleGuard fail-closed),
 > S10 (`check_login_lockout` + `hit_rate_limit` server-side), `'NRP001'` hardcoded = 0 di `src/`,
 > U4 (`DataTable` bersama ≥10 page), gate `tsc`/lint/build hijau.
+> Ditambah entri log **`[2026-09-16] Sesi fail-closed`**: S6 (token app-level tidak dipersist +
+> edge tidak mengembalikan password), S7/L4 (expiry wajib, fail-closed), S9 (key `wos_user_v2`,
+> sesi legacy dipaksa login ulang).
 > Yang tersisa (masih OPEN) ada di daftar di bawah — jangan dihapus dari file ini sampai selesai.
 
 ### [ ] OPEN — P1 (keamanan / benar-salah)
 
-- [ ] **S6 token & `temp_password` di client.** Sesi cache `wos_user` masih menyimpan `token`, dan
-      sesi bisa dihidupkan ulang dari token lama tanpa revalidasi — `supabase-browser.ts:133`
-      `if (restored?.token) return restored;`. `Home.tsx:28,32` masih membaca `d.temp_password`
-      dari edge `worker-auth-sync` (edge masih mengembalikannya: `worker-auth-sync/index.ts:106,137`)
-      → password plaintext melintas client. Solusi: jangan persist token app-level (authz sudah dari
-      JWT Supabase + RPC `get_current_user_context`), dan edge tidak boleh mengembalikan password.
-- [ ] **S7 / L4 expiry default-open.** `!s.expires_at || new Date(s.expires_at) > new Date()`
-      (`supabase-browser.ts:52,75`) → sesi TANPA `expires_at` valid selamanya. Balikkan jadi
-      fail-closed (tanpa expiry = tolak) + wajibkan `expires_at` saat menyimpan sesi.
-- [ ] **S9 bypass sesi legacy.** `RoleGuard.tsx`: `if (entry && s.entry && s.entry !== entry)` →
-      sesi lama tanpa field `entry` lolos ke semua page. Solusi: migrasi key sessionStorage
-      (`wos_user_v2`) → paksa re-login sekali untuk sesi legacy.
 - [ ] **L1 kontrak `rpc()` menelan error.** Error & rate-limit dikembalikan sebagai
       `{ ok: false, msg }` lalu di-cast `as T` (`supabase-browser.ts:23-39`) → pemanggil yang
       mengharap array/objek dapat bentuk salah TANPA error tipe. Perbaiki kontrak (result
@@ -344,6 +335,15 @@ Layer 3: DB-level (authz functions)
   authz_in_scope()    → BU scope check
 ```
 
+**Kontrak sesi client (v2, 2026-09-16) — jangan diubah per-halaman, ini lapisan bersama:**
+- Key sessionStorage `wos_user_v2` (skema lama `wos_user` sengaja ditinggalkan → user lama
+  login ulang sekali; inilah yang menutup bypass sesi legacy).
+- `UserSession` **tidak punya** `token` — token app-level tidak pernah dipersist.
+- `expires_at` **wajib**; tanpa itu (atau tidak bisa diparse / sudah lewat) sesi DITOLAK.
+  `setSession()` menstempel `entry` + `expires_at` di satu choke point.
+- Edge `worker-auth-sync` menukar password internal menjadi SESI Supabase — password tidak
+  pernah dikembalikan ke client.
+
 ### 7.3 Migration Status
 
 | Phase | Status | Migrations | Notes |
@@ -377,7 +377,7 @@ Layer 3: DB-level (authz functions)
 | Component | Status | Notes |
 |---|---|---|
 | TypeScript | ✅ 156 .ts/.tsx files (132 `.tsx` + 24 `.ts`) | 0 tsc errors (re-verifikasi 2026-09-16), strict mode, `allowJs: false` |
-| Unit tests | ✅ 100/100 | vitest |
+| Unit tests | ✅ 107/107 | vitest |
 | E2E tests | ✅ 51/64 passed | 13 skipped (live-backend) |
 | Lint | ✅ 0 errors | eslint |
 | Build | ✅ EXIT 0 | vite |

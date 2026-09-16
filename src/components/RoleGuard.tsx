@@ -41,9 +41,10 @@ export default function RoleGuard({ children, allowedRoles = [], entry = null, r
         }
 
         // Isolasi entry: sesi yang dibuat dari tab login lain tidak berlaku.
-        // Sesi lama (sebelum field entry ada) bersifat legacy → tetap diizinkan
-        // agar tidak mengunci user yang sudah login.
-        if (entry && s.entry && s.entry !== entry && s.role !== 'owner') {
+        // TIDAK ada lagi jalur longgar untuk sesi legacy: `setSession()` selalu
+        // menstempel `entry`, dan sesi skema lama (key `wos_user`) sudah dibuang.
+        // Maka sesi tanpa `entry` = tidak sah → ditolak (fail-closed).
+        if (entry && s.entry !== entry && s.role !== 'owner') {
           if (!cancelled) { navigate(redirectTo, { replace: true }); setChecking(false); }
           return;
         }

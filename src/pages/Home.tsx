@@ -9,7 +9,8 @@ import type { RpcResult, LoginWorkerResponse, UserSession } from '@/types';
 // akses → DynamicRoutes me-redirect balik ke /.
 // Tahap 4C FAST PATH: akun yang sudah diprovisi → signInWithPassword langsung
 // (email sintetis satu sumber: lower(trim(nrp)) + '@insightwos.internal').
-// Fallback: edge function worker-auth-sync (provisioning/rotasi + temp password).
+// Fallback: edge function worker-auth-sync (provisioning/rotasi + SESI — edge tidak
+// pernah mengembalikan password ke client, audit S6).
 // Non-fatal: gagal hanya me-log warning (login RPC tetap jalan).
 async function provisionWorkerAuth(nrp: string, nik: string, password: string) {
   try {
@@ -24,14 +25,28 @@ async function provisionWorkerAuth(nrp: string, nik: string, password: string) {
 
     // Timeout 5s: auth-sync bersifat best-effort — edge function yang hang
     // tidak boleh memblokir redirect login (fetch default tidak pernah timeout).
-    const d = await callEdgeFunction('worker-auth-sync', { nrp, nik, password }, { timeoutMs: 5000 });
-    if (!d?.ok || !d.email || !d.temp_password) {
+    // Edge mengembalikan SESI (access/refresh token), BUKAN password — password
+    // plaintext tidak lagi melintas ke client (audit S6).
+    type AuthSyncResponse = {
+      ok?: boolean; msg?: string; email?: string;
+      session?: { access_token?: string; refresh_token?: string };
+    };
+    const d = await callEdgeFunction<AuthSyncResponse>('worker-auth-sync', { nrp, nik, password }, { timeoutMs: 5000 });
+    const accessToken = d?.session?.access_token;
+    const refreshToken = d?.session?.refresh_token;
+    if (!d?.ok || !accessToken || !refreshToken) {
       console.warn('[auth-sync] tidak berhasil:', d?.msg || 'respons tidak lengkap');
       return false;
     }
-    const signed = await syncSupabaseAuth(String(d.email), String(d.temp_password));
-    if (!signed) console.warn('[auth-sync] signInWithPassword gagal untuk', d.email);
-    return !!signed;
+    const { error: setErr } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (setErr) {
+      console.warn('[auth-sync] setSession gagal untuk', d.email, setErr.message);
+      return false;
+    }
+    return true;
   } catch (err: any) {
     console.warn('[auth-sync] error:', err?.message);
     return false;
@@ -138,7 +153,7 @@ export default function Home() {
   async function finalizeWorkerSession(d: any, creds: {nik?: string; password?: string}, entry: string) {
     if (!d || !d.ok) return;
     const role = d.role || 'worker';
-    const sessionData = { token: d.token, role, nama: d.nama, nrp: d.nrp, entry: (entry || tab) as 'admin' | 'worker' | 'dashboard' | 'owner', role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: (d.business_unit || 'HQ') as string, tier: d.tier ?? 0, expires_at: d.expires_at };
+    const sessionData = { role, nama: d.nama, nrp: d.nrp, entry: (entry || tab) as 'admin' | 'worker' | 'dashboard' | 'owner', role_level: d.role_level, business_unit_id: d.business_unit_id, business_unit: (d.business_unit || 'HQ') as string, tier: d.tier ?? 0, expires_at: d.expires_at };
     try {
       const mfaRes = await checkMfaStatus(d.nrp);
       if (mfaRes && mfaRes.mfa_enabled) {
@@ -276,7 +291,7 @@ export default function Home() {
       // Check MFA
       const mfaRes = await checkMfaStatus(ctx.nrp);
       if (mfaRes?.mfa_enabled) {
-        setSession({ token: authResult.session?.access_token, entry: 'admin', role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' });
+        setSession({ entry: 'admin', role: ctx.role, nama: ctx.nama, nrp: ctx.nrp, role_level: ctx.role_level, business_unit_id: ctx.business_unit_id, business_unit: ctx.unit_code || 'HQ', tier: ctx.tier, is_owner: ctx.role === 'owner' });
         setMfaNrp(ctx.nrp);
         setMfaEmail(adminEmail);
         setMfaContext('admin');
@@ -288,7 +303,7 @@ export default function Home() {
       // No MFA — Kirim OTP via email (edge password-reset) sebelum redirect ke /admin.
       // OTP wajib untuk tab admin (keputusan user: "admin dan dashboard = setelah
       // sukses user+passwd, harus kirim OTP email dan input OTP baru diarahkan").
-      const sessionData = { token: authResult.session?.access_token ?? '', entry: 'admin' as const, role: ctx.role ?? '', nama: ctx.nama ?? '', nrp: ctx.nrp ?? '', role_level: ctx.role_level ?? 0, business_unit_id: ctx.business_unit_id ?? '', business_unit: (ctx.unit_code || 'HQ') as string, tier: ctx.tier ?? 0, is_owner: ctx.role === 'owner' };
+      const sessionData = { entry: 'admin' as const, role: ctx.role ?? '', nama: ctx.nama ?? '', nrp: ctx.nrp ?? '', role_level: ctx.role_level ?? 0, business_unit_id: ctx.business_unit_id ?? '', business_unit: (ctx.unit_code || 'HQ') as string, tier: ctx.tier ?? 0, is_owner: ctx.role === 'owner' };
       setSession(sessionData);
       setValidatedNrp(ctx.nrp);
       await requestAdminOtpForEntry(ctx.nrp, 'admin');
@@ -345,7 +360,7 @@ export default function Home() {
         // verify; bukan dari input user) — lalu cek MFA, finalisasi sesi.
         const d = await rpc('verify_admin_otp', { p_code: otp });
         if (d.ok) {
-          const s: UserSession = { token: d.token ?? '', entry: (tab || 'admin') as 'admin' | 'worker' | 'dashboard' | 'owner', role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: d.nrp || validatedNrp || '', role_level: d.role_level ?? 0, business_unit_id: d.business_unit_id ?? '' };
+          const s: UserSession = { entry: (tab || 'admin') as 'admin' | 'worker' | 'dashboard' | 'owner', role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: d.nrp || validatedNrp || '', role_level: d.role_level ?? 0, business_unit_id: d.business_unit_id ?? '' };
           const mfaRes = await checkMfaStatus(s.nrp);
           if (mfaRes?.mfa_enabled) {
             setSession(s);
@@ -383,7 +398,7 @@ export default function Home() {
         const mfaRes = await checkMfaStatus(validatedNrp);
         if (mfaRes.mfa_enabled) {
           // MFA required — store OTP data, show MFA input
-          setSession({ token: (d as { token?: string }).token ?? '', role: 'worker', entry: (tab || 'worker') as 'admin' | 'worker' | 'dashboard' | 'owner', role_level: (d as { role_level?: number }).role_level ?? 0, business_unit_id: (d as { business_unit_id?: string }).business_unit_id ?? '', nrp: (d as { nrp?: string }).nrp ?? validatedNrp ?? '', nama: (d as { nama?: string }).nama ?? '' });
+          setSession({ role: 'worker', entry: (tab || 'worker') as 'admin' | 'worker' | 'dashboard' | 'owner', role_level: (d as { role_level?: number }).role_level ?? 0, business_unit_id: (d as { business_unit_id?: string }).business_unit_id ?? '', nrp: (d as { nrp?: string }).nrp ?? validatedNrp ?? '', nama: (d as { nama?: string }).nama ?? '' });
           setMfaRequired(true);
           setMfaNrp(validatedNrp);
           setMfaContext('worker');
@@ -448,7 +463,7 @@ export default function Home() {
         // Check MFA for admin
         const mfaRes = await checkMfaStatus(adminNrp);
         if (mfaRes.mfa_enabled) {
-          setSession({ token: d.token ?? '', entry: (tab || 'admin') as 'admin' | 'worker' | 'dashboard' | 'owner', role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp, role_level: d.role_level ?? 0, business_unit_id: d.business_unit_id ?? '' });
+          setSession({ entry: (tab || 'admin') as 'admin' | 'worker' | 'dashboard' | 'owner', role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp, role_level: d.role_level ?? 0, business_unit_id: d.business_unit_id ?? '' });
           setMfaRequired(true);
           setMfaNrp(adminNrp);
           setMfaContext('admin');
@@ -456,7 +471,7 @@ export default function Home() {
           setLoading(false);
           return;
         }
-        setSession({ token: d.token ?? '', entry: (tab || 'admin') as 'admin' | 'worker' | 'dashboard' | 'owner', role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp, role_level: d.role_level ?? 0, business_unit_id: d.business_unit_id ?? '' });
+        setSession({ entry: (tab || 'admin') as 'admin' | 'worker' | 'dashboard' | 'owner', role: d.role || 'admin_pusat', nama: d.nama || 'Administrator', nrp: adminNrp, role_level: d.role_level ?? 0, business_unit_id: d.business_unit_id ?? '' });
         // V6: sync Supabase Auth for gatekeeper RPCs
         if (adminEmail) syncSupabaseAuth(adminEmail, adminPass);
         window.location.href = '/admin';

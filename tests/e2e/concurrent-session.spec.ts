@@ -54,8 +54,8 @@ test.describe('L7: Session Lifecycle', () => {
     await loginAsWorker(page);
 
     // Simulate an expired/logged-out session: clear Supabase auth storage AND
-    // the app's own wos_user session. Hanya membersihkan localStorage tidak
-    // cukup: setelah provisionWorkerAuth, initSession() menimpa wos_user dengan
+    // the app's own wos_user_v2 session. Hanya membersihkan localStorage tidak
+    // cukup: setelah provisionWorkerAuth, initSession() menimpa wos_user_v2 dengan
     // context tanpa token (dari get_current_user_context). Boot berikutnya
     // SessionGuard menolak restore tanpa token (→ '/') sementara Home.getSession()
     // masih menerima entri tanpa token itu (→ '/worker') = loop redirect tak berujung.
@@ -63,7 +63,7 @@ test.describe('L7: Session Lifecycle', () => {
       Object.keys(localStorage)
         .filter((k) => k.includes('auth-token'))
         .forEach((k) => localStorage.removeItem(k));
-      sessionStorage.removeItem('wos_user');
+      sessionStorage.removeItem('wos_user_v2');
     });
 
     await page.reload();

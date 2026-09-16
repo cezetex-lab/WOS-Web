@@ -12,6 +12,11 @@
 //  3. Jika auth_id sudah ada: ambil email asli akun auth via admin,
 //     rotate password, kembalikan email itu (bukan menebak dari employee).
 //  4. Jika belum: createUser dengan email sintetis saja (tanpa loop candidates).
+//  5. JANGAN PERNAH mengembalikan password ke client (audit S6). Edge menukar
+//     password internal menjadi SESI Supabase (access/refresh token) lewat client
+//     anon, lalu hanya sesi itu yang dikirim — password plaintext tidak pernah
+//     melintas ke client. Password internal tetap acak 24 karakter (bukan password
+//     user), jadi provisioning tidak bergantung pada kuat-lemahnya password user.
 // ============================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -37,6 +42,24 @@ function randomPassword(): string {
     out += alphabet[b % alphabet.length];
   }
   return out;
+}
+
+// Client anon terpisah: HANYA dipakai untuk menukar kredensial auth menjadi sesi.
+// Password internal tidak pernah dikembalikan ke client (audit S6).
+function authClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!
+  );
+}
+
+async function mintSession(email: string, password: string) {
+  const { data, error } = await authClient().auth.signInWithPassword({ email, password });
+  if (error || !data?.session) return null;
+  return {
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+  };
 }
 
 serve(async (req: Request) => {
@@ -100,11 +123,16 @@ serve(async (req: Request) => {
         return json({ ok: false, msg: "Gagal rotasi password auth: " + rotErr.message }, 500);
       }
 
+      const session = await mintSession(authEmail, tempPassword);
+      if (!session) {
+        return json({ ok: false, msg: "Gagal menukar sesi auth." }, 500);
+      }
+
       return json({
         ok: true,
         email: authEmail,
-        temp_password: tempPassword,
         auth_id: emp.auth_id,
+        session,
       });
     }
 
@@ -131,11 +159,16 @@ serve(async (req: Request) => {
       return json({ ok: false, msg: "Gagal link auth_id: " + updErr.message }, 500);
     }
 
+    const session = await mintSession(syntheticEmail, tempPassword);
+    if (!session) {
+      return json({ ok: false, msg: "Gagal menukar sesi auth." }, 500);
+    }
+
     return json({
       ok: true,
       email: syntheticEmail,
-      temp_password: tempPassword,
       auth_id: authUserId,
+      session,
     });
   } catch (err) {
     return json({ ok: false, msg: (err instanceof Error ? err.message : "Server error") }, 500);

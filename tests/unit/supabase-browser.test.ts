@@ -11,23 +11,28 @@ const sessionStorageMock = {
 Object.defineProperty(globalThis, 'sessionStorage', { value: sessionStorageMock });
 Object.defineProperty(globalThis, 'window', { value: { sessionStorage: sessionStorageMock } });
 
+const KEY = 'wos_user_v2';
+const FUTURE = new Date(Date.now() + 3_600_000).toISOString();
+
 describe('Supabase Browser - Session Management', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     Object.keys(mockStorage).forEach(k => delete mockStorage[k]);
   });
 
-  it('setSession stores JSON correctly', async () => {
+  it('setSession stores JSON correctly (key v2 + stempel entry/expires_at)', async () => {
     const { setSession } = await import('../../src/lib/supabase-browser.js');
-    const user = { nrp: 'NRP001', nama: 'Test', role: 'worker', role_level: 3, business_unit_id: 'BU-HQ' };
-    setSession(user);
-    expect(sessionStorageMock.setItem).toHaveBeenCalledWith('wos_user', JSON.stringify(user));
+    setSession({ nrp: 'NRP001', nama: 'Test', role: 'worker', role_level: 3, business_unit_id: 'BU-HQ' });
+    const stored = JSON.parse(mockStorage[KEY]);
+    expect(stored).toMatchObject({ nrp: 'NRP001', nama: 'Test', role: 'worker', role_level: 3 });
+    expect(stored.entry).toBe('worker');
+    expect(new Date(stored.expires_at).getTime()).toBeGreaterThan(Date.now());
   });
 
   it('getSession retrieves parsed data', async () => {
     const { getSession } = await import('../../src/lib/supabase-browser.js');
-    const user = { nrp: 'NRP001', nama: 'Test' };
-    mockStorage['wos_user'] = JSON.stringify(user);
+    const user = { nrp: 'NRP001', nama: 'Test', role: 'worker', entry: 'worker', expires_at: FUTURE };
+    mockStorage[KEY] = JSON.stringify(user);
     expect(getSession()).toEqual(user);
   });
 
@@ -36,19 +41,26 @@ describe('Supabase Browser - Session Management', () => {
     expect(getSession()).toBeNull();
   });
 
+  it('getSession menolak sesi tanpa expires_at (fail-closed)', async () => {
+    const { getSession } = await import('../../src/lib/supabase-browser.js');
+    mockStorage[KEY] = JSON.stringify({ nrp: 'NRP001', nama: 'Test' });
+    expect(getSession()).toBeNull();
+  });
+
   it('getSession handles corrupted JSON safely', async () => {
     const { getSession } = await import('../../src/lib/supabase-browser.js');
-    mockStorage['wos_user'] = 'CORRUPTED{{}}';
+    mockStorage[KEY] = 'CORRUPTED{{}}';
     expect(getSession()).toBeNull();
     // Should also clean up corrupted data
-    expect(mockStorage['wos_user']).toBeUndefined();
+    expect(mockStorage[KEY]).toBeUndefined();
   });
 
   it('clearSession removes data', async () => {
     const { clearSession } = await import('../../src/lib/supabase-browser.js');
-    mockStorage['wos_user'] = JSON.stringify({ nrp: 'NRP001' });
+    mockStorage[KEY] = JSON.stringify({ nrp: 'NRP001', entry: 'worker', expires_at: FUTURE });
     clearSession();
-    expect(sessionStorageMock.removeItem).toHaveBeenCalledWith('wos_user');
+    expect(sessionStorageMock.removeItem).toHaveBeenCalledWith(KEY);
+    expect(mockStorage[KEY]).toBeUndefined();
   });
 
   it('setSession handles null/undefined gracefully', async () => {

@@ -16,7 +16,8 @@ export interface UserSession {
   posisi?: string;
   is_owner?: boolean;
   email?: string;
-  token?: string;
+  // CATATAN: TIDAK ada `token` di sini. Token app-level tidak pernah dipersist lagi
+  // (authz dari JWT Supabase + authz_* di DB); sesi cache hanya identitas UI.
   entry?: 'admin' | 'worker' | 'dashboard' | 'owner';
   tier?: number;
   expires_at?: string;
