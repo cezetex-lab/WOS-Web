@@ -3,8 +3,9 @@
 // RPC: get_worker_attendance(p_nrp)
 // ============================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession, rpc } from '@/lib/supabase-browser';
+import React, { useState } from 'react';
+import { getSession } from '@/lib/supabase-browser';
+import { useRpcQuery } from '@/hooks/useRpcQuery';
 import { parseDateOnly } from '@/lib/format';
 import {
   PageLayout, MetricCard, GlassCard, Badge, LoadingSpinner, EmptyState, Button
@@ -24,24 +25,16 @@ const DAYS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 export default function WorkerAttendance() {
   const session = getSession();
   const nrp = session?.nrp;
-  const [loading, setLoading] = useState(true);
-  const [records, setRecords] = useState<any[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear] = useState(new Date().getFullYear());
 
-  const fetchAttendance = useCallback(async () => {
-    if (!nrp) { setLoading(false); return; }
-    setLoading(true);
-    try {
-      const result = await rpc('get_worker_attendance', { p_nrp: nrp });
-      const data = Array.isArray(result) ? result
-        : result?.data && Array.isArray(result.data) ? result.data : [];
-      setRecords(data);
-    } catch (err) { }
-    setLoading(false);
-  }, [nrp]);
-
-  useEffect(() => { fetchAttendance(); }, [fetchAttendance]);
+  const { data: records, isLoading: loading } = useRpcQuery<any[]>({
+    fn: 'get_worker_attendance',
+    params: { p_nrp: nrp ?? '' },
+    enabled: !!nrp,
+    defaultValue: [],
+    select: (r) => Array.isArray(r) ? r : (r as any)?.data && Array.isArray((r as any).data) ? (r as any).data : [],
+  });
 
   // ── FILTER BY MONTH ──
   const monthRecords = records.filter(r => {

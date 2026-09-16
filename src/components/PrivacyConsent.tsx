@@ -107,7 +107,7 @@ export default function PrivacyConsent({ onAccept }: PrivacyConsentProps) {
           </button>
         </div>
 
-        <p className="text-[11px] text-slate-500 text-center">
+        <p className="text-micro text-slate-500 text-center">
           Dengan mengklik "Saya Setuju", Anda menyetujui pemrosesan data sesuai Kebijakan Privasi kami.
         </p>
       </div>

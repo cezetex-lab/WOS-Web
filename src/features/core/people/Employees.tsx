@@ -3,9 +3,10 @@
 // RPC: admin_get_employees, admin_get_employee_stats
 // ============================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, rpc } from '@/lib/supabase-browser';
+import { rpc } from '@/lib/supabase-browser';
+import { useRpcQuery } from '@/hooks/useRpcQuery';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, MetricCard, GlassCard, DataTable, Badge,
@@ -59,38 +60,20 @@ interface EmployeeStats {
 export default function Employees() {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [stats, setStats] = useState<EmployeeStats>({});
   const [activeTab, setActiveTab] = useState('all');
   const [selected, setSelected] = useState<Employee | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
 
-  // ── FETCH DATA ──
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [empResult, statsResult] = await Promise.all([
-        rpc('admin_get_employees'),
-        rpc('admin_get_employee_stats'),
-      ]);
+  const { data: employees, isLoading: l1, refetch: fetchData } = useRpcQuery<Employee[]>({
+    fn: 'admin_get_employees',
+    defaultValue: [],
+  });
 
-      if ((empResult as { ok?: boolean })?.ok !== false && Array.isArray(empResult)) {
-        setEmployees(empResult as Employee[]);
-      } else if ((empResult as { data?: Employee[] })?.data && Array.isArray((empResult as { data?: Employee[] }).data)) {
-        setEmployees((empResult as { data: Employee[] }).data);
-      } else {
-        setEmployees([]);
-      }
+  const { data: stats, isLoading: l2 } = useRpcQuery<EmployeeStats>({
+    fn: 'admin_get_employee_stats',
+    defaultValue: {},
+  });
 
-      if (statsResult && typeof statsResult === 'object') {
-        setStats(statsResult as EmployeeStats);
-      }
-    } catch (err) { }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const loading = l1 || l2;
 
   // ── FILTER ──
   const filtered = employees.filter(emp => {

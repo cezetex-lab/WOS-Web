@@ -3,8 +3,9 @@
 // RPC: get_worker_learning(p_nrp)
 // ============================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, getSession, rpc } from '@/lib/supabase-browser';
+import React, { useState } from 'react';
+import { getSession } from '@/lib/supabase-browser';
+import { useRpcQuery } from '@/hooks/useRpcQuery';
 import {
   PageLayout, MetricCard, GlassCard, Badge, LoadingSpinner, EmptyState, Button, Tabs
 } from '@/lib/design-system';
@@ -27,23 +28,15 @@ const STATUS_CONFIG: Record<string, { icon: string; color: string; label: string
 export default function WorkerLearning() {
   const session = getSession();
   const nrp = session?.nrp;
-  const [loading, setLoading] = useState(true);
-  const [learning, setLearning] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('all');
 
-  const fetchLearning = useCallback(async () => {
-    if (!nrp) { setLoading(false); return; }
-    setLoading(true);
-    try {
-      const result = await rpc('get_worker_learning', { p_nrp: nrp });
-      const data = Array.isArray(result) ? result
-        : result?.data && Array.isArray(result.data) ? result.data : [];
-      setLearning(data);
-    } catch (err) { }
-    setLoading(false);
-  }, [nrp]);
-
-  useEffect(() => { fetchLearning(); }, [fetchLearning]);
+  const { data: learning, isLoading: loading } = useRpcQuery<any[]>({
+    fn: 'get_worker_learning',
+    params: { p_nrp: nrp ?? '' },
+    enabled: !!nrp,
+    defaultValue: [],
+    select: (r) => Array.isArray(r) ? r : (r as any)?.data && Array.isArray((r as any).data) ? (r as any).data : [],
+  });
 
   // ── STATS ──
   const totalPrograms = learning.length;

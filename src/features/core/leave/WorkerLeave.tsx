@@ -1,28 +1,27 @@
 // WorkerLeave.jsx — Worker Leave Page
-import { useState, useEffect } from 'react';
-import { rpc, getSession } from '@/lib/supabase-browser';
+import { getSession } from '@/lib/supabase-browser';
+import { useRpcQuery } from '@/hooks/useRpcQuery';
 import { GlassCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';
 
 export default function WorkerLeave() {
   const nrp = getSession()?.nrp;
-  const [loading, setLoading] = useState(true);
-  const [leaveData, setLeaveData] = useState<any>(null);
-  const [requests, setRequests] = useState<any[]>([]);
 
-  useEffect(() => { loadData(); }, []);
+  const { data: leaveData, isLoading: l1 } = useRpcQuery<any>({
+    fn: 'get_worker_leave',
+    params: { p_nrp: nrp ?? '' },
+    enabled: !!nrp,
+    defaultValue: null,
+  });
 
-  async function loadData() {
-    setLoading(true);
-    try {
-      const [leaveRes, reqRes] = await Promise.all([
-        rpc('get_worker_leave', { p_nrp: nrp }),
-        rpc('get_worker_requests', { p_nrp: nrp, p_type: 'CUTI' }),
-      ]);
-      if (leaveRes?.ok) setLeaveData(leaveRes);
-      if (reqRes?.ok) setRequests(reqRes.data || []);
-    } catch (e) { }
-    setLoading(false);
-  }
+  const { data: requests, isLoading: l2 } = useRpcQuery<any[]>({
+    fn: 'get_worker_requests',
+    params: { p_nrp: nrp ?? '', p_type: 'CUTI' },
+    enabled: !!nrp,
+    defaultValue: [],
+    select: (r: any) => r?.ok ? (r.data || []) : [],
+  });
+
+  const loading = l1 || l2;
 
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat data cuti..." /></div>;
 

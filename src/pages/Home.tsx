@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { rpc, setSession, getSession, supabase, syncSupabaseAuth } from '@/lib/supabase-browser';
 import { callEdgeFunction } from '@/lib/edge-functions';
 import { isAdminRole } from '@/lib/role-utils';
+import { useToast } from '@/lib/design-system';
 import type { UserSession } from '@/types';
 
 // Root-cause fix (audit): worker tidak pernah punya akun Supabase Auth →
@@ -59,6 +60,7 @@ function verifyMfaLogin(nrp: string, code: string) {
 
 export default function Home() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [tab, setTab] = useState('worker');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -167,7 +169,7 @@ export default function Home() {
     if (creds?.nik && creds?.password) {
       const pw = await provisionWorkerAuth(d.nrp, creds.nik, creds.password);
       if (!pw) {
-        alert('Peringatan: Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
+        toast.warning('Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
       }
     }
     redirectAfterLogin(entry);
@@ -406,7 +408,7 @@ export default function Home() {
         if (nik && pass) {
           const pw = await provisionWorkerAuth(validatedNrp, nik, pass);
           if (!pw) {
-            alert('Peringatan: Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
+            toast.warning('Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
           }
         }
         redirectAfterLogin(tab);
@@ -441,7 +443,7 @@ export default function Home() {
           // tebak-tebakan 'mfa-sync-'+nrp yang selalu gagal.
           const pw = await provisionWorkerAuth(mfaNrp, nik, pass);
           if (!pw) {
-            alert('Peringatan: Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
+            toast.warning('Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
           }
           redirectAfterLogin(tab);
         } else {

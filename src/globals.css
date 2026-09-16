@@ -115,6 +115,9 @@ html {
 }
 
 /* ---- Utility Classes ---- */
+.text-micro { font-size: 11px; line-height: 1.4; }
+.text-muted { color: #64748b; }
+
 .animate-fade-in { animation: fadeIn 0.3s ease-out; }
 .animate-slide-up { animation: slideUp 0.4s ease-out; }
 .animate-slide-right { animation: slideRight 0.3s ease-out; }

@@ -1,12 +1,11 @@
 // ForumDiskusi.jsx — Forum diskusi karyawan
-import { requireNrp } from '@/lib/supabase-browser';
-import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '@/lib/supabase-browser';
-import { PageLayout, GlassCard, Badge, Button, LoadingSpinner, EmptyState, Input } from '@/lib/design-system';
+import { requireNrp, rpc, isRpcError } from '@/lib/supabase-browser';
+import React, { useState } from 'react';
+import { useRpcQuery } from '@/hooks/useRpcQuery';
+import { PageLayout, GlassCard, Badge, Button, LoadingSpinner, EmptyState, Input, useToast } from '@/lib/design-system';
 
 export default function ForumDiskusi() {
-  const [loading, setLoading] = useState(true);
-  const [posts, setPosts] = useState<any[]>([]);
+  const toast = useToast();
   const [selected, setSelected] = useState<any>(null);
   const [showNew, setShowNew] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -16,35 +15,32 @@ export default function ForumDiskusi() {
 
     const nrp = requireNrp();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await rpc('get_forum_posts');
-      setPosts(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const { data: posts, isLoading: loading, refetch: refetchPosts } = useRpcQuery<any[]>({
+    fn: 'get_forum_posts',
+    defaultValue: [],
+    select: (r) => Array.isArray(r) ? r : (r as any)?.data || [],
+  });
 
   const createPost = async () => {
     if (!newTitle.trim() || !newContent.trim()) return;
     try {
-      await rpc('create_forum_post', { p_nrp: nrp, p_title: newTitle, p_content: newContent, p_category: newCategory });
+      const res = await rpc('create_forum_post', { p_nrp: nrp, p_title: newTitle, p_content: newContent, p_category: newCategory });
+      if (isRpcError(res)) { toast.error(res.msg || 'Gagal membuat diskusi'); return; }
       setShowNew(false);
       setNewTitle('');
       setNewContent('');
-      fetchData();
-    } catch (e) { }
+      refetchPosts();
+    } catch (e) { toast.error('Gagal membuat diskusi'); }
   };
 
   const sendReply = async () => {
     if (!replyContent.trim() || !selected) return;
     try {
-      await rpc('reply_forum_post', { p_post_id: selected.id, p_nrp: nrp, p_content: replyContent });
+      const res = await rpc('reply_forum_post', { p_post_id: selected.id, p_nrp: nrp, p_content: replyContent });
+      if (isRpcError(res)) { toast.error(res.msg || 'Gagal mengirim balasan'); return; }
       setReplyContent('');
-      fetchData();
-    } catch (e) { }
+      refetchPosts();
+    } catch (e) { toast.error('Gagal mengirim balasan'); }
   };
 
   const categories = ['Umum', 'KPI', 'Kebijakan', 'Saran', 'K3'];
@@ -65,7 +61,7 @@ export default function ForumDiskusi() {
               <label className="text-xs text-slate-400 mb-1 block">Kategori</label>
               <div className="flex gap-1 flex-wrap">
                 {categories.map(c => (
-                  <button key={c} onClick={() => setNewCategory(c)} className={`text-[11px] px-3 py-1 rounded-full transition-all ${newCategory === c ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}>{c}</button>
+                  <button key={c} onClick={() => setNewCategory(c)} className={`text-micro px-3 py-1 rounded-full transition-all ${newCategory === c ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}>{c}</button>
                 ))}
               </div>
             </div>
@@ -78,19 +74,19 @@ export default function ForumDiskusi() {
       <div className="space-y-2">
         {posts.map(post => (
           <GlassCard key={post.id} accent={post.pinned ? 'yellow' : 'blue'} className={`cursor-pointer hover:border-blue-500/30 transition-all ${selected?.id === post.id ? 'ring-1 ring-blue-500/30' : ''}`} onClick={() => setSelected(selected?.id === post.id ? null : post)}>
-            {post.pinned && <span className="text-[11px] text-yellow-400 mb-1 block">📌 Pinned</span>}
+            {post.pinned && <span className="text-micro text-yellow-400 mb-1 block">📌 Pinned</span>}
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
                 {(post.nrp || '?')[0]}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-white truncate">{post.title}</h3>
-                <p className="text-[11px] text-slate-300 mt-1 line-clamp-2">{post.content}</p>
+                <p className="text-micro text-slate-300 mt-1 line-clamp-2">{post.content}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <Badge status={post.category || 'Umum'} type="info" />
-                  <span className="text-[11px] text-slate-400">💬 {post.replies_count || 0}</span>
-                  <span className="text-[11px] text-slate-400">👍 {post.likes_count || 0}</span>
-                  <span className="text-[11px] text-slate-500">{post.created_at ? new Date(post.created_at).toLocaleDateString('id-ID') : '-'}</span>
+                  <span className="text-micro text-slate-400">💬 {post.replies_count || 0}</span>
+                  <span className="text-micro text-slate-400">👍 {post.likes_count || 0}</span>
+                  <span className="text-micro text-slate-500">{post.created_at ? new Date(post.created_at).toLocaleDateString('id-ID') : '-'}</span>
                 </div>
               </div>
             </div>

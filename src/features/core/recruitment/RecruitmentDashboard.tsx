@@ -1,6 +1,6 @@
 // RecruitmentDashboard.jsx — Manajemen Lowongan & Rekrutmen
-import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import React, { useState } from 'react';
+import { useRpcQuery } from '@/hooks/useRpcQuery';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState, Tabs } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
@@ -24,28 +24,20 @@ interface Candidate {
 
 export default function RecruitmentDashboard() {
   useAdminAuth(["admin_pusat", "admin_hrd"]);
-  const [loading, setLoading] = useState(true);
-  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [tab, setTab] = useState('vacancies');
   const [selectedVacancy, setSelectedVacancy] = useState<Vacancy | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [v, c] = await Promise.all([
-        rpc('admin_get_vacancies'),
-        rpc('get_candidate_pipeline'),
-      ]);
-      const vData = v as Vacancy[] | { data?: Vacancy[] } | null;
-      const cData = c as Candidate[] | { data?: Candidate[] } | null;
-      setVacancies(Array.isArray(vData) ? vData : vData?.data || []);
-      setCandidates(Array.isArray(cData) ? cData : cData?.data || []);
-    } catch (e) { }
-    setLoading(false);
-  }, []);
+  const { data: vacancies, isLoading: l1 } = useRpcQuery<Vacancy[]>({
+    fn: 'admin_get_vacancies',
+    defaultValue: [],
+  });
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const { data: candidates, isLoading: l2 } = useRpcQuery<Candidate[]>({
+    fn: 'get_candidate_pipeline',
+    defaultValue: [],
+  });
+
+  const loading = l1 || l2;
 
   const stages = ['Applied', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'];
   const stageCount: Record<string, number> = stages.reduce((acc: Record<string, number>, s) => {

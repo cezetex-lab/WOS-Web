@@ -59,21 +59,21 @@ function DbDataList({ dbData }: { dbData?: DbDataItem[] }) {
   if (!dbData || dbData.length === 0) return null;
   return (
     <div className="mt-3 pt-3 border-t border-slate-700/50">
-      <p className="text-[11px] text-slate-500 mb-2">📋 Data dari database:</p>
+      <p className="text-micro text-slate-500 mb-2">📋 Data dari database:</p>
       {dbData.map((item, i) => (
         <div key={i} className="mb-2 p-2 bg-slate-900/40 rounded-lg">
           <p className="text-xs font-semibold text-sky-400 mb-1">{item.category}</p>
           {item.data && Object.keys(item.data).length > 0 ? (
             <div className="space-y-0.5">
               {Object.entries(item.data).map(([k, v]: [string, unknown], j: number) => (
-                <div key={j} className="flex gap-2 text-[11px]">
+                <div key={j} className="flex gap-2 text-micro">
                   <span className="text-slate-500 min-w-[80px]">{k}:</span>
                   <span className="text-slate-300">{String(v)}</span>
                 </div>
               ))}
             </div>
           ) : item.raw ? (
-            <p className="text-[11px] text-slate-400 whitespace-pre-wrap">{item.raw}</p>
+            <p className="text-micro text-slate-400 whitespace-pre-wrap">{item.raw}</p>
           ) : null}
         </div>
       ))}
@@ -116,7 +116,7 @@ function MessageBubble({ msg, isUser }: { msg: ChatMessage; isUser: boolean }) {
               <DbDataList dbData={msg.dbData} />
               {msg.rateLimit?.warning && (
                 <div className="mt-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                  <p className="text-[11px] text-amber-400">
+                  <p className="text-micro text-amber-400">
                     ⚠️ {msg.rateLimit.warning_msg}
                   </p>
                 </div>
@@ -125,17 +125,17 @@ function MessageBubble({ msg, isUser }: { msg: ChatMessage; isUser: boolean }) {
           )}
           {!isUser && msg.sources && msg.sources.length > 0 && (
             <div className="mt-2 pt-2 border-t border-slate-700/50">
-              <p className="text-[11px] text-slate-500 mb-1">📚 Sumber:</p>
+              <p className="text-micro text-slate-500 mb-1">📚 Sumber:</p>
               <div className="flex flex-wrap gap-1">
                 {msg.sources.map((s: { title: string }, i: number) => (
-                  <span key={i} className="text-[11px] bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded-full">
+                  <span key={i} className="text-micro bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded-full">
                     {s.title}
                   </span>
                 ))}
               </div>
             </div>
           )}
-          <p className={`text-[11px] mt-1 ${isUser ? 'text-sky-200/50' : 'text-slate-500'}`}>
+          <p className={`text-micro mt-1 ${isUser ? 'text-sky-200/50' : 'text-slate-500'}`}>
             {msg.time}
           </p>
         </div>
@@ -229,7 +229,7 @@ export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
         >
           🤖
           {unread > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[11px] text-white font-bold">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-micro text-white font-bold">
               {unread > 9 ? '9+' : unread}
             </span>
           )}
@@ -244,7 +244,7 @@ export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-lg">🤖</div>
               <div>
                 <h3 className="text-sm font-bold text-white">AI Copilot</h3>
-                <p className="text-[11px] text-slate-400">insightWOS Assistant</p>
+                <p className="text-micro text-slate-400">insightWOS Assistant</p>
               </div>
             </div>
             <button onClick={() => setIsOpen(false)} className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors">✕</button>
@@ -293,7 +293,7 @@ export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
                 )}
               </button>
             </div>
-            <p className="text-[11px] text-slate-600 text-center mt-1.5">
+            <p className="text-micro text-slate-600 text-center mt-1.5">
               Data terisolasi berdasarkan role Anda
               {messages.length > 0 && (messages[messages.length - 1]?.rateLimit?.limit ?? 0) > 0 && (
                 <span className="block text-slate-500">

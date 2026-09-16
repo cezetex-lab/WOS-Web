@@ -1,25 +1,19 @@
 // WorkerPayroll.jsx — Slip gaji bulanan karyawan
 import { getSession, requireNrp } from '@/lib/supabase-browser';
-import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import React, { useState } from 'react';
+import { useRpcQuery } from '@/hooks/useRpcQuery';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState, Button } from '@/lib/design-system';
 
 export default function WorkerPayroll() {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const nrp = requireNrp();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await rpc('get_worker_payroll', { p_nrp: nrp });
-      setData(Array.isArray(result) ? result : result?.data || []);
-    } catch (e) { }
-    setLoading(false);
-  }, [nrp]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const { data, isLoading: loading } = useRpcQuery<any[]>({
+    fn: 'get_worker_payroll',
+    params: { p_nrp: nrp },
+    defaultValue: [],
+    select: (r) => Array.isArray(r) ? r : (r as any)?.data || [],
+  });
 
   const formatRp = (v: any) => `Rp ${(parseFloat(String(v || 0))).toLocaleString('id-ID')}`;
   const totalNet = data.reduce((s, r) => s + parseFloat(r.net_salary || r.take_home || 0), 0);

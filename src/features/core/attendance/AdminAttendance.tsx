@@ -1,19 +1,13 @@
-import { useState, useEffect } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import { useRpcQuery } from '@/hooks/useRpcQuery';
 import { PageLayout, GlassCard, DataTable, MetricCard, LoadingSpinner, EmptyState } from '@/lib/design-system';
 
 export default function AdminAttendance() {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<Record<string, any>>({});
-
-  useEffect(() => {
-    rpc('admin_get_timesheet', {}).then(r => {
-      setData(Array.isArray(r) ? r : []);
-      setStats({ total: Array.isArray(r) ? r.length : 0 });
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useRpcQuery<any[]>({
+    fn: 'admin_get_timesheet',
+    defaultValue: [],
+    select: (r) => Array.isArray(r) ? r : [],
+  });
+  const stats = { total: data.length };
 
   return (
     <PageLayout title="Dashboard Kehadiran" subtitle="Monitoring kehadiran seluruh karyawan">

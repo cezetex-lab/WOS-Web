@@ -1,7 +1,8 @@
 // WhistleblowingPage.jsx — Laporan pelanggaran anonim (role-aware)
-import React, { useState, useEffect, useCallback } from 'react';
-import { rpc, getSession, isRpcError } from '@/lib/supabase-browser';
-import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, Tabs, Input } from '@/lib/design-system';
+import React, { useState } from 'react';
+import { getSession, rpc, isRpcError } from '@/lib/supabase-browser';
+import { useRpcQuery } from '@/hooks/useRpcQuery';
+import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, Tabs, Input, useToast } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import { isAdminRole } from '@/lib/role-utils';
 
@@ -17,30 +18,22 @@ interface WhistleblowRow {
 }
 
 export default function WhistleblowingPage() {
+  const toast = useToast();
   useAdminAuth(["admin_pusat", "admin_hrd"]);
   const session = getSession();
   const role = session?.role || 'worker';
   const isAdmin = isAdminRole(role);
 
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<WhistleblowRow[]>([]);
   const [tab, setTab] = useState('all');
   const [selected, setSelected] = useState<WhistleblowRow | null>(null);
   const [showSubmit, setShowSubmit] = useState(false);
   const [newCategory, setNewCategory] = useState('Etika');
   const [newDesc, setNewDesc] = useState('');
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await rpc<{ data?: WhistleblowRow[] }>('get_whistleblowers');
-      const items = isRpcError(result) ? [] : (Array.isArray(result) ? result : result?.data) || [];
-      setData(items as WhistleblowRow[]);
-    } catch (e: unknown) { }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const { data, isLoading: loading, refetch: refetchData } = useRpcQuery<WhistleblowRow[]>({
+    fn: 'get_whistleblowers',
+    defaultValue: [],
+  });
 
   const statuses = [...new Set(data.map(r => r.status || 'Open'))];
   const filtered = tab === 'all' ? data : data.filter(r => (r.status || 'Open') === tab);
@@ -48,10 +41,11 @@ export default function WhistleblowingPage() {
   const handleSubmit = async () => {
     if (!newDesc.trim()) return;
     try {
-      await rpc('submit_whistleblower', { p_category: newCategory, p_desc: newDesc });
+      const res = await rpc('submit_whistleblower', { p_category: newCategory, p_desc: newDesc });
+      if (isRpcError(res)) { toast.error(res.msg || 'Gagal mengirim laporan'); return; }
       setNewDesc(''); setShowSubmit(false);
-      fetchData();
-    } catch (e: unknown) { }
+      refetchData();
+    } catch (e: unknown) { toast.error('Gagal mengirim laporan'); }
   };
 
   const columns = [
@@ -117,7 +111,7 @@ export default function WhistleblowingPage() {
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-slate-500 text-center mb-3">🔒 Identitas pelapor dilindungi</p>
+            <p className="text-micro text-slate-500 text-center mb-3">🔒 Identitas pelapor dilindungi</p>
             <button className="w-full py-2 text-xs text-slate-400 border border-white/10 rounded-lg" onClick={() => setSelected(null)}>✕ Tutup</button>
           </div>
         </>

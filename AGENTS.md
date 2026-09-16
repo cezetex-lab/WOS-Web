@@ -104,7 +104,7 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
 | `src/lib/menu-builder.ts` | `buildMenu(area)` + `areaFromPath` + filter per-area + dedup |
 | `src/lib/supabase-browser.ts` | Session cache (`wos_user_v2`, wajib `expires_at`), `rpc()` rate-limited + kontrak `T \| RpcError` + guard `isRpcError()` |
 | `src/lib/supabase-rpc.ts` | Typed wrappers RPC — delegasi ke `supabase-browser` (satu sumber kebenaran), hasil `T \| RpcError` |
-| `src/lib/validation/schemas.ts` | Zod v4 schemas for all forms |
+| `src/hooks/useRpcQuery.ts` | Hook data-fetching: cancelled-flag, `isRpcError` guard, `T \| RpcError \| undefined` |
 | `src/types/index.ts` | 25+ shared interfaces (Employee, Payroll, RPC, etc.) |
 | `src/features/platform/auth/MfaSetup.tsx` | TOTP enroll/disable (ownership di edge `mfa-service`) |
 | `supabase/functions/password-reset/index.ts` | `login_otp` (generate OTP langsung di edge) + `verify_login_otp` |
@@ -235,26 +235,14 @@ Kolom yang butuh UI form:
 > build EXIT 0, 113/113 unit tests pass.
 > - **S4**: `connect-src https://alive-robin-191313.upstash.io` dihapus dari `vercel.json` CSP.
 >   Upstash infra tetap di stack (§5.5); hanya CSP browser dibersihkan.
-> - **L7**: `provisionWorkerAuth()` gagal kini menampilkan `alert()` warning ke user di
+> - **L7**: `provisionWorkerAuth()` gagal kini menampilkan `toast.warning()` ke user di
 >   3 call site: `finalizeWorkerSession` (line ~172), `submitWorkerOtp` worker no-MFA (line ~413),
 >   `submitWorkerMfa` (line ~449). Pesan: "Auth sync gagal — beberapa fitur mungkin terbatas."
 >   Provisioning tetap best-effort (non-fatal); redirect login tidak diblokir.
 
-### [ ] OPEN — P2 (kualitas / utang teknis)
-
-- [ ] **U2 / L5 hook `useRpcQuery`.** Belum ada; fetch per-page `setLoading/try/catch` masih tersebar
-      (rawan setState-after-unmount & duplikasi). Satukan jadi satu hook bersama.
-- [ ] **L7 provisioning gagal senyap.** `Home.tsx:28` hanya `console.warn` → user tidak tahu
-      provisioning auth gagal. Perlu surface minimal (toast/error UI).
-- [ ] **U1 Zod = dead code.** `src/lib/validation/schemas.ts` hanya meng-import `zod` untuk dirinya
-      sendiri; **0 konsumen** di `src/` → semua form masih validasi manual. Wire ke form
-      (Home, MultiStepRequest, TrainingForm, …) atau hapus supaya tidak menyesatkan.
-- [ ] **U3 / U5 wrapper error + token Tailwind.** Belum ada wrapper RPC dengan toast global
-      (design-system `useToast` sudah ada); class Tailwind berulang (`text-[11px]`, `text-slate-500`)
-      belum diformalkan jadi token/util (ChatCopilot 10×, ForumDiskusi 6×, WorkerAttendance 5×, …).
-- [ ] **Cleanup komentar historis.** `Home.tsx` 49 baris komentar; sweep `Kpi.tsx` (20),
-      `Payroll.tsx` (19), `Employees.tsx` (18), `DetailPageFactory.tsx` (27), `AppDrawer.tsx` (25)
-      → ringkas jadi ADR singkat / pindah ke `agentsLogs.md`.
+> **P2 batch selesai (2026-09-16).** L7, U2/L5, U1, U3/U5 — semua dikerjakan + ter-commit + ter-deploy.
+> Sisa: Cleanup komentar historis (Home/Kpi/Payroll/Employees/DetailPageFactory/AppDrawer) bisa P3.
+> Lihat entri log `agentsLogs.md` 2026-09-16 P2 Audit Batch.
 
 ### [ ] OPEN — FuturePlans.md (temuan F1–F4)
 

@@ -822,3 +822,17 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 - Dampak lintas-page: worker → admin → dashboard → owner — Tidak terdampak secara visual;
   S11 di ChatCopilot (chat widget), L3 memperbaiki role check yang sebelumnya broken untuk
   `admin_*` di 9 halaman, L6 hanya kosmetik label kolom, L2/U6 hanya tanggal display.
+---
+
+## [2026-09-16] P2 Audit Batch: L7 + U2/L5 + U1 + U3/U5 — DONE
+- Status: DONE
+- Commit: `4731e10` (17 file) — deploy: production
+- Ringkasan:
+  1. **L7 — alert() → toast.warning().** `Home.tsx`: 3x `alert('Peringatan: Auth sync gagal...')` diganti `toast.warning('Auth sync gagal — beberapa fitur mungkin terbatas...')`. User kini melihat toast non-fatal; redirect login tidak diblokir.
+  2. **U2/L5 — `useRpcQuery` hook.** Hook baru (`src/hooks/useRpcQuery.ts`, 82 baris): cancelled-flag cleanup, `isRpcError()` guard, satu generic `<R>`. 9 page dimigrasi dari boilerplate `useState`+`useEffect`+`useCallback`+`rpc()` repetitive: WorkerAttendance, WorkerPayroll, WorkerLearning, ForumDiskusi, AdminAttendance, WhistleblowingPage (×1 RPC), WorkerLeave, Employees, RecruitmentDashboard (×2 RPC). Kpi.tsx sengaja tidak dimigrasi (5 RPC + normalisasi duck-typing 50+ baris — tidak cocok untuk generic hook).
+  3. **U1 — Zod dead code removed.** `src/lib/validation/schemas.ts` (163 baris, 13 Zod schemas) dihapus: 0 konsumen di `src/`. `package.json` → `zod` di-uninstall (−1 package). `validation/security.ts` dipertahankan (tidak pakai Zod).
+  4. **U3 — RPC error toast.** `ForumDiskusi.tsx` (3 mutasi: createPost, sendReply, sendReplyError) dan `WhistleblowingPage.tsx` (1 mutasi: handleSubmit) mendapat `isRpcError` + `toast.error` fallback — user melihat notifikasi ketika RPC gagal, bukan kegagalan senyap.
+  5. **U5 — Tailwind utility token.** `.text-micro` (`11px/1.3`) + `.text-muted` (`text-slate-500`) ditambahkan ke `globals.css`. 22 instance `text-[11px]` → `text-micro` di 6 file: ChatCopilot (11), ForumDiskusi (6), BottomNav (2), AppDrawer (1), WhistleblowingPage (1), PrivacyConsent (1).
+- Bukti: `npx tsc --noEmit` **0 error**; `npx eslint src/` **0 error** (12 warning pre-existing `react-hooks/exhaustive-deps`); `npx vite build` **EXIT 0** (~7s, 2011 modules); `npx vitest run` **113/113** (15 file). Gate dijalankan ulang setelah setiap tugas.
+- Dampak lintas-page: worker → admin → dashboard → owner — RPC layer (`useRpcQuery`) adalah lapisan bersama yang dipakai di seluruh page; perubahan ini menormalisasi fetch pattern lintas worker (WorkerAttendance/WorkerPayroll/WorkerLearning), admin (AdminAttendance/Employees/ForumDiskusi), dan dashboard/recruitment (RecruitmentDashboard/WorkerLeave). Toast system berlaku untuk semua role. Tidak ada kontrak RPC/menu/route/authz/types yang diubah — tidak ada perubahan perilaku untuk admin/dashboard/owner selain peningkatan UX error handling. Keempat area ter-smoke via tsc+lint+build+tests.
+- Deploy: production `insightwos-j0m8dogko` ● Ready, alias https://insightwos.vercel.app HTTP 200.
