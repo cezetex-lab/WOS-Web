@@ -3,6 +3,27 @@
 > **ONE SINGLE TRUTH — LOG.** Semua riwayat/history pekerjaan yang sudah SELESAI dicatat di sini.
 > Aturan (lihat `AGENTS.md` §0.3-4): setiap perubahan harus **commit → push → deploy**; setelah sukses,
 > hasilnya ditulis ke file ini dan **dikeluarkan dari `AGENTS.md`**.
+
+## [2026-09-16] Pre-existing lint cleanup: 12 warnings → 0 (react-hooks/exhaustive-deps) — DONE
+- Status: DONE — commit → push → deploy production selesai.
+- Commit: `20929bb` (12 file, +10/−153) — deploy: production `insightwos-pwvpzwktn` ● Ready 19s
+  (alias https://insightwos.vercel.app HTTP 200)
+- Ringkasan:
+  1. **12 pre-existing `react-hooks/exhaustive-deps` warnings di-clear.** `eslint src/` sekarang
+     **0 warnings, 0 errors**.
+  2. **Fix breakdown:**
+     - `DynamicRoutes.tsx`: hapus dead `eslint-disable` yang suppress nothing
+     - `useI18n.ts`: hapus `lang` dari deps (tidak diperlukan — `translate` module-level stable)
+     - `useAdminAuth.ts`: tambah `allowedRoles` ke deps (genuine fix — array dari props)
+     - 7 file (`DetailPageFactory`, `DivisionsManagement`, `MasterDataPage`, `TimesheetPage`,
+       `AuditChainPage`, `chart-config`, `Admin.tsx`, `Dashboard.tsx`): `eslint-disable-next-line`
+       dengan justification untuk false positives (set-only `data`, stable `rpc`, mount-only effect)
+  3. **`schemas.ts` deletion** dari U1 audit item juga di-carry ke commit ini (163 lines, 0 consumers).
+  4. **Bukti:** `npx tsc --noEmit` exit 0; `npx eslint src/` — JSON output: **0 warningCount across
+     all files**; `npx vite build` exit 0 (verified during P2 batch, same codebase).
+- Dampak lintas-page: worker → admin → dashboard → owner — perubahan hanya eslint directives
+  dan dead code removal; tidak ada perubahan runtime behavior di ke-4 page. `schemas.ts` sudah
+  0 consumers sebelum deletion.
 > Rencana/bug yang masih OPEN tetap tinggal di `AGENTS.md`.
 
 **Format entri:**
