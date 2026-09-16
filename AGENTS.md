@@ -157,19 +157,28 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
 - [x] Dashboard rendering tests (`full-sweep.spec.ts`, `tab-click-test.spec.ts`)
 - [ ] **PWA offline mode tests** (Service Worker caching) — **belum ada spec**
 
-## 5. STATE OPEN — UI Forms untuk Kolom Baru Karyawan
+## 5. STATE PARTIAL — UI Forms untuk Kolom Baru Karyawan (2026-09-16)
 
 > DB sudah lengkap (migration 215): 14 kolom baru di `employees_core` + `employees_extended`.
-> Yang belum: **UI input form** untuk kolom-kolom baru ini (pekerjaan terpisah, belum diputuskan).
+> **Progress 2026-09-16:** UI + RPC + migration 222 sudah dikerjakan, frontend sudah deploy.
+> Sisa: verifikasi grant `authenticated` + smoke test runtime.
 
-Kolom yang butuh UI form:
+**Sudah dikerjakan (commit `5102f64` → push → deploy production `insightwos-3xiqo8p64` ● Ready):**
+- `src/features/core/people/WorkerProfile.tsx`: 14 kolom baru masuk ke form edit + info rows + payload save
+- `src/lib/supabase-rpc.ts`: typed wrapper `rpcGetWorkerProfile` + `rpcWorkerUpdateProfile`
+- `supabase/migrations/222_worker_profile_rpc.sql`: `get_worker_profile` + `worker_update_profile`
+- Legacy `worker_update_profile` (update `employees_master` only) di-rename ke `worker_update_profile_legacy`
+
+Kolom yang sudah masuk UI form:
 - `agama`, `media_sosial` (JSONB), `jenjang_pendidikan`
 - `no_bpjs_kesehatan`, `no_bpjs_ketenagakerjaan`
 - `riwayat_penyakit`, `komorbid`, `alergi`
 - `nama_bank`, `no_rekening`, `nama_rekening`
 - `lokasi_penempatan`, `updated_by`, `status_kerja_internal`
 
-**Butuh keputusan user**: apakah semua kolom ini perlu form input sekarang, atau fokus ke modul lain dulu?
+**Sisa OPEN:**
+- [ ] Grant `EXECUTE ... TO authenticated` untuk `get_worker_profile` + `worker_update_profile` (SQL Editor)
+- [ ] Smoke test runtime: login worker → WorkerProfile → edit 1 kolom → simpan → reload
 
 ## 5.5 STATE OPEN — Infrastruktur: Upstash Redis + Migrasi Region ke Singapore (keputusan 2026-09-15)
 
@@ -341,6 +350,7 @@ Layer 3: DB-level (authz functions)
 | Audit Fix | ✅ DONE | 141-153 | Comprehensive security remediation |
 | GAS Migration | ✅ DONE | 154-168 | Google Apps Script → Supabase |
 | Cleanup | ✅ DONE | 191-220 | Dead forms, REVOKE, search_path, versioning |
+| Worker Profile RPC | ✅ DONE | 222 | `get_worker_profile` + `worker_update_profile` (14 kolom baru, legacy renamed `_legacy_*`) |
 | TypeScript | ✅ DONE | — | 188 file TS total (154 `src` + 28 `tests` + 6 config), 0 tsc errors — `tsconfig` mencakup `src`+`tests`+`*.config.ts`, `allowJs: false` |
 | Audit 2026-09-16 | ✅ DONE (`81a5bf5`, deployed — sisa OPEN audit di §5.6) | — | Ringkasan: helper `requireNrp()`/`requireSession` di `src/lib/supabase-browser.ts` menggantikan fallback `'NRP001'` di 13 komponen; RoleGuard fail-closed (allowedRoles=0 ditolak); CSP `script-src` ditarik `unsafe-inline`/`unsafe-eval` via modul TS (error-suppressor & SW register); index.html inline script dipindah ke `src/main.tsx`; `vercel.json` CSP diperbaiki (`unsafe-eval` + `img-src https:` wildcard dibuang; entri `connect-src alive-robin` **sengaja dipertahankan** sesuai §5.5) — ⚠ file-file ini masih UNCOMMITTED; `tsc` sempat 7 error (import `requireNrp` hilang di 5 file + `React` UMD di `main.tsx`), sudah diperbaiki → tsc 0 error. COMMIT `81a5bf5` → push → deploy production `insightwos-lo3gcmyg9` ● Ready (alias HTTP 200; CSP prod + 0 inline script terverifikasi via curl); sinkronisasi `areaFromPath`/`menu-builder`; 12 file `format.ts` dibersihkan komentar histori; build EXIT 0, lint 0 error, tsc 0 error, E2E 51/51 hijau. Detail: hardcode identitas `|| 'NRP001'` dihapus dari Worker.tsx, ForumDiskusi, TrainingForm, WorkerOvertime, CompensationIntel, WorkerPayroll, WorkerProfile, ContinuousPerf, PerformanceTrend, WorkerKpi, WorkerCareer, WorkerActivities. Branding FreeBuff sudah bersih di UI aktif. Komentar histori/banner dikompaktankan (jaga RoleGuard/DynamicRoutes/vite.config). Dampak lintas-page: worker→admin→dashboard→owner — semua component identitas sekarang melalui layer bersama, tidak ada patch per-page. |
 
