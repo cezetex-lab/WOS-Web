@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, rpc, getSession } from '@/lib/supabase-browser';
+import { supabase, rpc, requireNrp } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Input, Badge, Avatar,
   LoadingSpinner, StatItem, SectionHeader, useToast
@@ -46,7 +46,7 @@ interface ProfileForm {
 export default function WorkerProfile() {
   const navigate = useNavigate();
   const toast = useToast();
-  const nrp = getSession()?.nrp || 'NRP001';
+  const nrp = requireNrp();
 
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);

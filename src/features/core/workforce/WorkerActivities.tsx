@@ -1,5 +1,5 @@
 // WorkerActivities.jsx — Riwayat aktivitas terkini karyawan
-import { getSession } from '@/lib/supabase-browser';
+import { requireNrp } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState, Tabs } from '@/lib/design-system';
@@ -9,7 +9,7 @@ export default function WorkerActivities() {
   const [data, setData] = useState<any[]>([]);
   const [tab, setTab] = useState('all');
 
-    const nrp = getSession()?.nrp || 'NRP001';
+    const nrp = requireNrp();
 
   const fetchData = useCallback(async () => {
     setLoading(true);

@@ -80,6 +80,32 @@ export function getSession(): UserSession | null {
     return null;
   }
 }
+// ─── Identity Guard ───────────────────────────────────────────
+// Sumber identitas WAJIB dari session. DILARANG fallback hardcoded
+// (mis. 'NRP001') — RPC akan berjalan dengan identitas orang lain (IDOR).
+// Jika session hilang: redirect ke login lalu throw agar render berhenti.
+
+export function requireNrp(): string {
+  const nrp = getSession()?.nrp;
+  if (!nrp) {
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/owner')) {
+      window.location.replace('/');
+    }
+    throw new Error('Session missing: NRP tidak tersedia');
+  }
+  return nrp;
+}
+
+export function requireSession(): UserSession {
+  const s = getSession();
+  if (!s) {
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/owner')) {
+      window.location.replace('/');
+    }
+    throw new Error('Session missing');
+  }
+  return s;
+}
 
 export async function initSession(): Promise<UserSession | null> {
   try {

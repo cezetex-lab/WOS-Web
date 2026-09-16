@@ -1,5 +1,5 @@
 // WorkerCareer.jsx — Jalur karir & peluang karyawan
-import { getSession } from '@/lib/supabase-browser';
+import { requireNrp } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';
@@ -8,7 +8,7 @@ export default function WorkerCareer() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any[]>([]);
 
-    const nrp = getSession()?.nrp || 'NRP001';
+    const nrp = requireNrp();
 
   const fetchData = useCallback(async () => {
     setLoading(true);

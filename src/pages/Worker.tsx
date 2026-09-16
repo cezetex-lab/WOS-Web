@@ -1,13 +1,13 @@
 // src/pages/Worker.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, clearSession, getSession, signOutAuth } from '../lib/supabase-browser';
+import { supabase, clearSession, getSession, signOutAuth, requireNrp } from '../lib/supabase-browser';
 import { MetricCard, QuickTile, GlassCard, LoadingSpinner, SectionHeader, Badge, Button } from '../lib/design-system';
 import { getUserModules, getBusinessUnit } from '../lib/business-units';
 
 export default function Worker() {
   const navigate = useNavigate();
-  const [nrp] = useState(() => getSession()?.nrp || 'NRP001');
+  const [nrp] = useState(() => requireNrp());
   const [noAccess, setNoAccess] = useState(false);
   const modules = getUserModules();
   const bu = getBusinessUnit();

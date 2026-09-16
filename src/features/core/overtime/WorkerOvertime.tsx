@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '@/lib/supabase-browser';
+import { supabase, rpc, requireNrp } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Input, Badge, DataTable,
   LoadingSpinner, EmptyState, Tabs, SectionHeader, useToast
@@ -40,7 +40,7 @@ interface OvertimeRow {
 
 export default function WorkerOvertime() {
   const toast = useToast();
-  const nrp = getSession()?.nrp || 'NRP001';
+  const nrp = requireNrp();
   const [loading, setLoading] = useState(true);
   const [overtime, setOvertime] = useState<OvertimeRow[]>([]);
   const [showForm, setShowForm] = useState(false);

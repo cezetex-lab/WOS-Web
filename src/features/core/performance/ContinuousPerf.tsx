@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase, rpc, getSession } from '@/lib/supabase-browser';
+import { supabase, rpc, requireSession } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Button, Input, Badge, LoadingSpinner,
   EmptyState, StatItem, SectionHeader, useToast
@@ -12,9 +12,9 @@ import {
 
 export default function ContinuousPerf() {
   const toast = useToast();
-  const user = getSession();
-  const nrp = user?.nrp || 'NRP001';
-  const role = user?.role || 'worker';
+  const user = requireSession();
+  const nrp = user.nrp;
+  const role = user.role;
   const [loading, setLoading] = useState(true);
   const [checkins, setCheckins] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);

@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase, rpc, getSession } from '@/lib/supabase-browser';
+import { supabase, rpc, requireSession } from '@/lib/supabase-browser';
 import {
   PageLayout, GlassCard, Badge, LoadingSpinner, EmptyState, StatItem, SectionHeader
 } from '@/lib/design-system';
@@ -20,8 +20,9 @@ const COLORS = {
 };
 
 export default function PerformanceTrend() {
-  const nrp = getSession()?.nrp || 'NRP001';
-  const role = getSession()?.role || 'worker';
+  const user = requireSession();
+  const nrp = user.nrp;
+  const role = user.role;
   const [loading, setLoading] = useState(true);
   const [perfData, setPerfData] = useState<any[]>([]);
   const [teamData, setTeamData] = useState<any[]>([]);

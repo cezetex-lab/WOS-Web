@@ -25,16 +25,8 @@
     <meta property="og:url" content="https://insightwos.vercel.app" />
 
     <title>insightWOS — Workforce Intelligence</title>
-    <!-- Suppress harmless Vite internal warnings.
-         JANGAN tambah pola suppress baru di sini — menyembunyikan bug asli. -->
-    <script>
-      window.addEventListener('error', function(e) {
-        // Suppress web-vitals startTime TypeError (browser API issue)
-        if (e.message && e.message.includes('startTime')) { e.preventDefault(); return true; }
-        // Suppress rolldown preload unused warnings
-        if (e.message && e.message.includes('preloaded using link preload')) { e.preventDefault(); return true; }
-      });
-    </script>
+    <!-- Error suppressor & SW registration pindah ke modul TS (lihat main.tsx)
+         agar CSP script-src tidak butuh 'unsafe-inline'. -->
   </head>
   <body>
     <div id="root"></div>
@@ -47,16 +39,5 @@
       </div>
     </noscript>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- Register PWA Service Worker -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then(
-            (reg) => console.log('SW registered:', reg.scope),
-            (err) => console.log('SW registration failed:', err)
-          );
-        });
-      }
-    </script>
   </body>
 </html>

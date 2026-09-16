@@ -51,11 +51,14 @@ export default function RoleGuard({ children, allowedRoles = [], entry = null, r
         // Role check: owner bypass semua.
         const userRole = s.role;
         const isOwner = s.is_owner === true || userRole === 'owner';
+        // Fail-closed: RoleGuard tanpa allowedRoles TIDAK mengizinkan siapa pun
+        // (kecuali owner) — guard harus selalu deklarasi role eksplisit.
         if (!cancelled) {
           if (isOwner) {
             setAuthorized(true);
           } else if (allowedRoles.length === 0) {
-            setAuthorized(true);
+            console.error('[RoleGuard] allowedRoles kosong — akses ditolak (fail-closed)');
+            navigate(redirectTo, { replace: true });
           } else if (allowedRoles.includes(userRole)) {
             setAuthorized(true);
           } else {

@@ -3,6 +3,8 @@
 > Diperbarui besar: **2026-09-15** (restrukturisasi ONE SINGLE TRUTH + grand design).
 > **File ini = ATURAN + STATE AKTIF (plan/bug OPEN) SAJA.** Riwayat/hasil yang sudah selesai
 > ada di `agentsLogs.md` (ONE SINGLE TRUTH — LOG). File ini TIDAK menyimpan history.
+> Update **2026-09-16**: audit `Readme/upppp.txt` di-cross-check ke kode live → hasil & sisa
+> OPEN ada di **§5.6** (termasuk catatan bahwa perbaikan audit masih uncommitted/belum deploy).
 
 ## 0. ALUR KERJA WAJIB (PROSES)
 
@@ -24,6 +26,12 @@
    (`postgresql://|SERVICE_ROLE|<password-lama>`).
 7. **Rahasia**: kredensial akun ada di `supabase/akun/akun.txt` (gitignored, plaintext —
    bagikan per-orang lalu hapus). Tidak pernah commit kredensial apa pun.
+8. **Klaim "DONE" wajib terverifikasi dulu.** Status DONE baru sah bila: perubahan sudah
+   **ter-commit** (+push/deploy untuk frontend), dan gate (`tsc`/lint/build/test) **dijalankan
+   ulang pada tree saat itu** dan hijau. Perubahan yang masih ada di working tree = **PARTIAL/OPEN**,
+   bukan DONE. Pelajaran 2026-09-16: kerja paralel beberapa helper meninggalkan ±22 file
+   uncommitted + **7 error `tsc`** (`requireNrp` dipanggil tanpa import; `React` UMD di `main.tsx`)
+   padahal dokumen sudah menandainya "DONE, 0 error".
 
 ## 0.5 GOLDEN RULES (WAJIB) — KETERKAITAN 4 PAGE: worker ⇄ admin ⇄ dashboard ⇄ owner
 
@@ -186,6 +194,100 @@ Kolom yang butuh UI form:
       (Vercel + `.env.local` + edge) → smoke 4 page → cutover domain. Jadwalkan di
       maintenance window; RPO/RTO §9 tetap berlaku.
 
+## 5.6 STATE OPEN — Cross-check audit `Readme/upppp.txt` (diverifikasi ke kode live 2026-09-16)
+
+> Sumber: `Readme/upppp.txt` (audit report pada commit `d2a4773`). SETIAP temuan di bawah
+> sudah dicek ulang langsung ke kode live — bukan mengutip laporan. ✅ = sudah beres & terverifikasi;
+> `[ ]` = masih OPEN (belum dikerjakan).
+>
+> **CATATAN PROSES PENTING:** perbaikan audit 2026-09-16 (CSP, RoleGuard fail-closed,
+> `requireNrp`) **masih UNCOMMITTED (±22 file di working tree) dan BELUM di-deploy** — jadi
+> statusnya PARTIAL, bukan DONE (lihat §7.3). Sebelum commit, tree ini SEMPAT rusak:
+> `tsc --noEmit` = **7 error** (`requireNrp` dipanggil tanpa import di 5 file + `React` UMD di
+> `src/main.tsx`). Sudah diperbaiki di sesi yang sama → `tsc` 0 error, lint 0 error, build EXIT 0.
+
+### ✅ Sudah dikerjakan (terbukti live)
+
+| ID | Temuan | Bukti verifikasi |
+|---|---|---|
+| S1 | CSP `script-src` `unsafe-inline` + `unsafe-eval` | `script-src 'self' https://*.posthog.com`; 0 `unsafe-eval`; 2 inline script `index.html` → modul TS `src/lib/error-suppressor.ts` + `src/lib/register-sw.ts` (dimuat `src/main.tsx`) |
+| S2 | CSP `img-src https:` (wildcard) | `img-src 'self' data: blob: https://verwobaejumvpagwynae.supabase.co` |
+| S3 | `connect-src` vercel.com + fonts.googleapis.com | keduanya hilang; font tetap di `style-src`/`font-src` |
+| S5 | Tidak ada meta CSP | Info/OK — CSP lewat header `vercel.json` (header tidak berlaku di dev lokal) |
+| S8 | RoleGuard `allowedRoles` kosong = buka semua | fail-closed: `length === 0` → tolak + `console.error` (`src/components/RoleGuard.tsx`) |
+| S10 | Rate-limit server-side di path login | `check_login_lockout` benar-benar dipanggil (`Home.tsx` worker + admin); edge `password-reset` pakai RPC `hit_rate_limit` (migration 193); `rate-limiter.ts` client = friksi UX saja (dokumentasinya sudah benar) |
+| — | Identitas hardcoded `'NRP001'` | 0 pemakaian di `src/` (sisa 1 komentar di `supabase-browser.ts`); semua lewat `requireNrp()` / `requireSession()` |
+| U4 | Tabel ad-hoc per page | `DataTable` bersama sudah dipakai ≥10 page (AdminAttendance, Timesheet, Career*, Learning, VoiceIdeas, Whistleblowing, TrainingForm, …) — sisa: tabel dengan definisi kolom masih inline |
+| — | Gate TypeScript | `tsc --noEmit` **0 error**, `npm run lint` **0 error**, `npm run build` **EXIT 0** (diukur ulang sesi ini) |
+
+### [ ] OPEN — P1 (keamanan / benar-salah)
+
+- [ ] **S6 token & `temp_password` di client.** Sesi cache `wos_user` masih menyimpan `token`, dan
+      sesi bisa dihidupkan ulang dari token lama tanpa revalidasi — `supabase-browser.ts:133`
+      `if (restored?.token) return restored;`. `Home.tsx:28,32` masih membaca `d.temp_password`
+      dari edge `worker-auth-sync` (edge masih mengembalikannya: `worker-auth-sync/index.ts:106,137`)
+      → password plaintext melintas client. Solusi: jangan persist token app-level (authz sudah dari
+      JWT Supabase + RPC `get_current_user_context`), dan edge tidak boleh mengembalikan password.
+- [ ] **S7 / L4 expiry default-open.** `!s.expires_at || new Date(s.expires_at) > new Date()`
+      (`supabase-browser.ts:52,75`) → sesi TANPA `expires_at` valid selamanya. Balikkan jadi
+      fail-closed (tanpa expiry = tolak) + wajibkan `expires_at` saat menyimpan sesi.
+- [ ] **S9 bypass sesi legacy.** `RoleGuard.tsx`: `if (entry && s.entry && s.entry !== entry)` →
+      sesi lama tanpa field `entry` lolos ke semua page. Solusi: migrasi key sessionStorage
+      (`wos_user_v2`) → paksa re-login sekali untuk sesi legacy.
+- [ ] **L1 kontrak `rpc()` menelan error.** Error & rate-limit dikembalikan sebagai
+      `{ ok: false, msg }` lalu di-cast `as T` (`supabase-browser.ts:23-39`) → pemanggil yang
+      mengharap array/objek dapat bentuk salah TANPA error tipe. Perbaiki kontrak (result
+      discriminated + pembaca bertipe) SEBELUM menambah pemakai baru.
+- [ ] **S4 CSP Upstash masih hidup.** `connect-src https://alive-robin-191313.upstash.io`
+      masih ada di `vercel.json` — **sengaja dipertahankan** (§5.5 keputusan user), dan
+      **WAJIB dihapus saat cache-tier diintegrasikan** (browser→Redis dilarang).
+      ⚠ Koreksi: baris §7.3 sebelumnya mengklaim entri ini "sudah dihapus" — itu TIDAK benar.
+
+### [ ] OPEN — P2 (kualitas / utang teknis)
+
+- [ ] **L2 / U6 tanggal date-only.** `new Date('yyyy-mm-dd')` di-parse sebagai UTC → di WIB bisa
+      tampil H-1 (attendance/training). Belum ada `parseDateOnly()` / `formatDateId()` di `src/lib/format.ts`.
+- [ ] **L3 role compare case-sensitive & campur gaya.** `role === 'admin'` TIDAK pernah match
+      (role asli `admin_pusat` dst.) di ≥10 file: `SurveyPage.tsx:61,66,99`, `Okrs.tsx:76,108`,
+      `PerformanceNotes.tsx:139`, `VoiceIdeasPage.tsx:12`, `WhistleblowingPage.tsx:22`,
+      `ReferralPage.tsx:12`, `BadgesPage.tsx:20` — bandingkan dengan `role.startsWith('admin_')`.
+      Belum ada helper bersama `isAdminRole()` (lapisan bersama, bukan patch per-page — G2).
+- [ ] **U2 / L5 hook `useRpcQuery`.** Belum ada; fetch per-page `setLoading/try/catch` masih tersebar
+      (rawan setState-after-unmount & duplikasi). Satukan jadi satu hook bersama.
+- [ ] **L6 label kolom dari key.** `DetailPageFactory.tsx:155,351` `key.replace(/_/g, ' ')` →
+      kalau RPC ganti nama kolom, UI diam-diam menampilkan `-` tanpa error tipe. Ikat ke interface RPC (`src/types/index.ts`).
+- [ ] **L7 provisioning gagal senyap.** `Home.tsx:28` hanya `console.warn` → user tidak tahu
+      provisioning auth gagal. Perlu surface minimal (toast/error UI).
+- [ ] **U1 Zod = dead code.** `src/lib/validation/schemas.ts` hanya meng-import `zod` untuk dirinya
+      sendiri; **0 konsumen** di `src/` → semua form masih validasi manual. Wire ke form
+      (Home, MultiStepRequest, TrainingForm, …) atau hapus supaya tidak menyesatkan.
+- [ ] **U3 / U5 wrapper error + token Tailwind.** Belum ada wrapper RPC dengan toast global
+      (design-system `useToast` sudah ada); class Tailwind berulang (`text-[11px]`, `text-slate-500`)
+      belum diformalkan jadi token/util (ChatCopilot 10×, ForumDiskusi 6×, WorkerAttendance 5×, …).
+- [ ] **S11 hardening DOMPurify.** Satu-satunya `dangerouslySetInnerHTML` (`ChatCopilot.tsx:27`)
+      sudah di-sanitize, tapi belum `ALLOWED_TAGS` ketat (bold/br) + config eksplisit → defense-in-depth
+      karena input berasal dari output LLM.
+- [ ] **Cleanup komentar historis.** `Home.tsx` 49 baris komentar; sweep `Kpi.tsx` (20),
+      `Payroll.tsx` (19), `Employees.tsx` (18), `DetailPageFactory.tsx` (27), `AppDrawer.tsx` (25)
+      → ringkas jadi ADR singkat / pindah ke `agentsLogs.md`.
+
+### [ ] OPEN — FuturePlans.md (temuan F1–F4)
+
+- [ ] **F1 klaim FuturePlans sudah tidak akurat.** §1.2 bilang "tidak ada offline mode" padahal PWA
+      sudah hidup (`public/sw.js`, `public/manifest.json`, `PwaUpdater`); `ai_detect_anomalies` /
+      `ai_flight_risk` sudah ada di DB tapi Phase 3.1 masih ditandai belum. Perbaiki penandaannya.
+- [ ] **F2 item infra belum masuk roadmap** (§8): Upstash cache tier (§5.5), migrasi region SG (§5.5),
+      UI form 14 kolom karyawan (§5), PWA offline tests (§4), hardening CSP (S4/S11).
+- [ ] **F3 tumpang tindih antar phase:** Shift Swap (Phase 1 vs worker needs), Payslip (Phase 1 vs
+      export Xero/MYOB Phase 2), Team Dashboard 2.2 vs Dashboard/OwnerDashboard yang sudah ada,
+      Push Notifications ditempatkan SETELAH item yang memprasyaratkannya.
+- [ ] **F4 urutan + item obsolete.** Payroll Engine + Payslip lebih dulu (worker = hulu; output
+      langsung dirasakan worker via web/PWA yang sudah ada), mobile app bukan blocker. FuturePlans
+      baris 42 & 940 masih menyuruh "fix 8 functions missing search_path (migration 176)" —
+      OBSOLETE (§7.6: 0 violations, pg_cron 6 jobs aktif).
+
+---
+
 ## 6. JEBAKAN LINGKUNGAN (Windows / PowerShell / Supabase)
 
 1. SQL Editor: hanya statement terakhir tampil → pecah blok multi-statement; agregat
@@ -258,6 +360,7 @@ Layer 3: DB-level (authz functions)
 | GAS Migration | ✅ DONE | 154-168 | Google Apps Script → Supabase |
 | Cleanup | ✅ DONE | 191-220 | Dead forms, REVOKE, search_path, versioning |
 | TypeScript | ✅ DONE | — | 188 file TS total (154 `src` + 28 `tests` + 6 config), 0 tsc errors — `tsconfig` mencakup `src`+`tests`+`*.config.ts`, `allowJs: false` |
+| Audit 2026-09-16 | 🟡 PARTIAL (uncommitted, belum deploy — rincian & sisa OPEN di §5.6) | — | Ringkasan: helper `requireNrp()`/`requireSession` di `src/lib/supabase-browser.ts` menggantikan fallback `'NRP001'` di 13 komponen; RoleGuard fail-closed (allowedRoles=0 ditolak); CSP `script-src` ditarik `unsafe-inline`/`unsafe-eval` via modul TS (error-suppressor & SW register); index.html inline script dipindah ke `src/main.tsx`; `vercel.json` CSP diperbaiki (`unsafe-eval` + `img-src https:` wildcard dibuang; entri `connect-src alive-robin` **sengaja dipertahankan** sesuai §5.5) — ⚠ file-file ini masih UNCOMMITTED; `tsc` sempat 7 error (import `requireNrp` hilang di 5 file + `React` UMD di `main.tsx`), sudah diperbaiki → tsc 0 error; sinkronisasi `areaFromPath`/`menu-builder`; 12 file `format.ts` dibersihkan komentar histori; build EXIT 0, lint 0 error, tsc 0 error, E2E 51/51 hijau. Detail: hardcode identitas `|| 'NRP001'` dihapus dari Worker.tsx, ForumDiskusi, TrainingForm, WorkerOvertime, CompensationIntel, WorkerPayroll, WorkerProfile, ContinuousPerf, PerformanceTrend, WorkerKpi, WorkerCareer, WorkerActivities. Branding FreeBuff sudah bersih di UI aktif. Komentar histori/banner dikompaktankan (jaga RoleGuard/DynamicRoutes/vite.config). Dampak lintas-page: worker→admin→dashboard→owner — semua component identitas sekarang melalui layer bersama, tidak ada patch per-page. |
 
 ### 7.4 Database Status (Live)
 
@@ -276,7 +379,7 @@ Layer 3: DB-level (authz functions)
 
 | Component | Status | Notes |
 |---|---|---|
-| TypeScript | ✅ 154 .ts/.tsx files | 0 tsc errors, strict mode |
+| TypeScript | ✅ 156 .ts/.tsx files (132 `.tsx` + 24 `.ts`) | 0 tsc errors (re-verifikasi 2026-09-16), strict mode, `allowJs: false` |
 | Unit tests | ✅ 100/100 | vitest |
 | E2E tests | ✅ 51/64 passed | 13 skipped (live-backend) |
 | Lint | ✅ 0 errors | eslint |

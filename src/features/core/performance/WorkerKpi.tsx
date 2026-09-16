@@ -1,5 +1,5 @@
 // WorkerKpi.jsx — Target & pencapaian performa karyawan
-import { getSession } from '@/lib/supabase-browser';
+import { requireNrp } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';
@@ -9,7 +9,7 @@ export default function WorkerKpi() {
   const [data, setData] = useState<any[]>([]);
   const [profile, setProfile] = useState<Record<string, any>>({});
 
-    const nrp = getSession()?.nrp || 'NRP001';
+    const nrp = requireNrp();
 
   const fetchData = useCallback(async () => {
     setLoading(true);

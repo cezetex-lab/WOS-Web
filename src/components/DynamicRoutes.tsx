@@ -8,6 +8,7 @@
 import React, { Suspense, useState, useEffect, ComponentType } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
 import { rpc } from '@/lib/supabase-browser';
+import { areaFromPath } from '@/lib/menu-builder';
 import { getComponent } from '@/lib/route-config';
 import LazyLoad from './LazyLoad';
 import ErrorBoundary from './ErrorBoundary';
@@ -49,14 +50,6 @@ async function fetchAllRouteConfig(pArea?: string) {
       group: m.route_group || 'worker',
       code: m.module_code,
     }));
-}
-
-// Determine area from current pathname.
-function areaFromPath(pathname: string) {
-  const p = (pathname || '').replace(/\/+$/, '') || '/';
-  if (p.startsWith('/admin')) return 'admin';
-  if (p.startsWith('/dashboard')) return 'dashboard';
-  return 'worker';
 }
 
 const normalizePath = (p: string) => ((p || '').replace(/\/+$/, '') || '/');

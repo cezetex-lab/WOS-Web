@@ -1,5 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import './lib/error-suppressor'; // paling awal — pasang handler sebelum app render
+import './lib/register-sw'; // PWA: registrasi Service Worker (ex-inline script index.html)
 import './lib/posthog'; // PostHog init — page views, errors, clicks auto-captured
 import App from './App';
 import { Providers } from './lib/design-system';

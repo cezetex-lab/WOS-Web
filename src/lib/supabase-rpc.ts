@@ -57,7 +57,7 @@ export async function rpc<T = Record<string, unknown>>(
 
 // ─── Typed RPC Functions ──────────────────────────────────────
 
-/** Login worker by NRP+NIK+Password (legacy) */
+/** Login worker by NRP+NIK+Password */
 export function rpcLoginWorker(params: {
   p_nrp: string;
   p_nik: string;

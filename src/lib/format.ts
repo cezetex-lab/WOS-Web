@@ -1,9 +1,4 @@
-// ============================================================
-// format.ts — Helper format & periode (sumber tunggal)
-// ============================================================
-// Mengganti duplikasi formatRupiah/getCurrentPeriod/getPeriodLabel/
-// getRecentPeriods yang sebelumnya disalin di Payroll, IncentiveCalc,
-// Kpi, dan Okrs.
+// Sumber tunggal format & periode (dipakai lintas page; validasi: zod schemas).
 
 // Nama bulan Indonesia (panjang & pendek)
 export const MONTHS_ID_LONG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];

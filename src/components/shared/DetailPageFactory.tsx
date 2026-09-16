@@ -3,7 +3,7 @@
 // Satu komponen, 30+ halaman berbeda via config
 // ============================================================
 
-import { getSession } from '@/lib/supabase-browser';
+import { getSession, requireNrp } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, rpc } from '../../lib/supabase-browser';
@@ -109,10 +109,8 @@ export default function DetailPageFactory({ pageKey, isAdmin = true }: DetailPag
   const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  // ── COMPUTED FIELDS ──
-  const nrp = typeof window !== 'undefined'
-    ? getSession()?.nrp || 'NRP001'
-    : 'NRP001';
+  // COMPUTED FIELDS — identitas wajib dari session (no fallback, lihat requireNrp)
+  const nrp = requireNrp();
 
   const params = config?.paramField ? { [config.paramField]: nrp } : {};
 
