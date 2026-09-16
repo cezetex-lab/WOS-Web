@@ -169,7 +169,10 @@ export default function Home() {
     setSession(sessionData);
     // Provision akun Supabase Auth supaya auth.uid() tersedia (authz/RLS)
     if (creds?.nik && creds?.password) {
-      await provisionWorkerAuth(d.nrp, creds.nik, creds.password);
+      const pw = await provisionWorkerAuth(d.nrp, creds.nik, creds.password);
+      if (!pw) {
+        alert('Peringatan: Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
+      }
     }
     redirectAfterLogin(entry);
   }
@@ -407,7 +410,12 @@ export default function Home() {
         }
         // No MFA — direct sesuai tab asal login
         finalizeWorkerSession(d, {}, tab);
-        if (nik && pass) await provisionWorkerAuth(validatedNrp, nik, pass);
+        if (nik && pass) {
+          const pw = await provisionWorkerAuth(validatedNrp, nik, pass);
+          if (!pw) {
+            alert('Peringatan: Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
+          }
+        }
         redirectAfterLogin(tab);
       } else {
         setError(d.msg || 'OTP salah');
@@ -438,7 +446,10 @@ export default function Home() {
           // Provision akun auth dengan kredensial asli (nik/pass state masih
           // memegang nilai dari form login) — bukan email sintetis + password
           // tebak-tebakan 'mfa-sync-'+nrp yang selalu gagal.
-          await provisionWorkerAuth(mfaNrp, nik, pass);
+          const pw = await provisionWorkerAuth(mfaNrp, nik, pass);
+          if (!pw) {
+            alert('Peringatan: Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
+          }
           redirectAfterLogin(tab);
         } else {
           window.location.href = '/admin';
