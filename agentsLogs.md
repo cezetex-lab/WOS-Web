@@ -782,3 +782,18 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 - Dampak lintas-page: worker → admin → dashboard → owner — tidak terdampak. S4 hanya CSP header
   (tidak mengubah kode). L7 hanya menyentuh `provisionWorkerAuth` di `Home.tsx` (login worker);
   admin/dashboard/owner login tidak menggunakan fungsi ini (admin pakai `syncSupabaseAuth` langsung).
+
+## [2026-09-16] no-console lint cleanup — DONE
+- Status: DONE
+- Commit: `71b7983` (13 files, +12/−22) — deploy: production via `npx vercel --prod` (alias https://insightwos.vercel.app). Frontend-only — tidak ada perubahan edge/DB.
+- Ringkasan:
+  1. **12 console statement dihapus** dari 13 file: admin guard redirect logging (AdminRouteGuard, useAdminAuth, Worker, Dashboard, Admin), empty-list/unknown-component warnings (DynamicRoutes), provisionWorkerAuth debug logging (Home), SW registration status (register-sw), rpcError logging (supabase-browser).
+  2. **4 console.error dipertahankan** dengan `eslint-disable-next-line` (RoleGuard fail-closed + catch-all, AppDrawer menu build failure, logError central logger, ExportPage DEV-only). Alasan: intentional fail-closed guards, centralized error pipeline, DEV-gated debug output — bukan noise.
+  3. **register-sw.ts**: `console.log` diganti dengan empty arrow functions (interface tap tanpa output noise).
+- Bukti:
+  - tsc: 0 error ✅
+  - lint: 0 error, 14 warnings (all `react-hooks/exhaustive-deps`, P2 scope) ✅
+  - build: EXIT 0 ✅
+  - unit tests: 15/15 files, 113/113 tests pass ✅
+  - Deploy: Vercel production ready, alias HTTP 200 ✅
+- Dampak lintas-page: worker → admin → dashboard → owner — tidak terdampak. Perubahan bersifat lintas-file (semua page), tapi hanya menghapus log output tanpa mengubah alur kontrol atau state management. `eslint-disable` hanya pada guard fail-closed yang sudah terisolasi.
