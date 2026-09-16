@@ -756,3 +756,29 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   2. `Home.tsx` rusak encoding akibat codemod rename — bukan cuma komentar: **string yang dirender** pun jadi mojibake (tombol kembali tampil sampah, bukan `←`; emoji `🔑 📝 🔍 🔐 📤` dan semua `—` hancur), plus **newline hilang di 3 tempat** sehingga baris komentar tergabung. Dipulihkan byte-exact dari blob pra-rename `2ccaa95^:src/pages/Home.jsx` (terverifikasi identik dengan HEAD). Mojibake em-dash di `OwnerDashboard.tsx` (sudah ter-commit) ikut dibersihkan. Scan seluruh repo: 0 mojibake / 0 C1-control / 0 komentar tergabung.
 - Lint: **0 error** (buang direktif `@typescript-eslint/no-explicit-any` yang basi — plugin-nya tidak dimuat di config Babel-parser saat ini, jadi direktifnya sendiri yang jadi error — dan bereskan irregular whitespace).
 - E2E Playwright: **51 passed / 0 failed** (sebelumnya 9 gagal). Akar 6 kegagalan admin/dashboard: mock TIDAK pernah meng-intersep edge `password-reset`, sehingga login menembus edge produksi yang rate-limiter-nya menjawab "Terlalu banyak request OTP". Ditambah route mock `password-reset` (`login_otp` → `dev_code`, `verify_login_otp`), handler RPC `verify_admin_otp`, dan `loginAsAdmin` kini menjalankan alur 2 langkah password → OTP yang sebenarnya.
+
+## [2026-09-16] S4 CSP Upstash removal + L7 provisioning failure notification — DONE
+- Status: DONE
+- Commit: `d45f0f9` (2 file, +15/−4) — deploy: production `insightwos-5fdd8rj0x` ● Ready
+  (alias https://insightwos.vercel.app HTTP 200). Frontend-only — tidak ada perubahan edge/DB.
+- Ringkasan:
+  1. **S4 — CSP `connect-src` dibersihkan.** `https://alive-robin-191313.upstash.io` dihapus dari
+     `vercel.json` CSP header. Upstash Redis tetap di stack (§5.5, keputusan user 2026-09-15);
+     hanya entri browser CSP yang dihapus — tidak ada kode frontend yang memanggil Upstash langsung.
+     CSP `connect-src` sekarang: `'self' https://verwobaejumvpagwynae.supabase.co https://*.posthog.com
+     https://api.posthog.com https://us.i.posthog.com`.
+  2. **L7 — Provisioning failure di-surface ke user.** `provisionWorkerAuth()` di `Home.tsx` sudah
+     mengembalikan `boolean`, tapi ketiga call site mengabaikan hasilnya — user tidak pernah tahu
+     kalau auth sync gagal. Ditambah `alert()` warning di 3 lokasi: `finalizeWorkerSession()` (worker
+     fast path), `submitWorkerOtp()` (worker no-MFA OTP path), dan `submitWorkerMfa()` (worker MFA path).
+     Pesan: "Peringatan: Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman."
+     Provisioning tetap best-effort (non-fatal); redirect login tidak diblokir.
+- Bukti:
+  - tsc: 0 error ✅
+  - lint: 0 error (38 warnings pre-existing) ✅
+  - build: EXIT 0 ✅
+  - unit tests: 15/15 files, 113/113 tests pass ✅
+  - Deploy: Vercel production ready, alias HTTP 200 ✅
+- Dampak lintas-page: worker → admin → dashboard → owner — tidak terdampak. S4 hanya CSP header
+  (tidak mengubah kode). L7 hanya menyentuh `provisionWorkerAuth` di `Home.tsx` (login worker);
+  admin/dashboard/owner login tidak menggunakan fungsi ini (admin pakai `syncSupabaseAuth` langsung).

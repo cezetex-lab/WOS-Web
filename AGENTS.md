@@ -221,14 +221,24 @@ Kolom yang butuh UI form:
 > Ditambah entri log **`[2026-09-16] Kontrak rpc() jujur`**: L1 (`rpc()` mengembalikan
 > `T | RpcError` dengan `kind` eksplisit + guard `isRpcError()`, 9 pemakai dimigrasikan, dan
 > salinan implementasi `rpc()` di `supabase-rpc.ts` disatukan ke satu sumber kebenaran).
+> Ditambah entri log **`[2026-09-16] S4 CSP Upstash + L7 provisioning warning`**: S4
+> (`connect-src https://alive-robin-191313.upstash.io` dihapus dari `vercel.json`; Upstash
+> infra tetap di stack per §5.5, hanya CSP browser dibersihkan), L7 (`provisionWorkerAuth()`
+> gagal kini menampilkan `alert()` warning ke user di 3 call site: `finalizeWorkerSession`,
+> `submitWorkerOtp`, `submitWorkerMfa`).
 > Yang tersisa (masih OPEN) ada di daftar di bawah — jangan dihapus dari file ini sampai selesai.
 
-### [ ] OPEN — P1 (keamanan / benar-salah)
+### ✅ Sudah dikerjakan (2026-09-16) — S4 dan L7
 
-- [ ] **S4 CSP Upstash masih hidup.** `connect-src https://alive-robin-191313.upstash.io`
-      masih ada di `vercel.json` — **sengaja dipertahankan** (§5.5 keputusan user), dan
-      **WAJIB dihapus saat cache-tier diintegrasikan** (browser→Redis dilarang).
-      ⚠ Koreksi: baris §7.3 sebelumnya mengklaim entri ini "sudah dihapus" — itu TIDAK benar.
+> Commit `d45f0f9` → push → deploy production `insightwos-5fdd8rj0x` ● Ready
+> (alias https://insightwos.vercel.app). tsc 0 error, lint 0 error (38 warnings pre-existing),
+> build EXIT 0, 113/113 unit tests pass.
+> - **S4**: `connect-src https://alive-robin-191313.upstash.io` dihapus dari `vercel.json` CSP.
+>   Upstash infra tetap di stack (§5.5); hanya CSP browser dibersihkan.
+> - **L7**: `provisionWorkerAuth()` gagal kini menampilkan `alert()` warning ke user di
+>   3 call site: `finalizeWorkerSession` (line ~172), `submitWorkerOtp` worker no-MFA (line ~413),
+>   `submitWorkerMfa` (line ~449). Pesan: "Auth sync gagal — beberapa fitur mungkin terbatas."
+>   Provisioning tetap best-effort (non-fatal); redirect login tidak diblokir.
 
 ### [ ] OPEN — P2 (kualitas / utang teknis)
 
