@@ -4,6 +4,37 @@
 > Aturan (lihat `AGENTS.md` §0.3-4): setiap perubahan harus **commit → push → deploy**; setelah sukses,
 > hasilnya ditulis ke file ini dan **dikeluarkan dari `AGENTS.md`**.
 
+## [2026-09-16] Worker Profile: 14 kolom baru + RPC get_worker_profile/worker_update_profile — PARTIAL (frontend done, DB grant pending)
+- Status: PARTIAL — frontend commit `5102f64` → push → deploy production `insightwos-3xiqo8p64` ● Ready
+  (alias https://insightwos.vercel.app HTTP 200, CSP bersih tanpa `connect-src` Upstash).
+  DB migration 222 sudah di-apply via SQL Editor; sisa: grant `EXECUTE TO authenticated` + smoke test.
+- Commit: `5102f64` (3 file, +405/−13) + `e7c24cd` (docs: update AGENTS.md §5)
+- Ringkasan:
+  1. **UI (`src/features/core/people/WorkerProfile.tsx`):** 14 kolom baru masuk ke form edit,
+     info rows, dan payload save: `agama`, `media_sosial`, `jenjang_pendidikan`,
+     `no_bpjs_kesehatan`, `no_bpjs_ketenagakerjaan`, `riwayat_penyakit`, `komorbid`, `alergi`,
+     `nama_bank`, `no_rekening`, `nama_rekening`, `lokasi_penempatan`, `updated_by`,
+     `status_kerja_internal`.
+  2. **Typed wrapper (`src/lib/supabase-rpc.ts`):** `rpcGetWorkerProfile` + `rpcWorkerUpdateProfile`
+     dengan kontrak `T | RpcError` + guard `isRpcError()`. Pemanggil lama `rpc()` di
+     `WorkerProfile.tsx` diganti 100%.
+  3. **Migration (`supabase/migrations/222_worker_profile_rpc.sql`):** `get_worker_profile` +
+     `worker_update_profile`, keduanya `SECURITY DEFINER` + `SET search_path`, identity dari
+     `authz_current_nrp()` (tidak percaya param client), update ke `employees_core` /
+     `employees_extended` (bukan `employees_master` VIEW).
+  4. **Legacy cleanup:** `worker_update_profile` lama (hanya update `employees_master` +
+     `email/no_hp/alamat`) di-rename ke `worker_update_profile_legacy` — tidak di-drop liar
+     (aturan §3.4).
+- Bukti: `npx tsc --noEmit` **0 error**; `npm run lint` **0 error**; `npm test` **113/113**;
+  `npx vite build` **EXIT 0** (✓ built in 8.72s). Production HTTP 200 + CSP `script-src 'self' https://*.posthog.com`,
+  `img-src 'self' data: blob: https://verwobaejumvpagwynae.supabase.co`, `connect-src` tanpa Upstash.
+- Dampak lintas-page: worker → admin → dashboard → owner — perubahan hanya di WorkerProfile +
+  lapisan RPC bersama. `rpc()` global tidak diubah, kontrak `T | RpcError` tidak diubah,
+  route/menu/authz tidak diubah → ke-4 page tidak berubah perilaku. Legacy rename aman tanpa
+  pemanggil existing.
+- Sisa OPEN: grant `EXECUTE TO authenticated` untuk 2 RPC baru (SQL Editor), smoke test runtime
+  login worker → edit 1 kolom → simpan → reload.
+
 ## [2026-09-16] Pre-existing lint cleanup: 12 warnings → 0 (react-hooks/exhaustive-deps) — DONE
 - Status: DONE — commit → push → deploy production selesai.
 - Commit: `20929bb` (12 file, +10/−153) — deploy: production `insightwos-pwvpzwktn` ● Ready 19s
