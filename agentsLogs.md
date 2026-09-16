@@ -20,7 +20,9 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-16] Sesi fail-closed + edge tidak lagi mengembalikan password (S6/S7/L4/S9 upppp.txt) — DONE
 - Status: DONE
-- Commit: `PENDING_HASH` (deploy: `PENDING_DEPLOY`)
+- Commit: `3a537b6` (15 file, +362/−107) — deploy: **frontend** production
+  `insightwos-j0m8dogko` ● Ready (alias https://insightwos.vercel.app HTTP 200) + **edge**
+  `worker-auth-sync` di-redeploy ke project `verwobaejumvpagwynae`.
 - Ringkasan:
   1. **S6 — token & password tidak lagi menyentuh client.** Field `token` DIHAPUS dari `UserSession`
      (`src/types/index.ts`); 7 call-site di `Home.tsx` dibersihkan (G3: kontrak berubah → semua pemakai
@@ -41,7 +43,10 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
   unit test **107/107** (14 file) dengan **7 test baru** untuk perilaku baru: tanpa `expires_at` ditolak,
   sesi kedaluwarsa ditolak, `expires_at` tak valid ditolak, sesi skema lama (`wos_user`) diabaikan +
   dibersihkan, dan `entry` diturunkan benar dari role (admin_/manager/owner/worker/is_owner).
-  E2E Playwright **51 passed / 0 failed / 13 skipped**. CATATAN: run E2E pertama sempat gagal
+  E2E Playwright **51 passed / 0 failed / 13 skipped**. Verifikasi edge LIVE setelah redeploy
+  (probe aman dengan kredensial palsu): body kosong → `400 {"ok":false,"msg":"nrp, nik, dan
+  password wajib diisi"}`; kredensial palsu → `401 {"ok":false,"msg":"Kredensial tidak valid."}`
+  — kedua respons tidak memuat field password apa pun. CATATAN: run E2E pertama sempat gagal
   1 test + 5 flaky (`concurrent-session` “multiple tabs” → tab baru mendarat di halaman login).
   Akarnya di MOCK, bukan kode produksi: `supabase.auth.setSession()` men-DECODE `access_token`
   sebagai JWT dan membaca klaim `exp`, sedangkan mock mengirim string sembarang → sesi tak pernah
