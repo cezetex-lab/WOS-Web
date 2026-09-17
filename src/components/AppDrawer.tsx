@@ -2,11 +2,8 @@ interface MenuItem { icon: string; label: string; path: string; }
 interface MenuGroup { title: string; items: MenuItem[]; }
 interface AppDrawerProps { isOpen: boolean; onClose: () => void; }
 
-// src/components/AppDrawer.jsx
-// Drawer navigasi: sumber utama = menu dinamis dari module_definitions
-// (buildMenu, A12). Konstanta di bawah HANYA fallback saat menu dinamis
-// gagal/belum termuat — cukup "gerbang" ke area, bukan salinan penuh menu.
-// Otoritas akses sesungguhnya tetap di DynamicRoutes guard + RLS database.
+// ADR: menu dinamis dari module_definitions (buildMenu); grup fallback hanya
+// sebagai gerbang saat menu belum termuat. Akses tetap di DynamicRoutes + RLS.
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { rpc, getSession } from '@/lib/supabase-browser';
