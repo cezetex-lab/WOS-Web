@@ -1022,3 +1022,64 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   runtime), satu berkas test baru, dan konfigurasi test. Tidak ada RPC/menu/route/authz/types yang
   berubah. Verifikasi sha256 bundle produksi menunjukkan keempat page memakai bundle yang sama
   seperti sebelum commit ini, jadi tidak ada perilaku page yang bergeser.
+
+---
+
+## [2026-09-17] Push + backfill schema_migrations + guard klaim dokumen vs DB live + pisah env test — DONE
+- Status: DONE — commit `91c0cdd` (+ `e20c420`, `b3b7d98`, `fe08e8a` yang sudah di-push).
+- Commit: `91c0cdd` (12 berkas, +299/−16) — branch `migrasi-vite`
+- Ringkasan:
+  1. **Push.** `e20c420`, `b3b7d98`, `fe08e8a` → `origin/migrasi-vite` (`6d066b8..fe08e8a`);
+     `git status -sb` bersih (0 ahead/behind).
+  2. **Backfill `schema_migrations` — §5.7 no.11 SELESAI.** Sebelum: 146 baris / 142 versi,
+     versi tertinggi 220, sedangkan migrasi 221/222/223 sudah diterapkan ke DB live tapi tidak
+     tercatat. Algoritma checksum di-reverse-engineer lebih dulu (SHA-256 **byte mentah** berkas)
+     dan divalidasi terhadap 6 baris lama → 6/6 cocok. Ketiganya didaftarkan lewat
+     `apply_migration()` (bukan INSERT mentah) beserta deskripsi backfill. Hasil: tabel menjadi
+     **149 baris = 149 berkas repo**, `UNAPPLIED` **3 → 0**, `verify_migration_checksum`
+     **PASS** untuk ketiganya. Dijalankan dry-run dulu, baru `--apply`.
+  3. **`check_migrations()` tidak akan pernah sepenuhnya bersih — dan itu ekspektasi.** Setelah
+     backfill masih ada 4 entri `DUPLICATE`: v176 (`176_fix_rownum_and_pgcrypto_path` +
+     `176_fix_search_path_extensions`), v186 (`186_add_missing_routes` + `186_enable_pg_cron_schedules`),
+     v208 (`208_fix_groupby` + `208_industry_tables_and_rpcs`), v215
+     (`215_ai_rag_access_and_rate_limits` + `215_gap_employee_fields`). Semua pasangan berkas
+     berbeda yang sah — migration 219 sendiri menyatakan beberapa berkas boleh berbagi nomor
+     versi, padahal fungsi `check_migrations` menandai setiap versi ganda sebagai `DUPLICATE`.
+     Jadi indikator yang benar-benar bermakna adalah `UNAPPLIED`. Kalau ingin benar-benar 0 issue,
+     aturan `DUPLICATE` di fungsinya perlu diubah — belum dikerjakan.
+  4. **Guard klaim dokumen (`tests/unit/doc-claims-vs-live.test.ts`).** 14 klaim DB + 2 klaim
+     filesystem. Angka dibaca **dari dokumen** (regex), jadi tidak ada duplikasi angka di kode;
+     tes gagal bila dokumen tidak cocok dengan DB live / isi repo. Metrik yang hanya bertambah
+     (baris `audit_log`) diperiksa `>=`. Tes di-skip bila `DATABASE_URL` tidak ada sehingga
+     `npm test` tanpa kredensial tetap jalan. Aturan ini dicatat sebagai §3 no.13.
+  5. **Drift nyata yang langsung ketangkap & diperbaiki:** fungsi §7.4 667 → **672**, overload
+     28 → **20**, grant anon/PUBLIC 129 → **132**, baris audit 169 → **172**, migrasi tracked
+     146 → **149**; diagram §7.1 "253 tables, 617 functions" → **256 / 672**; §7.3 berkas TS
+     188 (154+28+6) → **195 (157 src + 32 tests + 6 config)**; §7.5 156 (132+24) →
+     **157 (132 .tsx + 25 .ts)**. `FuturePlans.md` §1.3: fungsi 667 → 672, overload 28 → 20,
+     audit 169 → 172 (termasuk dua penyebutan di §6.1). Catatan: klaim "Tables 256" dan
+     "SECDEF 0 violations" ternyata **sudah benar** — tidak diubah.
+  6. **Bukti guard-nya hidup:** begitu berkas tesnya sendiri dibuat, jumlah berkas `tests/`
+     naik 31 → 32 sehingga tes §7.3 langsung gagal (`total dokumen=194 live=195`) sampai
+     angkanya diperbarui — persis perilaku yang diinginkan.
+  7. **Environment test dipisah (node vs jsdom).** 10 berkas yang tidak menyentuh DOM dipindah ke
+     `// @vitest-environment node` → lingkungan jsdom turun **16 → 7**. `tests/unit/menu-builder.test.ts`
+     **tetap jsdom**: `buildMenu()` membaca `window.location.pathname` (terbukti gagal
+     "window is not defined" saat dicoba di node env, lalu dikembalikan). Hasil akhir
+     **17/17 berkas, 118/118 test**.
+     - **Jujur soal wall-clock:** tidak ada angka percepatan yang bisa diklaim dari mesin ini. Dua
+       run berurutan dengan pekerjaan identik terukur **43.6s** dan **110.6s** (load mesin
+       berubah-ubah; `environment` 52s vs 190s). Yang deterministik adalah berkurangnya jumlah
+       boot jsdom (16 → 7), bukan durasinya.
+  8. **Eksperimen yang dibatalkan:** impor `@testing-library/jest-dom` bersyarat
+     (`if (typeof window !== 'undefined')`) di `tests/setup.ts` memicu `TS2306`
+     (`@testing-library/jest-dom/types/index.d.ts` bukan modul) dan manfaatnya tidak terukur di
+     wall-clock → dikembalikan ke `import '@testing-library/jest-dom';` semula.
+- Verifikasi DB (read-only, 2026-09-17): algoritma checksum 6/6 cocok; `verify_migration_checksum`
+  PASS ×3; `UNAPPLIED` = 0; `schema_migrations` = 149 baris.
+- Gate (tree final): `npm run check:types` **0 error**; `npm run lint` **0 error**;
+  `npm run build` **EXIT 0**; `npm test` **17/17 berkas, 118/118 test**.
+- Dampak lintas-page: worker → admin → dashboard → owner — **tidak ada berkas `src/` yang disentuh**
+  pada batch ini (hanya test, konfigurasi test, dan dokumen). Bundle produksi karena itu tetap
+  identik dengan yang sedang disajikan production (diverifikasi sha256 pada entri sebelumnya), jadi
+  tidak ada perilaku page yang berubah dan redeploy tidak diperlukan.
