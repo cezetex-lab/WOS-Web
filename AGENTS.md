@@ -132,7 +132,7 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
 9. Branding (nama/logo) = konfigurasi OWNER (`branding` table + `update_branding` owner-only).
    **Jangan hardcode di JS.** UI: tab 🎨 Branding OwnerDashboard.
 10. Verifikasi gate sebelum commit: `npm run check:types` (0 error), `npm run lint` (0 error),
-    `npm test` (unit 100/100), `npm run build` (EXIT 0), secret scan. Untuk perubahan
+    `npm test` (unit 119/119), `npm run build` (EXIT 0), secret scan. Untuk perubahan
     fungsional, tambah smoke lintas-page (§0.5 G6).
 11. **TypeScript wajib untuk SEMUA kode** (aturan keras): `src/`, `tests/`, dan file konfigurasi
     (`vite/vitest/playwright/tailwind/postcss/eslint.config.ts`) harus `.ts`/`.tsx`/`.config.ts`.
@@ -143,7 +143,8 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
     langsung oleh Node dan dikelola terpisah.
 12. **Keterkaitan 4 page adalah hukum, bukan preferensi** — setiap perubahan pada satu page
     (worker/admin/dashboard/owner) WAJIB dievaluasi & diverifikasi lintas-page (§0.5 G1–G7).
-13. **Angka metrik di dokumen tidak boleh dikarang.** Klaim kuantitatif di `AGENTS.md` (§7.1, §7.3, §7.4, §7.5) dan `FuturePlans.md` (§1.3) diverifikasi otomatis oleh `tests/unit/doc-claims-vs-live.test.ts` terhadap DB live + isi repo. Kalau schema/berkas berubah secara sah: **perbarui dokumennya** — JANGAN melemahkan/menghapus tesnya. Angka yang hanya bertambah (mis. baris `audit_log`) diperiksa sebagai `>=`. Tes itu di-skip bila `DATABASE_URL` tidak ada, jadi `npm test` tanpa kredensial tetap jalan.
+13. **Angka metrik di dokumen tidak boleh dikarang.** Klaim kuantitatif di `AGENTS.md` (§7.1, §7.3, §7.4, §7.5) dan `FuturePlans.md` (§1.3) diverifikasi otomatis oleh `tests/unit/doc-claims-vs-live.test.ts` terhadap DB live + isi repo. Kalau schema/berkas berubah secara sah: **perbarui dokumennya** — JANGAN melemahkan/menghapus tesnya. Angka yang hanya bertambah (mis. baris `audit_log`) diperiksa sebagai `>=`. Tes itu di-skip bila `DATABASE_URL` tidak ada, jadi `npm test` tanpa kredensial tetap jalan. Aturan yang sama berlaku untuk klaim kapabilitas roadmap di `FuturePlans.md` (tabel/RPC/berkas yang diklaim sudah ada atau belum ada).
+14. **Migrasi tidak boleh masuk DB live tanpa tercatat.** Migrasi 221/222/223 pernah diterapkan lewat SQL Editor sehingga `schema_migrations` tertinggal (§5.7 no.11). Sejak 2026-09-17 jalurnya satu: `npm run db:migrate -- <berkas>.sql --apply` (§6.4). Klaim "DONE" untuk migrasi baru wajib menyertakan bukti `verify_migration_checksum` PASS dan `check_migrations()` bersih.
 
 ## 4. STATE OPEN — E2E Tests (Q5)
 
@@ -280,12 +281,16 @@ Kolom yang sudah masuk UI form:
    (pakai `Select-Object -First 1`).
 3. `npx` via PowerShell sering gagal stderr-as-error → jalankan via `cmd /c`, atau
    `Start-Process` untuk proses lama (vitest ~30–100s; jangan sync dalam timeout tool 30s).
-4. `supabase db execute --db-url` bermasalah via PowerShell (npm notice stderr) → apply
-   migration via python pg8000 (URL dari `.env.local`, JANGAN lewat argv agar tidak ter-log).
+4. **Apply migrasi ke DB live WAJIB lewat wrapper**, bukan SQL Editor / pg8000 manual:
+   `npm run db:migrate -- <berkas>.sql --apply` (`supabase/scripts/apply-migration.mjs`). Wrapper itu
+   menjalankan SQL DAN mendaftarkannya ke `schema_migrations` dalam **SATU transaksi** — kalau
+   pendaftaran gagal, SQL-nya ikut ROLLBACK, jadi mustahil berakhir "sudah jalan tapi tidak tercatat"
+   (penyebab drift 221/222/223, §5.7 no.11). Ia juga menolak jalan kalau nomor versi sudah dipakai
+   berkas lain, dan mendeteksi berkas yang diubah setelah diterapkan (checksum beda). Default = dry run.
 5. `.env.local` pernah pecah dotenv (blok SQL mentah) — cek parse sebelum deploy edge.
-6. Apply migration live: pola `.freebuff/audit/apply_mig*.py` (split on `;`, per-statement
-   OK/FAIL), lalu probe post-verify read-only.
-7. **"Timeout waiting for worker to respond" bukan masalah konfigurasi tes.** Vitest memakai timeout keras **60s** untuk pool runner-nya (`START_TIMEOUT` di `node_modules/vitest/dist`) yang TIDAK bisa dikonfigurasi, sementara default worker = satu per core. Di mesin 12 core pool runner kalah rebutan CPU → sebagian berkas "passed" tapi ada puluhan error dan jumlah test jauh di bawah 118. `vitest.config.ts` membatasi `maxWorkers` (≤4). Gejala ini pernah dicatat sebagai "flaky Windows" — akarnya konkret, jangan di-workaround dengan `--no-file-parallelism`.
+6. **Post-verify read-only setelah apply**: pakai script python pg8000 yang membaca `DATABASE_URL` dari
+   `.env.local` (jangan lewat argv agar tidak ter-log) untuk memastikan efek migrasi benar di DB live.
+7. **"Timeout waiting for worker to respond" bukan masalah konfigurasi tes.** Vitest memakai timeout keras **60s** untuk pool runner-nya (`START_TIMEOUT` di `node_modules/vitest/dist`) yang TIDAK bisa dikonfigurasi, sementara default worker = satu per core. Di mesin 12 core pool runner kalah rebutan CPU → sebagian berkas "passed" tapi ada puluhan error dan jumlah test jauh di bawah 118. `vitest.config.ts` membatasi `maxWorkers` (2 per project; suite dipecah jadi project `node` + `jsdom`). Gejala ini pernah dicatat sebagai "flaky Windows" — akarnya konkret, jangan di-workaround dengan `--no-file-parallelism`.
 
 ## 7. GRAND DESIGN — Arsitektur & Status Implementasi
 
@@ -363,7 +368,7 @@ Layer 3: DB-level (authz functions)
 |---|---|---|
 | Tables | 256 | 256 base table (termasuk 48 partisi); 257 kalau view dihitung |
 | Functions | 672 | 20 overloads (legacy renamed `_legacy_*`) |
-| Migrations tracked | 149 | Via `schema_migrations` (migration 219); 221–223 didaftarkan 2026-09-17 (§5.7 no.11) |
+| Migrations tracked | 150 | Via `schema_migrations` (migration 219); 221–224 didaftarkan 2026-09-17 (§5.7 no.11) |
 | RLS policies | All tables | Force-enabled, no USING(true) |
 | SECDEF search_path | 0 violations | Fixed via migration 207 |
 | anon/PUBLIC grants | 132 | Remaining: pgvector internals + login-flow |
@@ -375,7 +380,7 @@ Layer 3: DB-level (authz functions)
 | Component | Status | Notes |
 |---|---|---|
 | TypeScript | ✅ 157 .ts/.tsx files (132 `.tsx` + 25 `.ts`) | 0 tsc errors (re-verifikasi 2026-09-17), strict mode, `allowJs: false` |
-| Unit tests | ✅ 118/118 | vitest (17 berkas) |
+| Unit tests | ✅ 119/119 | vitest (17 berkas; 2 project: `node` + `jsdom`) |
 | E2E tests | ✅ 51/64 passed | 13 skipped (live-backend) |
 | Lint | ✅ 0 errors | eslint |
 | Build | ✅ EXIT 0 | vite |
@@ -464,5 +469,7 @@ Layer 3: DB-level (authz functions)
 > **Catatan penting:** Item 1–4 ter-commit + push (`6d066b8`, `3b6a698`, `7f1bf08`). Item **3 selesai** di commit `e20c420` (89 berkas; scope terkoreksi dari 5) + `b3b7d98` (guard anti-drift + vitest stabil), dan item **4 sudah terverifikasi** 2026-09-17 (sha256 aset produksi = build lokal `dist/`; redirect berbasis `entry` ada di bundle produksi) — catatan lama "deploy gagal di environment agent" tidak berlaku lagi. Item **10 selesai**.
 > Item 5–7 (`SG Migration`) **DITUNDA** per instruksi user (*tunda sampai saya minta; mungkin tidak perlu*). Item 9 (`PWA spec`) sudah siap — hanya butuh eksekusi lokal user. Item **11** (drift tracking migrasi 221/222/223) **SELESAI** 2026-09-17.
 >
-> **Catatan §5.7 no.11 — `check_migrations()` tidak akan pernah sepenuhnya bersih.** Fungsi itu melaporkan `DUPLICATE` untuk setiap `version` yang dipakai lebih dari satu berkas, padahal migration 219 sendiri menyatakan (dalam komentarnya) bahwa beberapa berkas boleh berbagi nomor versi: v176 (`176_fix_rownum_and_pgcrypto_path` + `176_fix_search_path_extensions`), v186, v208 (`208_fix_groupby` + `208_industry_tables_and_rpcs`), v215 (`215_ai_rag_access_and_rate_limits` + `215_gap_employee_fields`). Jadi 4 `DUPLICATE` itu ekspektasi, bukan drift. Yang benar-benar menandakan masalah adalah `UNAPPLIED` (sekarang 0). Kalau mau benar-benar bersih, aturan `DUPLICATE` di fungsi itu perlu diubah — belum dilakukan.
+> **Catatan §5.7 no.11 — `check_migrations()` tidak akan pernah sepenuhnya bersih.** Fungsi itu melaporkan `DUPLICATE` untuk setiap `version` yang dipakai lebih dari satu berkas, padahal migration 219 sendiri menyatakan (dalam komentarnya) bahwa beberapa berkas boleh berbagi nomor versi: v176 (`176_fix_rownum_and_pgcrypto_path` + `176_fix_search_path_extensions`), v186, v208 (`208_fix_groupby` + `208_industry_tables_and_rpcs`), v215 (`215_ai_rag_access_and_rate_limits` + `215_gap_employee_fields`). Jadi 4 `DUPLICATE` itu ekspektasi, bukan drift. Yang benar-benar menandakan masalah adalah `UNAPPLIED` (sekarang 0).
+>
+> **Diperbaiki 2026-09-17 (migration 224).** Aturan `DUPLICATE` kini hanya menyala untuk duplikasi sungguh-sungguhan (versi **dan** slug sama), dan ditambah `VERSION_MISMATCH` (baris yang `version`-nya tidak cocok dengan prefiks nomor `filename` — kelas kesalahan yang muncul saat pendaftaran manual dan tidak terlihat oleh versi lama fungsi). Hasil: `check_migrations()` mengembalikan **0 issue** untuk 150 berkas repo. `CREATE OR REPLACE` mempertahankan ACL, jadi REVOKE dari anon/PUBLIC (migration 221) tetap berlaku.
 > Menurut §0.4–5 baris yang sudah selesai seharusnya KELUAR dari tabel ini; saat ini baris 2/3/4/10 dibiarkan bertanda ✅ agar jejaknya terlihat lebih dulu di `agentsLogs.md`, siap dipangkas pada pembersihan berikutnya.

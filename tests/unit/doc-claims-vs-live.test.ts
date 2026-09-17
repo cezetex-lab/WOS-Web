@@ -268,3 +268,152 @@ describe('jumlah berkas TypeScript di dokumen', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Kapabilitas roadmap `FuturePlans.md` vs kenyataan.
+ *
+ * Kelas bug yang dicegah: dokumen bilang "tidak ada X" padahal X sudah dibangun
+ * (kasus nyata: `Tidak ada payroll engine` dan `Tidak ada shift swap workflow`
+ * masih tertulis padahal RPC/tabelnya sudah ada), atau sebaliknya.
+ *
+ * `status` = posisi yang BENAR menurut DB saat ini. Kalau pekerjaan membangun
+ * kapabilitas baru, tes akan gagal → perbarui `FuturePlans.md` DAN entri ini.
+ * `anchor` wajib ditemukan di FuturePlans.md supaya klaim tidak jadi yatim
+ * (diam-diam hilang saat dokumen ditulis ulang).
+ *
+ * Catatan kejujuran: bukti "absent" adalah nama objek yang diperkirakan — ia
+ * bekerja sebagai canary (kalau nanti tabelnya dibuat, tes menyala), bukan
+ * bukti ketiadaan yang mutlak.
+ */
+interface CapabilityClaim {
+  label: string;
+  anchor: string;
+  status: 'exists' | 'absent';
+  tables?: string[];
+  rpcs?: string[];
+  files?: string[];
+  /** Kalimat "belum ada" yang TIDAK boleh muncul lagi karena buktinya sudah ada. */
+  mustNotSay?: string[];
+}
+
+const CAPABILITIES: CapabilityClaim[] = [
+  {
+    label: 'PWA / offline mode',
+    anchor: 'Offline mode',
+    status: 'exists',
+    files: ['public/sw.js', 'public/manifest.json'],
+    tables: ['offline_sync'],
+  },
+  {
+    label: 'Predictive analytics (flight risk, anomali)',
+    anchor: 'Predictive Analytics',
+    status: 'exists',
+    rpcs: ['ai_flight_risk', 'ai_detect_anomalies', 'get_turnover_prediction', 'ai_summarize_employee'],
+  },
+  {
+    label: 'Anonymous reporting / whistleblowing',
+    anchor: 'Anonymous Reporting',
+    status: 'exists',
+    tables: ['whistleblowers'],
+  },
+  {
+    label: 'Payroll engine (kalkulasi)',
+    anchor: 'Payroll Engine',
+    status: 'exists',
+    rpcs: ['calculate_payroll_components', 'calculate_all_payroll', 'process_payroll_batch', 'export_payroll'],
+    mustNotSay: ['Tidak ada payroll engine'],
+  },
+  {
+    label: 'Shift swap workflow',
+    anchor: 'Shift Swap',
+    status: 'exists',
+    tables: ['shift_swaps', 'shift_assignments'],
+    rpcs: ['admin_approve_shift_swap'],
+    mustNotSay: ['Tidak ada shift swap workflow'],
+  },
+  {
+    label: 'Payslip generation',
+    anchor: 'Payslip',
+    status: 'absent',
+    tables: ['payslips', 'employee_payslips', 'payroll_periods'],
+  },
+  {
+    label: 'Native mobile app',
+    anchor: 'mobile app',
+    status: 'absent',
+    tables: ['mobile_devices', 'offline_queue', 'mobile_notifications'],
+  },
+  {
+    label: 'GPS geofencing attendance',
+    anchor: 'GPS geofencing',
+    status: 'absent',
+    tables: ['attendance_locations', 'geofence_zones'],
+  },
+  {
+    label: 'Auto-approval rules engine',
+    anchor: 'Auto-Approval Rules',
+    status: 'absent',
+    tables: ['approval_rules', 'approval_workflows'],
+  },
+];
+
+describe.skipIf(!DB_URL)('kapabilitas roadmap FuturePlans vs DB live', () => {
+  it('setiap kapabilitas yang diklaim ada / belum ada cocok dengan kenyataan', async () => {
+    const future = readDoc('FuturePlans.md');
+    const client = new Client({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } });
+    await client.connect();
+
+    const drift: string[] = [];
+    try {
+      const tables = new Set(
+        (
+          await client.query<{ table_name: string }>(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+          )
+        ).rows.map((r) => r.table_name),
+      );
+      const rpcs = new Set(
+        (
+          await client.query<{ proname: string }>(
+            `SELECT DISTINCT p.proname FROM pg_proc p
+             JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public'`,
+          )
+        ).rows.map((r) => r.proname),
+      );
+
+      for (const claim of CAPABILITIES) {
+        if (!future.includes(claim.anchor)) {
+          drift.push(`${claim.label}: anchor "${claim.anchor}" tidak ada lagi di FuturePlans.md (klaim yatim)`);
+          continue;
+        }
+
+        const present: string[] = [];
+        const absent: string[] = [];
+        for (const t of claim.tables ?? []) (tables.has(t) ? present : absent).push(`tabel ${t}`);
+        for (const r of claim.rpcs ?? []) (rpcs.has(r) ? present : absent).push(`rpc ${r}`);
+        for (const f of claim.files ?? []) {
+          (fs.existsSync(path.join(ROOT, f)) ? present : absent).push(`berkas ${f}`);
+        }
+
+        if (claim.status === 'exists' && absent.length > 0) {
+          drift.push(`${claim.label}: diklaim SUDAH ada, tapi tidak ditemukan → ${absent.join(', ')}`);
+        }
+        if (claim.status === 'absent' && present.length > 0) {
+          drift.push(`${claim.label}: diklaim BELUM ada, tapi sudah ada → ${present.join(', ')}`);
+        }
+        for (const phrase of claim.mustNotSay ?? []) {
+          if (future.includes(phrase)) {
+            drift.push(`${claim.label}: FuturePlans.md masih menulis "${phrase}" padahal DB sudah punya buktinya`);
+          }
+        }
+      }
+    } finally {
+      await client.end();
+    }
+
+    expect(
+      drift,
+      `Klaim roadmap di FuturePlans.md tidak cocok dengan DB/berkas. Perbarui dokumennya (dan entri CAPABILITIES):\n  ${drift.join('\n  ')}`,
+    ).toEqual([]);
+  }, 60_000);
+});

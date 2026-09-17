@@ -16,7 +16,8 @@
     "start": "vite preview --port 3000",
     "deploy": "vercel --prod",
     "build:analyze": "vite build --mode analysis",
-    "check:types": "tsc --noEmit"
+    "check:types": "tsc --noEmit",
+    "db:migrate": "node supabase/scripts/apply-migration.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

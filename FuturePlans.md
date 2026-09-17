@@ -28,11 +28,11 @@ insightWOS adalah HR/WMS (Workforce Management System) dengan fokus industri (mi
 - ❌ **Tidak ada native mobile app** - semua kompetitor punya (ADP, SAP, Workday)
 - ❌ **Tidak ada GPS geofencing attendance** - time fraud risk
 - ❌ **Offline mode belum teruji E2E** — PWA (`sw.js` v3, `manifest.json`, `PwaUpdater`, `OfflineIndicator`) sudah hidup dan DB `offline_sync` ada, tapi belum ada spec E2E (`pwa-offline-mode.spec.ts` baru dibuat, belum dijalankan live).
-- ❌ **Tidak ada payroll engine** - hanya display data
+- ⚠️ **Payroll engine belum lengkap** — kalkulasi sudah ada (`calculate_payroll_components`, `calculate_all_payroll`, `process_payroll_batch`, `export_payroll`), tapi payslip PDF, tabel pajak, dan `payroll_periods` belum
 - ❌ **Tidak ada auto-approval rules** - admin workload tinggi
 - ❌ **Tidak ada bulk operations** - tidak scalable
 - ❌ **Tidak ada payslip generation** - banyak email ke HR
-- ❌ **Tidak ada shift swap workflow** - no-show risk
+- ⚠️ **Shift swap belum lengkap** — `shift_swaps`, `shift_assignments`, dan `admin_approve_shift_swap` sudah ada; bidding & auto-approve belum
 - ❌ **Tidak ada anonymous reporting** - compliance risk
 - ❌ **Tidak ada predictive AI** - hanya basic intelligence
 
