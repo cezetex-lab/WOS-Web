@@ -1,5 +1,5 @@
 // ============================================================
-// WorkerChangePassword.jsx — Worker Ganti Password Sendiri
+// WorkerChangePassword.tsx — Worker Ganti Password Sendiri
 // RPC: worker_change_password(nrp, old_password, new_password)
 // ============================================================
 

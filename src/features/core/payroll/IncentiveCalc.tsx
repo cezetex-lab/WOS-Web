@@ -1,5 +1,5 @@
 // ============================================================
-// IncentiveCalc.jsx — #45 Incentive Auto-Calculation
+// IncentiveCalc.tsx — #45 Incentive Auto-Calculation
 // RPC: calculate_incentive, get_incentives (from 028)
 // ============================================================
 

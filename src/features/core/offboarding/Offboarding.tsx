@@ -1,5 +1,5 @@
 // ============================================================
-// Offboarding.jsx — #135-138 Offboarding Workflow
+// Offboarding.tsx — #135-138 Offboarding Workflow
 // RPC: admin_get_exit_interviews, admin_get_settlements, get_offboarding_checklist
 // ============================================================
 

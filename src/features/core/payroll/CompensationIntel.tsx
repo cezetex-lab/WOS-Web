@@ -1,5 +1,5 @@
 // ============================================================
-// CompensationIntel.jsx — #42 Compensation Intelligence
+// CompensationIntel.tsx — #42 Compensation Intelligence
 // Analisis kompensasi: basic, allowance, deduction, benefit
 // ============================================================
 

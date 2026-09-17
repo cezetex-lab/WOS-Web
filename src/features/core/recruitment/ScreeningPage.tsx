@@ -1,4 +1,4 @@
-// ScreeningPage.jsx — Pre-employment Screening
+// ScreeningPage.tsx — Pre-employment Screening
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';

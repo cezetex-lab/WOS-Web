@@ -1,5 +1,5 @@
 // ============================================================
-// Payroll.jsx — Halaman Payroll / Gaji Karyawan
+// Payroll.tsx — Halaman Payroll / Gaji Karyawan
 // RPC: admin_get_payroll, admin_get_payroll_summary
 // ============================================================
 

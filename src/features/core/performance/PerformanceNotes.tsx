@@ -1,5 +1,5 @@
 // ============================================================
-// PerformanceNotes.jsx — #38 Performance Notes (Continuous Feedback)
+// PerformanceNotes.tsx — #38 Performance Notes (Continuous Feedback)
 // RPC: add_performance_note, get_performance_notes
 // ============================================================
 

@@ -1,5 +1,5 @@
 // ============================================================
-// OfflineIndicator.jsx — Shows banner when user is offline
+// OfflineIndicator.tsx — Shows banner when user is offline
 // Auto-hides when connection is restored
 // ============================================================
 

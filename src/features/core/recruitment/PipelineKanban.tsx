@@ -1,4 +1,4 @@
-// PipelineKanban.jsx — Kanban board untuk pipeline pelamar
+// PipelineKanban.tsx — Kanban board untuk pipeline pelamar
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, Badge, Button, LoadingSpinner, EmptyState } from '@/lib/design-system';

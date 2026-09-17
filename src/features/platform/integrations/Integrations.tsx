@@ -1,5 +1,5 @@
 // ============================================================
-// Integrations.jsx — #92-97 Integrations & Ecosystem
+// Integrations.tsx — #92-97 Integrations & Ecosystem
 // Webhooks, SSO, Slack/Teams notifications
 // ============================================================
 

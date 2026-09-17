@@ -1,5 +1,5 @@
 // ============================================================
-// Kpi.jsx — Halaman KPI / Performance
+// Kpi.tsx — Halaman KPI / Performance
 // RPC: admin_get_kpi_overview, admin_get_kpi_by_division, admin_get_kpi_trend
 // NOTE: Tidak dimigrasi ke useRpcQuery — 5 RPC + normalisasi duck-typing
 //       50+ baris (KPI aggregation per divisi) tidak cocok untuk generic hook.

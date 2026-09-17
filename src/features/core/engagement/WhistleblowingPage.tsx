@@ -1,4 +1,4 @@
-// WhistleblowingPage.jsx — Laporan pelanggaran anonim (role-aware)
+// WhistleblowingPage.tsx — Laporan pelanggaran anonim (role-aware)
 import React, { useState } from 'react';
 import { getSession, rpc, isRpcError } from '@/lib/supabase-browser';
 import { useRpcQuery } from '@/hooks/useRpcQuery';

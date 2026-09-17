@@ -1,4 +1,4 @@
-// BudgetPage.jsx — Alokasi anggaran HR
+// BudgetPage.tsx — Alokasi anggaran HR
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '@/lib/design-system';

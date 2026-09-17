@@ -1,4 +1,4 @@
-// RoleMatrixPage.jsx — Mapping Role & Permission
+// RoleMatrixPage.tsx — Mapping Role & Permission
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState, type CardColor } from '@/lib/design-system';

@@ -1,4 +1,4 @@
-// CareerPathPage.jsx — Jalur karir & promosi
+// CareerPathPage.tsx — Jalur karir & promosi
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '@/lib/design-system';

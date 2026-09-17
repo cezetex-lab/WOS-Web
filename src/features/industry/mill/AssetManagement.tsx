@@ -1,5 +1,5 @@
 // ============================================================
-// AssetManagement.jsx — #131-134 Asset Management
+// AssetManagement.tsx — #131-134 Asset Management
 // RPC: get_assets, checkout_asset, checkin_asset, admin_get_assets, admin_get_asset_assignments
 // ============================================================
 

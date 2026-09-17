@@ -1,5 +1,5 @@
 // ============================================================
-// WorkerOvertime.jsx — #21 Pengajuan Lembur + Kalkulasi Rate
+// WorkerOvertime.tsx — #21 Pengajuan Lembur + Kalkulasi Rate
 // Rate: Weekday 1.5x, Saturday 2x, Holiday 3x
 // ============================================================
 

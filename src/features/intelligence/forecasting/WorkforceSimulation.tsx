@@ -1,5 +1,5 @@
 // ============================================================
-// WorkforceSimulation.jsx — #90 Workforce Simulation
+// WorkforceSimulation.tsx — #90 Workforce Simulation
 // RPC: run_simulation, get_simulations
 // ============================================================
 

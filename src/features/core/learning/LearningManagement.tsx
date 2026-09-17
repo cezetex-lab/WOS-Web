@@ -1,4 +1,4 @@
-// LearningManagement.jsx — Program pelatihan & kursus admin view
+// LearningManagement.tsx — Program pelatihan & kursus admin view
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner, Tabs } from '@/lib/design-system';

@@ -1,4 +1,4 @@
-// SimperPage.jsx — Mining SIMPER (Surat Izin Masuk Pertambangan)
+// SimperPage.tsx — Mining SIMPER (Surat Izin Masuk Pertambangan)
 import { useState, useEffect } from 'react';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, EmptyState, SectionHeader, useToast } from '@/lib/design-system';

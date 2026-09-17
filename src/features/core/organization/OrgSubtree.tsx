@@ -1,5 +1,5 @@
 // ============================================================
-// OrgSubtree.jsx — #15 Subtree View Rekursif
+// OrgSubtree.tsx — #15 Subtree View Rekursif
 // RPC: admin_get_org_structure
 // ============================================================
 

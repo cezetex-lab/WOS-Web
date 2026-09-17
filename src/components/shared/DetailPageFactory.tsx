@@ -1,5 +1,5 @@
 // ============================================================
-// DetailPageFactory.jsx — Factory untuk membuat halaman detail
+// DetailPageFactory.tsx — Factory untuk membuat halaman detail
 // Satu komponen, 30+ halaman berbeda via config
 // ============================================================
 

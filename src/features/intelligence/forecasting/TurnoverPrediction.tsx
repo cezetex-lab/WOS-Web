@@ -1,5 +1,5 @@
 // ============================================================
-// TurnoverPrediction.jsx — #89 Turnover Prediction + #85 Flight Risk
+// TurnoverPrediction.tsx — #89 Turnover Prediction + #85 Flight Risk
 // RPC: get_turnover_prediction, get_flight_risk_list, get_early_warning
 // ============================================================
 

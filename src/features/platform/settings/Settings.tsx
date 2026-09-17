@@ -1,5 +1,5 @@
 // ============================================================
-// Settings.jsx — Settings + PKWT Expiry + Password Change
+// Settings.tsx — Settings + PKWT Expiry + Password Change
 // Wave 1: Critical P1 Features
 // ============================================================
 

@@ -1,4 +1,4 @@
-// Nursery.jsx — Estate Nursery (Persemaian Bibit)
+// Nursery.tsx — Estate Nursery (Persemaian Bibit)
 import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner } from '@/lib/design-system';

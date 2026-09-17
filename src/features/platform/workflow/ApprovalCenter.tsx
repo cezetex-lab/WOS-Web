@@ -1,5 +1,5 @@
 // ============================================================
-// ApprovalCenter.jsx — #29 Dynamic Approval Workflow
+// ApprovalCenter.tsx — #29 Dynamic Approval Workflow
 // View pending requests, approve/reject, bulk operations
 // ============================================================
 

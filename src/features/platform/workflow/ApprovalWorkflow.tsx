@@ -1,4 +1,4 @@
-// ApprovalWorkflow.jsx — Dynamic multi-level approval workflow
+// ApprovalWorkflow.tsx — Dynamic multi-level approval workflow
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, Button, LoadingSpinner, EmptyState } from '@/lib/design-system';

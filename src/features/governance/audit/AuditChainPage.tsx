@@ -1,4 +1,4 @@
-// AuditChainPage.jsx — Rantai audit transparan (hash-chain)
+// AuditChainPage.tsx — Rantai audit transparan (hash-chain)
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc, isRpcError } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '@/lib/design-system';

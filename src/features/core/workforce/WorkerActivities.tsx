@@ -1,4 +1,4 @@
-// WorkerActivities.jsx — Riwayat aktivitas terkini karyawan
+// WorkerActivities.tsx — Riwayat aktivitas terkini karyawan
 import { requireNrp } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';

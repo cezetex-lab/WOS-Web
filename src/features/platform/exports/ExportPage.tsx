@@ -1,4 +1,4 @@
-// ExportPage.jsx — Ekspor data ke Excel/CSV
+// ExportPage.tsx — Ekspor data ke Excel/CSV
 import React, { useState, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, Button, LoadingSpinner } from '@/lib/design-system';

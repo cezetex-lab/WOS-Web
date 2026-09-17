@@ -1,4 +1,4 @@
-// OvertimeManagement.jsx — Admin view for overtime approvals
+// OvertimeManagement.tsx — Admin view for overtime approvals
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState } from '@/lib/design-system';

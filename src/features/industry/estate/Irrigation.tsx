@@ -1,4 +1,4 @@
-// Irrigation.jsx — Estate Irrigation System Monitoring
+// Irrigation.tsx — Estate Irrigation System Monitoring
 import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner } from '@/lib/design-system';

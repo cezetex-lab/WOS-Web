@@ -1,4 +1,4 @@
-// DivisionsManagement.jsx — Manajemen Divisi & Departemen
+// DivisionsManagement.tsx — Manajemen Divisi & Departemen
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState, Avatar } from '@/lib/design-system';

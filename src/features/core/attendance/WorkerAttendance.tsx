@@ -1,5 +1,5 @@
 // ============================================================
-// WorkerAttendance.jsx — Custom Worker Attendance Page
+// WorkerAttendance.tsx — Custom Worker Attendance Page
 // RPC: get_worker_attendance(p_nrp)
 // ============================================================
 

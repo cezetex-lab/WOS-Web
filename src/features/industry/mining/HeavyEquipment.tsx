@@ -1,4 +1,4 @@
-// HeavyEquipment.jsx — Mining Heavy Equipment Monitor
+// HeavyEquipment.tsx — Mining Heavy Equipment Monitor
 import { useState, useEffect } from 'react';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, EmptyState, SectionHeader, useToast } from '@/lib/design-system';

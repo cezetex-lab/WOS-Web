@@ -1,4 +1,4 @@
-// ForumDiskusi.jsx — Forum diskusi karyawan
+// ForumDiskusi.tsx — Forum diskusi karyawan
 import { requireNrp, rpc, isRpcError } from '@/lib/supabase-browser';
 import React, { useState } from 'react';
 import { useRpcQuery } from '@/hooks/useRpcQuery';

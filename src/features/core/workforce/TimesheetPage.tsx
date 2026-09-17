@@ -1,4 +1,4 @@
-// TimesheetPage.jsx — Catatan jam kerja harian
+// TimesheetPage.tsx — Catatan jam kerja harian
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc, isRpcError } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '@/lib/design-system';

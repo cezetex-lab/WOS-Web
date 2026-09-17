@@ -1,4 +1,4 @@
-// src/pages/Worker.jsx
+// src/pages/Worker.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, clearSession, getSession, signOutAuth, requireNrp } from '../lib/supabase-browser';

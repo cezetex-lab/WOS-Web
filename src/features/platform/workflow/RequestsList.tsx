@@ -1,5 +1,5 @@
 // ============================================================
-// RequestsList.jsx — Custom Admin Requests Page
+// RequestsList.tsx — Custom Admin Requests Page
 // RPC: admin_get_pending_requests, process_request
 // ============================================================
 

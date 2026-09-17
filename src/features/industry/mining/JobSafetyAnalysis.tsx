@@ -1,4 +1,4 @@
-// JobSafetyAnalysis.jsx — Mining JSA (Job Safety Analysis)
+// JobSafetyAnalysis.tsx — Mining JSA (Job Safety Analysis)
 import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';

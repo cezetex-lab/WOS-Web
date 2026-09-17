@@ -1,5 +1,5 @@
 // ============================================================
-// TrainingForm.jsx — #24 Pengajuan Training + #26 Batal Training
+// TrainingForm.tsx — #24 Pengajuan Training + #26 Batal Training
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';

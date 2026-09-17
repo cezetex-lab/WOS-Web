@@ -1,4 +1,4 @@
-// SafetyK3.jsx — Mining Safety K3 (Keselamatan & Kesehatan Kerja)
+// SafetyK3.tsx — Mining Safety K3 (Keselamatan & Kesehatan Kerja)
 import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';

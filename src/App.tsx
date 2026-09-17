@@ -1,6 +1,6 @@
-// src/App.jsx — Dynamic routing from module_definitions
+// src/App.tsx — Dynamic routing from module_definitions
 // Rewritten 2026-09-11: removed unused `import React` (JSX auto-runtime).
-// Behavior unchanged vs. App.jsx.bak (kept beside this file).
+// Behavior unchanged since the .jsx → .tsx entrypoint migration.
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 

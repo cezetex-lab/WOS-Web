@@ -1,5 +1,5 @@
 // ============================================================
-// PwaUpdater.jsx — PWA Update Notification
+// PwaUpdater.tsx — PWA Update Notification
 // Notifies users when a new version is available
 // ============================================================
 

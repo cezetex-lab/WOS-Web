@@ -1,5 +1,5 @@
 // ============================================================
-// Layout.jsx — Global layout with AI Copilot
+// Layout.tsx — Global layout with AI Copilot
 // ============================================================
 
 import ChatCopilot from '@/components/ChatCopilot';

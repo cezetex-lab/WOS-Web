@@ -1,5 +1,5 @@
 // ============================================================
-// AuditLog.jsx — #98 Audit Trail
+// AuditLog.tsx — #98 Audit Trail
 // View all system activities with search & filter
 // ============================================================
 

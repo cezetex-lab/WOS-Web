@@ -1,4 +1,4 @@
-// EmergencyProcedures.jsx — Mining Emergency Procedures & Contacts
+// EmergencyProcedures.tsx — Mining Emergency Procedures & Contacts
 import { useState } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, SectionHeader } from '@/lib/design-system';

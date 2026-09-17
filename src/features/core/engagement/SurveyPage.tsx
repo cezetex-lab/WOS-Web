@@ -1,5 +1,5 @@
 // ============================================================
-// SurveyPage.jsx — #61 eNPS Survey & Pulse Survey
+// SurveyPage.tsx — #61 eNPS Survey & Pulse Survey
 // RPC: get_active_surveys, submit_survey, get_survey_results, admin_get_surveys
 // ============================================================
 

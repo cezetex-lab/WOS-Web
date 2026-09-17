@@ -1,4 +1,4 @@
-// ProductionDaily.jsx — Mining Daily Production Tracking
+// ProductionDaily.tsx — Mining Daily Production Tracking
 import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, LoadingSpinner, useToast } from '@/lib/design-system';

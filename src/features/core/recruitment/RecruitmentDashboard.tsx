@@ -1,4 +1,4 @@
-// RecruitmentDashboard.jsx — Manajemen Lowongan & Rekrutmen
+// RecruitmentDashboard.tsx — Manajemen Lowongan & Rekrutmen
 import React, { useState } from 'react';
 import { useRpcQuery } from '@/hooks/useRpcQuery';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, EmptyState, Tabs } from '@/lib/design-system';

@@ -31,6 +31,14 @@ WOS-Web-fresh/
 
 # Audit and test artifacts (should not be committed)
 .freebuff/
+
+# Artefak lokal: arsip GAS mentah, forensik, scratch, arsip .rar — never commit
+supabase/GAS sebelum refaktor/
+supabase/scripts/forensic_audit.py
+forensic_report.md
+WOS-Web.rar
+tmperr/
+.clai/
 test-results/
 playwright-report/
 provision-results.csv
@@ -65,6 +73,6 @@ supabase/scripts/fix-nrp003.sql
 !/.wrongstack/project.json
 .env*
 
-# Legacy local archive (GAS source, forensik, lampiran audit) � arsip lokal, jangan commit
+# Legacy local archive (GAS source, forensik, lampiran audit) — arsip lokal, jangan commit
 Readme/
 files/

@@ -1,5 +1,5 @@
 // ============================================================
-// OrgChart.jsx — #13 Struktur Organisasi Interaktif
+// OrgChart.tsx — #13 Struktur Organisasi Interaktif
 // Visual hierarchy tree — NOT DetailPageFactory
 // ============================================================
 

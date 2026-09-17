@@ -1,4 +1,4 @@
-// FatigueMonitor.jsx — Mining Fatigue Monitoring
+// FatigueMonitor.tsx — Mining Fatigue Monitoring
 import { useState, useEffect } from 'react';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';

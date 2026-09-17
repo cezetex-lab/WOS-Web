@@ -1,4 +1,4 @@
-// WorkerLeave.jsx — Worker Leave Page
+// WorkerLeave.tsx — Worker Leave Page
 import { getSession } from '@/lib/supabase-browser';
 import { useRpcQuery } from '@/hooks/useRpcQuery';
 import { GlassCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';

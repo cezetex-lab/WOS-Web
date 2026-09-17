@@ -1,4 +1,4 @@
-// MasterDataPage.jsx — Data Referensi Utama Sistem
+// MasterDataPage.tsx — Data Referensi Utama Sistem
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner, Tabs } from '@/lib/design-system';

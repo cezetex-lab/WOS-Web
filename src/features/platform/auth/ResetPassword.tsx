@@ -1,5 +1,5 @@
 // ============================================================
-// ResetPassword.jsx — Admin Reset Password Karyawan
+// ResetPassword.tsx — Admin Reset Password Karyawan
 // RPC: admin_reset_worker_password(nrp, new_password)
 // ============================================================
 

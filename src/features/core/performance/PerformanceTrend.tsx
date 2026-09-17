@@ -1,5 +1,5 @@
 // ============================================================
-// PerformanceTrend.jsx — #39 Performance Trend Tim (Chart.js)
+// PerformanceTrend.tsx — #39 Performance Trend Tim (Chart.js)
 // Menampilkan grafik KPI per periode untuk manager & worker
 // ============================================================
 

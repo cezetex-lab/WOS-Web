@@ -1,5 +1,5 @@
 // ============================================================
-// ContinuousPerf.jsx — #37 Continuous Performance Check-in
+// ContinuousPerf.tsx — #37 Continuous Performance Check-in
 // Worker & Manager: check-in berkala, catatan kinerja
 // ============================================================
 

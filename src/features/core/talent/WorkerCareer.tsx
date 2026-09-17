@@ -1,4 +1,4 @@
-// WorkerCareer.jsx — Jalur karir & peluang karyawan
+// WorkerCareer.tsx — Jalur karir & peluang karyawan
 import { requireNrp } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';

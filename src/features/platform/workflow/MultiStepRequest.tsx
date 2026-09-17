@@ -1,5 +1,5 @@
 // ============================================================
-// MultiStepRequest.jsx — #28 Multi-step Wizard Form
+// MultiStepRequest.tsx — #28 Multi-step Wizard Form
 // Submit cuti/lembur/sakit/izin/perjalanan dengan wizard steps
 // ============================================================
 

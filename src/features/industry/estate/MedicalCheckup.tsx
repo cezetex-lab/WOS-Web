@@ -1,4 +1,4 @@
-// MedicalCheckup.jsx — Estate Medical (Puskesmas Kebun)
+// MedicalCheckup.tsx — Estate Medical (Puskesmas Kebun)
 import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner } from '@/lib/design-system';

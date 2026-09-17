@@ -1,4 +1,4 @@
-// src/pages/Admin.jsx
+// src/pages/Admin.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, rpc, clearSession, getSession, signOutAuth } from '../lib/supabase-browser';

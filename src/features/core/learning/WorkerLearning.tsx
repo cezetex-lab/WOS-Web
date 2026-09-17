@@ -1,5 +1,5 @@
 // ============================================================
-// WorkerLearning.jsx — Custom Worker Learning Page
+// WorkerLearning.tsx — Custom Worker Learning Page
 // RPC: get_worker_learning(p_nrp)
 // ============================================================
 

@@ -1,5 +1,5 @@
 // ============================================================
-// Employees.jsx — Halaman Kelola Karyawan
+// Employees.tsx — Halaman Kelola Karyawan
 // RPC: admin_get_employees, admin_get_employee_stats
 // ============================================================
 

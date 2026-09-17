@@ -1,4 +1,4 @@
-// WorkerPayroll.jsx — Slip gaji bulanan karyawan
+// WorkerPayroll.tsx — Slip gaji bulanan karyawan
 import { getSession, requireNrp } from '@/lib/supabase-browser';
 import React, { useState } from 'react';
 import { useRpcQuery } from '@/hooks/useRpcQuery';

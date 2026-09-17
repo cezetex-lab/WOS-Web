@@ -1,4 +1,4 @@
-// Review360.jsx — Penilaian 360 derajat
+// Review360.tsx — Penilaian 360 derajat
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';

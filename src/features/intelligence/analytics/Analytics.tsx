@@ -1,5 +1,5 @@
 // ============================================================
-// Analytics.jsx — #81 Analytics Dashboard
+// Analytics.tsx — #81 Analytics Dashboard
 // Multi-chart dashboard: KPI, Attendance, Payroll, Headcount
 // ============================================================
 

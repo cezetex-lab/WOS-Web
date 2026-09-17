@@ -1,4 +1,4 @@
-// HarvestRecord.jsx — Estate Harvest Record (TBS Tandan Buah Segar)
+// HarvestRecord.tsx — Estate Harvest Record (TBS Tandan Buah Segar)
 import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';

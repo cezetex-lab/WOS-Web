@@ -1,5 +1,5 @@
 // ============================================================
-// Okrs.jsx — #44 OKRs (Objectives & Key Results)
+// Okrs.tsx — #44 OKRs (Objectives & Key Results)
 // RPC: get_my_okrs, create_okr, add_okr_result, admin_get_okr
 // ============================================================
 

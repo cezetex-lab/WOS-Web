@@ -1,4 +1,4 @@
-// TransportTBS.jsx — Estate Transport TBS (Truck Dispatch)
+// TransportTBS.tsx — Estate Transport TBS (Truck Dispatch)
 import { useState, useEffect } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';

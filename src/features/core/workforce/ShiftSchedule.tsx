@@ -1,5 +1,5 @@
 // ============================================================
-// ShiftSchedule.jsx — #74 Shift Management
+// ShiftSchedule.tsx — #74 Shift Management
 // View shifts, assign workers, swap requests
 // ============================================================
 

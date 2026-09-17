@@ -1,5 +1,5 @@
 // ============================================================
-// SkipToContent.jsx - WCAG: Skip to main content link
+// SkipToContent.tsx - WCAG: Skip to main content link
 // ============================================================
 export default function SkipToContent() {
   return (

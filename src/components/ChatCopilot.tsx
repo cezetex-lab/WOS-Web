@@ -1,6 +1,6 @@
 interface ChatCopilotProps { open?: boolean; onClose?: () => void; context?: string; }
 
-// ChatCopilot.jsx — AI Copilot Chat UI (DOMPurify, role-isolated, DB data list)
+// ChatCopilot.tsx — AI Copilot Chat UI (DOMPurify, role-isolated, DB data list)
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { callEdgeFunction } from '@/lib/edge-functions';
 import DOMPurify, { type Config as PurifyConfig } from 'dompurify';

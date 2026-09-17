@@ -1,4 +1,4 @@
-// WorkerKpi.jsx — Target & pencapaian performa karyawan
+// WorkerKpi.tsx — Target & pencapaian performa karyawan
 import { requireNrp } from '@/lib/supabase-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';

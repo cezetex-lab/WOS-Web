@@ -1,4 +1,4 @@
-// FacilityRequest.jsx — Estate Facility Request (Mess, Kerja, Dll)
+// FacilityRequest.tsx — Estate Facility Request (Mess, Kerja, Dll)
 import { useState, useEffect } from 'react';
 import { rpc, isRpcError } from '@/lib/supabase-browser';
 import { GlassCard, Badge, LoadingSpinner, useToast } from '@/lib/design-system';

@@ -1,4 +1,4 @@
-// TalentMarketPage.jsx — Marketplace internal talent
+// TalentMarketPage.tsx — Marketplace internal talent
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner, Tabs } from '@/lib/design-system';

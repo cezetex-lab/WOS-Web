@@ -1,5 +1,5 @@
 // ============================================================
-// TaskBoard.jsx — #71 Task Management Kanban
+// TaskBoard.tsx — #71 Task Management Kanban
 // TODO / DOING / DONE columns
 // ============================================================
 

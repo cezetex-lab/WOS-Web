@@ -1,4 +1,4 @@
-// VoiceIdeasPage.jsx — Ide & masukan karyawan (role-aware: worker submit, admin manage)
+// VoiceIdeasPage.tsx — Ide & masukan karyawan (role-aware: worker submit, admin manage)
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, Button, LoadingSpinner, Tabs, Input } from '@/lib/design-system';

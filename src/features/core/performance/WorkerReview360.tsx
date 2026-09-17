@@ -1,4 +1,4 @@
-// WorkerReview360.jsx — Worker view: only shows MY 360° reviews
+// WorkerReview360.tsx — Worker view: only shows MY 360° reviews
 import React, { useState, useEffect, useCallback } from 'react';
 import { rpc, getSession } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, Badge, LoadingSpinner, EmptyState } from '@/lib/design-system';

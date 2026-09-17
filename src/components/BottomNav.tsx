@@ -1,6 +1,6 @@
 interface BottomNavProps { onMenuClick?: () => void; }
 
-// src/components/BottomNav.jsx
+// src/components/BottomNav.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getSession } from '@/lib/supabase-browser';

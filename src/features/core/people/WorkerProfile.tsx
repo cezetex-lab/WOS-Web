@@ -1,5 +1,5 @@
 // ============================================================
-// WorkerProfile.jsx — #11 Profil Karyawan + Update Profil
+// WorkerProfile.tsx — #11 Profil Karyawan + Update Profil
 // RPC: get_worker_profile, update_worker_profile
 // ============================================================
 

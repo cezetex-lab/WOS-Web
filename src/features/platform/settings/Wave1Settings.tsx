@@ -1,5 +1,5 @@
 // ============================================================
-// Wave1Settings.jsx — Settings + PKWT Expiry + Password Change
+// Wave1Settings.tsx — Settings + PKWT Expiry + Password Change
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
