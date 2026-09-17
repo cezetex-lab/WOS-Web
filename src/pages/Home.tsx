@@ -110,9 +110,11 @@ export default function Home() {
   useEffect(() => {
     const user = getSession();
     if (user) {
-      const r = user.role || 'worker';
-      if (isAdminRole(r)) window.location.href = '/admin';
-      else if (r === 'manager') window.location.href = '/dashboard';
+      // G2 / G1 — redirect berdasarkan `entry` (tab asal login / sesi), bukan hanya role.
+      // Ini menyelaraskan dengan redirectAfterLogin() dan RoleGuard (entry check).
+      const entry = user.entry || 'worker';
+      if (entry === 'admin') window.location.href = '/admin';
+      else if (entry === 'dashboard') window.location.href = '/dashboard';
       else window.location.href = '/worker';
     }
   }, []);
