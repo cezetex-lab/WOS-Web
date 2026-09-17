@@ -18,7 +18,7 @@ export interface ValidationResult {
 }
 
 /**
- * Hook for form validation using security.js validators
+ * Hook for form validation using the shared src/lib/validation/security.ts validators
  * @param schema - { fieldName: { type, required, label } }
  * @returns { errors, validateField, validateAll, clearErrors }
  */

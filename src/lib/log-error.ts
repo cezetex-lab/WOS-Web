@@ -2,7 +2,7 @@
 // log-error.ts — Error logging helper untuk loader & action RPC
 // ============================================================
 // console.error (dev) + PostHog trackError (production). Diperlukan
-// karena plugin strip-console (vite.config.js) membuang console.*
+// karena plugin strip-console (vite.config.ts) membuang console.*
 // di build production — tanpa trackError, kegagalan RPC tidak
 // terpantau sama sekali di production.
 // PostHog di sini manual-only (tanpa autocapture) dan no-op aman

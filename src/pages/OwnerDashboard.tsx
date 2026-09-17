@@ -5,7 +5,7 @@ import { createPageErrorLogger } from '@/lib/log-error';
 import LogoUploader from '@/components/LogoUploader';
 
 // Factory per halaman: console.error (dev) + PostHog trackError (prod).
-// Lihat src/lib/log-error.js — plugin strip-console membuang console.*
+// Lihat src/lib/log-error.ts — plugin strip-console membuang console.*
 // di build production, sehingga trackError satu-satunya jalur pantau di prod.
 const logError = createPageErrorLogger('OwnerDashboard');
 

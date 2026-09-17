@@ -1,7 +1,7 @@
 /**
  * menu-builder.ts — Dynamic menu based on enabled modules + role-based filtering (TypeScript)
  *
- * Drop-in typed replacement for menu-builder.js.
+ * Typed module — drop-in replacement for the pre-TypeScript version.
  */
 
 import { supabase } from '@/lib/supabase-browser';

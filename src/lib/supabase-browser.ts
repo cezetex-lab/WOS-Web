@@ -1,7 +1,7 @@
 /**
  * supabase-browser.ts — Supabase client + session management (TypeScript)
  *
- * Drop-in typed replacement for supabase-browser.js.
+ * Typed module — drop-in replacement for the pre-TypeScript version.
  * All existing imports from './supabase-browser' continue to work.
  */
 

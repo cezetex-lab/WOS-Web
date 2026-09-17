@@ -221,7 +221,7 @@ export function AppDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   }
 
   // Safety net: item di luar area aktif dibuang, grup kosong disembunyikan.
-  // Memakai drawerPathInArea() dari menu-builder.js — satu implementasi filter
+  // Memakai drawerPathInArea() dari menu-builder.ts — satu implementasi filter
   // area yang sama dengan buildMenu (plus klausa dashboard-di-area-worker).
   const area = areaFromPath(path);
   const inArea = (p: string) => drawerPathInArea(p, area);

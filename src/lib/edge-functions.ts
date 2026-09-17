@@ -1,7 +1,7 @@
 /**
  * edge-functions.ts — Supabase Edge Function calls (TypeScript)
  *
- * Drop-in typed replacement for edge-functions.js.
+ * Typed module — drop-in replacement for the pre-TypeScript version.
  */
 
 import { supabase } from './supabase-browser';

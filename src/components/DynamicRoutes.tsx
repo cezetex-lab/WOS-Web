@@ -2,7 +2,7 @@
  * DynamicRoutes.tsx — Renders routes dynamically from module_definitions table.
  *
  * Reads route_path, route_component, route_group from DB.
- * Maps route_component → lazy React component via route-config.js.
+ * Maps route_component → lazy React component via route-config.ts.
  * No hardcoded routes — add modules from Owner Dashboard → Module Management.
  */
 import React, { Suspense, useState, useEffect, ComponentType } from 'react';

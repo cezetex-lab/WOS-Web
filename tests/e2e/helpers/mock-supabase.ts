@@ -19,7 +19,7 @@
 import { expect } from '@playwright/test';
 import type { Page, Route } from '@playwright/test';
 
-// .env.local is loaded by playwright.config.js — VITE_SUPABASE_URL must be
+// .env.local is loaded by playwright.config.ts — VITE_SUPABASE_URL must be
 // the same URL the app embeds, otherwise interception patterns won't match.
 export const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 
@@ -264,7 +264,7 @@ function handleRpc(fn: string, params: Record<string, any>, state: MockState): u
         kpi_target: 100,
       };
 
-    // Worker.jsx reads `annData?.data` where annData is the RPC body.
+    // Worker.tsx reads `annData?.data` where annData is the RPC body.
     case 'get_announcements':
       return {
         data: [
