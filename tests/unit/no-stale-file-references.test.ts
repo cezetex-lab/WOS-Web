@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Guard — komentar tidak boleh menyebut berkas yang sudah tidak ada.
  *

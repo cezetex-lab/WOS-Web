@@ -38,11 +38,11 @@ insightWOS adalah HR/WMS (Workforce Management System) dengan fokus industri (mi
 
 ### 1.3 Database State (from Forensic Audit)
 - **Total Tables**: ~257 (live DB: 257 termasuk partition tables; klaim 253 sudah ketinggalan)  
-- **Total Functions**: ~667 (live DB: 667 termasuk overload legacy; klaim 617 sudah ketinggalan)  
+- **Total Functions**: ~672 (live DB: 672 termasuk overload legacy; klaim 617 sudah ketinggalan)  
 - **Search Path Violations**: 0 (migration `207` sudah fix semua — OBSOLETE, klaim "8 functions missing" salah)  
 - **pg_cron**: 6 jobs aktif (`cron.job`) — OBSOLETE, klaim "NOT installed" salah  
-- **Legacy Overloads**: 28 overloads masih ada tapi sudah di-rename ke `_legacy_*` (tidak semua di-drop — ini desain, bukan bug)  
-- **Audit Chain**: 169 rows (`verify_audit_chain()` = 0 issues)  
+- **Legacy Overloads**: 20 overloads masih ada tapi sudah di-rename ke `_legacy_*` (tidak semua di-drop — ini desain, bukan bug)  
+- **Audit Chain**: 172 rows (`verify_audit_chain()` = 0 issues); baris hanya bertambah, jadi angka ini bergerak  
 - **RLS**: Semua tabel force-enabled
 
 ---
@@ -941,11 +941,11 @@ $$;
 
 ### 6.1 Immediate (Fix Critical Issues from Forensic Audit) — UPDATED
 
-> ⚠️ **Revisi 2026-09-16:** Klaim "8 functions missing search_path" sudah **OBSOLETE** (`AGENTS.md` §5.6, `futureplans_vs_live.py`: 0 violations; migration `207` sudah fix). `pg_cron` sudah aktif (`6` jobs). `28 overloads` sudah di-rename ke `_legacy_*` (bukan bug operasional).
+> ⚠️ **Revisi 2026-09-16:** Klaim "8 functions missing search_path" sudah **OBSOLETE** (`AGENTS.md` §5.6, `futureplans_vs_live.py`: 0 violations; migration `207` sudah fix). `pg_cron` sudah aktif (`6` jobs). `20 overloads` sudah di-rename ke `_legacy_*` (bukan bug operasional).
 
 1. ~~Fix 8 functions missing 'extensions' in search_path~~ → **OBSOLETE** (0 violations, `§7.6`)
 2. ~~Install pg_cron~~ → **SUDAH AKTIF** (`cron.job`: 6 jobs; `§7.4`)
-3. Resolve 28 function overloads → **PARTIAL** (`_legacy_*` rename sudah; sisa drop bisa P3)
+3. Resolve 20 function overloads → **PARTIAL** (`_legacy_*` rename sudah; sisa drop bisa P3)
 4. Apply migration `171` (sync DB-only functions) → masih berlaku jika belum
 
 ### 6.2 Phase 1 (3-6 bulan)

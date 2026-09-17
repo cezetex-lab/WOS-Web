@@ -143,6 +143,7 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
     langsung oleh Node dan dikelola terpisah.
 12. **Keterkaitan 4 page adalah hukum, bukan preferensi** — setiap perubahan pada satu page
     (worker/admin/dashboard/owner) WAJIB dievaluasi & diverifikasi lintas-page (§0.5 G1–G7).
+13. **Angka metrik di dokumen tidak boleh dikarang.** Klaim kuantitatif di `AGENTS.md` (§7.1, §7.3, §7.4, §7.5) dan `FuturePlans.md` (§1.3) diverifikasi otomatis oleh `tests/unit/doc-claims-vs-live.test.ts` terhadap DB live + isi repo. Kalau schema/berkas berubah secara sah: **perbarui dokumennya** — JANGAN melemahkan/menghapus tesnya. Angka yang hanya bertambah (mis. baris `audit_log`) diperiksa sebagai `>=`. Tes itu di-skip bila `DATABASE_URL` tidak ada, jadi `npm test` tanpa kredensial tetap jalan.
 
 ## 4. STATE OPEN — E2E Tests (Q5)
 
@@ -284,6 +285,7 @@ Kolom yang sudah masuk UI form:
 5. `.env.local` pernah pecah dotenv (blok SQL mentah) — cek parse sebelum deploy edge.
 6. Apply migration live: pola `.freebuff/audit/apply_mig*.py` (split on `;`, per-statement
    OK/FAIL), lalu probe post-verify read-only.
+7. **"Timeout waiting for worker to respond" bukan masalah konfigurasi tes.** Vitest memakai timeout keras **60s** untuk pool runner-nya (`START_TIMEOUT` di `node_modules/vitest/dist`) yang TIDAK bisa dikonfigurasi, sementara default worker = satu per core. Di mesin 12 core pool runner kalah rebutan CPU → sebagian berkas "passed" tapi ada puluhan error dan jumlah test jauh di bawah 118. `vitest.config.ts` membatasi `maxWorkers` (≤4). Gejala ini pernah dicatat sebagai "flaky Windows" — akarnya konkret, jangan di-workaround dengan `--no-file-parallelism`.
 
 ## 7. GRAND DESIGN — Arsitektur & Status Implementasi
 
@@ -303,7 +305,7 @@ Kolom yang sudah masuk UI form:
 ┌─────────────────────────────────────────────────────────────┐
 │                    SUPABASE BACKEND                          │
 │  Auth: email+password + OTP + MFA TOTP                      │
-│  DB: 253 tables, 617 functions, RLS on all tables          │
+│  DB: 256 tables, 672 functions, RLS on all tables          │
 │  Edge Functions: password-reset, worker-auth-sync,          │
 │                  ai-copilot, mfa-service                     │
 │  Storage: employee documents, payslips (future)             │
@@ -352,28 +354,28 @@ Layer 3: DB-level (authz functions)
 | GAS Migration | ✅ DONE | 154-168 | Google Apps Script → Supabase |
 | Cleanup | ✅ DONE | 191-220 | Dead forms, REVOKE, search_path, versioning |
 | Worker Profile RPC | ✅ DONE | 222 | `get_worker_profile` + `worker_update_profile` (14 kolom baru, legacy renamed `_legacy_*`) |
-| TypeScript | ✅ DONE | — | 188 file TS total (154 `src` + 28 `tests` + 6 config), 0 tsc errors — `tsconfig` mencakup `src`+`tests`+`*.config.ts`, `allowJs: false` |
+| TypeScript | ✅ DONE | — | 195 file TS total (157 `src` + 32 `tests` + 6 config), 0 tsc errors — `tsconfig` mencakup `src`+`tests`+`*.config.ts`, `allowJs: false` |
 | Audit 2026-09-16 | ✅ DONE (`81a5bf5`, deployed — sisa OPEN audit di §5.6) | — | Ringkasan: helper `requireNrp()`/`requireSession` di `src/lib/supabase-browser.ts` menggantikan fallback `'NRP001'` di 13 komponen; RoleGuard fail-closed (allowedRoles=0 ditolak); CSP `script-src` ditarik `unsafe-inline`/`unsafe-eval` via modul TS (error-suppressor & SW register); index.html inline script dipindah ke `src/main.tsx`; `vercel.json` CSP diperbaiki (`unsafe-eval` + `img-src https:` wildcard dibuang; entri `connect-src alive-robin` **sengaja dipertahankan** sesuai §5.5) — ⚠ file-file ini masih UNCOMMITTED; `tsc` sempat 7 error (import `requireNrp` hilang di 5 file + `React` UMD di `main.tsx`), sudah diperbaiki → tsc 0 error. COMMIT `81a5bf5` → push → deploy production `insightwos-lo3gcmyg9` ● Ready (alias HTTP 200; CSP prod + 0 inline script terverifikasi via curl); sinkronisasi `areaFromPath`/`menu-builder`; 12 file `format.ts` dibersihkan komentar histori; build EXIT 0, lint 0 error, tsc 0 error, E2E 51/51 hijau. Detail: hardcode identitas `|| 'NRP001'` dihapus dari Worker.tsx, ForumDiskusi, TrainingForm, WorkerOvertime, CompensationIntel, WorkerPayroll, WorkerProfile, ContinuousPerf, PerformanceTrend, WorkerKpi, WorkerCareer, WorkerActivities. Branding FreeBuff sudah bersih di UI aktif. Komentar histori/banner dikompaktankan (jaga RoleGuard/DynamicRoutes/vite.config). Dampak lintas-page: worker→admin→dashboard→owner — semua component identitas sekarang melalui layer bersama, tidak ada patch per-page. |
 
 ### 7.4 Database Status (Live)
 
 | Metric | Count | Notes |
 |---|---|---|
-| Tables | 256 | Including 38 attendance partitions |
-| Functions | 667 | 28 overloads (legacy renamed `_legacy_*`) |
-| Migrations tracked | 146 | Via `schema_migrations` (migration 219); 220 terdaftar 2026-09-15 |
+| Tables | 256 | 256 base table (termasuk 48 partisi); 257 kalau view dihitung |
+| Functions | 672 | 20 overloads (legacy renamed `_legacy_*`) |
+| Migrations tracked | 149 | Via `schema_migrations` (migration 219); 221–223 didaftarkan 2026-09-17 (§5.7 no.11) |
 | RLS policies | All tables | Force-enabled, no USING(true) |
 | SECDEF search_path | 0 violations | Fixed via migration 207 |
-| anon/PUBLIC grants | 129 | Remaining: pgvector internals + login-flow |
+| anon/PUBLIC grants | 132 | Remaining: pgvector internals + login-flow |
 | pg_cron jobs | 6 | Active: MV refresh, cleanup, OTP |
-| Audit chain | 169 rows | Hash-chain live, `verify_audit_chain()` = 0 issues (migration 220) |
+| Audit chain | 172 rows | Hash-chain live, `verify_audit_chain()` = 0 issues (migration 220); baris hanya bertambah |
 
 ### 7.5 Frontend Status
 
 | Component | Status | Notes |
 |---|---|---|
-| TypeScript | ✅ 156 .ts/.tsx files (132 `.tsx` + 24 `.ts`) | 0 tsc errors (re-verifikasi 2026-09-16), strict mode, `allowJs: false` |
-| Unit tests | ✅ 113/113 | vitest |
+| TypeScript | ✅ 157 .ts/.tsx files (132 `.tsx` + 25 `.ts`) | 0 tsc errors (re-verifikasi 2026-09-17), strict mode, `allowJs: false` |
+| Unit tests | ✅ 118/118 | vitest (17 berkas) |
 | E2E tests | ✅ 51/64 passed | 13 skipped (live-backend) |
 | Lint | ✅ 0 errors | eslint |
 | Build | ✅ EXIT 0 | vite |
@@ -455,10 +457,12 @@ Layer 3: DB-level (authz functions)
 | 8 | **FuturePlans.md — Revisi `§3` Phase 1 Roadmap** (tambahkan catatan `Shift Swap` harus lebih awal / `Payroll Engine` → `Payslip` dependency) | P2 | PARTIAL — F3 overlap sudah dicatat, tapi urutan `§3.1` belum diubah sepenuhnya | Non-disruptive — dokumentasi |
 | 9 | **PWA Offline — Jalankan spec live (`pwa-offline-mode.spec.ts`) secara lokal** | P0 | OPEN — sudah dibuat, belum berhasil di environment ini | User bisa jalankan: `npx playwright test .freebuff/audit/live-smoke/pwa-offline-mode.spec.ts --config=.freebuff/audit/live-smoke/playwright.live.config.ts` |
 | 10 | **Audit log `agentsLogs.md`** — tambahkan entri `2026-09-17` (PWA + SG tunda + FuturePlans revisi) | P4 | ✅ SELESAI — entri `[2026-09-17] P3 header .jsx→.tsx + guard anti-drift + vitest stabil + verifikasi production` | Non-disruptive — hanya dokumentasi log |
-| 11 | **`schema_migrations` tertinggal** — migrasi **221/222/223 diterapkan ke DB live tapi tidak tercatat** (versi tertinggi di DB 220; repo 149 berkas, tercatat 142). Efeknya sudah benar, tapi `check_migrations()` / `verify_migration_checksum()` akan melaporkan drift. Perlu INSERT ke `schema_migrations` (beserta checksum) untuk ketiganya | P2 | OPEN — ditemukan 2026-09-17 saat verifikasi production | Apply SQL ke DB live (bukan deploy frontend) |
+| 11 | **`schema_migrations` tertinggal** — migrasi **221/222/223 diterapkan ke DB live tapi tidak tercatat** | P2 | ✅ SELESAI (2026-09-17) — ketiganya didaftarkan via `apply_migration()` dengan checksum SHA-256 byte mentah (algoritma divalidasi 6/6 terhadap baris lama); `verify_migration_checksum` PASS untuk ketiganya; `UNAPPLIED` 3 → 0; tabel 146 → **149 baris** = 149 berkas repo. Sisa 4 entri `DUPLICATE` (v176/186/208/215) **bukan bug**: dua berkas berbeda memang berbagi nomor versi — lihat catatan §5.7 di bawah | — |
 
 ---
 
 > **Catatan penting:** Item 1–4 ter-commit + push (`6d066b8`, `3b6a698`, `7f1bf08`). Item **3 selesai** di commit `e20c420` (89 berkas; scope terkoreksi dari 5) + `b3b7d98` (guard anti-drift + vitest stabil), dan item **4 sudah terverifikasi** 2026-09-17 (sha256 aset produksi = build lokal `dist/`; redirect berbasis `entry` ada di bundle produksi) — catatan lama "deploy gagal di environment agent" tidak berlaku lagi. Item **10 selesai**.
-> Item 5–7 (`SG Migration`) **DITUNDA** per instruksi user (*tunda sampai saya minta; mungkin tidak perlu*). Item 9 (`PWA spec`) sudah siap — hanya butuh eksekusi lokal user. Item **11** (drift tracking migrasi 221/222/223) temuan baru, masih OPEN.
+> Item 5–7 (`SG Migration`) **DITUNDA** per instruksi user (*tunda sampai saya minta; mungkin tidak perlu*). Item 9 (`PWA spec`) sudah siap — hanya butuh eksekusi lokal user. Item **11** (drift tracking migrasi 221/222/223) **SELESAI** 2026-09-17.
+>
+> **Catatan §5.7 no.11 — `check_migrations()` tidak akan pernah sepenuhnya bersih.** Fungsi itu melaporkan `DUPLICATE` untuk setiap `version` yang dipakai lebih dari satu berkas, padahal migration 219 sendiri menyatakan (dalam komentarnya) bahwa beberapa berkas boleh berbagi nomor versi: v176 (`176_fix_rownum_and_pgcrypto_path` + `176_fix_search_path_extensions`), v186, v208 (`208_fix_groupby` + `208_industry_tables_and_rpcs`), v215 (`215_ai_rag_access_and_rate_limits` + `215_gap_employee_fields`). Jadi 4 `DUPLICATE` itu ekspektasi, bukan drift. Yang benar-benar menandakan masalah adalah `UNAPPLIED` (sekarang 0). Kalau mau benar-benar bersih, aturan `DUPLICATE` di fungsi itu perlu diubah — belum dilakukan.
 > Menurut §0.4–5 baris yang sudah selesai seharusnya KELUAR dari tabel ini; saat ini baris 2/3/4/10 dibiarkan bertanda ✅ agar jejaknya terlihat lebih dulu di `agentsLogs.md`, siap dipangkas pada pembersihan berikutnya.
