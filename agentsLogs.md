@@ -1083,3 +1083,65 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
   pada batch ini (hanya test, konfigurasi test, dan dokumen). Bundle produksi karena itu tetap
   identik dengan yang sedang disajikan production (diverifikasi sha256 pada entri sebelumnya), jadi
   tidak ada perilaku page yang berubah dan redeploy tidak diperlukan.
+
+---
+
+## [2026-09-17] Migration 224 (check_migrations) + wrapper apply-migration + guard roadmap + vitest projects — DONE
+- Status: DONE — commit `ae816e4` di branch `migrasi-vite` (di-push).
+- Ringkasan:
+  1. **Wrapper apply migrasi (`supabase/scripts/apply-migration.mjs` + `npm run db:migrate`).**
+     Menjalankan SQL berkas migrasi DAN mendaftarkannya ke `schema_migrations` dalam **SATU
+     transaksi**: kalau `apply_migration()` menolak atau `verify_migration_checksum()` gagal,
+     SQL-nya ikut ROLLBACK. Jadi kondisi "migrasi sudah jalan tapi tidak tercatat" (akar drift
+     221/222/223, §5.7 no.11) sekarang **mustahil secara struktural**, bukan sekadar disiplin.
+     Tiga guard diuji langsung ke DB live:
+     - idempoten → `SUDAH terdaftar (checksum cocok)`, EXIT 0;
+     - versi bentrok → ditolak **sebelum** SQL dijalankan (`Versi 224 sudah dipakai oleh …`), EXIT 1;
+     - berkas diubah setelah diterapkan → `checksum BERBEDA`, EXIT 1 (ditest dengan menambah lalu
+       menghapus penanda sementara di berkas 224; checksum akhir kembali persis seperti saat didaftarkan).
+  2. **Migration 224 — `check_migrations()` dirapikan.** Akar masalahnya ditemukan di komentar
+     migration 219 sendiri: unique index pada `version` dihapus karena beberapa berkas boleh berbagi
+     nomor versi, tapi cabang `DUPLICATE` tertinggal dari era index itu sehingga fungsi tersebut
+     **mustahil** melaporkan 0 issue — 4 pasangan sah (v176/186/208/215) selalu muncul dan menenggelamkan
+     sinyal `UNAPPLIED` yang justru penting. Sekarang: `DUPLICATE` hanya untuk versi **dan** slug sama,
+     plus pengecekan baru `VERSION_MISMATCH` (`version` tidak cocok dengan prefiks nomor `filename` —
+     kelas kesalahan pendaftaran manual yang tidak terlihat oleh versi lama).
+     - Diterapkan lewat wrapper baru → tercatat otomatis (tabel 149 → 150 baris = 150 berkas repo).
+     - Hasil `check_migrations()` untuk 150 berkas repo: **BERSIH, 0 issue**. Keempat pasangan versi
+       bersama terkonfirmasi **tidak lagi dilaporkan** (v176/v186/v208/v215).
+     - `CREATE OR REPLACE` mempertahankan ACL, jadi REVOKE anon/PUBLIC dari migration 221 tetap berlaku;
+       migrasi ini sengaja tidak menambah GRANT.
+     - Ditemukan & sengaja **tidak** diakali: pasangan slug sama beda versi (`027_seed_remaining_tables`
+       + `053_seed_remaining_tables`) — re-run seeding dengan nomor baru itu pola yang wajar, jadi tidak
+       ikut dilaporkan.
+  3. **Guard kapabilitas roadmap (`FuturePlans.md` vs DB live).** Ditambahkan ke
+     `tests/unit/doc-claims-vs-live.test.ts`: 9 kapabilitas, masing-masing punya anchor teks di dokumen
+     (supaya klaim tidak jadi yatim bila dokumen ditulis ulang) plus bukti tabel/RPC/berkas, dengan
+     status yang diharapkan. Dua arah dijaga: "diklaim sudah ada" → buktinya wajib ada; "diklaim belum
+     ada" → buktinya wajib tidak ada. Ditambah `mustNotSay` untuk kalimat yang sudah tidak benar.
+     - Guard ini **langsung membuktikan nilainya**: begitu migration 224 diterapkan, jumlah migrasi
+       149 → 150 dan tes gagal (`Migrations tracked: dokumen=149 tapi live=150`) — persis kelas drift
+       yang dicari.
+     - Dua klaim §1.2 `FuturePlans.md` diperbaiki karena overstatement: "Tidak ada payroll engine"
+       (padahal `calculate_payroll_components`/`calculate_all_payroll`/`process_payroll_batch`/`export_payroll`
+       ada) dan "Tidak ada shift swap workflow" (padahal `shift_swaps`/`shift_assignments`/
+       `admin_approve_shift_swap` ada). Keduanya kini menyebut apa yang sudah ada + apa yang belum.
+     - Kejujuran desain: bukti "absent" (mis. `mobile_devices`, `geofence_zones`, `approval_rules`) adalah
+       canary dari nama objek yang diperkirakan — ia menyala kalau kapabilitasnya dibangun, bukan bukti
+       ketiadaan yang mutlak. Hal ini ditulis di komentar tes.
+  4. **vitest dipecah jadi 2 project (`node` + `jsdom`).** Sebelumnya `setupFiles` global sehingga
+     `@testing-library/jest-dom` diimpor untuk SEMUA berkas test, termasuk yang tidak menyentuh DOM.
+     Kini hanya project `jsdom` yang memuatnya (7 berkas), dan default project `node` tidak memuat
+     `setupFiles` sama sekali. `extends: true` dipakai supaya `resolve.alias` (`@` → `src`, dipakai 122
+     berkas src) tetap berlaku di kedua project.
+     - **Percepatan akhirnya terukur** (sebelumnya tidak bisa diklaim karena noise): `setupFiles` turun dari
+       **29–92s** menjadi **6.4–8.1s** kumulatif, dan wall-clock dari 43–110s menjadi **31.1s / 31.6s / 35.0s**
+       pada tiga run berturut-turut. `maxWorkers` 2 per project menjaga batas kontensi (§6 no.7).
+     - 17 berkas, **119/119 test** (119 karena guard kapabilitas menambah 1 test).
+- Gate (tree final): `npm run check:types` **0 error**; `npm run lint` **0 error**; `npm run build`
+  **EXIT 0** (8.71s); `npm test` **17/17 berkas, 119/119 test** (3 run berturut tanpa flag).
+- Verifikasi DB (read-only): `check_migrations()` 150 berkas → 0 issue; `schema_migrations` 150 baris =
+  150 berkas repo; versi terakhir `224_fix_check_migrations_duplicate_rule.sql`.
+- Dampak lintas-page: worker → admin → dashboard → owner — tidak ada berkas `src/` yang disentuh
+  (migrasi DB + tooling + test + dokumen). `check_migrations`/`apply_migration` tidak dipanggil frontend
+  (diverifikasi: 0 referensi di `src/`), dan bundle produksi tidak berubah, jadi tidak perlu redeploy.
