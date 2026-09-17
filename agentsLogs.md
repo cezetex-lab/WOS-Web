@@ -947,3 +947,78 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
      - NOT in anon or PUBLIC — no action needed
   7. **Counts after fix:** anon 140 (was 146), PUBLIC 53 (was 63)
   8. **No frontend impact** — DB-only change, no deploy needed.
+
+---
+
+## [2026-09-17] P3 header .jsx→.tsx (89 berkas) + guard anti-drift + vitest stabil + verifikasi production — DONE
+- Status: DONE untuk kode — commit `e20c420` + `b3b7d98` di branch `migrasi-vite`.
+  **BELUM di-push** (menunggu perintah user). Production tetap memuat kode yang sudah ada
+  sebelumnya; lihat bagian Verifikasi di bawah.
+- Commit:
+  - `e20c420` — 90 file, +99/−91: nama berkas `.jsx` → `.tsx` di header 89 berkas `src/`,
+    plus 6 artefak lokal masuk `.gitignore`.
+  - `b3b7d98` — 11 file, +197/−10: guard `tests/unit/no-stale-file-references.test.ts`,
+    `vitest.config.ts` (maxWorkers), dan 9 referensi basi susulan.
+- Ringkasan:
+  1. **Koreksi scope §5.7 no.3.** Item tertulis "5 file" (Home/Kpi/Payroll/Employees/DetailPageFactory),
+     padahal kelima berkas itu **tidak** punya komentar historis panjang — isinya hanya penanda
+     seksi (`// ── FETCH DATA ──`). Akar sebenarnya ditemukan lewat grep: **86 berkas** masih
+     menyebut nama `.jsx` di komentar header padahal migrasi TypeScript sudah menggantinya.
+     Total **89 berkas** disentuh (86 + `BottomNav`/`pages/Admin`/`pages/Worker` yang polanya
+     `src/…/X.jsx`). `App.tsx` juga sempat menyebut `App.jsx.bak` yang tidak pernah ada di disk.
+  2. **Dua penyebutan `.jsx` sengaja dipertahankan:** `src/vite-env.d.ts` (`declare module '*.jsx'`
+     — deklarasi ambient, bukan komentar) dan baris `App.tsx` yang kini menyebut migrasi, bukan
+     berkas hantu.
+  3. **Komentar yang masih akurat TIDAK dihapus** (keputusan user: "header rename only"): blok
+     root-cause provisioning di `Home.tsx` dan catatan "tidak dimigrasi ke useRpcQuery" di `Kpi.tsx`.
+  4. **Guard permanen.** `tests/unit/no-stale-file-references.test.ts` memindai baris komentar
+     `src/` + `tests/` dan gagal bila **R1** (ekstensi lama padahal versi TypeScript-nya ada) atau
+     **R2** (berkas tidak ada sama sekali, bukan pustaka pihak ketiga). Baris kode dilewati karena
+     import di test memakai gaya resolusi ekstensi lama. Ada test "guard the guard" supaya
+     detektornya tidak membusuk diam-diam.
+  5. **Dua bug di detektor sendiri ketahuan saat menulisnya:** urutan alternatif regex (`js` menang
+     atas `jsx`) dan token terpotong pada nama bertitik (`foo.spec.ts` terbaca `spec.ts`). Keduanya
+     diperbaiki sebelum commit.
+  6. **Guard langsung membayar dirinya:** menemukan 9 referensi basi yang lolos dari sapuan header —
+     `menu-builder.js`, `route-config.js`, `security.js`, `vite.config.js`, `log-error.js` (×2),
+     `edge-functions.js`, `supabase-browser.js`, `Worker.jsx`, `playwright.config.js`.
+  7. **vitest stabil tanpa workaround.** Sebelumnya `npm test` gagal dengan 11 error
+     `Failed to start threads worker` / `Timeout waiting for worker to respond` (hanya 4 berkas /
+     44 test yang jalan). Akar: vitest memakai timeout keras **60s** untuk pool runner-nya
+     (`START_TIMEOUT`, tidak dapat dikonfigurasi) sementara default worker = satu per core (12 di
+     mesin ini) sehingga booting jsdom berebut CPU. Fix: `maxWorkers: max(1, min(4, cores-1))`.
+     Tiga run berurut tanpa flag: **16/16 berkas, 115/115 test**.
+  8. **Side effect yang ditemukan & diperbaiki** di `.gitignore`: byte `0x97` (CP1252, bukan UTF-8
+     valid) pada komentar arsip legacy berubah menjadi U+FFFD saat berkas ditulis ulang; dipulihkan
+     sebagai em-dash UTF-8. Diverifikasi 0 byte U+FFFD tersisa di seluruh diff.
+  9. **Higiene git:** 6 artefak lokal yang belum ter-ignore (`supabase/GAS sebelum refaktor/`,
+     `supabase/scripts/forensic_audit.py`, `forensic_report.md`, `WOS-Web.rar`, `tmperr/`, `.clai/`)
+     kini ter-ignore (§0.6). Untracked turun 7 → 1 (runbook SG sengaja dibiarkan trackable).
+- Verifikasi production (read-only, 2026-09-17):
+  - **Frontend: production = HEAD.** `https://insightwos.vercel.app` menyajikan 3 aset
+    (`index-CTJa_8yi.js`, `rolldown-runtime-hePW80VL.js`, `vendor-CSWC9LQK.js`) dan **sha256 ketiganya
+    identik** dengan build lokal `dist/`. Dikonfirmasi langsung di bundle produksi: ekspresi redirect
+    berbasis `e.entry` (fallback `worker`) ada, cabang lama berbasis role tidak ada.
+    **§5.7 no.4 (deploy `7f1bf08` / `3b6a698`) = SELESAI** — catatan "deploy gagal di environment
+    agent" sudah tidak berlaku.
+  - **DB: migrasi 223 efektif.** `get_branding()` dan `get_branding_public()` granted ke `anon` —
+    perbaikan 401 branding hidup di produksi.
+  - **DB: pekerjaan anon-grant 2026-09-16 terkonfirmasi.** Ketujuh fungsi berbahaya
+    (`admin_get_payroll`, `process_request`, `apply_migration`, `audit_log_hash_chain`,
+    `verify_audit_chain`, `check_migrations`, `verify_migration_checksum`) **tertutup** untuk anon.
+    Klaim di entri log 2026-09-16 sahih.
+  - **Kolom 14 field karyawan lengkap:** 11 di `employees_extended` + 3 di `employees_core`
+    (`lokasi_penempatan`, `updated_by`, `status_kerja_internal`); RPC `get_worker_profile`,
+    `worker_update_profile`, `worker_update_profile_legacy` semuanya ada.
+- **TEMUAN BARU (OPEN — §5.7 no.11):** `schema_migrations` berhenti di **220** (142 versi tercatat)
+  sementara repo punya **149** berkas migrasi. **221, 222, 223 sudah diterapkan ke DB live tapi TIDAK
+  tercatat** — diterapkan manual via SQL Editor sehingga melewati jalur tracking migrasi 219. Efeknya
+  benar (terverifikasi di atas), tapi `check_migrations()` / `verify_migration_checksum()` akan
+  melaporkan drift sampai dicatat. §7.4 juga masih menulis "Migrations tracked 146" (aktual 142) dan
+  "anon grants 129" (aktual 132).
+- Gate (dijalankan pada tree final): `npm run check:types` **0 error**; `npm run lint` **0 error**;
+  `npm run build` **EXIT 0**; `npm test` **16/16 berkas, 115/115 test** (3 run berurut tanpa flag).
+- Dampak lintas-page: worker → admin → dashboard → owner — perubahan hanya komentar (0 perubahan
+  runtime), satu berkas test baru, dan konfigurasi test. Tidak ada RPC/menu/route/authz/types yang
+  berubah. Verifikasi sha256 bundle produksi menunjukkan keempat page memakai bundle yang sama
+  seperti sebelum commit ini, jadi tidak ada perilaku page yang bergeser.

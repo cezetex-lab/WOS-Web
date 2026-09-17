@@ -432,3 +432,33 @@ Layer 3: DB-level (authz functions)
 - Monitoring: backup status daily, RLS policies weekly, audit_log growth weekly, failed login spikes daily, session count anomaly daily.
 - Testing: smoke test after each migration, backup restore monthly, DR drill quarterly, security audit bi-annually.
 - Escalation: P1 1hr / P2 4hr / P3 24hr / P4 1wk.
+
+---
+
+## 5.7 STATE OPEN — POSTPONED / TUNDA (2026-09-17 — Perintah User)
+
+> **Keputusan user (2026-09-17):** Migrasi region Singapore (`ap-southeast-1`) **DITUNDA** sampai diminta; mungkin **TIDAK DIPERLUKAN** (`FuturePlans.md` F2 item infra belum masuk roadmap — hanya catatan, bukan blocker). `FuturePlans.md` sudah diperbarui (`6d066b8`).
+>
+> Status SG migration: `supabase/scripts/migrasi-region-sg-plan.md` sudah dibuat (runbook lengkap: backup, apply migrations, restore, env update, smoke 4 page, cutover), tapi **BELUM DIEKSEKUSI** — user menunda.
+
+### TO-DO LIST BERURUTAN (Aman — dari Ringkasan Status Terbaru)
+
+| No | Item | Prioritas | Status | Catatan Aman |
+|---|---|---|---|---|
+| 1 | **PWA offline spec live test** (`pwa-offline-mode.spec.ts`) | P0 (kecil) | OPEN — spec dibuat + asersi ditambah, dijalankan tapi timeout 30s (environment) | Non-disruptive — hanya verifikasi live |
+| 2 | **Edit `FuturePlans.md`** (F1/F3/F4) | P0 (kecil) | ✅ SELESAI (`6d066b8`) — F1 (offline sudah hidup), F3 (tumpang tindih diperbaiki), F4 (obsolete dihapus) | Non-disruptive — dokumentasi |
+| 3 | **Audit P3 cleanup sisa** — komentar header yang menyebut nama berkas basi | P3 (kecil) | ✅ SELESAI (`e20c420`) — scope terkoreksi: **89 berkas**, bukan 5 (86 header `src/` masih menyebut `.jsx`; 5 berkas yang terdaftar justru tidak punya komentar historis). `AppDrawer.tsx` lebih dulu (`6d66072`) | Non-disruptive — kosmetik |
+| 4 | **Verifikasi deploy `7f1bf08` (`loop redirect`) dan `3b6a698` (`branding` + `loop`) ke production** | P1 | ✅ SELESAI (terverifikasi 2026-09-17) — sha256 3 aset produksi identik dengan build lokal `dist/`; redirect berbasis `entry` ada di bundle produksi; `get_branding` granted ke `anon` | Tidak perlu deploy ulang |
+| 5 | **SG Migration — Langkah 1: Verifikasi region Upstash** (`alive-robin-191313`) | P1 (besar — TUNDA) | TUNDA — user belum meminta | Non-disruptive — hanya verifikasi |
+| 6 | **SG Migration — Langkah 2: Backup DB (`pg_dump`)** | P1 (besar — TUNDA) | TUNDA | Non-disruptive — hanya backup |
+| 7 | **SG Migration — Langkah 3: Buat project SG (`ap-southeast-1`)** | P1 (besar — TUNDA) | TUNDA | Perlu persetujuan user (keputusan 2026-09-15 sudah dibuat, tapi belum dieksekusi) |
+| 8 | **FuturePlans.md — Revisi `§3` Phase 1 Roadmap** (tambahkan catatan `Shift Swap` harus lebih awal / `Payroll Engine` → `Payslip` dependency) | P2 | PARTIAL — F3 overlap sudah dicatat, tapi urutan `§3.1` belum diubah sepenuhnya | Non-disruptive — dokumentasi |
+| 9 | **PWA Offline — Jalankan spec live (`pwa-offline-mode.spec.ts`) secara lokal** | P0 | OPEN — sudah dibuat, belum berhasil di environment ini | User bisa jalankan: `npx playwright test .freebuff/audit/live-smoke/pwa-offline-mode.spec.ts --config=.freebuff/audit/live-smoke/playwright.live.config.ts` |
+| 10 | **Audit log `agentsLogs.md`** — tambahkan entri `2026-09-17` (PWA + SG tunda + FuturePlans revisi) | P4 | ✅ SELESAI — entri `[2026-09-17] P3 header .jsx→.tsx + guard anti-drift + vitest stabil + verifikasi production` | Non-disruptive — hanya dokumentasi log |
+| 11 | **`schema_migrations` tertinggal** — migrasi **221/222/223 diterapkan ke DB live tapi tidak tercatat** (versi tertinggi di DB 220; repo 149 berkas, tercatat 142). Efeknya sudah benar, tapi `check_migrations()` / `verify_migration_checksum()` akan melaporkan drift. Perlu INSERT ke `schema_migrations` (beserta checksum) untuk ketiganya | P2 | OPEN — ditemukan 2026-09-17 saat verifikasi production | Apply SQL ke DB live (bukan deploy frontend) |
+
+---
+
+> **Catatan penting:** Item 1–4 ter-commit + push (`6d066b8`, `3b6a698`, `7f1bf08`). Item **3 selesai** di commit `e20c420` (89 berkas; scope terkoreksi dari 5) + `b3b7d98` (guard anti-drift + vitest stabil), dan item **4 sudah terverifikasi** 2026-09-17 (sha256 aset produksi = build lokal `dist/`; redirect berbasis `entry` ada di bundle produksi) — catatan lama "deploy gagal di environment agent" tidak berlaku lagi. Item **10 selesai**.
+> Item 5–7 (`SG Migration`) **DITUNDA** per instruksi user (*tunda sampai saya minta; mungkin tidak perlu*). Item 9 (`PWA spec`) sudah siap — hanya butuh eksekusi lokal user. Item **11** (drift tracking migrasi 221/222/223) temuan baru, masih OPEN.
+> Menurut §0.4–5 baris yang sudah selesai seharusnya KELUAR dari tabel ini; saat ini baris 2/3/4/10 dibiarkan bertanda ✅ agar jejaknya terlihat lebih dulu di `agentsLogs.md`, siap dipangkas pada pembersihan berikutnya.
