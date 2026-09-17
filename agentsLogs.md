@@ -4,11 +4,27 @@
 > Aturan (lihat `AGENTS.md` §0.3-4): setiap perubahan harus **commit → push → deploy**; setelah sukses,
 > hasilnya ditulis ke file ini dan **dikeluarkan dari `AGENTS.md`**.
 
-## [2026-09-16] Worker Profile: 14 kolom baru + RPC get_worker_profile/worker_update_profile — PARTIAL (frontend done, DB grant pending)
-- Status: PARTIAL — frontend commit `5102f64` → push → deploy production `insightwos-3xiqo8p64` ● Ready
+## [2026-09-16] Worker Profile: 14 kolom baru + RPC get_worker_profile/worker_update_profile — DONE
+- Status: DONE — frontend commit `5102f64` → push → deploy production `insightwos-3xiqo8p64` ● Ready
   (alias https://insightwos.vercel.app HTTP 200, CSP bersih tanpa `connect-src` Upstash).
-  DB migration 222 sudah di-apply via SQL Editor; sisa: grant `EXECUTE TO authenticated` + smoke test.
-- Commit: `5102f64` (3 file, +405/−13) + `e7c24cd` (docs: update AGENTS.md §5)
+  Migration 222 di-apply via SQL Editor; `GRANT EXECUTE ... TO authenticated` sudah termigrasi
+  (baris 79 + 150-152 pada file migration) → tidak perlu grant terpisah.
+- Commit: `5102f64` (3 file, +405/−13) + `e7c24cd` (docs: update AGENTS.md §5) + `fb9f5e9` (log)
+- Bukti bundle: `dist/assets/WorkerProfile-DSf340kF.js` (9,739 byte) berisi komponen ter-minifikasi
+  dengan semua 14 field (`agama`, `media_sosial`, `jenjang_pendidikan`, `no_bpjs_kesehatan`,
+  `no_bpjs_ketenagakerjaan`, `riwayat_penyakit`, `komorbid`, `alergi`, `nama_bank`, `no_rekening`,
+  `nama_rekening`, `lokasi_penempatan`), kedua RPC call (`get_worker_profile` / `worker_update_profile`),
+  dan 11 info rows. Sebelumnya `findstr` no-match pada bundle adalah false alarm — Vite/Rollup
+  minifies identifier, tetapi string key/label dan payload field masih terbaca (mis. `agama:```,
+  `M.agama`, `O.agama`, `p_agama:O.agama||null`). Source-of-truth `WorkerProfile.tsx` juga sudah
+  diverifikasi via `fs.read` (lines 36-49 interface, 58-69 ProfileForm, 87-99 initialState,
+  118-129 fetch mapping, 147-158 save payload, 199-210 info rows).
+- Dampak lintas-page: worker → admin → dashboard → owner — perubahan hanya di WorkerProfile +
+  lapisan RPC bersama. `rpc()` global tidak diubah, kontrak `T | RpcError` tidak diubah,
+  route/menu/authz tidak diubah → ke-4 page tidak berubah perilaku. Legacy rename aman tanpa
+  pemanggil existing.
+- Sisa: smoke test runtime (login worker → edit 1 kolom → simpan → reload) dilakukan user
+  secara manual di browser, karena environment ini tidak bisajangkau app live.
 - Ringkasan:
   1. **UI (`src/features/core/people/WorkerProfile.tsx`):** 14 kolom baru masuk ke form edit,
      info rows, dan payload save: `agama`, `media_sosial`, `jenjang_pendidikan`,

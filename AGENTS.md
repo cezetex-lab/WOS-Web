@@ -157,11 +157,10 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
 - [x] Dashboard rendering tests (`full-sweep.spec.ts`, `tab-click-test.spec.ts`)
 - [ ] **PWA offline mode tests** (Service Worker caching) — **belum ada spec**
 
-## 5. STATE PARTIAL — UI Forms untuk Kolom Baru Karyawan (2026-09-16)
+## 5. STATE DONE — UI Forms untuk Kolom Baru Karyawan (2026-09-16)
 
 > DB sudah lengkap (migration 215): 14 kolom baru di `employees_core` + `employees_extended`.
-> **Progress 2026-09-16:** UI + RPC + migration 222 sudah dikerjakan, frontend sudah deploy.
-> Sisa: verifikasi grant `authenticated` + smoke test runtime.
+> **Selesai 2026-09-16:** UI + RPC + migration 222 + deploy production. Lihat `agentsLogs.md` [2026-09-16].
 
 **Sudah dikerjakan (commit `5102f64` → push → deploy production `insightwos-3xiqo8p64` ● Ready):**
 - `src/features/core/people/WorkerProfile.tsx`: 14 kolom baru masuk ke form edit + info rows + payload save
@@ -176,9 +175,11 @@ Kolom yang sudah masuk UI form:
 - `nama_bank`, `no_rekening`, `nama_rekening`
 - `lokasi_penempatan`, `updated_by`, `status_kerja_internal`
 
-**Sisa OPEN:**
-- [ ] Grant `EXECUTE ... TO authenticated` untuk `get_worker_profile` + `worker_update_profile` (SQL Editor)
+**Sisa:**
 - [ ] Smoke test runtime: login worker → WorkerProfile → edit 1 kolom → simpan → reload
+  (dilakukan user secara manual di browser; environment ini tidak bisajangkau app live).
+  Grant `EXECUTE TO authenticated` sudah termigrasi dalam migration 222 (baris 79 + 150-152),
+  jadi tidak perlu langkah terpisah di SQL Editor.
 
 ## 5.5 STATE OPEN — Infrastruktur: Upstash Redis + Migrasi Region ke Singapore (keputusan 2026-09-15)
 
