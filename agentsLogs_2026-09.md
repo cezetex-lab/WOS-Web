@@ -1797,3 +1797,77 @@ melaporkan tidak ada anomali.
 - 36 berkas migrasi lama yang sudah dimodifikasi sesi sebelumnya **tetap tidak di-commit** (terkait
   keputusan SQL-13), dan itu terverifikasi: 0 berkas `supabase/migrations/` masuk stage.
 - `.agents/` dan `test-results/` terverifikasi tidak terlihat git (0 entri untracked dari keduanya).
+
+## [2026-09-19] SQL-04/05/07/09 Migration Applied & Verified — DONE
+- Status: DONE — 4 migrasi diterapkan ke live DB (236-239) via npm run db:migrate -- <file> --apply.
+- Lingkup: 4 berkas migrasi baru (SQL-04 Opsi 2: 4 kolom hr_okrs; SQL-05: 3 RLS policy; SQL-07: ALTER DEFAULT PRIVILEGES revoke anon + grant service_role; SQL-09: dead code cleanup). Gate PASS (check:types 3.7s, lint 20.1s, test OK). Secret scan 0 hits.
+- Commit: 63dd92a -> push origin migrasi-vite (ffeca8a). File .agents/scripts/ tidak ikut git.
+- Catatan: SQL-02 (P2, 0 refs src/, Opsi b Hapus), SQL-06 (P1, tidak FORCE, Opsi b), SQL-08 (P2, DROP, Opsi b) tetap OPEN, hanya catatan future tersimpan.
+## [2026-09-19] Rekonsiliasi data dummy ke skema live (fitur login email worker) — DONE
+
+- Status: DONE dan **terverifikasi live**. Data dummy lama direkonsiliasi (bukan delete-all) sesuai
+  keputusan user: UPDATE karyawan + INSERT data operasional + bcrypt ulang password. Executor
+  transaksional: satu saja gate gagal → ROLLBACK penuh; **dry-run dijalankan dulu (ROLLBACK)
+  sebelum COMMIT nyata**. Bukti: dry-run 12/12 gate PASS lalu real run COMMIT (lihat di bawah).
+- Lingkup: 8 probe read-only → 1 SQL rekonsiliasi + 1 executor transaksional (di `.agents/scripts/`,
+  tidak di-commit) → backup 7 tabel ke `.agents/backups/` sebelum eksekusi.
+
+### Masalah
+Data dummy lama tidak cocok dengan skema live: 9/10 NRP001–010 tanpa `email`/`divisi`/`posisi`/
+`site_id`, semua `business_unit='HQ'` (worker tambang/estate/pabrik salah BU), `bu_divisions`,
+`sites`, `hr_attendance`, `hr_leave`, `production_daily`, `announcements` **kosong semua**, dan
+9 dari 17 password berstatus `reset_required=true` (login baru tidak bisa langsung dipakai).
+
+### Keputusan user (via ask_questions)
+1. **Reconcile** (bukan hapus total): `auth.users` + hash lama dipertahankan.
+2. Data operasional yang diisi: sites geofence, hr_attendance Sep 2026, hr_leave, production_daily.
+3. `reset_required` diset **false** semua — dengan konsekuensi hash lama harus di-re-hash:
+   password legacy (sha256+salt, sisa seed lama) tidak bisa diverifikasi bcrypt di
+   `login_worker_by_email`, jadi sekadar menyalakan flag akan merusak login. Semua 17 akun
+   di-re-hash ke bcrypt langsung dari kredensial terdokumentasi di `supabase/akun/akun.txt`.
+
+### Eksekusi (semua dalam SATU transaksi)
+1. `sites` 4 baris (HQ/MINING/ESTATE/MILL, radius 250–500 m, status ACTIVE — dibaca
+   `login_worker_by_email` untuk geofence).
+2. `employees_core`: email (worker → `nrp00X@insightwos.internal` yang sudah ada di `auth.users`;
+   admin → email korporat), `divisi`+`divisi_code` (merujuk `master_divisions`: MIN/EST/MIL/HRD/
+   CORP/FIN/OPS), `posisi`, `site_id`, worker dipindah ke BU yang benar (NRP003–005→BU01 MINING,
+   NRP006–007→BU02 ESTATE, NRP008–009→BU03 MILL), NIK NRP005 diganti dari placeholder ke pola
+   `3204000000000005`.
+3. `worker_passwords`: 17 baris re-hash bcrypt (`gen_salt('bf',10)`), `salt=NULL`,
+   `reset_required=false`, attempts reset.
+4. `hr_leave` 2026: 6 worker operasional (kuota 12, terpakai 0–3).
+5. `hr_attendance` 1–18 Sep 2026: 96 baris / 6 worker, Minggu dilewati, pola Hadir/Terlambat/Alpha
+   (title-case sesuai konvensi UI di `WorkerAttendance.tsx`), shift PAGI/MALAM, lembur 90 menit
+   dengan `overtime_approved`.
+6. `production_daily` CURRENT_DATE saja: 5 zone PIT/CRUSHER/HAUL ROAD (RPC `get_production_daily`
+   hanya membaca `record_date = CURRENT_DATE` — data tanggal lain tidak akan tampil).
+7. `announcements`: 4 pengumuman contoh (2 ALL, 1 MILL, 1 MINING).
+
+### Verifikasi (12 gate dalam transaksi, bukti output executor)
+- G1 sites=4 ACTIVE, 1 per BU; G2 17 karyawan email unik + divisi lengkap + BU benar per divisi
+  industri (BU04 nol divisi industri); G3 NIK unik 17/17; G4 17/17 hash bcrypt + reset_required=false.
+- G5 **login end-to-end 9/9 worker** via `login_worker_by_email` (dipanggil di dalam transaksi,
+  artefak `session_tokens`/`login_attempts`/`audit_log` dibersihkan sebelum commit; pasca-commit
+  residu token = 0).
+- G6–G9 hr_leave=6, attendance=96 baris valid (0 Minggu, 0 masa depan), production=5 zone,
+  announcements=4; G10 `admin_get_divisions()` ok (7 divisi: OPERASIONAL, MINING, HRD, MILL,
+  ESTATE, FINANCE, KORPORAT) + 155 modul aktif; G11 9/9 email internal match `auth.users`;
+  G12 divisi MINING/ESTATE/MILL terlihat dari agregasi admin.
+
+### Dampak lintas-page: worker → admin → dashboard → owner
+- Worker: login email kini jalan untuk 9 akun internal (NRP002–010) tanpa reset password; absensi
+  dan kuota cuti tersedia. Tidak terdampak negatif.
+- Admin: approval queue punya bahan (absensi + lembur 96 baris), daftar divisi di Admin terisi 7.
+- Dashboard: KPI attendance & produksi harian tersedia (production_daily CURRENT_DATE).
+- Owner: tidak berubah strukturnya — hanya data; `user_roles` dan `business_units` tidak disentuh.
+
+### Catatan teknis
+- Gagal pertama dry-run: kolom `jam_masuk` bertipe `time` — literal CASE text butuh cast eksplisit
+  (`'08:05'::time`). Diperbaiki, dry-run ulang hijau, baru COMMIT.
+- `get_enabled_modules()` mengembalikan 0 saat dipanggil dari SQL mentah karena bergantung
+  `auth.uid()` (JWT) — bukan masalah data; gate diganti hitung `module_definitions` aktif (155).
+- NRP005 sebelumnya tidak ada di `akun.txt` (password lama "NRP005"); kredensial barunya
+  (pola NIK) sudah ditambahkan ke `supabase/akun/akun.txt` via safe-file-writer (gitignored).
+- Skrip: `.agents/scripts/dummy-reconcile.sql` + `.agents/scripts/dummy-apply.ts` (mode `--dry`
+  tersedia; idempoten — aman dijalankan ulang). Tidak di-commit (artefak, §0.11).
