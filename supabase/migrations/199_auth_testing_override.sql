@@ -24,7 +24,11 @@ CREATE POLICY owner_only_testing_override ON auth_testing_override
   FOR ALL
   USING (auth.uid() IS NOT NULL AND EXISTS (
     SELECT 1 FROM admin_roles ar
-    JOIN user_role_assignments ura ON ura.role_id = ar.id
+    -- FIX (2026-09-18): tabel `user_role_assignments` tidak punya kolom role_id
+    -- (didefinisikan di 134 tanpa kolom itu; diverifikasi ke live 2026-09-18:
+    -- kolomnya nrp/role_code/scope_type/...). Dulu berkas ini gagal dengan
+    -- "column ura.role_id does not exist". Join yang benar lewat role_code.
+    JOIN user_role_assignments ura ON ura.role_code = ar.role_code
     WHERE ura.nrp = (SELECT nrp FROM employees_core WHERE auth_id = auth.uid())
     AND ar.role_code IN ('admin_pusat', 'owner')
   ));

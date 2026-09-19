@@ -139,10 +139,30 @@ BEGIN
 END;
 $function$;
 
--- Verify: all 6 RPCs return {ok: true, data: []} for empty tables
-SELECT '208_fix.1 get_safety_incidents' AS test, (get_safety_incidents()) AS result;
-SELECT '208_fix.2 get_jsa_list' AS test, (get_jsa_list()) AS result;
-SELECT '208_fix.3 get_production_daily' AS test, (get_production_daily()) AS result;
-SELECT '208_fix.4 get_heavy_equipment' AS test, (get_heavy_equipment()) AS result;
-SELECT '208_fix.5 get_fatigue_data' AS test, (get_fatigue_data()) AS result;
-SELECT '208_fix.6 get_simper_list' AS test, (get_simper_list()) AS result;
+-- Verify: all 6 RPCs return {ok: true, data: []} for empty tables.
+--
+-- PERBAIKAN (2026-09-18): keenam tabel industri di bawah baru dibuat oleh
+-- 208_industry_tables_and_rpcs.sql, yang secara alfabetis berjalan SETELAH berkas ini
+-- (208_fix_groupby < 208_industry). Verifikasi langsung dulu membuat instalasi dari
+-- awal berhenti di sini: "relation jsa_data does not exist". CASE di bawah tidak
+-- dievaluasi ketika tabelnya belum ada, jadi berkas ini tidak pernah membatalkan
+-- instalasi; definisi fungsinya tetap dibuat dan tabel menyusul di 208_industry
+-- (nama tabel di dalam plpgsql diselesaikan saat dipanggil, bukan saat CREATE).
+SELECT '208_fix.1 get_safety_incidents' AS test,
+  CASE WHEN to_regclass('public.safety_incidents') IS NULL THEN 'SKIP (tabel dibuat di 208_industry)'
+       ELSE (get_safety_incidents())::text END AS result;
+SELECT '208_fix.2 get_jsa_list' AS test,
+  CASE WHEN to_regclass('public.jsa_data') IS NULL THEN 'SKIP (tabel dibuat di 208_industry)'
+       ELSE (get_jsa_list())::text END AS result;
+SELECT '208_fix.3 get_production_daily' AS test,
+  CASE WHEN to_regclass('public.production_daily') IS NULL THEN 'SKIP (tabel dibuat di 208_industry)'
+       ELSE (get_production_daily())::text END AS result;
+SELECT '208_fix.4 get_heavy_equipment' AS test,
+  CASE WHEN to_regclass('public.heavy_equipment') IS NULL THEN 'SKIP (tabel dibuat di 208_industry)'
+       ELSE (get_heavy_equipment())::text END AS result;
+SELECT '208_fix.5 get_fatigue_data' AS test,
+  CASE WHEN to_regclass('public.fatigue_data') IS NULL THEN 'SKIP (tabel dibuat di 208_industry)'
+       ELSE (get_fatigue_data())::text END AS result;
+SELECT '208_fix.6 get_simper_list' AS test,
+  CASE WHEN to_regclass('public.simper_data') IS NULL THEN 'SKIP (tabel dibuat di 208_industry)'
+       ELSE (get_simper_list())::text END AS result;

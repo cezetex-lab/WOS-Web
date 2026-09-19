@@ -47,12 +47,24 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 DO $$ BEGIN
+  -- FIX (2026-09-18): hr_okrs baru dibuat migrasi 141, jadi pada instalasi dari awal
+  -- tabel ini belum ada di titik ini. Sebelumnya ERROR `relation "hr_okrs" does not exist`
+  -- menggagalkan SELURUH berkas 054.
+  IF to_regclass('public.hr_okrs') IS NULL THEN
+    RAISE NOTICE '054: hr_okrs belum ada (dibuat migrasi 141) — kolom audit dilewati';
+    RETURN;
+  END IF;
   ALTER TABLE hr_okrs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
   ALTER TABLE hr_okrs ADD COLUMN IF NOT EXISTS created_by TEXT;
   ALTER TABLE hr_okrs ADD COLUMN IF NOT EXISTS updated_by TEXT;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 DO $$ BEGIN
+  -- FIX (2026-09-18): idem — hr_surveys baru dibuat migrasi 141.
+  IF to_regclass('public.hr_surveys') IS NULL THEN
+    RAISE NOTICE '054: hr_surveys belum ada (dibuat migrasi 141) — kolom audit dilewati';
+    RETURN;
+  END IF;
   ALTER TABLE hr_surveys ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
   ALTER TABLE hr_surveys ADD COLUMN IF NOT EXISTS created_by TEXT;
   ALTER TABLE hr_surveys ADD COLUMN IF NOT EXISTS updated_by TEXT;
@@ -132,8 +144,15 @@ DO $$ BEGIN
   CREATE TRIGGER trg_hr_overtime_updated BEFORE UPDATE ON hr_overtime FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
   CREATE TRIGGER trg_hr_requests_updated BEFORE UPDATE ON hr_requests FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
   CREATE TRIGGER trg_hr_safety_updated BEFORE UPDATE ON hr_safety FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
-  CREATE TRIGGER trg_hr_okrs_updated BEFORE UPDATE ON hr_okrs FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
-  CREATE TRIGGER trg_hr_surveys_updated BEFORE UPDATE ON hr_surveys FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
+  -- FIX (2026-09-18): hr_okrs/hr_surveys baru dibuat migrasi 141 → pada instalasi
+  -- dari awal trigger-nya belum bisa dipasang; dibungkus per-trigger supaya trigger
+  -- tabel lain di blok ini tetap terpasang.
+  BEGIN
+    CREATE TRIGGER trg_hr_okrs_updated BEFORE UPDATE ON hr_okrs FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
+  EXCEPTION WHEN undefined_table THEN NULL; END;
+  BEGIN
+    CREATE TRIGGER trg_hr_surveys_updated BEFORE UPDATE ON hr_surveys FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
+  EXCEPTION WHEN undefined_table THEN NULL; END;
   CREATE TRIGGER trg_reviews_360_updated BEFORE UPDATE ON reviews_360 FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
   -- FIX: whistleblowers
   CREATE TRIGGER trg_whistleblowers_updated BEFORE UPDATE ON whistleblowers FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();

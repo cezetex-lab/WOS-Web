@@ -565,28 +565,46 @@ INSERT INTO vacancies (id, position, department, quota, qualifications, status) 
 ('VAC003','Operator Alat Berat','MINING',3,'SIMPER + K3','CLOSED') ON CONFLICT DO NOTHING;
 
 -- certifications
-INSERT INTO certifications (id, nrp, cert_name, issuer, issue_date, expiry_date, status) VALUES
-('CERT001','NRP001','K3 Umum','Disnaker','2025-01-15','2027-01-15','ACTIVE'),
-('CERT002','NRP005','SIMPER A','Disnaker','2025-06-01','2028-06-01','ACTIVE'),
-('CERT003','NRP008','First Aid','Red Cross','2025-03-10','2026-03-10','EXPIRED'),
-('CERT004','NRP020','SIO Boiler','Disnaker','2024-12-01','2026-12-01','ACTIVE') ON CONFLICT DO NOTHING;
+-- Guard (2026-09-18): lewati baris yang karyawannya tidak ada (instalasi baru → 0 baris).
+INSERT INTO certifications (id, nrp, cert_name, issuer, issue_date, expiry_date, status)
+SELECT v.id, v.nrp, v.cert_name, v.issuer, v.issue_date::date, v.expiry_date::date, v.status
+FROM (VALUES
+  ('CERT001','NRP001','K3 Umum','Disnaker','2025-01-15','2027-01-15','ACTIVE'),
+  ('CERT002','NRP005','SIMPER A','Disnaker','2025-06-01','2028-06-01','ACTIVE'),
+  ('CERT003','NRP008','First Aid','Red Cross','2025-03-10','2026-03-10','EXPIRED'),
+  ('CERT004','NRP020','SIO Boiler','Disnaker','2024-12-01','2026-12-01','ACTIVE')
+) AS v(id, nrp, cert_name, issuer, issue_date, expiry_date, status)
+WHERE EXISTS (SELECT 1 FROM employees_master e WHERE e.nrp = v.nrp)
+ON CONFLICT DO NOTHING;
 
 -- badges
-INSERT INTO badges (id, nrp, badge_name, badge_type, points) VALUES
-('BDG001','NRP001','Top Performer','KPI',2),
-('BDG002','NRP005','Safety Champion','SAFETY',3),
-('BDG003','NRP010','Idea Pioneer','ENGAGEMENT',3),
-('BDG004','NRP026','Quick Learner','TRAINING',1) ON CONFLICT DO NOTHING;
+-- Guard (2026-09-18): lewati baris yang karyawannya tidak ada.
+INSERT INTO badges (id, nrp, badge_name, badge_type, points)
+SELECT v.id, v.nrp, v.badge_name, v.badge_type, v.points
+FROM (VALUES
+  ('BDG001','NRP001','Top Performer','KPI',2),
+  ('BDG002','NRP005','Safety Champion','SAFETY',3),
+  ('BDG003','NRP010','Idea Pioneer','ENGAGEMENT',3),
+  ('BDG004','NRP026','Quick Learner','TRAINING',1)
+) AS v(id, nrp, badge_name, badge_type, points)
+WHERE EXISTS (SELECT 1 FROM employees_master e WHERE e.nrp = v.nrp)
+ON CONFLICT DO NOTHING;
 
 -- surveys
 INSERT INTO surveys (id, title, description, survey_type, status) VALUES
 ('SRV001','eNPS Q3 2026','Survei kepuasan karyawan kuartal 3','ENPS','ACTIVE'),
-('SRV002','Pulse Survey Safety','Survei keselamatan kerja','PULSE','ACTIVE') ON CONFLICT DO NOTHING;
+('SRV002','Pulse Survey Safety','Survei keselamatan kerja','PULSE','ACTIVE') ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- survey_responses
 INSERT INTO survey_responses (survey_id, nrp, score, response_json)
 SELECT 'SRV001', e.nrp, (5+random()*5)::int, '{"q1":"Baik","q2":"Lingkungan positif"}'
 FROM employees_master e WHERE random()<0.5 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed survey_responses dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- feature_flags
 INSERT INTO feature_flags (name, enabled, description) VALUES
@@ -600,7 +618,10 @@ INSERT INTO feature_flags (name, enabled, description) VALUES
 INSERT INTO estate_blocks (id, block_name, area_hectare, terrain, division, status) VALUES
 ('BLK001','Blok A1',50.5,'Dataran Rendah','OPERATIONAL','ACTIVE'),
 ('BLK002','Blok B2',35.2,'Bukit','OPERATIONAL','ACTIVE'),
-('BLK003','Blok C1',42.0,'Pegunungan','OPERATIONAL','MAINTENANCE') ON CONFLICT DO NOTHING;
+('BLK003','Blok C1',42.0,'Pegunungan','OPERATIONAL','MAINTENANCE') ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- assets
 INSERT INTO assets (id, asset_name, category, serial_number, location, status) VALUES
@@ -609,11 +630,20 @@ INSERT INTO assets (id, asset_name, category, serial_number, location, status) V
 ('AST003','Laptop ThinkPad X1','IT','LEN-X1-012','Kantor Pusat','ASSIGNED'),
 ('AST004','GPS Garmin Montana','GPS','GPS-MT-007','Kebun Blok A','AVAILABLE'),
 ('AST005','Chain Saw Stihl MS382','TOOL','STIH-382-015','Kebun Blok B','MAINTENANCE') ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed assets dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- team_budgets
 INSERT INTO team_budgets (manager_nrp, year, training_budget, operational_budget, training_used, operational_used) VALUES
 ('NRP002',2026,50000000,30000000,15000000,8000000),
 ('NRP004',2026,80000000,50000000,25000000,12000000) ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed team_budgets dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- headcount_plans
 INSERT INTO headcount_plans (divisi, year, quarter, planned_hc, actual_hc) VALUES
@@ -627,12 +657,18 @@ INSERT INTO budget_allocation (divisi, year, gaji_budget, training_budget, opera
 ('HRD',2026,1200000000,50000000,30000000,600000000,25000000),
 ('FINANCE',2026,900000000,30000000,20000000,450000000,15000000),
 ('OPERATIONAL',2026,2400000000,80000000,50000000,1200000000,40000000),
-('IT',2026,720000000,60000000,40000000,360000000,30000000) ON CONFLICT DO NOTHING;
+('IT',2026,720000000,60000000,40000000,360000000,30000000) ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- disciplinary_records
 INSERT INTO disciplinary_records (id, nrp, sp_level, reason, issued_date, issued_by) VALUES
 ('DISC001','NRP020','SP1','Keterlambatan berulang','2026-06-15','NRP002'),
 ('DISC002','NRP021','SP1','Absensi tanpa keterangan','2026-07-01','NRP002') ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed disciplinary_records dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- corporate_licenses
 INSERT INTO corporate_licenses (id, license_name, license_number, issuer, issue_date, expiry_date, status) VALUES

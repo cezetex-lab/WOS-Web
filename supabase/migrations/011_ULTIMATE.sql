@@ -1,3 +1,6 @@
+-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
 -- ============================================================
 -- 011_ULTIMATE.sql
 -- THE ONE FILE TO RULE THEM ALL
@@ -15,26 +18,53 @@ SELECT e.nrp,'2026-07',
   CASE WHEN ur.role_level=5 THEN 25000000 WHEN ur.role_level=4 THEN 18000000 WHEN ur.role_level=3 THEN 12000000 ELSE 7000000 END,
   (random()*3000000)::int,(random()*1500000)::int,(random()*2000000)::int,0
 FROM employees_master e LEFT JOIN user_roles ur ON ur.nrp=e.nrp ON CONFLICT DO NOTHING;
-UPDATE hr_payroll SET net_salary=base_salary+allowance+overtime_pay-deduction WHERE periode='2026-07';
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_payroll dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
+UPDATE hr_payroll SET net_salary=base_salary+allowance+overtime_pay-deduction WHERE periode='2026-07';-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 INSERT INTO hr_payroll (nrp,periode,base_salary,allowance,deduction,overtime_pay,net_salary)
 SELECT e.nrp,'2026-06',
   CASE WHEN ur.role_level=5 THEN 25000000 WHEN ur.role_level=4 THEN 18000000 WHEN ur.role_level=3 THEN 12000000 ELSE 7000000 END,
   (random()*3000000)::int,(random()*1500000)::int,(random()*2000000)::int,0
 FROM employees_master e LEFT JOIN user_roles ur ON ur.nrp=e.nrp ON CONFLICT DO NOTHING;
-UPDATE hr_payroll SET net_salary=base_salary+allowance+overtime_pay-deduction WHERE periode='2026-06';
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_payroll dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
+UPDATE hr_payroll SET net_salary=base_salary+allowance+overtime_pay-deduction WHERE periode='2026-06';-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- hr_engagement: score, period
 INSERT INTO hr_engagement (nrp,score,period) SELECT e.nrp,50+(random()*50)::int,'2026-07' FROM employees_master e ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_engagement dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- hr_voice: type, nrp, title, description, status, votes
-INSERT INTO hr_voice (id,type,nrp,title,description,status,votes) VALUES
-('V001','IDEA','NRP001','Efisiensi listrik','Matikan AC saat istirahat','SUBMITTED',5),
-('V002','SUGGESTION','NRP005','Shift fleksibel','Jam kerja fleksibel','SUBMITTED',12),
-('V003','COMPLAINT','NRP010','AC rusak','AC lantai 3 mati','SUBMITTED',8),
-('V004','IDEA','NRP020','Hemat ATK','Pakai refill','SUBMITTED',3),
-('V005','IDEA','NRP015','Absensi digital','Fingerprint baru','SUBMITTED',15),
-('V006','SUGGESTION','NRP025','Training online','Via Zoom','SUBMITTED',7) ON CONFLICT DO NOTHING;
+-- Guard (2026-09-18): hanya baris yang karyawannya benar-benar ada. Instalasi
+-- perusahaan baru belum punya roster demo → 0 baris (sama seperti DB produksi yang
+-- memang 0 baris di tabel ini). Tanpa guard, INSERT gagal FK dan menggagalkan
+-- SELURUH berkas 011.
+INSERT INTO hr_voice (id,type,nrp,title,description,status,votes)
+SELECT v.id, v.type, v.nrp, v.title, v.description, v.status, v.votes
+FROM (VALUES
+  ('V001','IDEA','NRP001','Efisiensi listrik','Matikan AC saat istirahat','SUBMITTED',5),
+  ('V002','SUGGESTION','NRP005','Shift fleksibel','Jam kerja fleksibel','SUBMITTED',12),
+  ('V003','COMPLAINT','NRP010','AC rusak','AC lantai 3 mati','SUBMITTED',8),
+  ('V004','IDEA','NRP020','Hemat ATK','Pakai refill','SUBMITTED',3),
+  ('V005','IDEA','NRP015','Absensi digital','Fingerprint baru','SUBMITTED',15),
+  ('V006','SUGGESTION','NRP025','Training online','Via Zoom','SUBMITTED',7)
+) AS v(id,type,nrp,title,description,status,votes)
+WHERE EXISTS (SELECT 1 FROM employees_master e WHERE e.nrp = v.nrp)
+ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- hr_safety: incident_type, date, severity, description, near_miss, incident_date
 INSERT INTO hr_safety (nrp,incident_type,date,severity,description,near_miss,incident_date) SELECT
@@ -42,17 +72,29 @@ INSERT INTO hr_safety (nrp,incident_type,date,severity,description,near_miss,inc
   'LOW','Incident at '||e.divisi,random()<0.3,
   ('2026-07-'||LPAD((1+(random()*28)::int)::text,2,'0'))::date
 FROM employees_master e WHERE random()<0.1 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_safety dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- hr_compliance: id, kategori, status, due_date, penanggung_nrp
 INSERT INTO hr_compliance (id,kategori,status,due_date,penanggung_nrp) VALUES
 ('C001','K3 Training','COMPLIANT','2026-08-15','NRP001'),
 ('C002','Medical Checkup','OVERDUE','2026-07-01','NRP002'),
-('C003','Certificate Renewal','PENDING','2026-09-01','NRP005') ON CONFLICT DO NOTHING;
+('C003','Certificate Renewal','PENDING','2026-09-01','NRP005') ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- hr_benefits: id, nrp, jenis_benefit, nilai
 INSERT INTO hr_benefits (id,nrp,jenis_benefit,nilai) SELECT 'B'||LPAD(n::text,3,'0'),e.nrp,
   (ARRAY['BPJS-KES','BPJS-TK','THP','JHT','JP'])[1+(n%5)],(random()*5000000)::int
 FROM employees_master e CROSS JOIN generate_series(1,3) n WHERE random()<0.5 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_benefits dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- hr_learning: nrp, type, title, status, start_date
 INSERT INTO hr_learning (nrp,type,title,status,start_date) SELECT e.nrp,
@@ -61,6 +103,12 @@ INSERT INTO hr_learning (nrp,type,title,status,start_date) SELECT e.nrp,
   (ARRAY['COMPLETED','IN_PROGRESS','REQUESTED'])[1+(n%3)],
   ('2026-07-'||LPAD((1+(random()*28)::int)::text,2,'0'))::date
 FROM employees_master e CROSS JOIN generate_series(1,2) n WHERE random()<0.5 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_learning dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- hr_notifications: id, nrp, category, title, message, is_read (NO priority!)
 INSERT INTO hr_notifications (id,nrp,category,title,message,is_read) SELECT 'N'||LPAD(n::text,4,'0'),e.nrp,
@@ -69,6 +117,9 @@ INSERT INTO hr_notifications (id,nrp,category,title,message,is_read) SELECT 'N'|
   (ARRAY['Silakan cek skor KPI.','Pastikan kehadiran tepat waktu.'])[1+(n%2)],
   random()<0.3
 FROM employees_master e CROSS JOIN generate_series(1,2) n WHERE random()<0.3 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_notifications dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- hr_coaching_catalog: type_code, coaching_type, default_topic, duration_minutes
 INSERT INTO hr_coaching_catalog (type_code,coaching_type,default_topic,duration_minutes) VALUES
@@ -88,17 +139,29 @@ INSERT INTO hr_benefit_catalog (kode_benefit,jenis_benefit,kategori,default_nila
 -- hr_talent_catalog: id, type, judul, status, priority
 INSERT INTO hr_talent_catalog (id,type,judul,status,priority) VALUES
 ('T001','POSITION','Staff IT','ACTIVE','HIGH'),
-('T002','POSITION','Supervisor Operasional','ACTIVE','MEDIUM') ON CONFLICT DO NOTHING;
+('T002','POSITION','Supervisor Operasional','ACTIVE','MEDIUM') ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- hr_production_daily: nrp, date, shift, volume, uom
 INSERT INTO hr_production_daily (nrp,date,shift,volume,uom) SELECT e.nrp,d::date,'REGULER',(3000+random()*4000)::int,'Ton'
 FROM employees_master e CROSS JOIN generate_series('2026-07-01'::date,'2026-07-15'::date,'1 day') d
 WHERE e.divisi='OPERATIONAL' AND random()<0.8 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_production_daily dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- hr_coaching: nrp, coach_nrp, topic, status, session_date
 INSERT INTO hr_coaching (nrp,coach_nrp,topic,status,session_date) SELECT e.nrp,'NRP002','Performance Improvement','ACTIVE',
 ('2026-07-'||LPAD((1+(random()*28)::int)::text,2,'0'))::date
 FROM employees_master e WHERE random()<0.2 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_coaching dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- hr_document_types: type, sub_type
 INSERT INTO hr_document_types (type,sub_type) VALUES

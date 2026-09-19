@@ -18,6 +18,17 @@
 -- Rollback: supabase/migrations/rollback/206_rollback.sql
 -- ================================================================
 
+-- ── 0. Backfill NIK sebelum constraint (perbaikan 2026-09-18) ───
+-- Instalasi dari awal: 183 menyalin apa adanya dari employees_master, sehingga baris
+-- seed dengan NIK kosong/pendek membuat ADD CONSTRAINT di bawah gagal dan mematikan
+-- berkas ini. Live sudah bersih (17/17 punya NIK), jadi UPDATE ini kena 0 baris di sana.
+-- Placeholder wajib lolos dua guard di bawah: tidak kosong dan panjang 6..20 karakter.
+UPDATE public.employees_core
+   SET nik = 'NRP-' || nrp
+ WHERE nik IS NULL
+    OR btrim(nik) = ''
+    OR char_length(btrim(nik)) NOT BETWEEN 6 AND 20;
+
 -- ── 1. Constraint permanen di base table ─────────────────────────
 DO $$
 BEGIN

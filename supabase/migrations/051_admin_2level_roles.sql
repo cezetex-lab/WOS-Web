@@ -15,8 +15,10 @@ BEGIN
   ) THEN
     ALTER TABLE user_roles ADD CONSTRAINT user_roles_role_check
       CHECK (role IN (
+        'owner', 'admin', 'worker',
         'admin_pusat','admin_hrd','admin_finance','admin_produksi',
-        'manager','worker'
+        'admin_operasional','admin_mining','admin_mill','admin_estate',
+        'manager','supervisor','director'
       ));
   END IF;
 EXCEPTION WHEN duplicate_object THEN NULL;

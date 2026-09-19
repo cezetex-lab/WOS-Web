@@ -4,16 +4,16 @@
 CREATE TABLE IF NOT EXISTS mining_simper (
   id SERIAL PRIMARY KEY,
   simper_no TEXT NOT NULL, applicant_name TEXT NOT NULL, company TEXT,
-  commodity TEXT DEFAULT "COAL", area_hectare NUMERIC DEFAULT 0,
-  status TEXT DEFAULT "PENDING" CHECK (status IN ("PENDING","ACTIVE","EXPIRED","REVOKED")),
+  commodity TEXT DEFAULT 'COAL', area_hectare NUMERIC DEFAULT 0,
+  status TEXT DEFAULT 'PENDING' CHECK (status IN ('PENDING','ACTIVE','EXPIRED','REVOKED')),
   issue_date DATE, expiry_date DATE, notes TEXT, business_unit_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS mining_equipment (
   id SERIAL PRIMARY KEY,
   equipment_code TEXT NOT NULL UNIQUE, equipment_name TEXT NOT NULL,
-  category TEXT DEFAULT "HEAVY",
-  status TEXT DEFAULT "OFFLINE" CHECK (status IN ("RUNNING","STANDBY","MAINTENANCE","OFFLINE")),
+  category TEXT DEFAULT 'HEAVY',
+  status TEXT DEFAULT 'OFFLINE' CHECK (status IN ('RUNNING','STANDBY','MAINTENANCE','OFFLINE')),
   location TEXT, hours_run NUMERIC DEFAULT 0, fuel_level NUMERIC DEFAULT 100,
   last_maintenance DATE, next_maintenance DATE, business_unit_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS estate_harvest (
   id SERIAL PRIMARY KEY,
   block_name TEXT NOT NULL, harvest_date DATE DEFAULT CURRENT_DATE,
   tonnage NUMERIC DEFAULT 0, harvester_nrp TEXT, harvester_nama TEXT,
-  quality TEXT DEFAULT "GOOD",
-  status TEXT DEFAULT "PENDING" CHECK (status IN ("PENDING","LOADED","TRANSPORTED","REJECTED")),
+  quality TEXT DEFAULT 'GOOD',
+  status TEXT DEFAULT 'PENDING' CHECK (status IN ('PENDING','LOADED','TRANSPORTED','REJECTED')),
   business_unit_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

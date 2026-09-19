@@ -1,6 +1,18 @@
 -- Enable pg_cron extension (F-7: pg_cron belum terinstal — aktif dari migration
 -- supaya schedule setup di bawah bisa jalan; migrasi di-run sebagai postgres)
-CREATE EXTENSION IF NOT EXISTS pg_cron;
+--
+-- Guard (2026-09-18): CREATE EXTENSION pg_cron hanya bisa di database `postgres`
+-- pada cluster Supabase. Di database lain (scratch/CI yang dipakai harness replay
+-- instalasi, atau Postgres tanpa pg_cron) perintah itu ERROR dan menggagalkan
+-- seluruh berkas. Karena itu dibungkus: kalau tidak tersedia → NOTICE, bukan gagal.
+DO $$
+BEGIN
+  BEGIN
+    CREATE EXTENSION IF NOT EXISTS pg_cron;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE '186: pg_cron tidak bisa dipasang di database ini (%) — dilewati', SQLERRM;
+  END;
+END $$;
 
 -- ============================================================
 -- insightWOS — Migration 186: Enable pg_cron Schedules

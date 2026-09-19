@@ -10,7 +10,11 @@ ALTER TABLE employees_master ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Asi
 ALTER TABLE hr_payroll ADD COLUMN IF NOT EXISTS currency_code TEXT DEFAULT 'IDR';
 
 -- 3. Expand employment_type CHECK (status_kerja)
--- First drop existing constraint if any, then add new one
+-- FIX (2026-09-18): normalisasi nilai lama HARUS dijalankan SEBELUM ADD CONSTRAINT.
+-- Sebelumnya UPDATE-nya ada di bawah, sehingga instalasi dari awal gagal di sini
+-- ('ERROR: check constraint "employees_master_status_kerja_check" ... is violated by
+-- some row') karena seed demo 034 memakai status_kerja = 'Aktif'.
+-- Urutan baru ini idempoten: di DB live (semua baris sudah PKWTT) UPDATE-nya kena 0 baris.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employees_master_status_kerja_check') THEN
@@ -18,14 +22,25 @@ BEGIN
   END IF;
 END $$;
 
+-- 4. Normalisasi employment_type lama ke nilai baru.
+-- PKWTT = permanent, PKWT = fixed-term contract.
+-- FIX (2026-09-18): pemetaan lama hanya menangani 5 nilai ('Aktif','Permanent',
+-- 'Active','Contract','Kontrak'), sehingga seed demo 047 (status_kerja = 'Resign')
+-- tetap melanggar CHECK di bawah dan instalasi dari awal berhenti di sini.
+-- Sekarang eksplisit + tidak menyisakan nilai di luar daftar (idempoten: di DB
+-- live semua baris sudah PKWTT sehingga UPDATE kena 0 baris).
+UPDATE employees_master
+   SET status_kerja = CASE
+     WHEN status_kerja IN ('Aktif','Permanent','Active') THEN 'PKWTT'
+     WHEN status_kerja IN ('Contract','Kontrak')         THEN 'PKWT'
+     ELSE 'PKWTT'  -- nilai di luar kontrak (mis. demo 'Resign') -> default permanen
+   END
+ WHERE status_kerja IS NULL
+    OR status_kerja NOT IN ('PKWTT','PKWT','KONTRAK','OUTSOURCING','MAGANG','PART_TIME','FREELANCE','PROBATION');
+
 ALTER TABLE employees_master
   ADD CONSTRAINT employees_master_status_kerja_check
   CHECK (status_kerja IN ('PKWTT','PKWT','KONTRAK','OUTSOURCING','MAGANG','PART_TIME','FREELANCE','PROBATION'));
-
--- 4. Update existing data to use new employment_type values
--- PKWTT = permanent, PKWT = fixed-term contract
-UPDATE employees_master SET status_kerja = 'PKWTT' WHERE status_kerja = 'Permanent';
-UPDATE employees_master SET status_kerja = 'PKWT' WHERE status_kerja = 'Contract';
 
 -- 5. Indexes
 CREATE INDEX IF NOT EXISTS idx_emp_timezone ON employees_master(timezone);

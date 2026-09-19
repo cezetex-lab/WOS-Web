@@ -181,9 +181,17 @@ DROP POLICY IF EXISTS vi_select ON hr_voice;
 CREATE POLICY vi_select ON hr_voice FOR SELECT USING (TRUE);
 
 -- Surveys — all authenticated
-DROP POLICY IF EXISTS sv_all ON hr_surveys;
-DROP POLICY IF EXISTS sv_select ON hr_surveys;
-CREATE POLICY sv_select ON hr_surveys FOR SELECT USING (TRUE);
+-- FIX (2026-09-18): hr_surveys baru dibuat oleh 141 (SETELAH berkas ini), jadi pada
+-- instalasi dari awal blok ini dulu langsung berhenti dengan "relation hr_surveys
+-- does not exist". Dijaga dengan to_regclass — 141 memasang policy-nya sendiri,
+-- jadi melewatinya di sini tidak menghilangkan proteksi apa pun.
+DO $$ BEGIN
+  IF to_regclass('public.hr_surveys') IS NOT NULL THEN
+    DROP POLICY IF EXISTS sv_all ON hr_surveys;
+    DROP POLICY IF EXISTS sv_select ON hr_surveys;
+    CREATE POLICY sv_select ON hr_surveys FOR SELECT USING (TRUE);
+  END IF;
+END $$;
 
 -- Forum — all authenticated
 DO $$ BEGIN
@@ -216,10 +224,15 @@ DROP POLICY IF EXISTS sc_select ON hr_succession_matrix;
 CREATE POLICY sc_select ON hr_succession_matrix FOR SELECT USING (is_admin_or_owner());
 
 -- OKRs — workers see own
-DROP POLICY IF EXISTS ok_all ON hr_okrs;
-DROP POLICY IF EXISTS ok_select ON hr_okrs;
-CREATE POLICY ok_select ON hr_okrs FOR SELECT
-  USING (nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
+-- FIX (2026-09-18): hr_okrs juga baru dibuat oleh 141 (lihat catatan Surveys di atas).
+DO $$ BEGIN
+  IF to_regclass('public.hr_okrs') IS NOT NULL THEN
+    DROP POLICY IF EXISTS ok_all ON hr_okrs;
+    DROP POLICY IF EXISTS ok_select ON hr_okrs;
+    CREATE POLICY ok_select ON hr_okrs FOR SELECT
+      USING (nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1) OR is_admin_or_owner());
+  END IF;
+END $$;
 
 -- Performance notes — workers see own
 DROP POLICY IF EXISTS pn_all ON performance_notes;

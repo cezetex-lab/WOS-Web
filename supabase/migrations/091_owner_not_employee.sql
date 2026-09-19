@@ -3,6 +3,14 @@
 -- Owner HANYA di auth.users + user_roles
 
 -- 1. Remove Owner from employees_master (if exists)
+-- FIX (2026-09-18): instalasi dari awal membuat FK $user_roles_nrp_fkey$ (inline
+-- REFERENCES employees_master di 001_init) sehingga langkah ini dulu gagal dengan
+-- "violates foreign key constraint user_roles_nrp_fkey" — padahal di bawah justru
+-- OWNER001 dimasukkan ke user_roles. FK itu bertentangan dengan desain berkas ini
+-- (Owner BUKAN karyawan). DB live memang tidak punya constraint tersebut
+-- (diverifikasi ke live 2026-09-18: pg_constraint -> 0 baris).
+ALTER TABLE user_roles DROP CONSTRAINT IF EXISTS user_roles_nrp_fkey;
+
 DELETE FROM employees_master WHERE nrp = 'OWNER001';
 
 -- 2. Ensure Owner is in user_roles

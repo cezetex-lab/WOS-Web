@@ -5,16 +5,54 @@
 -- callable without authentication.
 -- ================================================================
 
--- REVOKE from anon and PUBLIC
-REVOKE EXECUTE ON FUNCTION get_field_status(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION get_irrigation_status(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION get_maintenance_schedule(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION get_mill_production(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION get_yield_data(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION change_password(text, text, text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION check_login_lockout(text, text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION get_branding() FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION cleanup_rate_limits() FROM anon, PUBLIC;
+-- REVOKE dari anon dan PUBLIC.
+--
+-- GUARD (2026-09-18): sebelumnya tiap REVOKE ditulis langsung, sehingga instalasi dari
+-- awal GAGAL dengan `function ... does not exist` — fungsi `_legacy_*` ada di live hanya
+-- karena RENAME manual (sumber migrasinya hilang, §5.8 SQL-02), dan di DB baru memang
+-- tidak pernah dibuat. Sekarang tiap tanda tangan diperiksa `to_regprocedure()`:
+-- yang tidak ada → NOTICE (bukan ERROR), yang ada → REVOKE (perilaku sama seperti live).
+DO $$
+DECLARE
+  v_sigs TEXT[] := ARRAY[
+    -- tahap 5.8 (F-8 + A1/A2)
+    'public.get_field_status(text)',
+    'public.get_irrigation_status(text)',
+    'public.get_maintenance_schedule(text)',
+    'public.get_mill_production(text)',
+    'public.get_yield_data(text)',
+    'public.change_password(text, text, text)',
+    'public.check_login_lockout(text, text)',
+    'public.get_branding()',
+    'public.cleanup_rate_limits()',
+    -- additional REVOKEs (post-verifikasi 2026-09-13)
+    'public.create_harvest_record(text, text, numeric, numeric, text)',
+    'public.get_organization_health()',
+    'public.report_safety_incident(text, text, text, text, text)',
+    'public.update_audit_timestamp()',
+    'public._legacy_get_breakdown_log_by_site(text)',
+    'public._legacy_get_estate_blocks_by_bu(text)',
+    'public._legacy_get_harvest_records_by_bu(text)',
+    'public._legacy_get_nursery_data_by_bu(text)',
+    'public._legacy_get_packing_log_by_site(text)',
+    'public._legacy_get_qc_results_by_site(text)',
+    'public._legacy_get_transport_dispatch_by_bu(text)'
+  ];
+  v_sig TEXT;
+  v_oid regprocedure;
+  v_n INTEGER := 0;
+BEGIN
+  FOREACH v_sig IN ARRAY v_sigs LOOP
+    v_oid := to_regprocedure(v_sig);
+    IF v_oid IS NULL THEN
+      RAISE NOTICE '210: % tidak ada — REVOKE dilewati', v_sig;
+      CONTINUE;
+    END IF;
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM anon, PUBLIC', v_oid);
+    v_n := v_n + 1;
+  END LOOP;
+  RAISE NOTICE '210: REVOKE diterapkan pada % fungsi', v_n;
+END $$;
 
 -- Verify: anon should have 0 EXECUTE on these
 SELECT '210.1 anon revoked from 9 RPCs' AS test,
@@ -32,15 +70,6 @@ SELECT '210.1 anon revoked from 9 RPCs' AS test,
     ) t
   ) = 0 THEN 'PASS' ELSE 'FAIL' END AS result;
 
--- Additional REVOKEs (post-verification 2026-09-13)
-REVOKE EXECUTE ON FUNCTION create_harvest_record(text,text,numeric,numeric,text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION get_organization_health() FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION report_safety_incident(text,text,text,text,text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION update_audit_timestamp() FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION _legacy_get_breakdown_log_by_site(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION _legacy_get_estate_blocks_by_bu(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION _legacy_get_harvest_records_by_bu(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION _legacy_get_nursery_data_by_bu(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION _legacy_get_packing_log_by_site(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION _legacy_get_qc_results_by_site(text) FROM anon, PUBLIC;
-REVOKE EXECUTE ON FUNCTION _legacy_get_transport_dispatch_by_bu(text) FROM anon, PUBLIC;
+-- Additional REVOKEs (post-verifikasi 2026-09-13) — sudah dipindahkan ke blok
+-- ber-guard `to_regprocedure` di atas (2026-09-18) supaya berkas ini tidak lagi
+-- menggagalkan instalasi dari awal.

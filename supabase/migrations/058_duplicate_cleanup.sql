@@ -11,6 +11,13 @@
 DO $$
 DECLARE v_old INT; v_new INT;
 BEGIN
+  -- FIX (2026-09-18): `okrs` (tabel legacy duplikat) tidak ada di DB baru MAUPUN di DB
+  -- live, dan `hr_okrs` baru dibuat migrasi 141 (setelah berkas ini). Sebelumnya
+  -- ERROR `relation "okrs" does not exist` menggagalkan seluruh berkas 058.
+  IF to_regclass('public.okrs') IS NULL OR to_regclass('public.hr_okrs') IS NULL THEN
+    RAISE NOTICE '058: okrs/hr_okrs tidak ada — migrasi data OKR dilewati';
+    RETURN;
+  END IF;
   SELECT COUNT(*) INTO v_old FROM okrs;
   SELECT COUNT(*) INTO v_new FROM hr_okrs;
   IF v_old > 0 AND v_new = 0 THEN
@@ -31,6 +38,12 @@ END $$;
 DO $$
 DECLARE v_old INT; v_new INT;
 BEGIN
+  -- FIX (2026-09-18): idem blok OKR di atas — `surveys` legacy tidak ada, dan
+  -- `hr_surveys` dibuat migrasi 141.
+  IF to_regclass('public.surveys') IS NULL OR to_regclass('public.hr_surveys') IS NULL THEN
+    RAISE NOTICE '058: surveys/hr_surveys tidak ada — migrasi data survei dilewati';
+    RETURN;
+  END IF;
   SELECT COUNT(*) INTO v_old FROM surveys;
   SELECT COUNT(*) INTO v_new FROM hr_surveys;
   IF v_old > 0 AND v_new = 0 THEN

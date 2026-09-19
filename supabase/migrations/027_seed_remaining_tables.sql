@@ -84,7 +84,10 @@ INSERT INTO hr_kpi_config (position_code, periode, indicator, target_value, uom,
 ('HRD', '2026-07', 'Employee Satisfaction', 80, 'score', 25, 'HIGHER'),
 ('HRD', '2026-07', 'Training Hours', 40, 'hours', 25, 'HIGHER'),
 ('HRD', '2026-07', 'Turnover Rate', 5, '%', 25, 'LOWER')
-ON CONFLICT DO NOTHING;
+ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ============================================================
 -- 3. hr_skills (P1) — Skill levels per karyawan
@@ -103,6 +106,9 @@ FROM employees_master e
 CROSS JOIN generate_series(1, 3) AS g(n)
 WHERE random() < 0.6
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_skills dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- ============================================================
 -- 4. hr_position_skills (P1) — Required skills per posisi
@@ -141,7 +147,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO hr_tasks (id, assignee_nrp, title, status, due_date)
 SELECT
   'TASK-' || LPAD(g.n::text, 4, '0'),
-  (ARRAY['NRP001','NRP002','NRP003','NRP004','NRP005','NRP006','NRP007','NRP010','NRP015','NRP020'])[1 + (g.n % 10)],
+  a.assignee_nrp,
   (ARRAY[
     'Laporan kehadiran bulanan',
     'Review KPI tim',
@@ -157,6 +163,11 @@ SELECT
   (ARRAY['PENDING', 'IN_PROGRESS', 'COMPLETED', 'PENDING'])[1 + (g.n % 4)],
   ('2026-08-' || LPAD((1 + (random() * 28)::int)::text, 2, '0'))::date
 FROM generate_series(1, 20) AS g(n)
+CROSS JOIN LATERAL (
+  SELECT (ARRAY['NRP001','NRP002','NRP003','NRP004','NRP005','NRP006','NRP007','NRP010','NRP015','NRP020'])[1 + (g.n % 10)] AS assignee_nrp
+) AS a
+-- Guard (2026-09-18): lewati task yang assignee-nya tidak ada (instalasi baru → 0 baris).
+WHERE EXISTS (SELECT 1 FROM employees_master e WHERE e.nrp = a.assignee_nrp)
 ON CONFLICT DO NOTHING;
 
 -- ============================================================
@@ -199,7 +210,10 @@ INSERT INTO hr_training_catalog (id, title, category, provider, duration_hours, 
 ('TC008', 'Fire Safety & Evacuation', 'SAFETY', 'Internal Safety Team', 4, 'HIGH'),
 ('TC009', 'Anti-Corruption & Compliance', 'COMPLIANCE', 'Legal Department', 4, 'HIGH'),
 ('TC010', 'Project Management Professional', 'TECHNICAL', 'PMI Indonesia', 35, 'NORMAL')
-ON CONFLICT DO NOTHING;
+ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ============================================================
 -- 9. hr_succession (P2) — Succession planning
@@ -212,6 +226,12 @@ INSERT INTO hr_succession (id, position, candidate_nrp, readiness, notes) VALUES
 ('SUC005', 'Supervisor Finance', 'NRP008', 'Ready Soon', 'Strong financial skills, good communicator'),
 ('SUC006', 'Direktur Operasional', 'NRP002', 'Ready Now', '15+ years experience, excellent track record')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_succession dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ============================================================
 -- 10. hr_critical (P2) — Critical positions
@@ -224,6 +244,12 @@ INSERT INTO hr_critical (nrp, position, backup_nrp, risk_level) VALUES
 ('NRP010', 'Manager HRD', 'NRP011', 'LOW'),
 ('NRP003', 'Supervisor Operasional', 'NRP004', 'HIGH')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_critical dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ============================================================
 -- 11. hr_overtime (P2) — Data lembur
@@ -238,6 +264,12 @@ SELECT
   (ARRAY['APPROVED', 'PENDING', 'APPROVED', 'APPROVED'])[1 + (g.n % 4)]
 FROM generate_series(1, 25) AS g(n)
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_overtime dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ============================================================
 -- 12. hr_exit_clearance (P2) — Exit clearance
@@ -247,6 +279,12 @@ INSERT INTO hr_exit_clearance (nrp, resign_date, last_work_date, clearance_statu
 ('NRP029', '2026-06-15', '2026-06-30', 'COMPLETED'),
 ('NRP030', '2026-08-01', '2026-08-15', 'IN_PROGRESS')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_exit_clearance dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ============================================================
 -- 13. hr_medical_checkup (P3) — Medical checkup
@@ -260,6 +298,12 @@ SELECT
 FROM employees_master e
 WHERE random() < 0.7
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_medical_checkup dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ============================================================
 -- 14. hr_capability (P3) — Competency gap
@@ -276,6 +320,12 @@ FROM employees_master e
 CROSS JOIN generate_series(1, 2) AS g(n)
 WHERE random() < 0.5
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_capability dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ============================================================
 -- 15. hr_relations (P3) — Employee relations
@@ -290,6 +340,9 @@ INSERT INTO hr_relations (nrp, type, related_nrp, notes) VALUES
 ('NRP020', 'MENTOR', 'NRP005', 'Technical mentorship'),
 ('NRP007', 'PEER', 'NRP010', 'HR-Operations liaison')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_relations dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- ============================================================
 -- 16. hr_monthly_snapshot (P3) — Monthly metrics
@@ -347,7 +400,10 @@ LEFT JOIN (
   WHERE e.divisi IS NOT NULL AND p.periode = '2026-06'
   GROUP BY e.divisi
 ) p ON p.divisi = d.divisi
-ON CONFLICT DO NOTHING;
+ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ============================================================
 -- 17. hr_plantation_harvest (P3) — Harvest data
@@ -363,6 +419,9 @@ FROM employees_master e
 CROSS JOIN generate_series('2026-07-01'::date, '2026-07-28'::date, '1 day') AS d
 WHERE e.divisi = 'OPERATIONAL' AND random() < 0.4
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_plantation_harvest dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- ============================================================
 -- DONE — All 17 tables seeded

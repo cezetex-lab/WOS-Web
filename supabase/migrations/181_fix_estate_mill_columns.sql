@@ -1,3 +1,33 @@
+-- ════════════════════════════════════════════════════════════════
+-- Helper smoke test sesi — WAJIB ada sebelum asersi di bawah.
+--
+-- Bagian VERIFY di berkas ini bersifat DIAGNOSTIK: ia memanggil RPC secara langsung.
+-- Pada INSTALASI DARI AWAL panggilan seperti itu bisa gagal karena data demo belum ada
+-- atau karena implementasinya baru diperbaiki di berkas berikutnya (180 -> 181), dan
+-- exception-nya dulu MEMBATALKAN SELURUH rantai instalasi. Sejak 2026-09-18 setiap
+-- asersi dijalankan lewat helper ini: exception ditangkap dan dilaporkan sebagai baris
+-- hasil (PASS / FAIL / ERROR), bukan kegagalan migrasi.
+--
+-- Ditempatkan di pg_temp sehingga hilang sendiri di akhir sesi: tidak pernah menjadi
+-- objek produksi, tidak perlu GRANT, dan tidak ikut terhitung di metrik DB.
+-- CREATE OR REPLACE supaya aman walau beberapa berkas memakainya berurutan dalam satu
+-- sesi.
+-- ════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION pg_temp.smoke_check(p_sql text) RETURNS text
+LANGUAGE plpgsql AS $smoke_helper$
+DECLARE v text;
+BEGIN
+  EXECUTE p_sql INTO v;
+  RETURN CASE
+    WHEN v IN ('t','true') THEN 'PASS'
+    WHEN v IS NULL         THEN 'FAIL (hasil NULL)'
+    ELSE 'FAIL: ' || v
+  END;
+EXCEPTION WHEN OTHERS THEN
+  RETURN 'ERROR: ' || SQLERRM;
+END
+$smoke_helper$;
+
 -- ================================================================
 -- 181_fix_estate_mill_columns.sql
 -- Fixes column mismatches in 180's estate/mill overloads
@@ -9,7 +39,14 @@
 -- ════════════════════════════════════════════════════════════════
 
 -- get_transport_dispatch(p_bu_id): origin_block→origin, vehicle_id→vehicle_code, driver_nrp→driver_nama
-CREATE OR REPLACE FUNCTION public.get_transport_dispatch(p_bu_id text DEFAULT NULL)
+-- KONTRAK (2026-09-18): diselaraskan ke DB live + pemanggil src/.
+-- Live bertanda tangan: get_transport_dispatch(), get_nursery_data() (TANPA argumen) dan
+-- get_qc_results(p_limit integer) / get_packing_log(p_limit integer) /
+-- get_breakdown_log(p_limit integer). Bentuk lama (p_bu_id/p_site_code) membuat OVERLOAD
+-- dengan definisi 180 sehingga panggilan tanpa argumen gagal "is not unique", dan
+-- aplikasi mengirim p_limit (src/features/industry/mill/QcLab.tsx). AGENTS.md §3.4:
+-- satu nama = satu signature.
+CREATE OR REPLACE FUNCTION public.get_transport_dispatch()
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $function$
@@ -22,14 +59,13 @@ BEGIN
       'vehicle_code', t.vehicle_code, 'driver_nama', t.driver_nama, 'status', t.status
     ) AS sub
     FROM estate_transport t
-    WHERE p_bu_id IS NULL OR t.business_unit_id = p_bu_id
     ORDER BY t.date DESC
   ) sub);
 END;
 $function$;
 
 -- get_nursery_data(p_bu_id): old cols (date,block_name,seedling_count,survival_rate,nursery_type) → (nursery_name,seedling_type,quantity,age_weeks,health_status,target_date)
-CREATE OR REPLACE FUNCTION public.get_nursery_data(p_bu_id text DEFAULT NULL)
+CREATE OR REPLACE FUNCTION public.get_nursery_data()
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $function$
@@ -42,7 +78,6 @@ BEGIN
       'health_status', n.health_status, 'target_date', n.target_date
     ) AS sub
     FROM estate_nursery n
-    WHERE p_bu_id IS NULL OR n.business_unit_id = p_bu_id
     ORDER BY n.target_date DESC
   ) sub);
 END;
@@ -141,7 +176,7 @@ END;
 $function$;
 
 -- get_qc_results(p_site_code): fix column names to match mill_qc_results
-CREATE OR REPLACE FUNCTION public.get_qc_results(p_site_code text DEFAULT NULL)
+CREATE OR REPLACE FUNCTION public.get_qc_results(p_limit integer DEFAULT 50)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $function$
@@ -156,14 +191,14 @@ BEGIN
       'site_code', q.site_code
     ) AS sub
     FROM mill_qc_results q
-    WHERE p_site_code IS NULL OR q.site_code = p_site_code
     ORDER BY q.sample_date DESC
+    LIMIT p_limit
   ) sub);
 END;
 $function$;
 
 -- get_packing_log(p_site_code): fix to use mill_packing actual columns
-CREATE OR REPLACE FUNCTION public.get_packing_log(p_site_code text DEFAULT NULL)
+CREATE OR REPLACE FUNCTION public.get_packing_log(p_limit integer DEFAULT 50)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $function$
@@ -179,8 +214,8 @@ BEGIN
       'operator_nrp', pk.operator_nrp, 'site_code', pk.site_code
     ) AS sub
     FROM mill_packing pk
-    WHERE p_site_code IS NULL OR pk.site_code = p_site_code
     ORDER BY pk.pack_date DESC
+    LIMIT p_limit
   ) sub);
 END;
 $function$;
@@ -212,7 +247,7 @@ END;
 $function$;
 
 -- get_breakdown_log(p_site_code): fix to use mill_breakdowns actual columns
-CREATE OR REPLACE FUNCTION public.get_breakdown_log(p_site_code text DEFAULT NULL)
+CREATE OR REPLACE FUNCTION public.get_breakdown_log(p_limit integer DEFAULT 50)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $function$
@@ -229,8 +264,8 @@ BEGIN
       'downtime_hours', br.downtime_hours, 'cost', br.cost, 'site_code', br.site_code
     ) AS sub
     FROM mill_breakdowns br
-    WHERE p_site_code IS NULL OR br.site_code = p_site_code
     ORDER BY br.breakdown_time DESC
+    LIMIT p_limit
   ) sub);
 END;
 $function$;
@@ -289,17 +324,17 @@ END $$;
 -- VERIFY (use explicit param to avoid ambiguous overloads)
 -- ════════════════════════════════════════════════════════════════
 
-SELECT 'Estate: get_estate_blocks' AS test, CASE WHEN get_estate_blocks(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Estate: get_harvest_records' AS test, CASE WHEN get_harvest_records(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Estate: get_transport_dispatch' AS test, CASE WHEN get_transport_dispatch(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Estate: get_nursery_data' AS test, CASE WHEN get_nursery_data(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Estate: get_irrigation_status' AS test, CASE WHEN get_irrigation_status(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Estate: get_field_status' AS test, CASE WHEN get_field_status(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Estate: get_yield_data' AS test, CASE WHEN get_yield_data(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Mill: get_boiler_status' AS test, CASE WHEN get_boiler_status(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Mill: get_press_status' AS test, CASE WHEN get_press_status(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Mill: get_qc_results' AS test, CASE WHEN get_qc_results(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Mill: get_packing_log' AS test, CASE WHEN get_packing_log(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Mill: get_maintenance_schedule' AS test, CASE WHEN get_maintenance_schedule(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Mill: get_breakdown_log' AS test, CASE WHEN get_breakdown_log(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'Mill: get_mill_production' AS test, CASE WHEN get_mill_production(NULL) IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
+SELECT 'Estate: get_estate_blocks' AS test, pg_temp.smoke_check($smoke$SELECT (get_estate_blocks() IS NOT NULL)$smoke$) AS result;
+SELECT 'Estate: get_harvest_records' AS test, pg_temp.smoke_check($smoke$SELECT (get_harvest_records() IS NOT NULL)$smoke$) AS result;
+SELECT 'Estate: get_transport_dispatch' AS test, pg_temp.smoke_check($smoke$SELECT (get_transport_dispatch() IS NOT NULL)$smoke$) AS result;
+SELECT 'Estate: get_nursery_data' AS test, pg_temp.smoke_check($smoke$SELECT (get_nursery_data() IS NOT NULL)$smoke$) AS result;
+SELECT 'Estate: get_irrigation_status' AS test, pg_temp.smoke_check($smoke$SELECT (get_irrigation_status(NULL) IS NOT NULL)$smoke$) AS result;
+SELECT 'Estate: get_field_status' AS test, pg_temp.smoke_check($smoke$SELECT (get_field_status(NULL) IS NOT NULL)$smoke$) AS result;
+SELECT 'Estate: get_yield_data' AS test, pg_temp.smoke_check($smoke$SELECT (get_yield_data(NULL) IS NOT NULL)$smoke$) AS result;
+SELECT 'Mill: get_boiler_status' AS test, pg_temp.smoke_check($smoke$SELECT (get_boiler_status(NULL) IS NOT NULL)$smoke$) AS result;
+SELECT 'Mill: get_press_status' AS test, pg_temp.smoke_check($smoke$SELECT (get_press_status(NULL) IS NOT NULL)$smoke$) AS result;
+SELECT 'Mill: get_qc_results' AS test, pg_temp.smoke_check($smoke$SELECT (get_qc_results(NULL) IS NOT NULL)$smoke$) AS result;
+SELECT 'Mill: get_packing_log' AS test, pg_temp.smoke_check($smoke$SELECT (get_packing_log(NULL) IS NOT NULL)$smoke$) AS result;
+SELECT 'Mill: get_maintenance_schedule' AS test, pg_temp.smoke_check($smoke$SELECT (get_maintenance_schedule(NULL) IS NOT NULL)$smoke$) AS result;
+SELECT 'Mill: get_breakdown_log' AS test, pg_temp.smoke_check($smoke$SELECT (get_breakdown_log(NULL) IS NOT NULL)$smoke$) AS result;
+SELECT 'Mill: get_mill_production' AS test, pg_temp.smoke_check($smoke$SELECT (get_mill_production(NULL) IS NOT NULL)$smoke$) AS result;

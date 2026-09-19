@@ -11,10 +11,10 @@ CREATE OR REPLACE FUNCTION public.submit_registration(
   p_nrp text,
   p_nik text,
   p_nama text,
+  p_password text,
   p_email text DEFAULT NULL,
   p_divisi text DEFAULT NULL,
-  p_posisi text DEFAULT NULL,
-  p_password text
+  p_posisi text DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql

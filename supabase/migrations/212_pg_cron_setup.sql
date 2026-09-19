@@ -9,7 +9,17 @@
 -- ================================================================
 
 -- 1. Install pg_cron (idempotent)
-CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA extensions;
+-- Guard (2026-09-18): pg_cron hanya bisa dipasang di database `postgres`; di
+-- database scratch/CI perintah ini ERROR dan menggagalkan seluruh berkas.
+-- Dibungkus supaya instalasi tetap lanjut (NOTICE, bukan gagal).
+DO $$
+BEGIN
+  BEGIN
+    CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA extensions;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE '212: pg_cron tidak bisa dipasang di database ini (%) — dilewati', SQLERRM;
+  END;
+END $$;
 
 -- 2. Schedule cron jobs (idempotent via unschedule + schedule)
 

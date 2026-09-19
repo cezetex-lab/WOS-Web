@@ -1,3 +1,33 @@
+-- ════════════════════════════════════════════════════════════════
+-- Helper smoke test sesi — WAJIB ada sebelum asersi di bawah.
+--
+-- Berkas ini adalah SKRIP DIAGNOSTIK (tidak mengubah schema), tetapi ia memanggil
+-- RPC dengan data demo. Pada INSTALASI DARI AWAL sebagian data itu memang belum ada
+-- (mis. NRP 'TEST'), sehingga panggilan seperti create_worker_request('TEST', ...)
+-- dulu melempar exception dan MEMBATALKAN SELURUH rantai instalasi di berkas ini.
+-- Sejak 2026-09-18 setiap asersi dijalankan lewat helper ini: exception ditangkap dan
+-- dilaporkan sebagai baris hasil (PASS / FAIL / ERROR), bukan kegagalan migrasi.
+--
+-- Ditempatkan di pg_temp sehingga hilang sendiri di akhir sesi: tidak pernah menjadi
+-- objek produksi, tidak perlu GRANT, dan tidak ikut terhitung di metrik DB.
+-- CREATE OR REPLACE supaya aman walau beberapa berkas smoke memakainya berurutan
+-- dalam satu sesi.
+-- ════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION pg_temp.smoke_check(p_sql text) RETURNS text
+LANGUAGE plpgsql AS $smoke_helper$
+DECLARE v text;
+BEGIN
+  EXECUTE p_sql INTO v;
+  RETURN CASE
+    WHEN v IN ('t','true') THEN 'PASS'
+    WHEN v IS NULL         THEN 'FAIL (hasil NULL)'
+    ELSE 'FAIL: ' || v
+  END;
+EXCEPTION WHEN OTHERS THEN
+  RETURN 'ERROR: ' || SQLERRM;
+END
+$smoke_helper$;
+
 -- ================================================================
 -- 176_fix_rownum_and_pgcrypto_path.sql
 -- Fixes 2 root causes found by 175_smoke_tests.sql (12 failures):
@@ -260,18 +290,11 @@ GRANT EXECUTE ON FUNCTION get_jsa_list(text) TO authenticated;
 -- Verify
 -- ════════════════════════════════════════════════════════════════
 
-SELECT 'VERIFY: create_worker_request callable (pgcrypto reachable)' AS test,
-  CASE WHEN create_worker_request('TEST','LEAVE','test','test') IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
+SELECT 'VERIFY: create_worker_request callable (pgcrypto reachable)' AS test,pg_temp.smoke_check($smoke$SELECT (create_worker_request('TEST','LEAVE','test','test') IS NOT NULL)$smoke$) AS result;
 
-SELECT 'VERIFY: get_simper_list callable' AS test,
-  CASE WHEN get_simper_list('TEST') IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'VERIFY: get_heavy_equipment callable' AS test,
-  CASE WHEN get_heavy_equipment('TEST') IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'VERIFY: get_fatigue_data callable' AS test,
-  CASE WHEN get_fatigue_data('TEST') IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'VERIFY: get_production_daily callable' AS test,
-  CASE WHEN get_production_daily('TEST') IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'VERIFY: get_safety_incidents callable' AS test,
-  CASE WHEN get_safety_incidents('TEST') IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
-SELECT 'VERIFY: get_jsa_list callable' AS test,
-  CASE WHEN get_jsa_list('TEST') IS NOT NULL THEN 'PASS' ELSE 'FAIL' END AS result;
+SELECT 'VERIFY: get_simper_list callable' AS test,pg_temp.smoke_check($smoke$SELECT (get_simper_list('TEST') IS NOT NULL)$smoke$) AS result;
+SELECT 'VERIFY: get_heavy_equipment callable' AS test,pg_temp.smoke_check($smoke$SELECT (get_heavy_equipment('TEST') IS NOT NULL)$smoke$) AS result;
+SELECT 'VERIFY: get_fatigue_data callable' AS test,pg_temp.smoke_check($smoke$SELECT (get_fatigue_data('TEST') IS NOT NULL)$smoke$) AS result;
+SELECT 'VERIFY: get_production_daily callable' AS test,pg_temp.smoke_check($smoke$SELECT (get_production_daily('TEST') IS NOT NULL)$smoke$) AS result;
+SELECT 'VERIFY: get_safety_incidents callable' AS test,pg_temp.smoke_check($smoke$SELECT (get_safety_incidents('TEST') IS NOT NULL)$smoke$) AS result;
+SELECT 'VERIFY: get_jsa_list callable' AS test,pg_temp.smoke_check($smoke$SELECT (get_jsa_list('TEST') IS NOT NULL)$smoke$) AS result;

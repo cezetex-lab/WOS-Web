@@ -177,7 +177,13 @@ END; $$
 LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 -- estate_blocks
-CREATE OR REPLACE FUNCTION get_estate_blocks(p_page INT DEFAULT 1, p_limit INT DEFAULT 20)
+-- FIX (2026-09-18): satu nama = satu signature (AGENTS.md §3.4). Versi halaman ini
+-- adalah template pra-refaktor yang untuk nama ini sudah digantikan
+-- 180_estate_mill_functions.sql. Dulu keduanya punya parameter default penuh,
+-- sehingga panggilan tanpa argumen gagal: `function get_estate_blocks() is not unique`
+-- dan instalasi dari awal berhenti di 180. Dipensiunkan dengan prefix `_legacy_`
+-- (bukan DROP, sesuai AGENTS.md §3.4).
+CREATE OR REPLACE FUNCTION _legacy_get_estate_blocks_paged(p_page INT DEFAULT 1, p_limit INT DEFAULT 20)
 RETURNS JSONB AS $$
 DECLARE
   v_ctx JSONB := get_current_user_context();
@@ -436,3 +442,7 @@ BEGIN
 END; $$
 LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
+-- Fungsi legacy di atas tidak boleh dipanggil klien mana pun; default privilege
+-- Supabase memberi EXECUTE ke anon/authenticated untuk setiap fungsi baru, jadi
+-- haknya dicabut eksplisit di sini (§7.6 hardening).
+REVOKE ALL ON FUNCTION _legacy_get_estate_blocks_paged(INT, INT) FROM PUBLIC, anon, authenticated;

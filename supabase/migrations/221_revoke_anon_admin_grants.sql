@@ -42,10 +42,24 @@ REVOKE EXECUTE ON FUNCTION public.verify_audit_chain(int, int) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.check_migrations(text[]) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.verify_migration_checksum(text, text) FROM PUBLIC;
 
--- Also revoke trigger functions that should not be PUBLIC-callable
-REVOKE EXECUTE ON FUNCTION public.employees_master_delete_trigger() FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.employees_master_insert_trigger() FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.employees_master_update_trigger() FROM PUBLIC;
+-- Also revoke trigger functions that should not be PUBLIC-callable.
+-- Guard $to_regprocedure$ (pola yang sama dengan 210): ketiga fungsi ini baru dibuat
+-- oleh 215_gap_employee_fields.sql, yang posisinya SETELAH berkas ini, sehingga pada
+-- instalasi dari awal REVOKE langsung berbentuk tetap gagal ("function ... does not
+-- exist") dan menggagalkan seluruh berkas. Kalau belum ada, tidak ada hak untuk dicabut.
+DO $$
+DECLARE f text;
+BEGIN
+  FOREACH f IN ARRAY ARRAY[
+    'public.employees_master_delete_trigger()',
+    'public.employees_master_insert_trigger()',
+    'public.employees_master_update_trigger()'
+  ] LOOP
+    IF to_regprocedure(f) IS NOT NULL THEN
+      EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', f);
+    END IF;
+  END LOOP;
+END $$;
 
 -- ── PHASE 3: RE-GRANT to authenticated only ─────────────────────
 -- admin_get_payroll: called by admin pages -> authenticated role

@@ -283,7 +283,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Get maintenance schedule
-CREATE OR REPLACE FUNCTION get_maintenance_schedule(p_status TEXT DEFAULT NULL)
+CREATE OR REPLACE FUNCTION get_maintenance_schedule(p_site_code TEXT DEFAULT NULL)
 RETURNS JSONB AS $$
 BEGIN
   RETURN (
@@ -298,7 +298,7 @@ BEGIN
       ) ORDER BY m.scheduled_date
     ), '[]'::jsonb))
     FROM mill_maintenance m
-    WHERE (p_status IS NULL OR m.status = p_status)
+    WHERE (p_site_code IS NULL OR m.status = p_site_code)
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

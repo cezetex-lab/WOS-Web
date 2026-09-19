@@ -1,4 +1,4 @@
-﻿-- 196: Fix industrial RPCs incorrectly grantable to anon
+-- 196: Fix industrial RPCs incorrectly grantable to anon
 -- 
 -- Audit finding F-8: Certain industrial RPCs were incorrectly executable by anon 
 -- due to being created after the hardening grant migration (172) which revoked 

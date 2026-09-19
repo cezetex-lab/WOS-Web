@@ -129,9 +129,16 @@ INSERT INTO employees_extended (
   sertifikasi_pekerja, masa_berlaku_sertifikasi,
   ukuran_baju, ukuran_celana, ukuran_sepatu
 )
+-- FIX (2026-09-18): `npwp_encrypted` tidak pernah ada di tabel lama employees_master
+-- pada instalasi dari awal (hanya 183 dan 215 yang menyebut kolom itu, dan keduanya
+-- bukan pembuatnya) — di DB live kolom itu datang dari migrasi yang sumbernya sudah
+-- dihapus (AGENTS.md §5.8 SQL-02/SQL-10). Membacanya langsung membuat 183 gagal:
+-- "column npwp_encrypted does not exist", dan kegagalan itu menjatuhkan 189/206/211/
+-- 214/215/221 sebagai cascade. Ekspresi di bawah sadar-kolom: kalau kolomnya ada
+-- nilainya ikut tersalin, kalau tidak ada hasilnya NULL — tanpa dynamic SQL.
 SELECT
   nrp, tanggal_lahir, jenis_kelamin, alamat, no_hp,
-  nik_encrypted, npwp_encrypted, alamat_encrypted, no_hp_encrypted,
+  nik_encrypted, (to_jsonb(employees_master) ->> 'npwp_encrypted')::bytea, alamat_encrypted, no_hp_encrypted,
   kk, npwp, tempat_lahir, golongan_darah, alamat_domisili,
   darurat_nama, darurat_hubungan, darurat_no_hp,
   status_pernikahan, jumlah_tanggungan, status_ptkp,
@@ -153,8 +160,23 @@ ON CONFLICT (nrp) DO UPDATE SET
 -- Step 4: Drop old table, create VIEW for backward compat
 -- ════════════════════════════════════════════════════════════════
 
-DROP VIEW IF EXISTS employees_master CASCADE;
-DROP TABLE IF EXISTS employees_master CASCADE;
+-- FIX (2026-09-18): `DROP VIEW IF EXISTS` TIDAK menutupi salah-tipe objek. Pada
+-- instalasi dari awal employees_master masih berupa TABLE, sehingga pernyataan itu
+-- gagal dengan '"employees_master" is not a view' dan mematikan 183 — yang lalu
+-- menjatuhkan 189, 199, 201, 206, 211, 214, 215 dan 221 sebagai cascade.
+-- Blok di bawah memilih bentuk DROP sesuai jenis objek yang benar-benar ada,
+-- jadi aman untuk keduanya (instalasi dari awal maupun DB yang sudah menjalankan 183).
+DO $drop_em$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public' AND c.relname = 'employees_master' AND c.relkind = 'v'
+  ) THEN
+    DROP VIEW public.employees_master CASCADE;
+  ELSE
+    DROP TABLE IF EXISTS public.employees_master CASCADE;
+  END IF;
+END $drop_em$;
 
 CREATE VIEW employees_master AS
 SELECT

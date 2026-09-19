@@ -149,7 +149,7 @@ GRANT EXECUTE ON FUNCTION verify_migration_checksum TO authenticated;
 SELECT apply_migration(
   '219',
   '219_schema_versioning.sql',
-  encode(sha256(current_setting('search_path')::bytea), 'hex'),  -- placeholder; real checksum set by applier
+  encode(sha256(convert_to(current_setting('search_path'), 'UTF8')), 'hex'),  -- placeholder; real checksum set by applier
   'A7: schema_migrations table + helper functions'
 );
 

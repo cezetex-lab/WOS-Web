@@ -36,7 +36,10 @@ INSERT INTO candidate_pipeline (id, vacancy_id, nrp, nama, email, stage, notes) 
   ('CP-013', 'VAC-010', NULL, 'Yoga Pratama', 'yoga@gmail.com', 'SCREENING', 'Technical test passed'),
   ('CP-014', 'VAC-001', NULL, 'Tono Sugiarto', 'tono@gmail.com', 'APPLIED', 'Exp 5yr di PT Freeport'),
   ('CP-015', 'VAC-002', NULL, 'Sugeng Riyadi', 'sugeng@gmail.com', 'REJECTED', 'Tidak memenuhi kualifikasi')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ════════════════════════════════════════════════════════════
 -- B. SELF-SERVICE — travel_requests, reimbursements, approval
@@ -51,6 +54,12 @@ INSERT INTO travel_requests (id, nrp, destination, purpose, start_date, end_date
   ('TRV-007', 'NRP007', 'Pontianak', 'Negosiasi kontrak supplier', '2026-09-12', '2026-09-14', 5500000, 'PENDING', 600000),
   ('TRV-008', 'NRP008', 'Makassar', 'Presentasi Q3 results', '2026-09-18', '2026-09-19', 4500000, 'APPROVED', 700000)
 ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed travel_requests dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 INSERT INTO reimbursements (id, nrp, travel_id, category, amount, status) VALUES
   ('REIM-001', 'NRP001', 'TRV-001', 'Transport', 2500000, 'APPROVED'),
@@ -64,6 +73,9 @@ INSERT INTO reimbursements (id, nrp, travel_id, category, amount, status) VALUES
   ('REIM-009', 'NRP004', NULL, 'Medical', 750000, 'APPROVED'),
   ('REIM-010', 'NRP005', NULL, 'Office Supply', 350000, 'REJECTED')
 ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed reimbursements dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 INSERT INTO approval_instances (id, request_id, approver_nrp, level, status, note) VALUES
   ('APR-001', 'TRV-001', 'NRP010', 1, 'APPROVED', 'Disetujui manager langsung'),
@@ -74,7 +86,10 @@ INSERT INTO approval_instances (id, request_id, approver_nrp, level, status, not
   ('APR-006', 'TRV-005', 'NRP010', 1, 'REJECTED', 'Budget tidak mencukupi'),
   ('APR-007', 'TRV-006', 'NRP011', 1, 'APPROVED', 'Workshop penting'),
   ('APR-008', 'TRV-007', 'NRP010', 1, 'PENDING', 'Menunggu konfirmasi')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ════════════════════════════════════════════════════════════
 -- C. PERFORMANCE — performance_notes, okrs (table 018), incentives
@@ -96,6 +111,12 @@ INSERT INTO performance_notes (nrp, author_nrp, note_type, content) VALUES
   ('MNG0002', 'NRP010', 'WARNING', 'Equipment maintenance overdue. Schedule PM immediately.'),
   ('EST0001', 'NRP011', 'PRAISE', 'Highest TBS yield in the estate this quarter.')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed performance_notes dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- OKRs (table 018)
 INSERT INTO okrs (id, nrp, period, objective, key_result, target_value, actual_value, status) VALUES
@@ -120,6 +141,12 @@ INSERT INTO okrs (id, nrp, period, objective, key_result, target_value, actual_v
   ('OKR-019', 'NRP002', '2026-Q3', 'Safety Training 100%', 'All miners trained', 100, 88, 'ON_TRACK'),
   ('OKR-020', 'NRP003', '2026-Q3', 'Harvest Planning Accuracy', 'Plan vs actual', 95, 97, 'ON_TRACK')
 ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed okrs dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- Incentives
 INSERT INTO incentives (id, nrp, period, base_amount, kpi_factor, team_factor, final_amount, status) VALUES
@@ -134,6 +161,12 @@ INSERT INTO incentives (id, nrp, period, base_amount, kpi_factor, team_factor, f
   ('INC-009', 'MNG0001', '2026-08', 3500000, 1.2, 1.1, 4620000, 'CALCULATED'),
   ('INC-010', 'EST0001', '2026-08', 3300000, 1.15, 1.05, 4007250, 'PAID')
 ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed incentives dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ════════════════════════════════════════════════════════════
 -- D. TALENT — certifications, badges, employee_mutations
@@ -155,6 +188,12 @@ INSERT INTO certifications (id, nrp, cert_name, issuer, issue_date, expiry_date,
   ('CERT-014', 'NRP010', 'Full Stack Developer', 'freeCodeCamp', '2023-12-01', '2028-12-01', 'ACTIVE'),
   ('CERT-015', 'EST0001', 'Sertifikat Agronom Sawit', 'ISPO', '2024-03-01', '2027-03-01', 'ACTIVE')
 ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed certifications dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 INSERT INTO badges (id, nrp, badge_name, badge_type, points, awarded_date) VALUES
   ('BDG-001', 'NRP001', 'Safety Champion', 'SAFETY', 500, '2026-08-01'),
@@ -173,6 +212,12 @@ INSERT INTO badges (id, nrp, badge_name, badge_type, points, awarded_date) VALUE
   ('BDG-014', 'NRP010', 'Digital Pioneer', 'INNOVATION', 500, '2026-08-01'),
   ('BDG-015', 'NRP011', 'People Person', 'LEADERSHIP', 300, '2026-08-10')
 ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed badges dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 INSERT INTO employee_mutations (nrp, from_position, to_position, effective_date, reason) VALUES
   ('NRP001', 'Mining Supervisor', 'Mining Manager', '2026-01-01', 'Promosi berdasarkan kinerja'),
@@ -186,6 +231,9 @@ INSERT INTO employee_mutations (nrp, from_position, to_position, effective_date,
   ('MLL0001', 'Operator Boiler', 'Shift Leader Boiler', '2026-04-01', 'Promosi'),
   ('MLL0002', 'Operator Press', 'Supervisor Press', '2026-02-15', 'Peningkatan tanggung jawab')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed employee_mutations dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- ════════════════════════════════════════════════════════════
 -- E. COMPLIANCE — whistleblowers, hr_exit_clearance
@@ -197,7 +245,10 @@ INSERT INTO whistleblowers (id, category, description, status, investigator_nrp,
   ('WB-004', 'ENVIRONMENT', 'Limbah cair tidak diolah sebelum dibuang', 'UNDER_INVESTIGATION', 'NRP012', 'Tim environment sedang audit'),
   ('WB-005', 'FRAUD', 'Dugaan ghost employee di shift malam', 'RESOLVED', 'NRP010', 'Tidak ditemukan bukti, workers verified'),
   ('WB-006', 'SAFETY', 'Mesin press beroperasi tanpa guard', 'RESOLVED', 'NRP009', 'Guard sudah dipasang, mesin dihentikan sementara')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- hr_exit_clearance (schema: id, nrp, resign_date, last_work_date, clearance_status)
 INSERT INTO hr_exit_clearance (nrp, resign_date, last_work_date, clearance_status) VALUES
@@ -207,6 +258,12 @@ INSERT INTO hr_exit_clearance (nrp, resign_date, last_work_date, clearance_statu
   ('NRP016', '2026-07-15', '2026-08-10', 'IN_PROGRESS'),
   ('NRP017', '2026-07-01', '2026-07-30', 'COMPLETED')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_exit_clearance dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- final_settlements (schema: id, nrp, sisa_cuti_paid, thr_prorata, pesangon, total_settlement, status)
 INSERT INTO final_settlements (id, nrp, sisa_cuti_paid, thr_prorata, pesangon, total_settlement, status) VALUES
@@ -216,6 +273,9 @@ INSERT INTO final_settlements (id, nrp, sisa_cuti_paid, thr_prorata, pesangon, t
   ('FS-004', 'NRP016', 1750000, 3500000, 21000000, 26250000, 'CALCULATED'),
   ('FS-005', 'NRP017', 1100000, 2750000, 16500000, 20350000, 'PAID')
 ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed final_settlements dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- ════════════════════════════════════════════════════════════
 -- F. FINANCE — budget_allocation, salary_adjustments
@@ -225,7 +285,10 @@ INSERT INTO budget_allocation (divisi, year, gaji_budget, training_budget, opera
   ('ESTATE', 2026, 2500000000, 400000000, 1500000000, 2300000000, 350000000),
   ('MILL', 2026, 2000000000, 350000000, 1800000000, 1900000000, 290000000),
   ('HQ', 2026, 1500000000, 200000000, 300000000, 1400000000, 150000000)
-ON CONFLICT DO NOTHING;
+ON CONFLICT DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 INSERT INTO salary_adjustments (id, nrp, current_salary, recommended_salary, increase_pct, reason, status) VALUES
   ('SA-001', 'NRP001', 15000000, 18000000, 20, 'Promosi Mining Manager', 'APPROVED'),
@@ -237,6 +300,9 @@ INSERT INTO salary_adjustments (id, nrp, current_salary, recommended_salary, inc
   ('SA-007', 'MLL0001', 5000000, 6500000, 30, 'Promosi Shift Leader', 'APPROVED'),
   ('SA-008', 'MLL0002', 5500000, 7000000, 27.3, 'Promosi Supervisor Press', 'PENDING')
 ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed salary_adjustments dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 -- ════════════════════════════════════════════════════════════
 -- G. INTEGRATION — webhook_configs, sso_providers, ext_notif
@@ -284,7 +350,10 @@ INSERT INTO announcements (id, title, message, priority, target_audience, expiry
   ('ANN-003', 'Peningkatan Sistem HR', 'Versi baru insightWOS v4.0 sudah live. Silakan cek fitur-fitur baru di menu Help.', 'LOW', 'ALL', '2026-10-01', 'NRP010'),
   ('ANN-004', 'Safety Alert — Hujan Deras', 'Cuaca ekstrem diperkirakan seminggu ke depan. Patuhi protokol K3 tambang dan kebun.', 'URGENT', 'MINING,ESTATE', '2026-09-07', 'NRP005'),
   ('ANN-005', 'Training Mandatory — K3 Ulang', 'Semua karyawan wajib mengikuti refreshment K3 bulan ini. Jadwal terlampir.', 'HIGH', 'MINING,MILL', '2026-09-30', 'NRP005')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ════════════════════════════════════════════════════════════
 -- I. OFFBOARDING — offboarding_checklist
@@ -309,6 +378,12 @@ INSERT INTO offboarding_checklist (nrp, item_name, status, checked_by) VALUES
   ('NRP017', 'Clear IT accounts', 'DONE', '2026-08-15'),
   ('NRP017', 'Final settlement', 'DONE', '2026-08-16')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed offboarding_checklist dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ════════════════════════════════════════════════════════════
 -- J. ONBOARDING (table 018 — different from 050's table)
@@ -328,6 +403,12 @@ INSERT INTO onboarding_tasks (nrp, task_name, assigned_to, status, due_date) VAL
   ('NRP021', 'Visa processing', 'HR-01', 'IN_PROGRESS', '2026-09-15'),
   ('NRP021', 'Housing arrangement', 'Admin', 'PENDING', '2026-09-20')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed onboarding_tasks dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ════════════════════════════════════════════════════════════
 -- K. TIMESHEETS (additional seed)
@@ -349,6 +430,12 @@ INSERT INTO timesheets (nrp, work_date, clock_in, clock_out, total_hours, notes)
   ('EST0002', '2026-08-28', '06:00', '15:00', 9.0, 'Transport TBS'),
   ('NRP005', '2026-08-28', '07:45', '17:15', 9.5, 'Safety inspection')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed timesheets dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ════════════════════════════════════════════════════════════
 -- L. REVIEW 360 (table 018 — additional)
@@ -375,6 +462,12 @@ INSERT INTO review_360 (reviewee_nrp, reviewer_nrp, period, category, score, fee
   ('NRP012', 'NRP001', '2026-Q3', 'TRAINING_DESIGN', 4.1, 'Good training materials'),
   ('NRP013', 'NRP010', '2026-Q3', 'INITIATIVE', 3.9, 'Good work but left')
 ON CONFLICT DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed review_360 dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;-- Guard FK (2026-09-18): seed demo dilewati bila karyawan rujukannya tidak ada.
+DO $seed_guard$
+BEGIN
+
 
 -- ════════════════════════════════════════════════════════════
 -- M. HR TASKS (additional)
@@ -392,5 +485,8 @@ INSERT INTO hr_tasks (id, assignee_nrp, title, status, due_date) VALUES
   ('TASK-009', 'MLL0001', 'Boiler Maintenance Schedule', 'TODO', '2026-09-01'),
   ('TASK-010', 'MLL0002', 'QC Report August', 'IN_PROGRESS', '2026-09-05')
 ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'seed hr_tasks dilewati — FK karyawan tidak terpenuhi';
+END $seed_guard$;
 
 SELECT '053 SEED REMAINING TABLES DONE — 150+ rows inserted' as status;
