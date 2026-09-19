@@ -1,8 +1,8 @@
 # AGENTS.md — ATURAN KERJA AGENT (WAJIB) — ONE SINGLE TRUTH
 
 > **Restrukturisasi 2026-09-19 (P0): berkas ini DIPECAH.** Sejak sekarang ia hanya memuat
-> (a) alur kerja wajib §0, (b) Golden Rules §0.5, dan (c) Work Queue §5.8 — plus peta bacaan
-> di bawah. Semua isi lain pindah ke berkas terpisah supaya agent tidak memuat 57 KB hanya
+> (a) alur kerja wajib §0 + sandbox rule §0.11, (b) Golden Rules §0.5, dan (c) Work Queue §5.8
+> — plus peta bacaan di bawah. Semua isi lain pindah ke berkas terpisah supaya agent tidak memuat 57 KB hanya
 > untuk membaca satu aturan, dan supaya aturan tidak lagi bercampur dengan status proyek.
 >
 > **Reading Map — BACA berkas yang relevan SEBELUM mulai kerja:**
@@ -17,7 +17,7 @@
 > | state OPEN non-SQL: Upstash/region SG, audit `Readme/upppp.txt` (F1–F4), installer baseline | `OPEN_WORK.md` |
 > | roadmap fitur (Workday/SAP/ADP) | `ROADMAP.md` |
 > | backup, RPO/RTO, DR drill, eskalasi insiden | `DISASTER_RECOVERY.md` |
-> | riwayat pekerjaan yang SUDAH selesai | `agentsLogs.md` (JANGAN taruh history di sini) |
+> | riwayat pekerjaan yang SUDAH selesai | `agentsLogs_YYYY-MM.md` (indeks bulan: `agentsLogs.md`) — JANGAN taruh history di sini |
 >
 > Nomor bagian lama tidak diubah di berkas barunya (`§3.11`, `§5.7`, `§6.4`, `§7.4`, `§9`, …),
 > jadi rujukan lama tetap bisa ditelusuri lewat tabel di atas.
@@ -32,8 +32,9 @@
 3. **Setiap perubahan wajib: COMMIT → PUSH → DEPLOY** (deploy = `npx vercel --prod` untuk
    perubahan frontend, apply migration ke DB live untuk perubahan DB, redeploy edge function
    untuk perubahan edge).
-4. **Setelah sukses: tulis hasilnya ke `agentsLogs.md`** (format entri ada di header file itu)
-   dan **KELUARKAN dari AGENTS.md** — item selesai TIDAK tinggal di file ini.
+4. **Setelah sukses: tulis hasilnya ke berkas log BULAN BERJALAN (`agentsLogs_YYYY-MM.md`)** —
+   `agentsLogs.md` kini hanya **indeks** (`scripts/split-agents-logs.ts`); format entri ada di
+   header berkas bulan itu. Lalu **KELUARKAN dari AGENTS.md** — item selesai TIDAK tinggal di file ini.
 5. Yang tinggal di AGENTS.md hanya: aturan kerja, aturan teknis keras, dan state OPEN
    (rencana/bug yang belum selesai).
 6. **DILARANG commit artefak/rahasia**: audit scripts, test-results, CSV/plaintext password,
@@ -59,6 +60,37 @@
    keputusan (mis. risiko `FORCE ROW LEVEL SECURITY` terhadap SQL Editor) tetap tinggal di
    WORK QUEUE dengan penanda **"butuh keputusan user"** beserta opsi + risikonya, agar tidak
    hilang dari pandangan.
+
+## 0.11 SANDBOX RULE — DILARANG membuat berkas di root
+
+> **Aturan keras.** Semua AI agent **DILARANG** membuat berkas baru di direktori root
+> (`WOS-Web/`). Root hanya untuk berkas proyek yang memang bagian aplikasi: `package.json`,
+> `index.html`, `*.config.ts`, `vercel.json`, dan dokumen `*.md` yang dirujuk Reading Map di atas.
+
+Ke mana berkas baru HARUS pergi:
+
+| Jenis berkas | Tempat |
+|---|---|
+| skrip sementara, probe DB, debug, audit sekali-pakai | `.agents/scripts/` |
+| log gate/build/test, keluaran perintah, screenshot diagnosa | `.agents/logs/` |
+| laporan audit/forensik | `.agents/reports/` |
+| arsip dokumen / salinan cadangan | `.agents/docs/` |
+| tooling proyek yang memang ikut di-commit | `supabase/scripts/` atau `scripts/` |
+
+**Berkas lama tidak dihapus — DIARSIPKAN** ke `.agents/archive/<kategori>/` supaya masih bisa
+ditelusuri. Menghapus berkas tanpa keputusan user dilarang (§0.2). Untuk isi setiap kategori
+arsip: `.agents/archive/scripts/`, `.agents/archive/logs/`, `.agents/archive/reports/`,
+`.agents/archive/docs/`.
+
+**Dilarang menulis berkas lewat shell** (`echo >`, `cat <<EOF`, `printf >`, `Add-Content`).
+Pakai `node scripts/safe-file-writer.ts --file <path> --content-file <sumber> --mode <append|overwrite>`.
+Alasannya nyata: append lewat redirection pernah merusak `agentsLogs.md` (864 NULL byte, UTF-16
+menempel di berkas UTF-8) — pemulihnya `scripts/repair-text-encoding.ts`.
+
+**Jebakan penting:** `.agents/` ada di `.gitignore`, jadi apa pun yang ditaruh di sana **tidak
+ikut ter-commit**. Dilarang memindahkan berkas yang **ber-git-track** (`FuturePlans.md`,
+`AGENTS.md`, `agentsLogs.md`, berkas di `src/`, `tests/`, `supabase/`) ke `.agents/` — itu sama
+dengan menghapusnya dari version control. Berkas ber-track tetap di root atau di `docs/`.
 
 ## 0.5 GOLDEN RULES (WAJIB) — KETERKAITAN 4 PAGE: worker ⇄ admin ⇄ dashboard ⇄ owner
 

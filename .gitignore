@@ -76,3 +76,11 @@ supabase/scripts/fix-nrp003.sql
 # Legacy local archive (GAS source, forensik, lampiran audit) — arsip lokal, jangan commit
 Readme/
 files/
+# ── Agen workspace & scratch (aturan §0.11 AGENTS.md: dilarang menaruh
+#    skrip/log/laporan sementara di root) ── never commit
+.agents/
+$null
+temp-*.mjs
+verify_*.py
+.vercel/
+dist/

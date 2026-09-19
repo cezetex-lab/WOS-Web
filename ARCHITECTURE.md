@@ -48,7 +48,8 @@
 | `supabase/functions/ai-copilot/index.ts` | AI copilot dengan DOMPurify + role isolation |
 | `supabase/scripts/provision-worker-auth.mjs` | Batch provisioning `--dry`/`--run` |
 | `supabase/akun/akun.txt` | Plaintext kredensial (gitignored — NEVER commit) |
-| `agentsLogs.md` | ONE SINGLE TRUTH — LOG riwayat pekerjaan selesai |
+| `agentsLogs_YYYY-MM.md` | ONE SINGLE TRUTH — LOG riwayat pekerjaan selesai (per bulan) |
+| `agentsLogs.md` | indeks bulan log — hanya penunjuk ke `agentsLogs_YYYY-MM.md` |
 
 
 ## 7. GRAND DESIGN — Arsitektur & Status Implementasi

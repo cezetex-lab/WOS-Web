@@ -27,7 +27,21 @@ import { writeFileSafe } from './safe-file-writer.ts';
 
 const ROOT = process.cwd();
 const AGENTS = path.join(ROOT, 'AGENTS.md');
-const LOG = path.join(ROOT, 'agentsLogs.md');
+/**
+ * Target log = berkas BULAN BERJALAN kalau ada (`agentsLogs_YYYY-MM.md`), karena sejak
+ * 2026-09-19 `agentsLogs.md` hanya INDEKS (lihat `scripts/split-agents-logs.ts`).
+ * Tanpa ini, entri §5 ditulis ke berkas penunjuk sehingga riwayatnya tidak lagi ada di
+ * berkas yang benar-benar dibaca orang.
+ */
+function resolveLog(): string {
+  const now = new Date();
+  const monthFile = path.join(
+    ROOT,
+    `agentsLogs_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.md`,
+  );
+  return fs.existsSync(monthFile) ? monthFile : path.join(ROOT, 'agentsLogs.md');
+}
+const LOG = resolveLog();
 const DRY = process.argv.includes('--dry-run');
 /**
  * `--only-log` — hanya append entri §5 ke `agentsLogs.md`, tanpa menulis ulang berkas
@@ -325,7 +339,7 @@ const readingMap = `# AGENTS.md — ATURAN KERJA AGENT (WAJIB) — ONE SINGLE TR
 > | state OPEN non-SQL: Upstash/region SG, audit \`Readme/upppp.txt\` (F1–F4), installer baseline | \`OPEN_WORK.md\` |
 > | roadmap fitur (Workday/SAP/ADP) | \`ROADMAP.md\` |
 > | backup, RPO/RTO, DR drill, eskalasi insiden | \`DISASTER_RECOVERY.md\` |
-> | riwayat pekerjaan yang SUDAH selesai | \`agentsLogs.md\` (JANGAN taruh history di sini) |
+> | riwayat pekerjaan yang SUDAH selesai | \`agentsLogs_YYYY-MM.md\` (indeks bulan: \`agentsLogs.md\`) — JANGAN taruh history di sini |
 >
 > Nomor bagian lama tidak diubah di berkas barunya (\`§3.11\`, \`§5.7\`, \`§6.4\`, \`§7.4\`, \`§9\`, …),
 > jadi rujukan lama tetap bisa ditelusuri lewat tabel di atas.`;
@@ -335,7 +349,7 @@ const opsRow =
   '| OPS-01 | **P2** | **Smoke runtime WorkerProfile belum dijalankan** (pindahan `§5` STATE DONE) |' +
   ' `§5` hanya menyisakan satu item OPEN: login worker → WorkerProfile → edit 1 kolom → simpan → reload.' +
   ' Grant `EXECUTE TO authenticated` sudah termigrasi di `222` (baris 79 + 150-152) — tidak ada langkah SQL tersisa.' +
-  ' Lingkungan agent tidak bisa menjangkau app live | User menjalankan smoke di browser lalu hasilnya ditulis ke `agentsLogs.md` | OPEN |';
+  ' Lingkungan agent tidak bisa menjangkau app live | User menjalankan smoke di browser lalu hasilnya ditulis ke `agentsLogs_YYYY-MM.md` | OPEN |';
 const sql13Line = s58.split('\n').find((l) => l.startsWith('| SQL-13 |'));
 if (sql13Line === undefined) throw new Error('§5.8: baris SQL-13 tidak ditemukan, tidak bisa menyisipkan OPS-01');
 s58 = s58.replace(sql13Line + '\n', sql13Line + '\n' + opsRow + '\n');
@@ -407,11 +421,11 @@ for (const out of outputs) {
 
 const logExists = DRY || fs.readFileSync(LOG, 'utf8').includes(logHeading);
 if (logExists) {
-  console.log('agentsLogs.md          entri §5 sudah ada — append dilewati (idempoten)');
+  console.log(`${path.basename(LOG).padEnd(22)} entri §5 sudah ada — append dilewati (idempoten)`);
 } else {
   const report = writeFileSafe(LOG, logEntry, { mode: 'append' });
   console.log(
-    `agentsLogs.md          +${report.bytesWritten} byte  (${report.bytesBefore} → ${report.bytesAfter})  eol=${report.eol}  bom=${report.bomPreserved}`,
+    `${path.basename(LOG).padEnd(22)} +${report.bytesWritten} byte  (${report.bytesBefore} → ${report.bytesAfter})  eol=${report.eol}  bom=${report.bomPreserved}`,
   );
 }
 
