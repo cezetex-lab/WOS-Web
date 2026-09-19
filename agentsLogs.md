@@ -4,6 +4,108 @@
 > Aturan (lihat `AGENTS.md` §0.3-4): setiap perubahan harus **commit → push → deploy**; setelah sukses,
 > hasilnya ditulis ke file ini dan **dikeluarkan dari `AGENTS.md`**.
 
+## [2026-09-18] Instalasi dari awal: rantai migrasi 156/156 + baseline idempoten — DONE
+
+- Status: DONE untuk VERIFIKASI (kedua jalur instalasi terbukti). Kode + dokumen masih di working tree;
+  **commit/push/deploy belum dijalankan** (menunggu perintah user — lihat "Sisa").
+- Lingkup: 21 berkas migrasi diperbaiki, 3 skrip baru (`replay-fresh-install.mjs`, `generate-baseline.mjs`,
+  `generate-baseline-data.mjs`), 2 script npm (`db:replay`, `db:baseline`). **Tidak ada objek DB live yang
+  diubah** — semua query ke live bersifat read-only.
+
+### Masalah
+Replay rantai migrasi 000→229 pada database kosong berhenti dengan **20 berkas GAGAL (136/156)**.
+Tanpa perbaikan ini, instalasi di perusahaan baru tidak mungkin jalan.
+
+### Akar masalah + perbaikan (setiap klaim diverifikasi ke kode berkas / DB live)
+1. **047 vs 045** — `045` membuat `webhook_logs(event, payload, response_status, ...)` sedangkan `047`
+   menulis `(event_type, payload, target_url, status, response_code)`. `008_restore_missing_objects.sql`
+   (dibuat sebelumnya) sudah memulihkan bentuk live → 047 lolos.
+2. **062** — normalisasi `status_kerja` hanya menangani 5 nilai, sedangkan seed demo `047` menulis
+   `status_kerja = 'Resign'` → `ADD CONSTRAINT` gagal. Kini satu `UPDATE ... CASE` eksplisit yang
+   **tidak menyisakan nilai di luar daftar** (idempoten: 0 baris di live).
+3. **083** — blok policy `hr_surveys`/`hr_okrs` dijalankan sebelum tabelnya dibuat `141` → kini dibungkus
+   `DO $$ IF to_regclass(...) IS NOT NULL` (pola yang sudah dipakai berkas ini untuk `forum_posts`).
+4. **091** — instalasi dari awal membuat FK inline `user_roles_nrp_fkey` (001) sehingga `DELETE ... OWNER001`
+   gagal, padahal di bawahnya OWNER001 justru dimasukkan ke `user_roles`. **Live memang tidak punya FK itu**
+   (diverifikasi: `pg_constraint` → 0 baris), jadi FK tersebut dibuang lebih dulu dengan alasan tertulis.
+5. **073 + 180 + 181** — tiga berkas mendefinisikan fungsi industri yang sama dengan parameter default penuh,
+   sehingga panggilan tanpa argumen gagal `function ... is not unique`. Diselesaikan: `073` →
+   `_legacy_get_estate_blocks_paged` (+ REVOKE), dan 4 signature di `180`/`181` diselaraskan ke **kontrak DB live**
+   (`get_estate_blocks()`, `get_harvest_records()`, `get_transport_dispatch()`, `get_nursery_data()` nol-argumen;
+   `get_qc_results`/`get_packing_log`/`get_breakdown_log` → `p_limit integer`, sesuai pemanggil
+   `src/features/industry/mill/QcLab.tsx` yang mengirim `{ p_limit: 50 }`).
+6. **180 + kolom `estate_harvest`** — live punya kolom `date`, rantai membuatnya `harvest_date` (055/140) karena
+   rename-nya ada di berkas yang sumbernya sudah dihapus. `180` kini me-rename dengan guard; aman karena tidak ada
+   objek lain yang membaca `estate_harvest.harvest_date` (061/209 memakai nama itu pada tabel `harvest_records`).
+7. **183** — `DROP VIEW IF EXISTS employees_master` **tetap error** bila objeknya TABLE (`"... is not a view"`),
+   sehingga 183 mati dan menjatuhkan 189/199/201/206/211/214/215/221 sebagai cascade. Kini jenis objek dideteksi
+   lebih dulu. Kolom `npwp_encrypted` (tidak ada di master lama) dibaca lewat ekspresi sadar-kolom.
+8. **199** — `ura.role_id` tidak ada (134 mendefinisikan `role_code`) → join diperbaiki ke `role_code`.
+9. **201** — mengubah return type `verify_mfa` dari `jsonb`→`boolean` (dan memanggil helper yang tidak pernah ada).
+   **Live masih `jsonb`**, jadi berkas ini tidak pernah diterapkan. Kini implementasi asli di-rename ke `*_core`
+   (pola pensiun §3.4) dan wrapper `jsonb` hanya menambahkan short-circuit override + REVOKE PUBLIC.
+10. **172 / 221** — GRANT/REVOKE ke fungsi yang belum ada pada jalur instalasi. `172` (219 GRANT) diubah menjadi
+    loop terjaga (`EXCEPTION WHEN undefined_function` + NOTICE) — **himpunan (role,signature) dibuktikan identik**
+    sebelum ditulis; `221` memakai guard `to_regprocedure` seperti 210.
+11. **175/176/178** — skrip smoke memanggil RPC dengan data demo (`'TEST'`) dan exception-nya MEMBATALKAN
+    instalasi. Kini setiap asersi lewat `pg_temp.smoke_check()` yang menangkap exception dan melaporkan
+    `PASS / FAIL / ERROR` sebagai baris hasil. 55 asersi (175: 40, 176: 7, 178: 8). Hal yang sama diterapkan
+    pada bagian VERIFY `180`/`181` (masing-masing 14 asersi).
+12. **206** — constraint NIK dipasang sebelum baris seed tanpa NIK dinormalkan → ditambah backfill `'NRP-' || nrp`
+    (0 baris di live, yang sudah 17/17 berisi NIK).
+13. **208_fix_groupby** — verifikasi memanggil RPC yang tabelnya (`jsa_data` dll.) baru dibuat
+    `208_industry_tables_and_rpcs.sql` yang berjalan SETELAHNYA → verifikasi dijaga `to_regclass` (CASE tidak
+    dievaluasi bila tabel belum ada; nama tabel di plpgsql diselesaikan saat dipanggil).
+14. **140** — 6 kutip ganda dipakai sebagai string literal (`DEFAULT "COAL"`). Selama ini lolos hanya karena
+    tabelnya sudah ada sehingga `IF NOT EXISTS` melewati parsing. Sudah diganti literal benar.
+
+### Bukti verifikasi (dijalankan pada tree ini)
+- **Rantai migrasi:** `node supabase/scripts/replay-fresh-install.mjs --mode=chain` → **156/156 berkas sukses,
+  0 GAGAL** (log `supabase/baseline/replay-chain.md`). Progres yang terukur: 136 → 137 → 144 → 153 → **156**.
+- **Baseline (jalur provisioning resmi):** `--mode=baseline --twice` → **2/2 berkas sukses, 2/2 idempoten**.
+  Dua bug generator diperbaiki: (a) partisi absensi dibuat SETELAH bagian ACL sehingga GRANT per-partisi gagal,
+  (b) grantee `PUBLIC` di-emit sebagai identifier `"PUBLIC"` → `ERROR: role "PUBLIC" does not exist`
+  (kini helper `rolename()` membiarkan PUBLIC tanpa kutip).
+- **Keamanan:** uji eksplisit harness pada 4 RPC kunci **MATCH dengan live** — `worker_update_profile`,
+  `admin_get_payroll`, `get_worker_profile`, `login_worker_by_email`. `226` diperluas dengan sapuan kedua
+  (10 fungsi admin/owner RPC + `verify_*_core` + `get_estate_blocks`/`get_organization_health`) karena fungsi yang
+  dibuat SETELAH 172 menerima ulang anon/PUBLIC dari default privilege; live tidak punya satu pun dari itu.
+- **Harness diperbaiki agar jujur:** database scratch kini menyiapkan default privilege Supabase
+  (anon/authenticated/service_role TANPA PUBLIC — diverifikasi ke `pg_default_acl` live). Sebelumnya ~30
+  "kebocoran" PUBLIC palsu muncul hanya karena database scratch tidak meniru platform.
+- **Gate:** `check:types` 0 error · `lint` 0 error · `build` EXIT 0 · `npm test` **18/18 berkas, 121/121 tes**
+  (satu run sempat 16/102 + 2 error — gejala timeout worker yang sudah didokumentasikan §6.7; run ulang hijau).
+- `check_migrations()` → **0 issue**; `verify_migration_checksum` untuk 224 PASS.
+
+### Temuan baru (masuk WORK QUEUE §5.8)
+- **SQL-11 (P0, butuh keputusan user):** `schema_migrations` menandai berkas yang efeknya TIDAK ada di live.
+  20 dari 21 berkas yang gagal di replay juga terdaftar sebagai "sudah diterapkan" (mis. live masih `jsonb` untuk
+  `verify_*`; tidak ada policy di `auth_testing_override`; `180`/`181` tidak meninggalkan jejak signature-nya).
+  **Registry bukan bukti penerapan.**
+- **SQL-12 (P2):** `mining_equipment` & `mining_simper` masih beda set kolom vs live; `assets`/`forum_posts` punya
+  kolom berlebih (`created_by`, `updated_at`, `updated_by`). Diukur dengan `diff_chain_vs_live_columns.mjs`.
+- **SQL-13 (P1, butuh keputusan user):** 21 migrasi historis diperbaiki untuk jalur instalasi dari awal, sehingga
+  checksum registry tidak lagi cocok dengan berkasnya. `check_migrations()` tetap 0 (tidak membandingkan
+  checksum berkas); perlu keputusan: re-stamp (`verify_migration_checksum`) atau dokumentasikan daftar berkas yang
+  "diperbaiki maju" beserta alasannya.
+
+### Dampak lintas-page: worker → admin → dashboard → owner
+- **worker:** tidak terdampak langsung. Berkas yang berubah adalah jalur INSTALASI (skema/RPC/grant), bukan UI.
+  `175/176/178` memanggil RPC worker dengan data demo, tapi hanya sebagai skrip diagnostik.
+- **admin:** RPC yang berubah kontraknya adalah industri (`get_qc_results` dkk.) — dipakai halaman mill/estate.
+  Tak ada perubahan signature yang mengurangi kemampuan yang sudah dipakai aplikasi; yang diperbaiki justru
+  kesesuaian dengan pemanggil `src/`.
+- **dashboard:** `get_organization_health` hanya di-REVOKE dari anon/PUBLIC (dipanggil sesudah login) — perilaku
+  untuk `authenticated` tidak berubah.
+- **owner:** `owner_get/set/delete_testing_override` + `auth_testing_override_bypass` di-REVOKE dari anon/PUBLIC
+  (owner-only). Jalur owner tetap `authenticated` + `SECURITY DEFINER` + cek `auth.uid()` → tidak terdampak.
+- Kesimpulan: perubahan berada di **lapisan bersama** (berkas migrasi + kontrak RPC + grant), bukan patch per-page.
+
+### Sisa (OPEN)
+- Item SQL-06 (FORCE RLS 9 tabel), SQL-11, SQL-13 membutuhkan keputusan user.
+- SQL-12 (kolom `mining_*`) belum dikerjakan; SQL-04 (`hr_okrs` 6 vs 10 kolom) & SQL-09 (duplikat `CREATE TABLE`)
+  tetap terbuka.
+- Commit → push → deploy BELUM dijalankan untuk batch ini (aturan §0.3), menunggu perintah user.
 ## [2026-09-16] Worker Profile: 14 kolom baru + RPC get_worker_profile/worker_update_profile — DONE
 - Status: DONE — frontend commit `5102f64` → push → deploy production `insightwos-3xiqo8p64` ● Ready
   (alias https://insightwos.vercel.app HTTP 200, CSP bersih tanpa `connect-src` Upstash).
@@ -1145,3 +1247,237 @@ via auth_id) · owner privilege escalation via `owner_*` (cek is_owner) · `get_
 - Dampak lintas-page: worker → admin → dashboard → owner — tidak ada berkas `src/` yang disentuh
   (migrasi DB + tooling + test + dokumen). `check_migrations`/`apply_migration` tidak dipanggil frontend
   (diverifikasi: 0 referensi di `src/`), dan bundle produksi tidak berubah, jadi tidak perlu redeploy.
+
+## [2026-09-17] Audit kesiapan instalasi dari awal + migrasi 225/226 (partisi dinamis + REVOKE RPC penulis) — DONE (belum commit/push — menunggu keputusan user)
+- Status: DONE secara teknis; migrasi **sudah diterapkan ke DB live** dan semua gate hijau, tetapi
+  **belum di-commit/push/deploy** karena user belum memintanya (aturan §0.3 belum tuntas).
+- Cara kerja: 150 berkas migrasi diparsing (`supabase/migrations`), lalu tiap temuan diverifikasi ke
+  DB live (read-only). Satu probe tulis dijalankan **di dalam transaksi yang di-ROLLBACK** tanpa efek
+  samping (dibuktikan: kolom `hr_okrs` tetap 6, tidak ada tabel probe tertinggal).
+- **Temuan utama — migrasi TIDAK bisa dipakai untuk instalasi dari awal.** Replay berhenti pertama di
+  `047_optimized_seed.sql:220` (`INSERT INTO hr_shift_swaps` — tabel tak pernah dibuat).
+  1. **79 nomor versi tanpa berkas** (2,4,8–26,74,85,94,140-an,170,dst.). Bukti eksplisit di
+     `140_fix_industry_schema.sql:2`: *"…were in 074 (deleted)"*.
+  2. **23 tabel live tanpa sumber migrasi**: `ai_rate_limits`, `api_keys`, `api_rate_limits`,
+     `dashboard_cache`, `user_consents`, `hr_shift_swaps`, `hr_audit_chain`, `hr_okr_results`,
+     `hr_survey_responses`, `hr_task_board`, 5 × `mining_*`, 5 × `estate_*`, 3 × `mill_*`.
+  3. **14 fungsi `_legacy_*` hasil rename manual** yang tak pernah ditulis ke migrasi (mis.
+     `worker_update_profile_legacy`). Pembanding benar: `get_enabled_modules_legacy_noarg` di-rename
+     oleh migrasi 205.
+  4. **28 statement ERROR pada fresh install**: 18 referensi tabel (047, 054, 058, 083, 215),
+     7 `REVOKE` pada fungsi `_legacy_*` yang tak ada (210:40-46), dan 3 `CREATE TABLE` di migrasi 140.
+  5. **`140_fix_industry_schema.sql` memakai kutip ganda sebagai string** (`DEFAULT "COAL"`,
+     `IN ("PENDING",…)`). Dibuktikan lewat probe live: pada tabel yang SUDAH ADA → hanya NOTICE
+     (`already exists, skipping`); pada tabel yang BELUM ADA → **ERROR `cannot use column reference
+     in DEFAULT expression`**. Jadi 140 lolos di live hanya karena tabelnya sudah dibuat berkas 074
+     yang sudah dihapus.
+  6. **`hr_okrs` live 6 kolom vs migrasi 141 mendefinisikan 10** → `IF NOT EXISTS` no-op di live;
+     instalasi baru akan menghasilkan skema berbeda dari live.
+  7. **Reverse drift**: 5 materialized view (`mv_admin_summary`, `mv_team_kpi`, `mv_payroll_monthly`,
+     `mv_attendance_daily`, `mv_flight_risk`) dibuat migrasi 035 + 171/182 tetapi **TIDAK ADA di live** —
+     tidak ada migrasi yang men-drop-nya (manual). Akibatnya **3 cron job gagal setiap jam**
+     (`refresh-mv-admin-summary` 94×, `refresh-mv-team-kpi` 94×, `refresh-mv-attendance` 188×,
+     pesan `relation "mv_…" does not exist`). Belum diperbaiki — butuh keputusan user.
+  8. **Default privilege Supabase**: `anon/authenticated/service_role` dapat EXECUTE untuk setiap fungsi
+     baru + `anon` dapat ALL untuk setiap tabel baru; PostgreSQL juga memberi EXECUTE ke PUBLIC bawaan.
+     Ini akar dari temuan ACL di atas.
+  9. **`hr_attendance_partitioned` + 48 partisi = struktur mati** (0 baris, tidak ada fungsi/view yang
+     menyentuh), dan `141:1403` masih mengomentari `ALTER TABLE hr_attendance_partitioned RENAME TO
+     hr_attendance`. Terverifikasi juga tidak ada tabel dengan grant anon tapi RLS mati (0) dan tidak
+     ada tabel RLS tanpa policy (0) — jadi 272 grant tabel ke anon tertutup RLS, bukan lubang.
+- **Yang dikerjakan (migrasi diterapkan via wrapper `npm run db:migrate -- <berkas> --apply`):**
+  1. **Migrasi 225** `225_dynamic_attendance_partitions.sql`: `ensure_attendance_partitions(p_from,
+     p_months)` idempoten menggantikan loop hardcoded `2024..2027`; backfill 2024-01 → bulan ini + 24;
+     cron bulanan `ensure-attendance-partitions` (dijaga bila pg_cron belum aktif); kolom
+     `overtime_approved` diselaraskan ke sisi partisi; ACL anon/PUBLIC dicabut. Bukti: partisi 48 → **57**,
+     terakhir `hr_attendance_2028_09` (sebelumnya berhenti di 2027-12), panggil ulang → `created: 0`.
+  2. **Migrasi 226** `226_revoke_anon_public_write_rpcs.sql`: dari 191 RPC penulis, 11 terjangkau
+     anon/PUBLIC. Dicabut anon+PUBLIC dari 4 (`worker_update_profile` + 3 `employees_master_*_trigger`),
+     dan PUBLIC dari 7 RPC alur login (anon **dipertahankan** karena memang pra-sesi). Bukti: RPC penulis
+     terjangkau anon/PUBLIC **11 → 0**; total anon 132 → **128**, PUBLIC 125 → **121**.
+  3. **Penjaga permanen** `tests/unit/db-security-and-partition-guard.test.ts` (skip tanpa `DATABASE_URL`):
+     (a) tidak ada RPC penulis terjangkau anon/PUBLIC kecuali daftar putih alur login, (b) partisi absensi
+     selalu menutup hari ini + ≥12 bulan ke depan.
+  4. **Guard klaim dokumen**: metrik "Tables" kini **mengabaikan partisi anak** (`relispartition`), karena
+     partisi dibuat otomatis tiap bulan → angka pasti akan berubah terus dan guard gagal bukan karena
+     schema. Cakupan partisi dijaga tes tersendiri di atas.
+- Gate (tree final): `npm run check:types` **0 error**; `npm run lint` **0 error**; `npm run build`
+  **EXIT 0**; `npm test` **18/18 berkas, 121/121 test**.
+- Verifikasi DB: `check_migrations()` → **0 issue**; `schema_migrations` **152 baris** = 152 berkas repo;
+  checksum 225/226 terverifikasi PASS.
+- Dampak lintas-page: worker → admin → dashboard → owner — **tidak ada berkas `src/` yang disentuh.**
+  Migrasi 226 hanya mencabut EXECUTE pada RPC yang tidak pernah dipanggil pra-login: frontend worker
+  memakai `worker_update_profile` **setelah** sesi ada (`authenticated` dipertahankan, terbukti
+  `authenticated=true`), dan 7 RPC alur login tetap bisa dipanggil `anon` (terbukti masing-masing
+  `anon=true`), jadi alur login worker/admin/dashboard/owner tidak berubah. RPC 225 tidak dipanggil
+  frontend (infrastruktur cron).
+- Sisa OPEN: dipindahkan ke **WORK QUEUE `AGENTS.md` §5.8** (SQL-01..SQL-10) dengan DoD + bukti,
+  supaya tidak tinggal sebagai catatan. Item yang menunggu keputusan user: SQL-03, SQL-06, SQL-08.
+
+## [2026-09-17] Audit SQL lanjutan: reverse drift + partisi dinamis + audit RPC penulis — DONE
+
+> Lanjutan entri di atas. Semua temuan di sini **diverifikasi ke DB live** dan sudah masuk
+> `AGENTS.md` §5.8 sebagai WORK QUEUE (bukan catatan).
+
+### A. Reverse drift — objek live tanpa jejak migrasi
+- **5 materialized view HILANG di live** padahal migrasi 035 membuatnya, 171 mendefinisikan
+  fungsi refresh-nya, 182 mengamankannya: `mv_admin_summary`, `mv_team_kpi`, `mv_payroll_monthly`,
+  `mv_attendance_daily`, `mv_flight_risk`. `pg_matviews` public = **0**. Tidak ada satu pun migrasi
+  `DROP MATERIALIZED VIEW` → **dihapus manual**.
+- **Akibat nyata: 3 cron job gagal setiap jam** (bukan teori) —
+  `refresh-mv-admin-summary` **94× failed**, `refresh-mv-team-kpi` **94×**, `refresh-mv-attendance`
+  **189×**, semuanya `ERROR: relation "mv_…" does not exist`, terakhir jalan 2026-09-17 13:00/13:30.
+  → item SQL-03 (butuh keputusan user).
+- **Akar semua anomali grant: default privilege Supabase.** `pg_default_acl` (objtype `f`) memberi
+  `EXECUTE` ke `anon`, `authenticated`, `service_role` untuk **setiap fungsi baru**; objtype `r`
+  memberi `ALL` ke ketiganya untuk **setiap tabel baru**; PostgreSQL sendiri memberi `EXECUTE`
+  ke `PUBLIC`. Karena itu RPC baru otomatis terbuka; 4 RPC penulis terbuka sudah ditutup migrasi
+  226. → item SQL-07.
+- **9 tabel RLS enabled tapi TIDAK forced**: `employees_core`, `employees_extended`, `fatigue_data`,
+  `heavy_equipment`, `jsa_data`, `production_daily`, `safety_incidents`, `schema_migrations`,
+  `simper_data`. §7.4 sebelumnya menulis "Force-enabled" → dikoreksi. → item SQL-06.
+- **3 RLS policy tanpa sumber**: `candidate_pipeline.admin_read_candidate_pipeline`,
+  `dashboard_cache.dc_admin`, `vacancies.admin_read_vacancies`. → item SQL-05.
+- 0 kolom pada tabel terlacak yang namanya tidak ada di migrasi → tidak ada drift kolom manual.
+- Cron: ke-6 job live **semuanya** dideklarasikan di migrasi (212/186) → tidak ada cron drift.
+
+### B. Yang dikerjakan
+1. **Migrasi 225** `225_dynamic_attendance_partitions.sql` — `ensure_attendance_partitions(p_from,
+   p_months)` idempoten menggantikan loop hardcoded `2024..2027` (`141:1361-1377`); backfill
+   2024-01 → bulan ini + 24; cron bulanan `ensure-attendance-partitions` (dijaga bila pg_cron
+   belum aktif); `overtime_approved` diselaraskan ke sisi partisi; ACL anon/PUBLIC dicabut.
+   Bukti: partisi 48 → **57**, partisi terakhir `hr_attendance_2028_09` (dulu berhenti 2027-12),
+   panggil ulang → `created: 0`.
+2. **Migrasi 226** `226_revoke_anon_public_write_rpcs.sql` — dari 191 fungsi penulis, 11 terjangkau
+   anon/PUBLIC. Dicabut **anon+PUBLIC** dari 4 (`worker_update_profile` + 3
+   `employees_master_*_trigger`), dan **PUBLIC saja** dari 7 RPC alur login (`anon`
+   **dipertahankan** — memang dipakai pra-sesi). Bukti: RPC penulis terjangkau anon/PUBLIC
+   **11 → 0**; total anon 132 → **128**, PUBLIC 125 → **121**.
+3. **Migrasi 227** `227_attendance_partition_rls_force.sql` — menutup temuan **akibat migrasi 225
+   sendiri**: `CREATE TABLE ... PARTITION OF` mewarisi `ENABLE` RLS dari parent tetapi **TIDAK**
+   mewarisi `FORCE`, jadi 9 partisi baru `force=false` sementara 48 partisi historis `force=true`.
+   Tidak ada kebocoran (anon/authenticated bukan pemilik → RLS tetap berlaku; 57/57
+   `relrowsecurity = true`), tapi inkonsistensinya ditutup: fungsi 225 di-`CREATE OR REPLACE`
+   agar tiap partisi baru langsung `ENABLE`+`FORCE`, plus backfill. Bukti: **57/57 partisi
+   RLS enabled + forced** (sebelumnya 48/57); daftar "tidak forced" kembali ke 9 tabel base saja.
+4. **Penjaga permanen** `tests/unit/db-security-and-partition-guard.test.ts` (skip tanpa
+   `DATABASE_URL`): (a) tidak ada RPC penulis terjangkau anon/PUBLIC di luar daftar putih alur login,
+   (b) partisi absensi selalu menutup hari ini + ≥12 bulan ke depan.
+5. **Guard klaim dokumen** `tests/unit/doc-claims-vs-live.test.ts`: metrik "Tables" kini
+   **mengabaikan partisi anak** (`relispartition`) — kalau tidak, angka dokumen harus disunting
+   setiap bulan dan guard gagal bukan karena schema. Cakupan partisi dijaga tes tersendiri.
+
+### C. Sudah diverifikasi BUKAN masalah (jangan diinvestigasi ulang)
+- **18 "ACL mismatch" migrasi vs live = false positive parser.** `172_hardening_grants.sql:13-15`
+  melakukan `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon, authenticated`
+  lalu re-grant daftar putih; `141:2599-2611` melakukan hal sama secara dinamis. Live = hasil
+  yang dimaksudkan. Verifikasi: `grep` menemukan blanket revoke-nya; query live mengonfirmasi
+  `has_function_privilege('anon', ...)` sesuai daftar putih.
+- **19 trigger `trg_audit_*` "tanpa sumber"** → dibuat loop dinamis `141:2332`
+  (`trig_name := 'trg_audit_' || tbl`).
+- **102 dari 105 policy "tanpa sumber"** → generator dinamis `141:607` (`rls_authz_`),
+  `141:2218/2333` (`rls_%I_read/_write/_select`), `208` (`select_auth`, `all_service`).
+- **87 dari 95 sequence "tanpa CREATE"** → sequence implisit kolom `SERIAL`.
+- **4 versi `DUPLICATE` (176/186/208/215)** → sah per komentar migrasi 219.
+- **`get_enabled_modules_legacy_noarg`** → di-rename migrasi **205**, bukan drift.
+- **`review_360` drop `058:137` lalu dirujuk `083:240`** → rujukannya dibungkus
+  `IF EXISTS (information_schema.tables)` → aman.
+- **272 grant tabel ke anon** → terverifikasi **0 tabel** dengan grant anon tapi RLS mati, dan
+  **0 tabel** RLS tanpa policy → tertutup RLS, bukan lubang.
+- **240 "partisi"** pada hitungan awal → termasuk **index** partisi (karena `relispartition`
+  juga benar untuk index); partisi nyata = 57.
+- **Beda skema `hr_okrs` (live 6 vs migrasi 10 kolom) TETAP masalah** → item SQL-04.
+
+### D. Gate & verifikasi akhir
+- `npm run check:types` **0 error**; `npm run lint` **0 error**; `npm run build` **EXIT 0**;
+  `npm test` **18/18 berkas, 121/121 test**.
+- DB: `check_migrations()` **0 issue**; `schema_migrations` **153 baris** = 153 berkas repo;
+  checksum 225/226/227 terverifikasi PASS.
+- Dampak lintas-page: worker → admin → dashboard → owner — **tidak ada berkas `src/` yang disentuh.**
+  Migrasi 226/227 hanya mengencangkan ACL/RLS: `authenticated` dipertahankan pada
+  `worker_update_profile` (terbukti `authenticated=true`), 7 RPC alur login tetap `anon=true`,
+  dan partisi absensi tidak dipakai UI (`src/` tidak menyentuh `hr_attendance_partitioned`).
+  Alur login + simpan profil di ke-4 page tidak berubah perilakunya.
+- Belum di-commit/push/deploy (user belum meminta) → status §0.3 belum tuntas.
+## [2026-09-18] Instalasi satu-perintah (baseline) + identitas perusahaan tidak lagi diwariskan — DONE
+
+- Status: DONE untuk VERIFIKASI. Semua bukti dijalankan pada tree ini; **commit/push/deploy belum**
+  (menunggu perintah user).
+- Lingkup: 1 migrasi baru (230), 3 skrip baru/berubah (`install-baseline.mjs`, `verify-install-e2e.mjs`,
+  `platform-prereqs.mjs`), 2 generator baseline diperbaiki, 2 script npm baru, 1 guard test,
+  runbook `supabase/baseline/README.md` + `first-owner.example.sql`. **Tidak ada objek/data DB live
+  yang diubah selain migrasi 230** (perubahan fungsi `get_owner_email`/`owner_login`).
+
+### Pertanyaan yang dijawab
+"D:\0insightWOS\WOS-Web\supabase\migrations — apakah semua berkas ini sudah siap untuk
+one-click-install, atau apa saran terbaiknya?" → **Jawabannya: tidak, dan tidak perlu.** Folder itu
+adalah HISTORI + gerbang regresi (157 berkas, 1,6 MB, membawa data seed/demo, 77 nomor versi kosong).
+Jalur resmi untuk perusahaan baru = `supabase/baseline/` (2 berkas) lewat satu perintah.
+Rantai migrasi tetap dipelihara: `db:replay --mode=chain` = **157/157**.
+
+### Masalah (ditemukan karena `verify-install-e2e` diuji ke project kosong, bukan diasumsikan)
+1. **Snapshot tertinggal dari live.** `get_owner_email()` hasil perbaikan migrasi 230 tidak ikut di
+   baseline karena schema belum di-regenerate → instalasi baru masih membawa perilaku lama.
+   Pelajaran: setiap migrasi yang mengubah schema WAJIB disertai `npm run db:baseline`.
+2. **Baseline mewariskan identitas perusahaan sumber.** `branding.company_name` = merek kita;
+   `company_config.owner_email`/`ceo_email` = email kita.
+3. **`get_owner_email()` punya fallback hardcoded `'owner@insightwos.com'`** di fungsi DB bersama,
+   padahal `owner_login()` menerima hanya email yang sama dengan nilai itu → **owner perusahaan baru
+   tidak bisa login**, dan kalau dipaksa, ia diminta memakai email kita.
+4. **`schema_migrations.version` ditulis `parseInt`** → `check_migrations()` melaporkan
+   **59 VERSION_MISMATCH** pada instalasi baru (live 0), karena konvensinya prefiks ber-padding `'000'`.
+5. **ACL partisi tidak di-revoke**: daftar relasi memakai `not relispartition` sementara partisi absensi
+   dibuat SAAT INSTALASI oleh `ensure_attendance_partitions()` → 48 entri ACL `anon` berlebih;
+   instalasi baru lebih terbuka daripada live.
+6. **3 trigger hilang**: loop trigger hanya mengiterasi tabel, bukan view → trigger `INSTEAD OF`
+   pada view `employees_master` tidak ter-emit, membuat view tulis itu read-only **tanpa error**.
+7. **Harness menjalankan SEMUA `*.sql`** di folder baseline → berkas contoh/bantu ikut dieksekusi.
+
+### Perbaikan
+- **Migrasi 230 `owner_email_fail_closed`** — `get_owner_email()` kembali NULL bila tidak
+  dikonfigurasi (tidak ada domain siapa pun di kode bersama); `owner_login()` memberi pesan
+  tindak-lanjut alih-alih gagal tanpa petunjuk, dan menolak semua email saat konfigurasi kosong.
+  Pemeriksaan `IS NULL` wajib ada: tanpa itu `p_email != NULL` bernilai NULL dan login lolos
+  dengan email apa pun. Diterapkan: `DITERAPKAN + terdaftar + checksum terverifikasi`.
+- **Generator** — `EXCLUDED_ROWS` (owner_email/ceo_email), branding netral diperkuat,
+  pemindai kebocoran domain, versi registry = prefiks ber-padding.
+- **`install-baseline.mjs`** — instalasi satu perintah dengan pengaman keras (`--target` wajib,
+  menolak target = DB live, menolak project berisi tabel tanpa `--force`, default dry run) dan flag
+  identitas `--company-name`/`--owner-email` yang menulis lewat parameter terikat (`$1`).
+- **`verify-install-e2e.mjs`** — memasang ke project kosong lewat skrip yang benar-benar dipakai
+  operator, lalu mencocokkan metrik + identitas ke live.
+- **`platform-prereqs.mjs`** — prasyarat platform jadi satu modul bersama (dipakai harness replay &
+  uji installer) supaya stub database scratch tidak pernah menyimpang.
+- **Guard test** `tests/unit/baseline-install-guard.test.ts` (10 tes, statis tanpa DB).
+
+### Verifikasi (semua dijalankan pada tree ini)
+- `node supabase/scripts/verify-install-e2e.mjs` → **PASS**: 9/9 metrik = live
+  (208 tabel, 285 partisi, 1 view, 549 fungsi, 223 policy, 27 trigger, 95 sequence, 4 cron, cap 157),
+  ACL 0 hilang/0 berlebih/0 beda, `check_migrations()` **0 issue**, branding = `--company-name`,
+  `get_owner_email()` = `--owner-email`, `ceo_email` 0 baris (tidak diwariskan), idempoten.
+- `db:replay --mode=baseline --twice` → **2/2 sukses, 2/2 idempoten**; `--mode=chain` → **157/157**.
+- Uji fail-closed dalam transaksi yang di-ROLLBACK (live): owner sah `ok:true`;
+  email lain `ok:false "Email tidak sesuai..."`; konfigurasi kosong → tidak ada email diterima
+  (termasuk `owner@insightwos.com`).
+- Pengaman installer diuji 4 kasus: tanpa `--target`, skema salah, target = DATABASE_URL repo, dan
+  project berisi tabel → semuanya ditolak dengan pesan jelas.
+- Gate: `check:types` 0 · `lint` 0 · `build` EXIT 0 · `npm test` **19/19 berkas, 131/131 tes**.
+- Guard dokumen `doc-claims-vs-live` sempat MERAH dua kali (migrasi 156→157, berkas TS 196→197) —
+  dokumen diperbarui, bukan tesnya dilemahkan.
+
+### Jawaban operasional (untuk instalasi di perusahaan lain)
+```
+npm run install:baseline -- --target "postgresql://..." \
+     --company-name "PT Contoh Tambang" --owner-email "owner@contoh.com" --apply
+```
+lalu WAJIB: buat user Supabase Auth dengan email owner tersebut + `insert into system_owner_identity`
+(lihat `supabase/baseline/first-owner.example.sql`), ganti branding di OwnerDashboard, isi
+`business_units`, arahkan env frontend, deploy. Baseline sengaja tidak memuat karyawan/PII/transaksi.
+
+- Belum di-commit/push/deploy (user belum meminta) → status §0.3 belum tuntas.
+- Dampak lintas-page: worker → admin → dashboard → owner — tidak ada berkas `src/` yang disentuh.
+  Yang berubah adalah DB bersama: `owner_login` (jalur owner) dan `get_owner_email` (dipakai
+  OwnerDashboard + konfigurasi). Owner live terbukti masih bisa login (`ok:true`), email lain
+  ditolak, dan perilaku worker/admin/dashboard tidak tersentuh karena tidak ada fungsi identitas
+  umum yang berubah. Instalasi berikutnya memakai baseline sehingga keempat page mendapat skema
+  yang sama persis dengan live.

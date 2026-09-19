@@ -29,6 +29,7 @@ const MIGRATIONS_DIR = path.join(ROOT, 'supabase', 'migrations');
 
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');
+const restamp = args.includes('--restamp');
 const filename = args.find((a) => !a.startsWith('--'));
 
 if (!filename) {
@@ -99,8 +100,25 @@ try {
     const same = tracked.rows[0].checksum === checksum;
     console.log(`status    : SUDAH terdaftar (checksum ${same ? 'cocok' : 'BERBEDA'})`);
     if (!same) {
-      console.error('Checksum berbeda — berkas berubah setelah diterapkan. Tidak ada yang dijalankan.');
-      exitCode = 1;
+      if (restamp) {
+        console.log(`RESTAMP  : checksum diperbarui ke ${checksum}`);
+        await client.query(
+          'UPDATE schema_migrations SET checksum = $2, applied_at = NOW(), notes = $3 WHERE filename = $1',
+          [shortName, checksum, `Restamped via --restamp (${shortName}) at ${new Date().toISOString()}`],
+        );
+        const verified = await client.query(
+          'SELECT verify_migration_checksum($1, $2) AS ok',
+          [shortName, checksum],
+        );
+        if (verified.rows[0].ok !== true) {
+          throw new Error('verify_migration_checksum() gagal setelah restamp');
+        }
+        console.log('RESTAMP  : checksum diperbarui + diverifikasi');
+      } else {
+        console.error('Checksum berbeda — berkas berubah setelah diterapkan. Tidak ada yang dijalankan.');
+        console.error('Tambahkan --restamp untuk memperbarui checksum registry secara eksplisit.');
+        exitCode = 1;
+      }
     }
   } else if (versionOwner.rows.length > 0) {
     // Kalau dibiarkan, apply_migration() akan menolak (RETURN FALSE) padahal SQL
