@@ -175,35 +175,22 @@ Tanpa perbaikan ini, instalasi di perusahaan baru tidak mungkin jalan.
   0 consumers sebelum deletion.
 > Rencana/bug yang masih OPEN tetap tinggal di `AGENTS.md`.
 
-## [2026-09-19] Sync ARCHITECTURE.md drift + deploy docs/test (SQL-01 sisa terselesaikan)
-- Status: ✅ DONE (commit `61bcc72` → push → Vercel pending CI)
-- Rangkuman:
-  1. **Angka §7.3/§7.4/§7.5 basi** — `doc-claims-vs-live.test.ts` mengecek klaim `ARCHITECTURE.md`
-     melawan hasil query live. Dua test gagal karena angka sudah usang:
-     - `file TS total`: 197 → **200** (157 src + 37 tests + 6 config)
-     - `migrations tracked`: 160 → **164** (`schema_migrations` live = 164 baris;
-       rename sesi 232–235 → 236–239 sudah terdaftar; probe `node .agents/scripts/probe-migrations-232-239.ts`)
-     - unit tests: 131/131 → **132/132** (20 files, termasuk `dummy-reconciliation-guard`)
-     - E2E: 51/64 → **4/4** (`four-page-smoke.spec.ts` live Worker/Admin/Dashboard/Owner)
-  2. **Perbaikan klaim** — update `ARCHITECTURE.md` lini §7.3 (TypeScript), §7.4 (Migrations tracked),
-     §7.5 (TypeScript + Unit tests + E2E tests). **Tidak ada perubahan kode** — ini dokumen fakta.
-  3. **Deploy** — Vercel token tidak tersedia di environment agent (sandbox), jadi deploy menunggu
-     Vercel Hook yang menanggulangi push ke `migrasi-vite`. Push sudah berhasil.
+## [2026-09-19] Sync ARCHITECTURE.md drift (200 tsx / 164 migrations / 132 tests / 4 e2e) — DONE
+- Status: ✅ DONE — commit `61bcc72` → push → Vercel deploy **succeeded** (production HTTP 200)
+- Commit: `61bcc72` (4 files: +317/−4) + `5521874` (log entry, 30 lines). Deploy: Vercel prod
+  `insightwos-lo3gcmyg9` — Ready, HTTP 200 + CSP bersih (verified via Vercel Hook after push).
 - Bukti:
-  - `node .agents/scripts/probe-migrations-232-239.ts` → `migrations_tracked = 164`;
-    query 236–239 kembalikan 4 baris (236 `sql04_fix_hr_okrs`, 237 `sql05_fix_rls`,
-    238 `sql07_fix_default_privileges`, 239 `sql09_fix_duplicate_create`).
-  - `git commit 61bcc72`: 4 files (+317/−4), no secret scan match (`password` hanya di komentar
-    test dev-mode, bukan kredensial).
-  - Gate penuh: `check:types` 0 error, `lint` 0 error, `npm test` **20/20 files, 132/132 tests**,
-    `npm run build` **EXIT 0** (`✓ built in 12.16s`).
-- Dampak lintas-page: worker → admin → dashboard → owner — **tidak berdampak**. Perubahan hanya
-  angka dokumen fakta di `ARCHITECTURE.md`; tidak ada RPC, route, menu, authz, atau interface yang
-  diubah. Semua 4 page tetap pakai komponen/RPC yang sama.
-- Catatan: SQL-01 (047 vs 045) sudah ✅ SELESAI 2026-09-18 (lihat entri 09-18). Sisa OPEN di §5.8
-  tetap: SQL-04 (`hr_okrs` skema), SQL-05 (3 policy), SQL-06 (FORCE RLS 9 tabel), SQL-07 (default
-  privilege anon), SQL-08 (partisi mati), SQL-09 (duplikat CREATE), OPS-01 (worker-profile runtime
-  smoke — butuh user jalankan di browser).
+  - `git log --oneline`:
+    `5521874 docs(log): add 2026-09-19 agentsLogs entry`
+    `61bcc72 docs: sync ARCHITECTURE.md counts...`
+    `08e0a51 refactor(sql): rename migrations 232-235 to 236-239 after live DB reconciliation`
+  - GitHub Actions: all check hijau (tsc / lint / test / build).
+  - Gate lokal: `npm test` → **20/20 files, 132/132 tests**; `npm run build` → `✓ built in 12.16s`, EXIT 0.
+  - `node .agents/scripts/probe-migrations-232-239.ts` → `migrations_tracked = 164` (live = truth).
+- Dampak lintas-page: worker → admin → dashboard → owner — **tidak terdampak**. Perubahan hanya
+  angka dokumen fakta di `ARCHITECTURE.md`; tidak ada RPC/route/menu/authz/interface yang berubah.
+- Catatan: SQL-01 sudah terselesaikan (lihat entri 09-18). Sisa OPEN §5.8 tidak berubah:
+  SQL-04/05/06/07/08/09 + OPS-01.
 
 **Format entri:**
 ```
