@@ -1,0 +1,4 @@
+-- SQL-09 fix: remove duplicate CREATE statements in 141_153_CONSOLIDATED_
+-- Evidence: 141:545 & 1911 (hr_okrs identik); 141:558 & 1924 (hr_surveys identik); 183 view employees_master 2x
+-- Action: delete second duplicate definition (manual edit of 141_153_CONSOLIDATED_ and 183)
+-- Note: dead code removal, no functional change
