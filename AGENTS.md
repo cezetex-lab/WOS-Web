@@ -51,7 +51,7 @@
    padahal dokumen sudah menandainya "DONE, 0 error".
 9. **Temuan audit WAJIB jadi tugas, bukan catatan.** Setiap temuan dari audit/inspeksi apa pun
    harus masuk **WORK QUEUE** (§5.8 untuk temuan SQL) sebagai item bernomor dengan
-   **Prioriitas + Bukti + Definition of Done**; item hanya boleh ✅ bila DoD-nya **dibuktikan
+   **Prioritas + Bukti + Definition of Done**; item hanya boleh ✅ bila DoD-nya **dibuktikan
    dengan perintah/query + hasil**. Dilarang menutup temuan sebagai prosa, ringkasan, atau
    "sudah dicatat". Kalau sebuah temuan ternyata **bukan masalah**, pindahkan ke tabel
    *"Sudah diverifikasi BUKAN masalah"* beserta alasannya — supaya tidak diinvestigasi ulang,
@@ -60,6 +60,47 @@
    keputusan (mis. risiko `FORCE ROW LEVEL SECURITY` terhadap SQL Editor) tetap tinggal di
    WORK QUEUE dengan penanda **"butuh keputusan user"** beserta opsi + risikonya, agar tidak
    hilang dari pandangan.
+
+## 0.5 GOLDEN RULES (WAJIB) — KETERKAITAN 4 PAGE: worker ⇄ admin ⇄ dashboard ⇄ owner
+
+> **PRINSIP DASAR:** insightWOS = **SATU sistem terintegrasi**, bukan 4 aplikasi terpisah.
+> Halaman **Worker**, **Admin**, **Dashboard**, dan **OwnerDashboard** memakai **DB, RPC, authz,
+> session, menu/route, design system, dan types yang SAMA**. Karena itu **satu perubahan di
+> halaman Worker HAMPIR SELALU berdampak ke Admin, Dashboard, dan Owner** (dan sebaliknya).
+> Bekerjalah SELALU dengan asumsi keterkaitan erat ini.
+
+**Rantai dampak data (hafalkan):**
+```
+Worker (input: absensi, izin, lembur, produksi, dokumen)
+  → Admin (approval queue, koreksi, payroll run, master karyawan)
+     → Dashboard (KPI agregat, monitoring, laporan)
+        → Owner (analitik lintas-BU, branding, konfigurasi global, audit)
+```
+
+1. **G1 — Default asumsi: TERDAMPAK.** Setiap koding di salah satu page, anggap 4 page lain
+   terdampak sampai dibuktikan sebaliknya. Dilarang menyimpulkan "ini hanya perubahan page
+   worker" tanpa mengecek Admin/Dashboard/Owner.
+2. **G2 — Perbaiki di lapisan bersama, bukan hack per-page.** Solusi harus di layer bersama
+   (RPC/DB, `src/lib/*`, `src/types/index.ts`, `route-config.ts`, `menu-builder.ts`,
+   `design-system/*`, authz). Jangan patch lokal per-page (mis. rename/override RPC hanya di
+   Worker). Perbedaan kebutuhan antar-page = parameter/role, bukan duplikasi logika.
+3. **G3 — Kontrak bersama = breaking change.** Perubahan pada nama/param/return RPC,
+   `module_code`/`route_path`/`route_component`, bentuk `session`/`entry`, kolom tabel
+   (`employees_core` dkk), prop design-system, atau interface di `src/types` → WAJIB grep semua
+   pemakai di `src/` lalu verifikasi ke-4 page.
+4. **G4 — Data worker = input rantai hilir.** Mengubah bentuk/validasi data tulisan worker
+   (absensi, izin, lembur, item payroll) mengubah konsumennya (approval Admin → KPI Dashboard →
+   analitik Owner). Cek pembaca hilir (VIEW/MV/report/RPC) SEBELUM mengubah penulis.
+5. **G5 — Isolasi role JANGAN dilemahkan.** Perbaikan lintas-page tidak boleh melonggarkan
+   `RoleGuard` + cek `session.entry` + authz DB (3 layer, `ARCHITECTURE.md` §7.2). Membuka akses hanya jika
+   user memutuskan.
+6. **G6 — Gate verifikasi lintas-page.** Bukti minimal sebelum commit untuk perubahan
+   fungsional: (a) `npm run check:types` 0 error, (b) unit test hijau, (c) `npm run build`
+   EXIT 0, (d) smoke putar 4 page (worker → admin → dashboard → owner), (e) E2E
+   `full-sweep`/`tab-click-test`/`role-change` bila menyentuh route/menu/role.
+7. **G7 — Catat dampak di log.** Entri `agentsLogs_YYYY-MM.md` wajib memuat baris
+   `Dampak lintas-page: worker → admin → dashboard → owner` berisi hasil pengecekan tiap page
+   (termasuk "tidak terdampak" + alasannya).
 
 ## 0.11 SANDBOX RULE — DILARANG membuat berkas di root
 
@@ -96,7 +137,6 @@ dengan menghapusnya dari version control. Berkas ber-track tetap di root atau di
 
 Setiap item Work Queue melewati state berikut:
 NEW → INVESTIGATE → DECIDED → IN-PROGRESS → VERIFIED → DONE → REMOVED
-
 
 | State | Arti | Siapa yang mengubah |
 |---|---|---|
@@ -161,7 +201,6 @@ Bukti: <output mentah>
 Opsi: <A/B/C, dengan risiko masing-masing>
 Butuh keputusan user.
 
-
 ## 0.16 ANTI-HALLUCINATION RULE
 
 **Semua klaim DONE wajib disertai output MENTAH.**
@@ -185,48 +224,6 @@ Yang DILARANG:
 - 2026-09-20: helper klaim "gzip max 2 kB" padahal output build menunjukkan 200 kB.
 - 2026-09-20: helper klaim "SELESAI" untuk SQL-09 padahal file migrasi hanya berisi komentar.
 
-
-## 0.5 GOLDEN RULES (WAJIB) — KETERKAITAN 4 PAGE: worker ⇄ admin ⇄ dashboard ⇄ owner
-
-> **PRINSIP DASAR:** insightWOS = **SATU sistem terintegrasi**, bukan 4 aplikasi terpisah.
-> Halaman **Worker**, **Admin**, **Dashboard**, dan **OwnerDashboard** memakai **DB, RPC, authz,
-> session, menu/route, design system, dan types yang SAMA**. Karena itu **satu perubahan di
-> halaman Worker HAMPIR SELALU berdampak ke Admin, Dashboard, dan Owner** (dan sebaliknya).
-> Bekerjalah SELALU dengan asumsi keterkaitan erat ini.
-
-**Rantai dampak data (hafalkan):**
-```
-Worker (input: absensi, izin, lembur, produksi, dokumen)
-  → Admin (approval queue, koreksi, payroll run, master karyawan)
-     → Dashboard (KPI agregat, monitoring, laporan)
-        → Owner (analitik lintas-BU, branding, konfigurasi global, audit)
-```
-
-1. **G1 — Default asumsi: TERDAMPAK.** Setiap koding di salah satu page, anggap 4 page lain
-   terdampak sampai dibuktikan sebaliknya. Dilarang menyimpulkan "ini hanya perubahan page
-   worker" tanpa mengecek Admin/Dashboard/Owner.
-2. **G2 — Perbaiki di lapisan bersama, bukan hack per-page.** Solusi harus di layer bersama
-   (RPC/DB, `src/lib/*`, `src/types/index.ts`, `route-config.ts`, `menu-builder.ts`,
-   `design-system/*`, authz). Jangan patch lokal per-page (mis. rename/override RPC hanya di
-   Worker). Perbedaan kebutuhan antar-page = parameter/role, bukan duplikasi logika.
-3. **G3 — Kontrak bersama = breaking change.** Perubahan pada nama/param/return RPC,
-   `module_code`/`route_path`/`route_component`, bentuk `session`/`entry`, kolom tabel
-   (`employees_core` dkk), prop design-system, atau interface di `src/types` → WAJIB grep semua
-   pemakai di `src/` lalu verifikasi ke-4 page.
-4. **G4 — Data worker = input rantai hilir.** Mengubah bentuk/validasi data tulisan worker
-   (absensi, izin, lembur, item payroll) mengubah konsumennya (approval Admin → KPI Dashboard →
-   analitik Owner). Cek pembaca hilir (VIEW/MV/report/RPC) SEBELUM mengubah penulis.
-5. **G5 — Isolasi role JANGAN dilemahkan.** Perbaikan lintas-page tidak boleh melonggarkan
-   `RoleGuard` + cek `session.entry` + authz DB (3 layer, `ARCHITECTURE.md` §7.2). Membuka akses hanya jika
-   user memutuskan.
-6. **G6 — Gate verifikasi lintas-page.** Bukti minimal sebelum commit untuk perubahan
-   fungsional: (a) `npm run check:types` 0 error, (b) unit test hijau, (c) `npm run build`
-   EXIT 0, (d) smoke putar 4 page (worker → admin → dashboard → owner), (e) E2E
-   `full-sweep`/`tab-click-test`/`role-change` bila menyentuh route/menu/role.
-7. **G7 — Catat dampak di log.** Entri `agentsLogs_YYYY-MM.md` wajib memuat baris
-   `Dampak lintas-page: worker → admin → dashboard → owner` berisi hasil pengecekan tiap page
-   (termasuk "tidak terdampak" + alasannya).
-
 ## 5.8 STATE OPEN — WORK QUEUE: Temuan Audit SQL (WAJIB DISELESAIKAN)
 
 > **Sumber:** audit menyeluruh 2026-09-17 — 150+ migrasi diparsing lalu **setiap temuan
@@ -247,20 +244,14 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
 | ID | Prio | Masalah | Bukti (terverifikasi) | Definition of Done | Status |
 |---|---|---|---|---|---|
 | SQL-02 | **P2** (turun dari P1) | **25 tabel + 14 fungsi live tanpa sumber migrasi** — sekarang **tercakup**: ke-25 tabel ada di baseline (di-generate dari katalog live, bukan dari rantai), jadi instalasi perusahaan baru tidak kehilangan apa pun | Tabel: `ai_rate_limits`, `api_keys`, `api_rate_limits`, `dashboard_cache`, `user_consents`, `hr_shift_swaps`, `hr_audit_chain`, `hr_okr_results`, `hr_survey_responses`, `hr_task_board`, `safety_incidents`, `webhook_logs`, 5×`mining_*`, 5×`estate_*`, 3×`mill_*` — dipulihkan `008_restore_missing_objects.sql`. Fungsi: 13×`_legacy_*` + `worker_update_profile_legacy` — tidak dibuat rerantai, dan itu aman sekarang karena `172`/`210`/`221`/`226` memakai guard (`to_regprocedure`) sehingga ketidakhadirannya tidak menggagalkan apa pun. Terbukti: replay 156/156 dengan 14 fungsi itu tetap absen | **TERBUKTI 2026-09-18; angka disegarkan 2026-09-20:** baseline memuat seluruh objek live — `verify-install-e2e.mjs` memasang ke project kosong dan mencocokkan **9/9 metrik** dengan live (208 tabel, 670 fungsi, 223 policy, 27 trigger, 285 partisi, 95 sequence, 3 cron job, cap 164). Sisa satu keputusan kecil: 14 `_legacy_*` di DB live dibuat ulang atau dihapus | OPEN (dampak instalasi sudah nol) |
-| SQL-09 | **P2** | **Duplikat `CREATE` dalam satu berkas**— ternyata **dead code**, bukan konflik | Terverifikasi 2026-09-20: blok di 141 (baris 545-556 & 558-567) **byte-identik** (`diff` kosong) dengan pengulangan di 1911-1922 & 1924-1933; berkas 183 hanya punya **1** `CREATE VIEW employees_master` (baris 181) — klaim audit "view 2x" **SALAH**, kemunculan lain adalah `DROP` di dalam DO-block yang memang wajib. Live: **1** `hr_okrs` (TABLE, 10 kolom, 9 baris data), **1** `hr_surveys`, **1** `employees_master` (VIEW) — **0 objek kembar**. DROP ke DB live ditolak karena tidak ada yang kembar dan justru menghapus data | Duplikat dihapus **di sumber** (141) + `239` v2 jadi **assertion non-destruktif** (gagal-cepat bila kelak muncul objek kembar) | ✅ SELESAI (2026-09-20: 24 baris duplikat dibuang diganti catatan; replay rantai **164/164, 0 GAGAL**; installer E2E **PASS 9/9 SAMA**; assertion 239 **PASS** di live; checksum 141 & 239 di-restamp; cap baseline disegarkan 160→**164**) |
-| SQL-10 | **P3** | **Checksum migrasi bergantung EOL checkout** — `.gitattributes` memakai `* text=auto eol=crlf` (blob repo LF, working tree CRLF), sedangkan generator baseline & `apply-migration.mjs` meng-hash **byte berkas kerja** | Bukti 2026-09-20: `git cat-file HEAD:141` = LF (2629 baris), berkas kerja = LF, dan `sha256` keduanya = `1b97c988...` = nilai cap baseline lama. Di checkout baru berkas jadi CRLF sehingga hash berbeda → cap/registry tidak cocok lintas mesin. `check_migrations()` **tidak** membandingkan checksum berkas (hanya UNAPPLIED/DUPLICATE/VERSION_MISMATCH), jadi instalasi tidak terblokir; efeknya `apply-migration.mjs` meminta `--restamp` di mesin dengan EOL berbeda | Pilih satu: normalisasi CRLF→LF sebelum hashing (generator + `apply-migration.mjs`) **atau** kunci `*.sql text eol=lf`; buktikan sha256 identik pada checkout LF dan CRLF | ✅ SELESAI (2026-09-20: modul bersama `supabase/scripts/migration-checksum.mjs` menormalisasi EOL CRLF→LF sebelum hashing; **66** cap baseline + **50** entri registry disegarkan lewat `npm run db:refresh-checksums -- --apply --db`; bukti pada 141 (berkas terbesar): LF & CRLF sama-sama `17989aa0…` sedangkan algoritma lama `17989aa0…` vs `7a7f0b9a…`; guard `tests/unit/migration-checksum-eol.test.ts` **5/5**; `001_init.sql` (CRLF) kembali “checksum cocok”; `--restamp` kini tidak lagi menimpa `applied_at`). **Bukti lintas-checkout NYATA 2026-09-20** (main tree 98 LF + 66 CRLF-campuran vs `git worktree` segar 164 CRLF): algoritma lama **101/164** berkas beda sha256, algoritma baru **0/164**; registry live cocok **129/164** (sisa 35 = SQL-11). Turunan: drift **KONTEN** 35 berkas → SQL-11 |
 | SQL-11 | **P2** | **35 migrasi drift checksum KONTEN** — registry ≠ hash berkas sekarang, dan ini BUKAN soal EOL | Bukti 2026-09-20 (`db:refresh-checksums --db`): dari 85 entri tidak cocok, **50 hanya beda EOL** (sudah disegarkan) dan **35 beda konten**: 011, 018, 027, 051, 052, 053, 054, 058, 062, 073, 083, 086, 091, 140, 171, 172, 175, 176, 178, 180, 181, 183, 186, 195, 196, 199, 201, 206, 208, 210, 212, 213, 219, 221, 226 — sebagian besar berkas yang diperbaiki sesi fresh-install, jadi live kemungkinan sudah benar tetapi registry tidak lagi membuktikannya. `check_migrations()` tidak memeriksa checksum berkas, jadi tidak memblokir instalasi | Audit per berkas: tentukan (a) cukup `--restamp` (live sudah memuat perubahan, dibuktikan objek per berkas) atau (b) perlu `--apply` ulang (live tertinggal); tidak boleh diselesaikan dengan restamp massal tanpa bukti | OPEN |
 | SQL-12 | **P2** | **`worker_update_profile` tidak bisa mengosongkan field** — pola `COALESCE(p_param, kolom)` membuat NULL = "jangan ubah", jadi sekali field terisi (mis. agama) worker tak bisa mengosongkannya lewat UI | Terverifikasi 2026-09-20: definisi live `agama = COALESCE(p_agama, agama)`; smoke OPS-01 attempt-1: simpan '' sukses di UI tapi DB tetap berisi nilai lama (residu dibersihkan manual ke NULL). UI sudah benar (kirim `form.agama ∥ null`), masalahnya di RPC | Putuskan: (a) terima batasan + dokumentasikan, atau (b) ubah RPC agar pengosongan eksplisit mungkin (kontrak RPC berubah — G3: grep semua pemakai + cek konsumen hilir sebelum mengubah) | DEFERRED — kerjakan setelah FASE 3 (CI Full) selesai; butuh keputusan user untuk fix RPC (COALESCE → sentinel/CASE) |
 | SQL-13 | **P2** | Duplikat `module_definitions`: 2 baris aktif untuk `route_path='/dashboard'` (`dashboard_landing` + `ceo_dashboard`). Bisa menyebabkan menu muncul 2×, access tier konflik, atau DynamicRoutes fallback salah render. | Query DB: 2 baris `is_active=true`. | Putuskan: (a) nonaktifkan salah satu (`UPDATE is_active=false`), atau (b) hapus salah satu, atau (c) dokumentasikan sebagai intentional. Bukti: setelah fix, query mengembalikan 1 baris untuk `'/dashboard'`. | OPEN — butuh keputusan user |
 
-
-| OPS-01 | **P2** | **Smoke runtime WorkerProfile belum dijalankan** (pindahan `§5` STATE DONE) | `§5` hanya menyisakan satu item OPEN: login worker → WorkerProfile → edit 1 kolom → simpan → reload. Grant `EXECUTE TO authenticated` sudah termigrasi di `222` (baris 79 + 150-152) — tidak ada langkah SQL tersisa. Lingkungan agent tidak bisa menjangkau app live | User menjalankan smoke di browser lalu hasilnya ditulis ke `agentsLogs.md` | ✅ SELESAI (smoke `npm run smoke:ops01` LULUS untuk worker NRP007; bukti di entri log 2026-09-20) |
-| OPS-02 | **P2** | **Guard dokumen menghitung berkas *working tree*, termasuk yang UNTRACKED** — `doc-claims-vs-live.test.ts` §7.3 membandingkan klaim `ARCHITECTURE.md` dengan hasil penelusuran di disk, sehingga checkout bersih tidak bisa hijau selama ada berkas test yang belum di-commit | Bukti 2026-09-20: `find tests` = **38** berkas `*.ts` dan `*.tsx`, sedangkan `git ls-files tests` = **36**. Dua berkas untracked (`tests/e2e/worker-profile-smoke.spec.ts`, `tests/unit/work-queue-consistency.test.ts`) memaksa §7.3 ditulis `38` (disk) padahal HEAD hanya punya 36 — angka itu akan salah lagi begitu salah satu berkas di-commit atau dihapus | Pilih satu: **(a)** commit berkas test WIP lalu jaga angka §7.3, atau **(b)** ubah guard agar menghitung hanya berkas ter-track (`git ls-files`); buktikan §7.3 hijau pada tree kotor **dan** checkout bersih | ✅ SELESAI (2026-09-20: `countFiles` diganti `trackedFiles()` berbasis `git ls-files` + `countTracked(prefix, exts)`; §7.3 kini **202** = 157 `src` + 39 `tests` + 6 config (angka tracked, bukan disk yang saat itu 38 `tests`); guard hijau di tree kotor, dan angka tracked identik di checkout bersih karena bersumber dari index git). **Demo merah/hijau 2026-09-20** di worktree scratch dengan 2 berkas test untracked: logika lama (verbatim `4d11988^`) **MERAH** (disk tests 41 vs dokumen 39), logika `git ls-files` **HIJAU** (39=39); guard asli tetap hijau di tree yang sama dan di checkout bersih) |
-
 | OPS-03 | **P2** | Main bundle **197 kB gzip** > target 150 kB. Dashboard static import di App.tsx bikin DynamicRoutes di route-config tidak efektif (INEFFECTIVE_DYNAMIC_IMPORT). | Build setelah lazy: `index-Bxs4zCeh.js = 709 kB / 197 kB gzip`; warning chunk >500 kB tetap ada. | Bundle < 150 kB gzip setelah code-split lanjutan. | OPEN (in progress) |
 
 > **Dipangkas 2026-09-20** — item ✅ yang hasilnya sudah tertulis di `agentsLogs_2026-09.md` dikeluarkan dari tabel
-> ini sesuai aturan #3 di atas: **SQL-01, SQL-03, SQL-04, SQL-05, SQL-07** + **SQL-06** (keputusan 2026-09-20: TIDAK FORCE RLS — SQL Editor masih dipakai debugging/maintenance) + **SQL-08** (dieksekusi migrasi 240: drop tabel mati + cron + fungsi terkait). Jangan diinvestigasi ulang.
+> ini sesuai aturan #3 di atas: **SQL-01, SQL-03, SQL-04, SQL-05, SQL-07** + **SQL-06** (keputusan 2026-09-20: TIDAK FORCE RLS — SQL Editor masih dipakai debugging/maintenance) + **SQL-08** (dieksekusi migrasi 240: drop tabel mati + cron + fungsi terkait) + **SQL-09, SQL-10, OPS-01, OPS-02** (dipangkas 2026-09-20). Jangan diinvestigasi ulang.
 
 > Baris ber-ID `OPS-*` adalah temuan operasional non-SQL yang tetap wajib ditutup seperti item lain.
 
