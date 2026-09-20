@@ -4,6 +4,97 @@
 > Aturan (lihat `AGENTS.md` Â§0.3-4): setiap perubahan harus **commit â†’ push â†’ deploy**; setelah sukses,
 > hasilnya ditulis ke file ini dan **dikeluarkan dari `AGENTS.md`**.
 
+## [2026-09-20] SQL-13: duplikat module_definitions /dashboard ditemukan — INVESTIGASI SELESAI
+
+- Status: INVESTIGASI SELESAI — item SQL-13 ditambahkan ke AGENTS.md §5.8 (OPEN, butuh keputusan user)
+- Tidak ada perubahan DB atau kode. Hanya investigasi read-only + pencatatan.
+
+### Bukti query DB live (read-only)
+\
+**HASIL MENTAH:**
+\
+**Kolom count:** 2 baris
+
+### Analisis src/lib/menu-builder.ts (30 baris pertama)
+- Menu sidebar di-render dari data DB (RPC )
+- Interface  di baris 23-30 mencakup , , , , , , - **Kesimpulan:** Ya, menu sidebar di-render dari  lewat RPC 
+### Grep pemakai  di src/
+\
+### Grep pemakai  di src/
+\
+### Dampak potensial
+- **Menu sidebar:** Bisa muncul 2× untuk  (ceo_dashboard + dashboard_landing)
+- **DynamicRoutes:** Fallback bisa salah render jika ada duplikat - **Access tier:** Potensi konflik tier requirement (keduanya )
+
+### Rekomendasi
+Butuh keputusan user:
+1. Nonaktifkan salah satu ()
+2. Hapus salah satu
+3. Dokumentasikan sebagai intentional (jika memang ada alasan bisnis untuk 2 dashboard berbeda)
+
+
+
+## [2026-09-20] SQL-13: duplikat module_definitions /dashboard ditemukan — INVESTIGASI SELESAI
+
+- Status: INVESTIGASI SELESAI — item SQL-13 ditambahkan ke AGENTS.md §5.8 (OPEN, butuh keputusan user)
+- Tidak ada perubahan DB atau kode. Hanya investigasi read-only + pencatatan.
+
+### Bukti query DB live (read-only)
+```sql
+SELECT module_code, route_path, module_group, minimum_tier_required, is_active
+FROM module_definitions
+WHERE route_path = '/dashboard'
+ORDER BY module_code;
+```
+
+**HASIL MENTAH:**
+```
+['ceo_dashboard', '/dashboard', 'CORE', 0, True]
+['dashboard_landing', '/dashboard', 'INTELLIGENCE', 0, True]
+```
+
+**Kolom count:** 2 baris
+
+### Analisis src/lib/menu-builder.ts (30 baris pertama)
+- Menu sidebar di-render dari data DB (RPC `get_enabled_modules`)
+- Interface `DbModule` di baris 23-30 mencakup `module_code`, `module_name`, `module_group`, `menu_icon`, `menu_order`, `is_industry_module`, `route_path`
+- **Kesimpulan:** Ya, menu sidebar di-render dari `module_definitions` lewat RPC `get_enabled_modules`
+
+### Grep pemakai `module_definitions` di src/
+```
+src/App.tsx:1:// src/App.tsx — Dynamic routing from module_definitions
+src/App.tsx:61:          {/* DYNAMIC ROUTES from module_definitions */}
+src/components/AppDrawer.tsx:5:// ADR: menu dinamis dari module_definitions (buildMenu); grup fallback hanya
+src/components/AppDrawer.tsx:41:// grup ini selalu tertimpa daftar lengkap dari module_definitions.
+src/components/AppDrawer.tsx:155:// Fallback area owner — menu lengkap owner datang dari module_definitions.
+src/components/AppDrawer.tsx:210:      // menu penuh mereka tetap datang dari module_definitions.
+src/components/DynamicRoutes.tsx:2: * DynamicRoutes.tsx — Renders routes dynamically from module_definitions table.
+src/components/DynamicRoutes.tsx:77:  // NOTE: route_path values from module_definitions are absolute paths (e.g. /admin/payroll).
+```
+
+### Grep pemakai `get_enabled_modules` di src/
+```
+src/components/DynamicRoutes.tsx:38:  // get_enabled_modules), bukan envelope {data, error}. Jangan destructure.
+src/components/DynamicRoutes.tsx:41:  const res = await rpc('get_enabled_modules', pArea ? { p_area: pArea } : {});
+src/hooks/useModuleAccess.ts:39:      const result = await rpc<any[]>('get_enabled_modules');
+src/lib/menu-builder.ts:71:  const { data: modules, error } = await supabase.rpc('get_enabled_modules');
+src/lib/supabase-rpc.ts:77:  return rpc<ModuleRoute[]>('get_enabled_modules', params);
+src/pages/Home.tsx:10:// auth.uid() NULL → authz_current_nrp()/get_enabled_modules() menolak
+```
+
+### Dampak potensial
+- **Menu sidebar:** Bisa muncul 2× untuk `/dashboard` (ceo_dashboard + dashboard_landing)
+- **DynamicRoutes:** Fallback bisa salah render jika ada duplikat `route_path`
+- **Access tier:** Potensi konflik tier requirement (keduanya `minimum_tier_required=0`)
+
+### Rekomendasi
+Butuh keputusan user:
+1. Nonaktifkan salah satu (`UPDATE is_active=false`)
+2. Hapus salah satu
+3. Dokumentasikan sebagai intentional (jika memang ada alasan bisnis untuk 2 dashboard berbeda)
+
+
+
 ## [2026-09-18] Instalasi dari awal: rantai migrasi 156/156 + baseline idempoten â€” DONE
 
 - Status: DONE untuk VERIFIKASI (kedua jalur instalasi terbukti). Kode + dokumen masih di working tree;
