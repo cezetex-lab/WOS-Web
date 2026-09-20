@@ -22,7 +22,10 @@
     "db:replay": "node supabase/scripts/replay-fresh-install.mjs",
     "db:baseline": "node supabase/scripts/generate-baseline.mjs && node supabase/scripts/generate-baseline-data.mjs",
     "install:baseline": "node supabase/scripts/install-baseline.mjs",
-    "db:verify-install": "node supabase/scripts/verify-install-e2e.mjs"
+    "db:verify-install": "node supabase/scripts/verify-install-e2e.mjs",
+    "db:rehearse-newco": "node supabase/scripts/rehearse-new-company.mjs",
+    "db:refresh-checksums": "node supabase/scripts/refresh-migration-checksums.mjs",
+    "smoke:ops01": "node scripts/run-ops01-smoke.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

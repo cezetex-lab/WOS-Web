@@ -18,11 +18,11 @@
  *
  * Kredensial dibaca dari DATABASE_URL (env) atau `.env.local`.
  */
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
+import { migrationChecksum } from './migration-checksum.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MIGRATIONS_DIR = path.join(ROOT, 'supabase', 'migrations');
@@ -63,7 +63,10 @@ function readDatabaseUrl() {
 
 const shortName = path.basename(filePath);
 const sql = fs.readFileSync(filePath, 'utf8');
-const checksum = createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+// Checksum dihitung lewat modul bersama dengan EOL CRLF→LF dinormalisasi
+// (temuan SQL-10): tanpa ini, checkout Windows (CRLF) menghasilkan angka berbeda
+// dari cap baseline (LF) dan `--restamp` diminta tanpa sebab.
+const checksum = migrationChecksum(filePath);
 const version = /^(\d+)/.exec(shortName)?.[1];
 
 if (!version) {
@@ -108,12 +111,16 @@ try {
         // sehingga SETIAP --restamp gagal dengan "column notes does not exist".
         // Keterangan restamp disimpan ke `description`, di-append agar tidak
         // menghapus keterangan asli.
+        //
+        // `applied_at` SENGAJA TIDAK disentuh: restamp berarti "checksum registry
+        // diselaraskan dengan berkas", bukan "migrasi diterapkan ulang". Menulis
+        // NOW() di sini akan memalsukan jejak audit (mis. 50 berkas yang hanya
+        // perlu penyesuaian definisi checksum akibat normalisasi EOL, SQL-10).
         await client.query(
           `UPDATE schema_migrations
               SET checksum = $2,
-                  applied_at = NOW(),
                   description = COALESCE(NULLIF(description, ''), 'restamped')
-                                || ' | restamped ${new Date().toISOString()}'
+                                || ' | checksum disegarkan ${new Date().toISOString()}'
             WHERE filename = $1`,
           [shortName, checksum],
         );

@@ -28,6 +28,13 @@ create or replace function auth.email() returns text
   language sql stable as $$ select nullif(current_setting('request.jwt.claim.email', true), '')::text $$;
 create or replace function auth.jwt() returns jsonb
   language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
+-- USAGE pada schema auth/extensions untuk role aplikasi. Di project Supabase nyata
+-- ini sudah ada; tanpa menirunya, setiap panggilan RPC sebagai authenticated
+-- gagal 'permission denied for schema auth' padahal di produksi diizinkan.
+-- Terverifikasi ke live 2026-09-20: schema auth -> anon, authenticated, service_role;
+-- schema extensions -> sama. Ditemukan oleh rehearse-new-company.mjs.
+grant usage on schema auth to anon, authenticated, service_role;
+grant usage on schema extensions to anon, authenticated, service_role;
 -- pg_cron tidak bisa dipasang di database kedua pada cluster yang sama; stub ini
 -- membuat cron.schedule/unschedule bisa di-resolve sehingga berkas penjadwalan jalan.
 create schema if not exists cron;

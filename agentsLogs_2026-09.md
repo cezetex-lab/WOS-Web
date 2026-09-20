@@ -2058,3 +2058,113 @@ Tidak di-stage: `tests/e2e/worker-profile-smoke.spec.ts` (WIP sesi paralel, terk
 - Commit lokal FASE 2: **`ab172dc`** — `docs(FASE 2): reconcile Work Queue §5.8 + fix SQL-09 false positive`
   (10 berkas, +670/−206). **Belum di-push, belum di-deploy** sesuai perintah user; branch `migrasi-vite`
   kini ahead 2 dari `origin`.
+## [2026-09-20] SQL-10 + OPS-02 ditutup, latihan perusahaan baru LULUS, runner smoke OPS-01 siap — DONE
+
+- Status: **DONE** untuk implementasi + verifikasi; **commit lokal saja, BELUM push/deploy** (perintah user).
+- Lingkup: (1) checksum migrasi bebas EOL (SQL-10), (2) guard dokumen menghitung berkas *tracked*
+  (OPS-02), (3) latihan instalasi perusahaan baru dari nol sampai owner login + dashboard hidup,
+  (4) runner smoke OPS-01 sekali-klik yang merekam hasilnya ke log ini.
+
+### (1) SQL-10 — checksum migrasi bebas EOL
+
+**Masalahnya nyata, bukan teoretis.** Terukur: **66 dari 164** berkas migrasi di working tree
+ber-EOL **CRLF** (98 LF), sementara `.gitattributes` memakai `* text=auto eol=crlf` (blob repo LF,
+working tree CRLF). Checksum dihitung dari byte berkas kerja, jadi:
+
+| Algoritma | checkout LF | checkout CRLF |
+|---|---|---|
+| lama (byte mentah) | `17989aa042163cf1…` | `7a7f0b9a5d5c83e1…` |
+| baru (EOL normal) | `17989aa042163cf1…` | `17989aa042163cf1…` |
+
+(berkas uji: `141_153_CONSOLIDATED_.sql`, berkas migrasi terbesar)
+
+Yang dikerjakan:
+- **Modul bersama** `supabase/scripts/migration-checksum.mjs` (+ `.d.mts` supaya bisa diimpor tes TS):
+  normalisasi CRLF→LF pada **byte** (round-trip `latin1`, jadi BOM/byte non-ASCII tak tersentuh) lalu
+  sha256. Dipakai **kedua** konsumen: `apply-migration.mjs` dan `generate-baseline-data.mjs`.
+- **66 cap baseline** disegarkan ke nilai baru; **50 entri registry** live di-restamp. Dikerjakan
+  `supabase/scripts/refresh-migration-checksums.mjs` (npm `db:refresh-checksums`) yang membedakan
+  dua kelas drift dan **menolak** menyentuh yang bukan urusannya.
+- **`--restamp` tidak lagi menimpa `applied_at`.** Sebelumnya restamp menulis `applied_at = NOW()`,
+  yang akan memalsukan jejak audit untuk 50 berkas yang hanya perlu penyesuaian definisi.
+- **Guard permanen** `tests/unit/migration-checksum-eol.test.ts` (**5/5**): normalisasi byte tak
+  menyentuh BOM/non-ASCII; berkas LF vs CRLF memberi checksum sama; algoritma lama memang beda
+  (bukti masalahnya nyata); checksum baru = checksum yang sudah tercap di baseline (bukti tidak
+  perlu restamp massal); dan seluruh 164 berkas stabil terhadap EOL.
+- Bukti tidak ada churn: `npm run db:migrate -- supabase/migrations/001_init.sql` (berkas CRLF)
+  kini **“SUDAH terdaftar (checksum cocok)”** — sebelum perbaikan ia meminta `--restamp`.
+- Komentar di berkas baseline ikut diselaraskan dengan teks yang di-emit generator, supaya artefak
+  dan generator tidak menyimpang.
+
+**Temuan turunan → SQL-11 (OPEN, P2).** Dari 85 entri registry yang tidak cocok: 50 hanya beda EOL
+(dibereskan), **35 beda KONTEN** — berkas diedit setelah diterapkan (011, 018, 027, 051-054, 058, 062,
+073, 083, 086, 091, 140, 171, 172, 175, 176, 178, 180, 181, 183, 186, 195, 196, 199, 201, 206, 208,
+210, 212, 213, 219, 221, 226). Sebagian besar adalah berkas yang diperbaiki sesi fresh-install: live
+kemungkinan sudah benar, tetapi registry tidak lagi membuktikannya. **Tidak** saya restamp — itu akan
+menyembunyikan pertanyaan “live sudah memuat perubahan ini atau belum?”. Perlu audit per berkas.
+
+### (2) OPS-02 — guard dokumen menghitung berkas TRACKED
+
+`tests/unit/doc-claims-vs-live.test.ts` dulu menelusuri **disk**, sehingga berkas test WIP yang belum
+di-commit ikut terhitung (disk 38 `tests` vs `git ls-files tests` 36). Sekarang `countFiles` diganti
+`trackedFiles()` (`git ls-files -z`) + `countTracked(prefix, exts)`. Efeknya: angka dokumen sama di
+tree kotor maupun checkout bersih, dan `git ls-files` yang gagal → error jelas (bukan fallback diam-diam).
+
+`ARCHITECTURE.md` §7.3 kini **202 file TS total (157 `src` + 39 `tests` + 6 config)** — angka **tracked**
+setelah dua tes baru (guard SQL-10 + spec smoke OPS-01) ikut di-commit. §7.5 (157 = 132 `.tsx` + 25 `.ts`)
+tetap cocok.
+
+### (3) Latihan instalasi perusahaan baru — LULUS
+
+`supabase/scripts/rehearse-new-company.mjs` (npm `db:rehearse-newco`) menutup celah antara “skema sama
+dengan live” (`verify-install-e2e`, 9/9 metrik) dan “perusahaan baru benar-benar bisa dipakai”. Alurnya:
+database scratch kosong → prereq platform → `install-baseline.mjs --apply` (jalur install nyata) →
+owner pertama (langkah DB dari `first-owner.example.sql`) → tiru sesi owner lewat GUC JWT yang dibaca
+stub `auth.*()` → uji jalur login + dashboard → cek isolasi `anon`.
+
+Hasil (laporan: `supabase/baseline/rehearse-new-company.md`):
+
+```
+baseline terpasang — exit 0 · skema + menu hidup (209 tabel, 155 menu)
+company_config.owner_email terisi · get_owner_email() = email owner
+auth.uid() = auth_id owner · check_owner_identity() = true (OwnerGuard lolos)
+owner_login() = ok  {"ok":true,"nrp":"OWNER001","nama":"System Owner","role":"owner","is_owner":true,"role_level":5}
+get_owner_overview_stats → 9 field · get_modules_for_owner → 61 baris
+get_business_units_for_owner → 4 baris · get_dashboard_stats → 7 field
+anon ditolak saat memanggil RPC owner — permission denied for function check_owner_identity
+=== HASIL: PASS ===
+```
+
+Latihan ini **menemukan cacat nyata di harness**: stub `platform-prereqs.mjs` tidak memberi
+`USAGE` pada schema `auth`/`extensions`, sehingga setiap panggilan sebagai `authenticated` gagal
+*permission denied for schema auth* padahal di Supabase produksi diizinkan. Live diverifikasi memang
+memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia ke produksi.
+
+### (4) OPS-01 — runner smoke sekali klik (item TETAP OPEN)
+
+- `scripts/run-ops01-smoke.ts` (npm `smoke:ops01`): mengambil kredensial worker dari env atau
+  `supabase/akun/akun.txt` (gitignored — kredensial **tidak pernah** masuk ke berkas yang di-commit
+  atau ke log), menjalankan Playwright **headed**, lalu menulis entri ke `agentsLogs_YYYY-MM.md`
+  lewat `scripts/safe-file-writer.ts` + log mentah ke `.agents/logs/` (gitignored).
+- `tests/e2e/worker-profile-smoke.spec.ts` ditulis ulang: kredensial **dihapus** dari berkas (dulu
+  hardcoded — itu kebocoran bila di-commit), tombol Edit memakai locator yang benar (`✏️ Edit`,
+  bukan `/^edit$/`), dan nilai asli **dikembalikan** di akhir karena smoke ini menulis ke DB live.
+- Prasyarat terverifikasi tanpa menyentuh data: `npm run smoke:ops01 -- --check` → worker **NRP002**
+  terdeteksi dari `akun.txt`, spec terdaftar, Playwright 1.63.0, Chromium terpasang.
+- **Alur browser belum saya jalankan** — sengaja: ia menulis satu field profil di DB live, dan OPS-01
+  memang menunggu verifikasi user. Jalankan `npm run smoke:ops01` (headed); bila LULUS dan Anda
+  setuju, `npm run smoke:ops01 -- --close` menandai OPS-01 ✅ SELESAI sekaligus menulis entri log
+  berjudul DONE (judul sengaja tanpa kata DONE bila belum ditutup, supaya guard konsisten).
+
+### (5) Dampak lintas-page (G7): worker → admin → dashboard → owner
+
+- **Worker**: satu-satunya perubahan perilaku yang menyentuh user adalah smoke OPS-01 (login worker →
+  `/worker/profile` → simpan). Tidak ada perubahan kode di halaman Worker.
+- **Admin**: tidak terdampak — tidak ada RPC/route/menu/authz yang berubah; `001_init.sql` dkk hanya
+  berubah pada *nilai checksum registry*, bukan isi berkas.
+- **Dashboard**: tidak terdampak di live. Yang berubah adalah *harness*: `get_dashboard_stats()`
+  dibuktikan hidup di instalasi baru (7 field) dan latihan owner memanggilnya di DB scratch, bukan live.
+- **Owner**: tidak terdampak di live; di DB scratch justru dibuktikan alur owner pertama berfungsi
+  (`owner_login` ok, `check_owner_identity` true, RPC owner mengembalikan data).
+- Satu perubahan yang menyentuh semua halaman secara tidak langsung: prereq scratch
+  (`platform-prereqs.mjs`) — hanya dipakai skrip verifikasi, tidak pernah dipakai aplikasi.

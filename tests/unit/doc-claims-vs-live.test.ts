@@ -20,12 +20,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Client } from 'pg';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
-const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', '.freebuff', '.vercel']);
 
 function readDoc(rel: string): string {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -221,25 +221,41 @@ describe.skipIf(!DB_URL)('angka dokumen vs DB live', () => {
   }, 60_000);
 });
 
-/** Hitung berkas rekursif berdasarkan ekstensi. */
-function countFiles(dir: string, exts: string[]): number {
-  let total = 0;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      if (IGNORED_DIRS.has(entry.name)) continue;
-      total += countFiles(path.join(dir, entry.name), exts);
-    } else if (exts.some((e) => entry.name.endsWith(e))) {
-      total += 1;
-    }
+/**
+ * Daftar berkas yang DI-TRACK git (index) — BUKAN hasil penelusuran disk.
+ *
+ * Kenapa (OPS-02, AGENTS.md §5.8): fungsi sebelumnya menelusuri disk, sehingga
+ * berkas test WIP yang belum di-commit ikut terhitung. Angka dokumen lalu harus
+ * mengikuti working tree yang kotor dan checkout bersih TIDAK PERNAH bisa hijau
+ * (terukur 2026-09-20: disk 38 berkas `tests` vs `git ls-files tests` 36). Ukuran
+ * yang benar untuk "isi repo" adalah yang ter-track: hasilnya sama di checkout
+ * bersih maupun di tree yang penuh berkas untracked.
+ */
+function trackedFiles(): string[] {
+  try {
+    return execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' })
+      .split('\u0000')
+      .filter((f) => f.length > 0)
+      .map((f) => f.replace(/\\/g, '/'));
+  } catch (error) {
+    throw new Error(
+      "Gagal menjalankan 'git ls-files' — §7.3/§7.5 butuh checkout git " +
+        `(bukan arsip/zip lepas): ${(error as Error).message}`,
+    );
   }
-  return total;
+}
+
+/** Hitung berkas TER-TRACK di bawah `prefix` dengan ekstensi tertentu. */
+function countTracked(prefix: string, exts: string[], files: string[] = trackedFiles()): number {
+  return files.filter((f) => f.startsWith(prefix) && exts.some((e) => f.endsWith(e))).length;
 }
 
 describe('jumlah berkas TypeScript di dokumen', () => {
-  const srcTsx = countFiles(path.join(ROOT, 'src'), ['.tsx']);
-  const srcTs = countFiles(path.join(ROOT, 'src'), ['.ts']);
-  const testFiles = countFiles(path.join(ROOT, 'tests'), ['.ts', '.tsx']);
-  const configFiles = fs.readdirSync(ROOT).filter((f) => f.endsWith('.config.ts')).length;
+  const tracked = trackedFiles();
+  const srcTsx = countTracked('src/', ['.tsx'], tracked);
+  const srcTs = countTracked('src/', ['.ts'], tracked);
+  const testFiles = countTracked('tests/', ['.ts', '.tsx'], tracked);
+  const configFiles = tracked.filter((f) => !f.includes('/') && f.endsWith('.config.ts')).length;
   const agents = readDoc('ARCHITECTURE.md');
 
   it('§7.3 (total/src/tests/config) cocok dengan isi repo', () => {

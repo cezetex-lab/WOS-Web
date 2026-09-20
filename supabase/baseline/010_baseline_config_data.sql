@@ -816,8 +816,10 @@ END $$;
 
 -- ── CAP schema_migrations ────────────────────────────────────────
 -- Semua berkas migrasi repo ditandai sebagai sudah diterapkan, dengan checksum
--- SHA-256 byte mentah berkas (algoritma yang sama dipakai apply-migration.mjs),
--- sehingga `verify_migration_checksum` dan `check_migrations()` konsisten dan
+-- SHA-256 berkas dengan EOL CRLF->LF dinormalisasi lebih dulu — modul bersama
+-- `supabase/scripts/migration-checksum.mjs`, sama seperti `apply-migration.mjs` —
+-- supaya nilai checksum tidak bergantung gaya EOL checkout. Dengan begitu
+-- `verify_migration_checksum` dan `check_migrations()` konsisten dan
 -- migrasi baru (> versi tertinggi) berjalan incremental.
 DO $$
 DECLARE v_n INTEGER;
@@ -829,22 +831,22 @@ BEGIN
   v_n := 0;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '000_pgcrypto.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('000', '000_pgcrypto.sql', 'de02a486d4650c5671830f8f1d72b460bc9358d78243d83629566bacbb60b8e0', 'baseline install (schema dari DB live)');
+    VALUES ('000', '000_pgcrypto.sql', '850462dc4269e234d315d2df57484c95cfccfe7f6d2eb3838b7bed15e969962b', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '001_init.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('001', '001_init.sql', '48baaed566d1c6df83ec5027cd5566ee00cae5d28b18e854fc5e9cec9bc91fd0', 'baseline install (schema dari DB live)');
+    VALUES ('001', '001_init.sql', '6eee3b3848d652812a8392fc102f86e5f08ea39821d1a894e178e257fec1aedd', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '003_fix_columns.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('003', '003_fix_columns.sql', '774a2066f939a97510cee6a3b5aab00b2f0d32a0a5227b1398cb391cb5f9807c', 'baseline install (schema dari DB live)');
+    VALUES ('003', '003_fix_columns.sql', 'ca302a4eb51ba9a43dfa02473614fc067416a4fbcd7a6c31c1977c8c64d1b364', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '005_fix_hash_bug.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('005', '005_fix_hash_bug.sql', '1845b2ed84ee2be9efc13156c50ca20d4c48d397d967c28b4c7de6060647d260', 'baseline install (schema dari DB live)');
+    VALUES ('005', '005_fix_hash_bug.sql', '934bb841d435c9dfbda0f5c17d592c1902174caa20022e21a77699eeac4ad84a', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '006_cron_setup.sql') THEN
@@ -864,12 +866,12 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '011_ULTIMATE.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('011', '011_ULTIMATE.sql', 'cd6e119bdcfe77dedb29b0cbb5d4f60654c4676b6238000b1f2cc7d0d990c2c4', 'baseline install (schema dari DB live)');
+    VALUES ('011', '011_ULTIMATE.sql', 'ed33e903a526d76b3df93cd8bc07015433d11f152e9d343e171be4511e48b0cc', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '018_new_25_tables.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('018', '018_new_25_tables.sql', '3cb76bd1b1b259920c42166057fc0d7387ac9d57d6e0bfcf11798b9dc6e7d2f9', 'baseline install (schema dari DB live)');
+    VALUES ('018', '018_new_25_tables.sql', 'cf07585c99dce7d7f55ba8873d7af89925645bd1021b38b8fcb725bff130274b', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '027_seed_remaining_tables.sql') THEN
@@ -994,37 +996,37 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '061_data_governance.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('061', '061_data_governance.sql', 'c5d9883695c544da9084f364be151a3207d14eac8b6567f66f4b2e948e5ac984', 'baseline install (schema dari DB live)');
+    VALUES ('061', '061_data_governance.sql', 'ebcbc1f0c7e9206d57ede3808960b79effea1d6a045994d2374a55cf03690eb5', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '062_global_core.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('062', '062_global_core.sql', '6ca103a80af72d402781198d9d88f150dcc659f50775a0b60152063343ee3328', 'baseline install (schema dari DB live)');
+    VALUES ('062', '062_global_core.sql', '6ac8b085ce723d210765fae124a235891a5d5ab6f0c2a84ebf5a5a1560abab38', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '063_performance_indexes.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('063', '063_performance_indexes.sql', 'd6688a0d1ed6ad1a09d49c5cfa6642c5af42c2c02ed7e79afae7f624159a340c', 'baseline install (schema dari DB live)');
+    VALUES ('063', '063_performance_indexes.sql', 'db80803d7665304496c5b9f583345de2a8cff50ce639795750b5338535030765', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '065_estate_mining_rpcs.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('065', '065_estate_mining_rpcs.sql', 'baa4a931be7b198541712db93030cb4f54d61c865e5177b4fd2553efcc033500', 'baseline install (schema dari DB live)');
+    VALUES ('065', '065_estate_mining_rpcs.sql', '3f6aea6b737c721966123641236bd763c210ee6d791501deaa677c0628e7f56b', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '071_foundation.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('071', '071_foundation.sql', '9a3a27a71b0f79f8c4af0501a2ef4eedfc8f0dc015a245e0bf8f41afdc5bf948', 'baseline install (schema dari DB live)');
+    VALUES ('071', '071_foundation.sql', '72f7683d32bdd564d7c0159ccc20d9d1837c5f3c3dc30f071b94f955735ee7ab', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '072_rpc_gatekeepers.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('072', '072_rpc_gatekeepers.sql', '66989fd55dabf19ce7888e3ae9d66f62b8dfbeac4f709ae7f65a6e3e262f394e', 'baseline install (schema dari DB live)');
+    VALUES ('072', '072_rpc_gatekeepers.sql', 'a4a7359c67ccb7ef3dec140c1a9361a269e33280eb33241933766119fba2c4fe', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '073_industry_rpc_templates.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('073', '073_industry_rpc_templates.sql', 'd0524cd205bbddd06f1443f397508721d898d44dffc7d22d617b7bb4a22dcfa3', 'baseline install (schema dari DB live)');
+    VALUES ('073', '073_industry_rpc_templates.sql', 'b9a3b2b0d9f9004b5c5680248709774a52e905046e7e9ca6b800e6428f8c1d15', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '075_fix_industry_columns.sql') THEN
@@ -1054,67 +1056,67 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '080_owner_rpcs.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('080', '080_owner_rpcs.sql', 'c53ec8fc62c3bd32fb8921fe685072c22fa775780d2df23a7ba920ab31d77484', 'baseline install (schema dari DB live)');
+    VALUES ('080', '080_owner_rpcs.sql', '3c28af1e406bffc9107eeb9c00897dde7a00bec4fa62faa765468189b7fc3da0', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '081_fix_toggle_lock.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('081', '081_fix_toggle_lock.sql', '1b87081e6022d174953ec409fdf519c3da5bf3b5f086461f99db0827e9bda9a6', 'baseline install (schema dari DB live)');
+    VALUES ('081', '081_fix_toggle_lock.sql', 'e32adf8b0d122891af717f435b17a82864a62638918ef18e4ad2e2c59ce4f361', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '082_fix_role_overview.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('082', '082_fix_role_overview.sql', '769151f55c026a9a33b76d7db3c0543e01a23e3995a0d85e84d2b58ead3bdb2e', 'baseline install (schema dari DB live)');
+    VALUES ('082', '082_fix_role_overview.sql', '2d19218cb219a6feda2658aea13118a0f7af5f911a3e699b09a9254898f6f71a', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '083_rls_hardening.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('083', '083_rls_hardening.sql', '9a22673b29654e070ae2ae033ab3808b3a52083f835dfdcc645e6c5dc6a8819f', 'baseline install (schema dari DB live)');
+    VALUES ('083', '083_rls_hardening.sql', '4619e577b57855624090dc1d29ce764b08d5eb9c6fdc42212525272680ebb809', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '084_account_lockout.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('084', '084_account_lockout.sql', 'c89ec9e1e00897de41ec7608337871e4f299f5e662112031093b87b0d6909adb', 'baseline install (schema dari DB live)');
+    VALUES ('084', '084_account_lockout.sql', 'f6cf03fd70fa2cb363e88b6fe676495e6e81d9e7bfd3731332ca43262b315cff', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '086_branding.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('086', '086_branding.sql', '16ea5a4411391003fe8b137ddd0f3b8c1692045213fbc04c2c37c769f76f0e6c', 'baseline install (schema dari DB live)');
+    VALUES ('086', '086_branding.sql', 'c36053d79068dd0ffd9722ad1a46fa38ef4616391a24caa1844374aac2867606', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '087_fix_auth_lookup.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('087', '087_fix_auth_lookup.sql', 'ff331b15bfbb6ef6acb80464b437c4adafb4443026e1fd30738a3a30f20e5d93', 'baseline install (schema dari DB live)');
+    VALUES ('087', '087_fix_auth_lookup.sql', '3aa466a1c64dac6c6708428cac284175fa61044b049f6fd4cbf2c2d9126977a6', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '088_fix_branding_rls_and_auth.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('088', '088_fix_branding_rls_and_auth.sql', '07a028ca4b74e16d16c69366c72b80c87ec78681193312559584aa4d96610e9f', 'baseline install (schema dari DB live)');
+    VALUES ('088', '088_fix_branding_rls_and_auth.sql', 'acb976fc63746313fb07c7824c949282534441a84d4812d27fbd20c4470d7089', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '089_branding_full.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('089', '089_branding_full.sql', '3acab07b1baaaf4cfc830b8b88aab492086aeb1d7b757cd46b9bc743f59c019a', 'baseline install (schema dari DB live)');
+    VALUES ('089', '089_branding_full.sql', '9e5c4d6fd9e63398536b763816c21190854dd193c604171ffd03d353b0aebb4c', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '090_sync_auth_users.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('090', '090_sync_auth_users.sql', '7b6a2488d0ac27a6f849c6048d37f61f80ffbec4e5436eb4e1969363548b976b', 'baseline install (schema dari DB live)');
+    VALUES ('090', '090_sync_auth_users.sql', '5f41517211ac33999451e9aec6c2f0c9824f949cf126967911f38d6137252ae3', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '091_owner_not_employee.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('091', '091_owner_not_employee.sql', '3e93d7329c220d06e5a1be2f76fe7d46436ead5256418948beb5120b5c3f53a6', 'baseline install (schema dari DB live)');
+    VALUES ('091', '091_owner_not_employee.sql', '4e3542fd9cb6291f431241384168b9aff3487eb44d97ffa3d3440ec3bc4a977e', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '092_owner_login.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('092', '092_owner_login.sql', 'd4b7efea2ec935f678c1ab236c6b3964c94fc5d3805afe4507f6f3b6fbf70518', 'baseline install (schema dari DB live)');
+    VALUES ('092', '092_owner_login.sql', '6e2a85b8b38fac0292b5ed8f49658028b147e1aeeb01c4f488ff78a8815c017c', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '093_fix_owner_context.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('093', '093_fix_owner_context.sql', '63f607be78615f46d8545770346d934bf2e8dad2afbcb2df44521140e0b1ba3d', 'baseline install (schema dari DB live)');
+    VALUES ('093', '093_fix_owner_context.sql', '9b2fe62d05ce82a42ad5b5439a845f749b3f7523f7b86166a090692fa59cc927', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '095_company_config.sql') THEN
@@ -1124,87 +1126,87 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '100_owner_wave1.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('100', '100_owner_wave1.sql', 'bab2cc8d72906250c5c5c22e67f795ba5837dd473326804c88c887118c282062', 'baseline install (schema dari DB live)');
+    VALUES ('100', '100_owner_wave1.sql', '2d3d8386bad99120672d8026fc6b7dc4ce02f40d5b7cbc4eedf178a7dc9a3d96', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '101_owner_wave2.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('101', '101_owner_wave2.sql', 'cc4f7c61b9e6fd0aa3c9058fdc2e9c7213653816335c0eb1382da65781ee9fdf', 'baseline install (schema dari DB live)');
+    VALUES ('101', '101_owner_wave2.sql', '1925855fb48f65fd40071e8a6fd577468ecec6650d2aa79cd4fcddc72c1dec08', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '102_owner_wave3.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('102', '102_owner_wave3.sql', 'dff32ad66dec7f22820efe50dc1bed0242b5b7c8df1c0fc296155167e834b98e', 'baseline install (schema dari DB live)');
+    VALUES ('102', '102_owner_wave3.sql', 'd5e05e7e228cc0b27832fe5f145e6c547d08b8cd34f94aee13f9f17d8f4bba60', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '110_owner_admin_architecture.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('110', '110_owner_admin_architecture.sql', 'badb63c51f7928c4267f521bc5c76766892929456134ee86ec0196fc31d79a11', 'baseline install (schema dari DB live)');
+    VALUES ('110', '110_owner_admin_architecture.sql', 'e0819fe8c266b4dfc6ef5da84df689aa3e5855bcd847f17ecab8917cf42327e2', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '111_owner_security_hardening.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('111', '111_owner_security_hardening.sql', '2f7b90e29be34a5fdf124acfb95709d508b0cd85d3cd5d5100756eebccd13af1', 'baseline install (schema dari DB live)');
+    VALUES ('111', '111_owner_security_hardening.sql', '234e2176203fc9cf77fe1eb2894b2a740ce82af56fdb138f1f942b00473bb566', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '120_seed_admin_accounts.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('120', '120_seed_admin_accounts.sql', '76c12c3afa359de0ac56a66ed2739fb90e951125c187f47c2f00bb8cd660fdb1', 'baseline install (schema dari DB live)');
+    VALUES ('120', '120_seed_admin_accounts.sql', '78673b16e1248487c8bf8699851210e693fdd015ee081e250ae70c8488600a77', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '130_fix_missing_rpcs.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('130', '130_fix_missing_rpcs.sql', 'cc4dd79dd0786f10bc3fb1f70d7a4bcf943129e57bb589b272f4289f13e07668', 'baseline install (schema dari DB live)');
+    VALUES ('130', '130_fix_missing_rpcs.sql', '32d33c2fb31c82862b73898597e2d87d24b8b6ef3de7c1a659d987b8cfc9af30', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '131_security_idor_fix.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('131', '131_security_idor_fix.sql', '40fa7bee4882e79ebf8f879afdd04cce43f605376a391d22501339bd29e61ce5', 'baseline install (schema dari DB live)');
+    VALUES ('131', '131_security_idor_fix.sql', 'f8bc57398b4d1908bde94d35aec7a4efa364d9e73890027b132feaa64e9b4309', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '132_admin_bu_filter_and_owner_login.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('132', '132_admin_bu_filter_and_owner_login.sql', '4daa2db276c71f3af8b8ece6f78ec73a50411203b4761d8fc677b506c29728cc', 'baseline install (schema dari DB live)');
+    VALUES ('132', '132_admin_bu_filter_and_owner_login.sql', 'aad3f470848aafab1bff5de923b7a715ae6e595941c48970fc58c8a38de634a7', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '133_rls_tightening.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('133', '133_rls_tightening.sql', 'fe600c217039f3900594bf6fdd32ac177c560e0810400750e806a62a281f5885', 'baseline install (schema dari DB live)');
+    VALUES ('133', '133_rls_tightening.sql', 'f94261797a8357846a3646e08ffe646263249c8aa7a22e1e83ca3250d704ecaa', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '134_authz_architecture_v2.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('134', '134_authz_architecture_v2.sql', 'c37e739b053d12a268c5f40b3a6ab2984d677a10784b5265336ff02b135298b4', 'baseline install (schema dari DB live)');
+    VALUES ('134', '134_authz_architecture_v2.sql', 'f6ea8ba65ee72ef8989ef7acf17d1243d75c6a969772213f4886ccd11d6c0ee6', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '135_authz_seed_permissions.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('135', '135_authz_seed_permissions.sql', '339ed5c9373386602775aa19923606335a0001fa449fa335189cb0fa444417de', 'baseline install (schema dari DB live)');
+    VALUES ('135', '135_authz_seed_permissions.sql', '8d3007e7f7e8ec4f0ce606e8c6747ae81ceb00d2f78be2cd8c502a1e03d1a358', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '136_authz_migrate_violations.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('136', '136_authz_migrate_violations.sql', 'ddc496dfc534889f1811665bce46ad1a601705318ce905b89ff2b8d7b80a38c2', 'baseline install (schema dari DB live)');
+    VALUES ('136', '136_authz_migrate_violations.sql', '973f9226af44f4df161c73e53293ce478e42bc7d881c3d216c4454f59b47645b', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '137_rls_remaining_tables.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('137', '137_rls_remaining_tables.sql', '42de4254511ec20c6bc3d03840244c155b5414fc0fb82b1d2b4b67d744d6eb83', 'baseline install (schema dari DB live)');
+    VALUES ('137', '137_rls_remaining_tables.sql', 'a372f52148c4ee1214a3d3a8538f67b5a92a70ae638fba51497e61448ac6282c', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '138_admin_rls_hardening.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('138', '138_admin_rls_hardening.sql', '5a5e2ecab45bbbafe3b4310967ed74edd4ada7b43e546fbf3ab4fd0d64e052f5', 'baseline install (schema dari DB live)');
+    VALUES ('138', '138_admin_rls_hardening.sql', '1062556e0c35aad10d08a57412021c0b6b062584bc2013ff6540994a36e6837e', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '139_admin_rbac_concurrent_session.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('139', '139_admin_rbac_concurrent_session.sql', 'c5b306bf0de9007d5484796dc11fdbe40549a0dded5dad41deeccac173be21c9', 'baseline install (schema dari DB live)');
+    VALUES ('139', '139_admin_rbac_concurrent_session.sql', '6df817ef34dca49635a5e4e119346d60f012ebbba0cf47e28215a2401636389d', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '140_fix_industry_schema.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('140', '140_fix_industry_schema.sql', 'b3a4fbe39ca427158ccd62c591b950f7fa5e653505deb557246466da18d5254d', 'baseline install (schema dari DB live)');
+    VALUES ('140', '140_fix_industry_schema.sql', '8fcbb7626f693a4513f249fdcb76b406fca3336eaf8aeed9dff6a3160f858428', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '141_153_CONSOLIDATED_.sql') THEN
@@ -1214,32 +1216,32 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '154_pilar2_self_service.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('154', '154_pilar2_self_service.sql', '47e4063d5f99b02e56f8db317534f5f22233aca8db62ffec2595880ac6507886', 'baseline install (schema dari DB live)');
+    VALUES ('154', '154_pilar2_self_service.sql', '11ebf76e94fcb4c7511f8116ceda343271af69d6edd87dcf958c43204269a247', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '155_pilar3_platform.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('155', '155_pilar3_platform.sql', '1d647a576393d9d83456705e3e5f726dacc14d668c2ef04164ba1800917f7b11', 'baseline install (schema dari DB live)');
+    VALUES ('155', '155_pilar3_platform.sql', '8f50162f7f94bc77c1c84a679e74c913d624b7defa02f72270fdcdb245f790b0', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '156_pilar4_ai.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('156', '156_pilar4_ai.sql', '8d890ff73cc9cd17432ffe76ba4019ae067a72d3fde68041756d8335f077bcf8', 'baseline install (schema dari DB live)');
+    VALUES ('156', '156_pilar4_ai.sql', 'cc1d129c006f72594c90107532c0854c9e41c00b95a8b89f2d7e796f4f6178b2', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '157_pilar5_flexibility.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('157', '157_pilar5_flexibility.sql', '1350e5a4f36db4d9d0c08c31cd9a3a7b7993089b94f05a7f59e8c2362f31bd21', 'baseline install (schema dari DB live)');
+    VALUES ('157', '157_pilar5_flexibility.sql', '822116ebdf2203c1e39341ccc7205ac27ab665dc96484be02a8de03c4b674bd8', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '158_fase1_employees_master_columns.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('158', '158_fase1_employees_master_columns.sql', '00ba7bd111c4e216f97c306fdbdabc9ea79e1fa207481a0e276c13870709111d', 'baseline install (schema dari DB live)');
+    VALUES ('158', '158_fase1_employees_master_columns.sql', 'f2bde36cdb49754aad88ecb9af0f9010c616f846ffe36e073a4006ba7f91008c', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '159_fase2_master_data.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('159', '159_fase2_master_data.sql', '7b1c45fd5dad145b71f0c534ecb7ed182162c6a2c30691f36b062ff00a8bf725', 'baseline install (schema dari DB live)');
+    VALUES ('159', '159_fase2_master_data.sql', 'db4e48c2f8dc44d0df884bfd56eb15738cc39d935d37612cd0d7b8eda7ae7616', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '160_fase3_hr_engine.sql') THEN
@@ -1294,7 +1296,7 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '171_restore_db_only_functions.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('171', '171_restore_db_only_functions.sql', '0992b69b6f033723ec8521405e6f9277602db0ea5f3fb586ecbb942f035d7acd', 'baseline install (schema dari DB live)');
+    VALUES ('171', '171_restore_db_only_functions.sql', '0639e04b2510ccc0c6436f4fd5bdf0ca2d975d1d0b4d62e0deb4e7bdb56a71d7', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '172_hardening_grants.sql') THEN
@@ -1314,12 +1316,12 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '175_smoke_tests.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('175', '175_smoke_tests.sql', '7b7b55c51576d9ca8a4f161bd88cb3708033de07787d79fc6692ca0f171dcb0c', 'baseline install (schema dari DB live)');
+    VALUES ('175', '175_smoke_tests.sql', '7c546c02c470f2424b811e990987170764ddfd29f6c06491beb1e2f3ad3e6213', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '176_fix_rownum_and_pgcrypto_path.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('176', '176_fix_rownum_and_pgcrypto_path.sql', '3bd3f0d25370f3caa6bc0f7cb3d6394a4a63962f8f7efca831a583e006023a07', 'baseline install (schema dari DB live)');
+    VALUES ('176', '176_fix_rownum_and_pgcrypto_path.sql', 'b0d9bb4ab217424885a3a3c8a407baa16ba11b7a7d387c0c8743075675fa891e', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '176_fix_search_path_extensions.sql') THEN
@@ -1334,7 +1336,7 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '178_fix_smoke_test_data.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('178', '178_fix_smoke_test_data.sql', '87385002d2b65c89a045163fb73c3c92a76376f62b92063903f482a75c2229c0', 'baseline install (schema dari DB live)');
+    VALUES ('178', '178_fix_smoke_test_data.sql', '0e1dca02f57880a2858e344ffedc2b9b129faf0937a261a38c2eb373b7615a08', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '179_fix_payroll_groupby_and_smoke.sql') THEN
@@ -1424,22 +1426,22 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '195_fix_worker_passwords_reset_required.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('195', '195_fix_worker_passwords_reset_required.sql', '281bf355f8aeba145181708d194517796e49e8ab7bd46bac8f56a1e34c38360b', 'baseline install (schema dari DB live)');
+    VALUES ('195', '195_fix_worker_passwords_reset_required.sql', 'a398bf9e4086cf347ce313d4344ff9dcf794ad64c4803cda30a96448f08d8e5c', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '196_fix_industrial_rpc_anon_grant.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('196', '196_fix_industrial_rpc_anon_grant.sql', '39a10a51341150e9cfbd23f3bf8011957f64c7a6f95dd2b0a854ba45df7a6da2', 'baseline install (schema dari DB live)');
+    VALUES ('196', '196_fix_industrial_rpc_anon_grant.sql', '55898b181a5fc9102cfa50e0b0f6ecaf7ad4c2c9fee0052513dc64635ede7ddb', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '197_fix_route_components.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('197', '197_fix_route_components.sql', '5dbf77ae554e1398ad0df3d10da3b665b498d12ab59aeba175e9eb4748e28306', 'baseline install (schema dari DB live)');
+    VALUES ('197', '197_fix_route_components.sql', 'aef235c0379a6813f24b41f9c032dc731735d9da4ecd3113e99b45b2c737788d', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '198_branding_insightwip.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('198', '198_branding_insightwip.sql', '66cf443e7691d163cf4c9a3a4fb4046d601486e87d1f81290c56640b5cb5efac', 'baseline install (schema dari DB live)');
+    VALUES ('198', '198_branding_insightwip.sql', 'ae91ad5f6cf30d241e8df3df9445361ef83d98772f609229d15bfc2d2bfddafb', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '199_auth_testing_override.sql') THEN
@@ -1459,27 +1461,27 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '202_fix_get_enabled_modules_search_path_and_area.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('202', '202_fix_get_enabled_modules_search_path_and_area.sql', 'dcf0bd16476351aa40f6c57651bad7733c9266209419c4f5a92532ced34cc0ed', 'baseline install (schema dari DB live)');
+    VALUES ('202', '202_fix_get_enabled_modules_search_path_and_area.sql', 'b2fdaf6fabd9ae32d35c16e93df007c24a2dea5e82e7bfa6abe6604868130d1d', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '203_fix_admin_get_vacancies.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('203', '203_fix_admin_get_vacancies.sql', '9d04e9c8391d0ae71cc3dcb4c9d93d8514c40ae704796d4359adcbfdd11459ab', 'baseline install (schema dari DB live)');
+    VALUES ('203', '203_fix_admin_get_vacancies.sql', '7f5d3b4341f5af7bfa77380f1393965c98c328eab6bbff58bb40d391a20a7d9d', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '204_admin_mill_routes.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('204', '204_admin_mill_routes.sql', '7c11419eef45918211b51ba295fdb7c9caf728025a0fcb80bb9111977c770fc2', 'baseline install (schema dari DB live)');
+    VALUES ('204', '204_admin_mill_routes.sql', '0666c720be0b470838a55a8a55063a76d88edc39ca7176ac84e5c099b073a6a2', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '205_get_enabled_modules_legacy_rename.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('205', '205_get_enabled_modules_legacy_rename.sql', 'b61db4b008ffbca5276c57079695afa44b381e6d666d1bc52e646b5cdb105d13', 'baseline install (schema dari DB live)');
+    VALUES ('205', '205_get_enabled_modules_legacy_rename.sql', '9736cdebed755858f51a795a4bcfd4c9a385e1a5399f23b5127fb8250b45cd7f', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '206_nik_null_guard.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('206', '206_nik_null_guard.sql', 'eaa2d43e19163aedbffeda19821b3546ed21cfb27c070eaa9d1459a9bc7c75b1', 'baseline install (schema dari DB live)');
+    VALUES ('206', '206_nik_null_guard.sql', 'fc3871b9de4359d11759661d41eb604b7db6e764fa71826f99af5b20600d206a', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '207_fix_search_path_strays.sql') THEN
@@ -1504,7 +1506,7 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '210_revoke_anon_remaining.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('210', '210_revoke_anon_remaining.sql', '9ae718e7ae5f3baefc49d7f8f900f5298423c3b4cf202f254986eadd363753db', 'baseline install (schema dari DB live)');
+    VALUES ('210', '210_revoke_anon_remaining.sql', 'd8a5da4e224b627e224b40b4366a0274df3b3a2f0e9ecf92bcf7e0d00b8cc58b', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '211_employees_master_write_trigger.sql') THEN
@@ -1529,12 +1531,12 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '215_ai_rag_access_and_rate_limits.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('215', '215_ai_rag_access_and_rate_limits.sql', '44b481f63e9e93c5cafb072fff0b488cc0954185ba1180b60424967ca414a354', 'baseline install (schema dari DB live)');
+    VALUES ('215', '215_ai_rag_access_and_rate_limits.sql', '2a6e8e77f7f7a014ccee2a6a3855b728f247c9bc59792fd2e0d08dddfc735624', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '215_gap_employee_fields.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('215', '215_gap_employee_fields.sql', 'e5dc72cb64ab6299c256cbde7c4e32e3446e401109db964940915470c9786a82', 'baseline install (schema dari DB live)');
+    VALUES ('215', '215_gap_employee_fields.sql', 'ff5a19f1caaf699aa1044c159dc3c7dcfc8283111f15ddfd39cf0387b5ff3da7', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '216_login_worker_by_email.sql') THEN
@@ -1574,7 +1576,7 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '223_fix_branding_anon_grant.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('223', '223_fix_branding_anon_grant.sql', '6d9674f6c062f0cad7177e502a5ee2ee2616dd6a840ee6f914b6d64aecf2cb03', 'baseline install (schema dari DB live)');
+    VALUES ('223', '223_fix_branding_anon_grant.sql', '873d1b30f1ca07ab18dce601068e0ac3440211549cccc431e2240db35503bf09', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '224_fix_check_migrations_duplicate_rule.sql') THEN

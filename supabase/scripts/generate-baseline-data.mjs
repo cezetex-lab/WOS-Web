@@ -22,7 +22,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { migrationChecksum } from './migration-checksum.mjs';
 import pg from 'pg';
 
 const argv = process.argv.slice(2);
@@ -257,8 +257,10 @@ if (!brandingCols.length) {
 // ── cap registry migrasi ──
 emit(`-- ── CAP schema_migrations ────────────────────────────────────────`);
 emit(`-- Semua berkas migrasi repo ditandai sebagai sudah diterapkan, dengan checksum`);
-emit(`-- SHA-256 byte mentah berkas (algoritma yang sama dipakai apply-migration.mjs),`);
-emit(`-- sehingga \`verify_migration_checksum\` dan \`check_migrations()\` konsisten dan`);
+emit(`-- SHA-256 berkas dengan EOL CRLF->LF dinormalisasi lebih dulu — modul bersama`);
+emit(`-- \`supabase/scripts/migration-checksum.mjs\`, sama seperti \`apply-migration.mjs\` —`);
+emit(`-- supaya nilai checksum tidak bergantung gaya EOL checkout. Dengan begitu`);
+emit(`-- \`verify_migration_checksum\` dan \`check_migrations()\` konsisten dan`);
 emit(`-- migrasi baru (> versi tertinggi) berjalan incremental.`);
 emit(`DO $$`);
 emit(`DECLARE v_n INTEGER;`);
@@ -274,7 +276,10 @@ for (const f of migFiles) {
   // menghasilkan '0' dan membuat check_migrations() melaporkan VERSION_MISMATCH
   // untuk hampir semua berkas — terukur 59 issue pada instalasi baru 2026-09-18.
   const version = (/^(\d+)/.exec(f) || ['0'])[0];
-  const checksum = crypto.createHash('sha256').update(fs.readFileSync(path.join(MIG_DIR, f))).digest('hex');
+  // Modul bersama: sha256 dengan EOL CRLF→LF dinormalisasi (temuan SQL-10), supaya
+  // cap di sini dan registry dari apply-migration.mjs memakai definisi yang sama di
+  // checkout LF maupun CRLF.
+  const checksum = migrationChecksum(path.join(MIG_DIR, f));
   emit(`  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = ${lit(f)}) THEN`);
   emit(`    INSERT INTO public.schema_migrations (version, filename, checksum, description)`);
   emit(`    VALUES (${lit(version)}, ${lit(f)}, ${lit(checksum)}, 'baseline install (schema dari DB live)');`);
