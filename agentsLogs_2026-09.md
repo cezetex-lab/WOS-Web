@@ -2055,3 +2055,6 @@ guard agar menghitung hanya berkas ter-track, lalu buktikan §7.3 hijau pada tre
 `tests/unit/work-queue-consistency.test.ts`.
 Tidak di-stage: `tests/e2e/worker-profile-smoke.spec.ts` (WIP sesi paralel, terkait OPS-01), `test-results/`,
 `.agents/`, dan 1 berkas rusak `.freebuff/`.
+- Commit lokal FASE 2: **`ab172dc`** — `docs(FASE 2): reconcile Work Queue §5.8 + fix SQL-09 false positive`
+  (10 berkas, +670/−206). **Belum di-push, belum di-deploy** sesuai perintah user; branch `migrasi-vite`
+  kini ahead 2 dari `origin`.
