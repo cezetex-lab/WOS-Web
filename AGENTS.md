@@ -92,6 +92,100 @@ ikut ter-commit**. Dilarang memindahkan berkas yang **ber-git-track** (`FuturePl
 `AGENTS.md`, `agentsLogs.md`, berkas di `src/`, `tests/`, `supabase/`) ke `.agents/` — itu sama
 dengan menghapusnya dari version control. Berkas ber-track tetap di root atau di `docs/`.
 
+## 0.12 WORK QUEUE LIFECYCLE
+
+Setiap item Work Queue melewati state berikut:
+NEW → INVESTIGATE → DECIDED → IN-PROGRESS → VERIFIED → DONE → REMOVED
+
+
+| State | Arti | Siapa yang mengubah |
+|---|---|---|
+| NEW | Temuan baru, belum diverifikasi | Agen (saat audit) |
+| INVESTIGATE | Sedang dicek ke DB/kode live | Agen |
+| DECIDED | Keputusan user sudah ada | User |
+| IN-PROGRESS | Sedang dikerjakan | Agen |
+| VERIFIED | DoD terbukti dengan bukti mentah | Agen + User |
+| DONE | Sudah masuk `agentsLogs_YYYY-MM.md` | Agen |
+| REMOVED | Baris dihapus dari §5.8 | Agen setelah DONE |
+
+**Aturan keras:**
+- Item DILARANG masuk state VERIFIED tanpa bukti mentah (query result / output terminal).
+- Item DILARANG dihapus dari §5.8 sebelum tercatat di `agentsLogs_YYYY-MM.md`.
+- Item dengan state NEW > 7 hari → tandai "stale" dan tanyakan user.
+
+## 0.13 PRIORITY DEFINITIONS
+
+| Prio | Arti | SLA | Contoh |
+|---|---|---|---|
+| P0 | Blocker — menghentikan semua kerja | Selesaikan sebelum task berikutnya | Data corruption, security breach, deploy blocker |
+| P1 | Penting — dampak user signifikan | Selesaikan dalam sesi ini | Bug fungsional, RLS salah, drift data |
+| P2 | Menengah — dampak terbatas | Selesaikan dalam 1-2 sesi | Bundle size, drift registry, duplikat data |
+| P3 | Nice-to-have — kosmetik/optimasi | Kapan saja | Komentar stale, header file |
+
+**Aturan:**
+- Prioritas di-set oleh User, bukan Agen.
+- Agen boleh usul naik/turun prioritas, tetapi harus minta konfirmasi.
+- P0 wajib direview user sebelum eksekusi.
+
+## 0.14 SESSION PROTOCOL
+
+### Sebelum mulai kerja (CHECKLIST):
+1. `git status --short` — pastikan working tree tahu statusnya.
+2. `git log --oneline -5` — pahami state terakhir.
+3. Baca `AGENTS.md` §5.8 (Work Queue) + baca file derivatif sesuai Reading Map.
+4. Baca entry terakhir `agentsLogs_YYYY-MM.md` untuk konteks.
+5. Konfirmasi plan ke user SEBELUM eksekusi.
+
+### Setelah selesai kerja (CHECKLIST):
+1. Semua perubahan ter-commit ATAU ada di work queue sebagai OPEN.
+2. Gate dijalankan (`check:types`, `lint`, `test`, `build`).
+3. Hasil ditulis ke `agentsLogs_YYYY-MM.md`.
+4. Work Queue di-update (item DONE → REMOVED; item baru → NEW).
+5. Lapor ringkas ke user dengan hash commit.
+
+## 0.15 STOP CONDITIONS
+
+Agen WAJIB berhenti dan tanya user jika:
+1. Tool timeout (mis. `npm test` butuh 20s tapi tool limit 30s) — jangan retry buta.
+2. File di luar scope berubah (`git status` menunjukkan file yang tidak diminta).
+3. Ada ambiguitas instruksi.
+4. Ada duplikat data (mis. 2 baris `module_definitions` dengan `route_path` sama).
+5. Fix yang diminta berpotensi breaking change (RPC, route, kontrak session).
+6. Sebuah task butuh > 3 percobaan → lapor, jangan loop.
+7. Database query mengembalikan hasil di luar ekspektasi.
+
+**Format laporan STOP:**
+STOP — <alasan 1 baris>
+Konteks: <apa yang sedang dilakukan>
+Bukti: <output mentah>
+Opsi: <A/B/C, dengan risiko masing-masing>
+Butuh keputusan user.
+
+
+## 0.16 ANTI-HALLUCINATION RULE
+
+**Semua klaim DONE wajib disertai output MENTAH.**
+
+Yang dianggap bukti sah:
+- Output terminal yang di-copy-paste (bukan ringkasan).
+- Query result dari DB (bukan parafrase).
+- Commit hash yang bisa diverifikasi via `git log`.
+- Screenshot/trace file (untuk E2E).
+
+Yang DILARANG:
+- "Sudah saya jalankan" tanpa output.
+- "Gate hijau 4/4" tanpa copy terminal.
+- "Sudah diverifikasi" tanpa bukti query.
+- Angka statistik (bundle size, test count) tanpa output mentah.
+
+**Konsekuensi:** Klaim DONE tanpa bukti → status tetap OPEN sampai dibuktikan.
+
+**Pelajaran nyata:**
+- 2026-09-19: helper klaim "SQL-04/05/07 COMPLETED" tapi log tidak mencatat. Ternyata belum di-apply ke live.
+- 2026-09-20: helper klaim "gzip max 2 kB" padahal output build menunjukkan 200 kB.
+- 2026-09-20: helper klaim "SELESAI" untuk SQL-09 padahal file migrasi hanya berisi komentar.
+
+
 ## 0.5 GOLDEN RULES (WAJIB) — KETERKAITAN 4 PAGE: worker ⇄ admin ⇄ dashboard ⇄ owner
 
 > **PRINSIP DASAR:** insightWOS = **SATU sistem terintegrasi**, bukan 4 aplikasi terpisah.
@@ -129,7 +223,7 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
    fungsional: (a) `npm run check:types` 0 error, (b) unit test hijau, (c) `npm run build`
    EXIT 0, (d) smoke putar 4 page (worker → admin → dashboard → owner), (e) E2E
    `full-sweep`/`tab-click-test`/`role-change` bila menyentuh route/menu/role.
-7. **G7 — Catat dampak di log.** Entri `agentsLogs.md` wajib memuat baris
+7. **G7 — Catat dampak di log.** Entri `agentsLogs_YYYY-MM.md` wajib memuat baris
    `Dampak lintas-page: worker → admin → dashboard → owner` berisi hasil pengecekan tiap page
    (termasuk "tidak terdampak" + alasannya).
 
@@ -137,14 +231,14 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
 
 > **Sumber:** audit menyeluruh 2026-09-17 — 150+ migrasi diparsing lalu **setiap temuan
 > diverifikasi ke DB live** (read-only; satu probe tulis di dalam transaksi yang di-`ROLLBACK`).
-> Laporan + data mentah: `agentsLogs.md` entri `[2026-09-17] Audit kesiapan instalasi`.
+> Laporan + data mentah: `agentsLogs_2026-09.md` entri `[2026-09-17] Audit kesiapan instalasi`.
 >
 > **ATURAN WORK QUEUE (jangan dilanggar):**
 > 1. Setiap temuan audit **WAJIB** jadi item bernomor di tabel ini dengan **Bukti** dan
 >    **Definition of Done**. **Dilarang** menutup temuan sebagai komentar/prosa saja.
 > 2. Item hanya boleh ditandai ✅ bila **DoD-nya terbukti** (perintah/query + hasil), bukan
 >    karena "sudah dikerjakan".
-> 3. Item ✅ hanya boleh **dihapus dari file ini setelah** hasilnya tertulis di `agentsLogs.md` (§0.4).
+> 3. Item ✅ hanya boleh **dihapus dari file ini setelah** hasilnya tertulis di `agentsLogs_YYYY-MM.md` (§0.4).
 > 4. Dilarang menambah item "catatan" tanpa aksi; kalau tidak ada aksi, bukan item.
 > 5. Item P0 wajib dikerjakan sebelum migrasi/fitur besar berikutnya.
 >
@@ -152,11 +246,13 @@ Worker (input: absensi, izin, lembur, produksi, dokumen)
 
 | ID | Prio | Masalah | Bukti (terverifikasi) | Definition of Done | Status |
 |---|---|---|---|---|---|
-| SQL-02 | **P2** (turun dari P1) | **25 tabel + 14 fungsi live tanpa sumber migrasi** — sekarang **tercakup**: ke-25 tabel ada di baseline (di-generate dari katalog live, bukan dari rantai), jadi instalasi perusahaan baru tidak kehilangan apa pun | Tabel: `ai_rate_limits`, `api_keys`, `api_rate_limits`, `dashboard_cache`, `user_consents`, `hr_shift_swaps`, `hr_audit_chain`, `hr_okr_results`, `hr_survey_responses`, `hr_task_board`, `safety_incidents`, `webhook_logs`, 5×`mining_*`, 5×`estate_*`, 3×`mill_*` — dipulihkan `008_restore_missing_objects.sql`. Fungsi: 13×`_legacy_*` + `worker_update_profile_legacy` — tidak dibuat rerantai, dan itu aman sekarang karena `172`/`210`/`221`/`226` memakai guard (`to_regprocedure`) sehingga ketidakhadirannya tidak menggagalkan apa pun. Terbukti: replay 156/156 dengan 14 fungsi itu tetap absen | **TERBUKTI 2026-09-18:** baseline memuat seluruh objek live — `verify-install-e2e.mjs` memasang ke project kosong dan mencocokkan **9/9 metrik** dengan live (208 tabel, 549 fungsi, 223 policy, 27 trigger, 285 partisi, 95 sequence, 4 cron job, cap 157). Sisa satu keputusan kecil: 14 `_legacy_*` di DB live dibuat ulang atau dihapus | OPEN (dampak instalasi sudah nol) |
-| SQL-09 | ✅ | **Duplikat `CREATE` dalam satu berkas** — ternyata **dead code**, bukan konflik | Terverifikasi 2026-09-20: blok di 141 (baris 545-556 & 558-567) **byte-identik** (`diff` kosong) dengan pengulangan di 1911-1922 & 1924-1933; berkas 183 hanya punya **1** `CREATE VIEW employees_master` (baris 181) — klaim audit "view 2x" **SALAH**, kemunculan lain adalah `DROP` di dalam DO-block yang memang wajib. Live: **1** `hr_okrs` (TABLE, 10 kolom, 9 baris data), **1** `hr_surveys`, **1** `employees_master` (VIEW) — **0 objek kembar**. DROP ke DB live ditolak karena tidak ada yang kembar dan justru menghapus data | Duplikat dihapus **di sumber** (141) + `239` v2 jadi **assertion non-destruktif** (gagal-cepat bila kelak muncul objek kembar) | ✅ SELESAI (2026-09-20: 24 baris duplikat dibuang diganti catatan; replay rantai **164/164, 0 GAGAL**; installer E2E **PASS 9/9 SAMA**; assertion 239 **PASS** di live; checksum 141 & 239 di-restamp; cap baseline disegarkan 160→**164**) |
+| SQL-02 | **P2** (turun dari P1) | **25 tabel + 14 fungsi live tanpa sumber migrasi** — sekarang **tercakup**: ke-25 tabel ada di baseline (di-generate dari katalog live, bukan dari rantai), jadi instalasi perusahaan baru tidak kehilangan apa pun | Tabel: `ai_rate_limits`, `api_keys`, `api_rate_limits`, `dashboard_cache`, `user_consents`, `hr_shift_swaps`, `hr_audit_chain`, `hr_okr_results`, `hr_survey_responses`, `hr_task_board`, `safety_incidents`, `webhook_logs`, 5×`mining_*`, 5×`estate_*`, 3×`mill_*` — dipulihkan `008_restore_missing_objects.sql`. Fungsi: 13×`_legacy_*` + `worker_update_profile_legacy` — tidak dibuat rerantai, dan itu aman sekarang karena `172`/`210`/`221`/`226` memakai guard (`to_regprocedure`) sehingga ketidakhadirannya tidak menggagalkan apa pun. Terbukti: replay 156/156 dengan 14 fungsi itu tetap absen | **TERBUKTI 2026-09-18; angka disegarkan 2026-09-20:** baseline memuat seluruh objek live — `verify-install-e2e.mjs` memasang ke project kosong dan mencocokkan **9/9 metrik** dengan live (208 tabel, 670 fungsi, 223 policy, 27 trigger, 285 partisi, 95 sequence, 3 cron job, cap 164). Sisa satu keputusan kecil: 14 `_legacy_*` di DB live dibuat ulang atau dihapus | OPEN (dampak instalasi sudah nol) |
+| SQL-09 | **P2** | **Duplikat `CREATE` dalam satu berkas**— ternyata **dead code**, bukan konflik | Terverifikasi 2026-09-20: blok di 141 (baris 545-556 & 558-567) **byte-identik** (`diff` kosong) dengan pengulangan di 1911-1922 & 1924-1933; berkas 183 hanya punya **1** `CREATE VIEW employees_master` (baris 181) — klaim audit "view 2x" **SALAH**, kemunculan lain adalah `DROP` di dalam DO-block yang memang wajib. Live: **1** `hr_okrs` (TABLE, 10 kolom, 9 baris data), **1** `hr_surveys`, **1** `employees_master` (VIEW) — **0 objek kembar**. DROP ke DB live ditolak karena tidak ada yang kembar dan justru menghapus data | Duplikat dihapus **di sumber** (141) + `239` v2 jadi **assertion non-destruktif** (gagal-cepat bila kelak muncul objek kembar) | ✅ SELESAI (2026-09-20: 24 baris duplikat dibuang diganti catatan; replay rantai **164/164, 0 GAGAL**; installer E2E **PASS 9/9 SAMA**; assertion 239 **PASS** di live; checksum 141 & 239 di-restamp; cap baseline disegarkan 160→**164**) |
 | SQL-10 | **P3** | **Checksum migrasi bergantung EOL checkout** — `.gitattributes` memakai `* text=auto eol=crlf` (blob repo LF, working tree CRLF), sedangkan generator baseline & `apply-migration.mjs` meng-hash **byte berkas kerja** | Bukti 2026-09-20: `git cat-file HEAD:141` = LF (2629 baris), berkas kerja = LF, dan `sha256` keduanya = `1b97c988...` = nilai cap baseline lama. Di checkout baru berkas jadi CRLF sehingga hash berbeda → cap/registry tidak cocok lintas mesin. `check_migrations()` **tidak** membandingkan checksum berkas (hanya UNAPPLIED/DUPLICATE/VERSION_MISMATCH), jadi instalasi tidak terblokir; efeknya `apply-migration.mjs` meminta `--restamp` di mesin dengan EOL berbeda | Pilih satu: normalisasi CRLF→LF sebelum hashing (generator + `apply-migration.mjs`) **atau** kunci `*.sql text eol=lf`; buktikan sha256 identik pada checkout LF dan CRLF | ✅ SELESAI (2026-09-20: modul bersama `supabase/scripts/migration-checksum.mjs` menormalisasi EOL CRLF→LF sebelum hashing; **66** cap baseline + **50** entri registry disegarkan lewat `npm run db:refresh-checksums -- --apply --db`; bukti pada 141 (berkas terbesar): LF & CRLF sama-sama `17989aa0…` sedangkan algoritma lama `17989aa0…` vs `7a7f0b9a…`; guard `tests/unit/migration-checksum-eol.test.ts` **5/5**; `001_init.sql` (CRLF) kembali “checksum cocok”; `--restamp` kini tidak lagi menimpa `applied_at`). **Bukti lintas-checkout NYATA 2026-09-20** (main tree 98 LF + 66 CRLF-campuran vs `git worktree` segar 164 CRLF): algoritma lama **101/164** berkas beda sha256, algoritma baru **0/164**; registry live cocok **129/164** (sisa 35 = SQL-11). Turunan: drift **KONTEN** 35 berkas → SQL-11 |
 | SQL-11 | **P2** | **35 migrasi drift checksum KONTEN** — registry ≠ hash berkas sekarang, dan ini BUKAN soal EOL | Bukti 2026-09-20 (`db:refresh-checksums --db`): dari 85 entri tidak cocok, **50 hanya beda EOL** (sudah disegarkan) dan **35 beda konten**: 011, 018, 027, 051, 052, 053, 054, 058, 062, 073, 083, 086, 091, 140, 171, 172, 175, 176, 178, 180, 181, 183, 186, 195, 196, 199, 201, 206, 208, 210, 212, 213, 219, 221, 226 — sebagian besar berkas yang diperbaiki sesi fresh-install, jadi live kemungkinan sudah benar tetapi registry tidak lagi membuktikannya. `check_migrations()` tidak memeriksa checksum berkas, jadi tidak memblokir instalasi | Audit per berkas: tentukan (a) cukup `--restamp` (live sudah memuat perubahan, dibuktikan objek per berkas) atau (b) perlu `--apply` ulang (live tertinggal); tidak boleh diselesaikan dengan restamp massal tanpa bukti | OPEN |
 | SQL-12 | **P2** | **`worker_update_profile` tidak bisa mengosongkan field** — pola `COALESCE(p_param, kolom)` membuat NULL = "jangan ubah", jadi sekali field terisi (mis. agama) worker tak bisa mengosongkannya lewat UI | Terverifikasi 2026-09-20: definisi live `agama = COALESCE(p_agama, agama)`; smoke OPS-01 attempt-1: simpan '' sukses di UI tapi DB tetap berisi nilai lama (residu dibersihkan manual ke NULL). UI sudah benar (kirim `form.agama ∥ null`), masalahnya di RPC | Putuskan: (a) terima batasan + dokumentasikan, atau (b) ubah RPC agar pengosongan eksplisit mungkin (kontrak RPC berubah — G3: grep semua pemakai + cek konsumen hilir sebelum mengubah) | DEFERRED — kerjakan setelah FASE 3 (CI Full) selesai; butuh keputusan user untuk fix RPC (COALESCE → sentinel/CASE) |
+| SQL-13 | **P2** | Duplikat `module_definitions`: 2 baris aktif untuk `route_path='/dashboard'` (`dashboard_landing` + `ceo_dashboard`). Bisa menyebabkan menu muncul 2×, access tier konflik, atau DynamicRoutes fallback salah render. | Query DB: 2 baris `is_active=true`. | Putuskan: (a) nonaktifkan salah satu (`UPDATE is_active=false`), atau (b) hapus salah satu, atau (c) dokumentasikan sebagai intentional. Bukti: setelah fix, query mengembalikan 1 baris untuk `'/dashboard'`. | OPEN — butuh keputusan user |
+
 
 | OPS-01 | **P2** | **Smoke runtime WorkerProfile belum dijalankan** (pindahan `§5` STATE DONE) | `§5` hanya menyisakan satu item OPEN: login worker → WorkerProfile → edit 1 kolom → simpan → reload. Grant `EXECUTE TO authenticated` sudah termigrasi di `222` (baris 79 + 150-152) — tidak ada langkah SQL tersisa. Lingkungan agent tidak bisa menjangkau app live | User menjalankan smoke di browser lalu hasilnya ditulis ke `agentsLogs.md` | ✅ SELESAI (smoke `npm run smoke:ops01` LULUS untuk worker NRP007; bukti di entri log 2026-09-20) |
 | OPS-02 | **P2** | **Guard dokumen menghitung berkas *working tree*, termasuk yang UNTRACKED** — `doc-claims-vs-live.test.ts` §7.3 membandingkan klaim `ARCHITECTURE.md` dengan hasil penelusuran di disk, sehingga checkout bersih tidak bisa hijau selama ada berkas test yang belum di-commit | Bukti 2026-09-20: `find tests` = **38** berkas `*.ts` dan `*.tsx`, sedangkan `git ls-files tests` = **36**. Dua berkas untracked (`tests/e2e/worker-profile-smoke.spec.ts`, `tests/unit/work-queue-consistency.test.ts`) memaksa §7.3 ditulis `38` (disk) padahal HEAD hanya punya 36 — angka itu akan salah lagi begitu salah satu berkas di-commit atau dihapus | Pilih satu: **(a)** commit berkas test WIP lalu jaga angka §7.3, atau **(b)** ubah guard agar menghitung hanya berkas ter-track (`git ls-files`); buktikan §7.3 hijau pada tree kotor **dan** checkout bersih | ✅ SELESAI (2026-09-20: `countFiles` diganti `trackedFiles()` berbasis `git ls-files` + `countTracked(prefix, exts)`; §7.3 kini **202** = 157 `src` + 39 `tests` + 6 config (angka tracked, bukan disk yang saat itu 38 `tests`); guard hijau di tree kotor, dan angka tracked identik di checkout bersih karena bersumber dari index git). **Demo merah/hijau 2026-09-20** di worktree scratch dengan 2 berkas test untracked: logika lama (verbatim `4d11988^`) **MERAH** (disk tests 41 vs dokumen 39), logika `git ls-files` **HIJAU** (39=39); guard asli tetap hijau di tree yang sama dan di checkout bersih) |
