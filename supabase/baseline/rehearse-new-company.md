@@ -9,8 +9,8 @@ prereq platform disiapkan (auth/extensions, stub cron, default privilege)
   role   : postgres
   postgres: 17.6
   tabel di public: 0
---- APPLY 000_baseline_schema.sql ... ok (3272ms)
---- APPLY 010_baseline_config_data.sql ... ok (619ms)
+--- APPLY 000_baseline_schema.sql ... ok (4032ms)
+--- APPLY 010_baseline_config_data.sql ... ok (780ms)
 --- IDENTITAS PERUSAHAAN ---
   branding.company_name → "PT Uji Perusahaan Baru" (1 baris)
   company_config.owner_email → owner@perusahaan-baru.test (baris baru dibuat, 1)

@@ -2168,3 +2168,43 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
   (`owner_login` ok, `check_owner_identity` true, RPC owner mengembalikan data).
 - Satu perubahan yang menyentuh semua halaman secara tidak langsung: prereq scratch
   (`platform-prereqs.mjs`) — hanya dipakai skrip verifikasi, tidak pernah dipakai aplikasi.
+## [2026-09-20] SQL-10 & OPS-02: bukti lintas-checkout nyata; rehearsal perusahaan baru PASS; OPS-01 siap sekali-klik
+
+- Status: **SQL-10 ✅ + OPS-02 ✅ (diperkuat bukti)**, rehearsal perusahaan baru **PASS (ter-verify)**,
+  OPS-01 **siap** (prasyarat hijau; eksekusi menunggu user sesuai DoD). Pekerjaan inti sudah di-commit
+  `4d11988`; sesi ini menambahkan **pembuktian independen** dan menutup lingkaran §5.8.
+- Bukti SQL-10 (checksum bebas EOL) — dua checkout NYATA, bukan simulasi:
+  - main tree: 164 berkas migrasi = 98 LF murni + 66 CRLF/campuran;
+    `git worktree add` segar: **164/164 CRLF** (atribut `eol=crlf` bekerja).
+  - algoritma LAMA (byte mentah, `legacyRawChecksum`): **101/164 berkas beda sha256** antar checkout
+    (contoh 006: LF `d75bc7e0…` vs CRLF `524f3e0d…`) — masalahnya nyata dan luas.
+  - algoritma BARU (`migrationChecksum`, normalisasi CRLF→LF pada byte): **0/164 beda** — identik.
+  - registry live `schema_migrations` (164 baris) vs hash berkas: **129 cocok**; 35 sisanya adalah
+    drift KONTEN (bukan EOL) → sudah menjadi item **SQL-11**. `141` & `239` cocok persis
+    (`17989aa042163cf1…`, `e5ff565457f5da2e…`).
+  - guard unit `tests/unit/migration-checksum-eol.test.ts` 5/5; skrip bukti: `.agents/scripts/prove-sql10.mjs`.
+- Bukti OPS-02 (guard dokumen hanya menghitung berkas ter-track):
+  - checkout bersih (worktree di HEAD, tanpa berkas untracked): guard asli §7.3 + §7.5 **HIJAU**
+    (2 tes DB di-skip karena butuh `DATABASE_URL`).
+  - demo merah/hijau di worktree yang SAMA dengan 2 berkas test untracked: logika LAMA
+    (verbatim dari `4d11988^:tests/unit/doc-claims-vs-live.test.ts`) **MERAH**
+    (`{src:157, tests:41, config:6}` vs dokumen `{157,39,6}`), logika BARU `git ls-files` **HIJAU**
+    (`{157,39,6}` = dokumen); guard asli tetap hijau di tree yang sama.
+- Rehearsal instalasi perusahaan baru dari NOL — `npm run db:rehearse-newco` **PASS** (fresh run):
+  DB scratch `wos_replay_newco` dikosongkan → prereq platform → baseline `000`+`010` terpasang
+  (209 tabel, 553 fungsi, 224 policy, 27 trigger, 285 partisi, 155 menu, cap 164, `check_migrations()` bersih)
+  → identitas perusahaan (`PT Uji Perusahaan Baru`, `owner@perusahaan-baru.test`) → owner pertama
+  OWNER001 (`owner_login()` = `ok:true`, role=owner, is_owner=true) → 4 RPC dashboard hidup
+  (`get_owner_overview_stats` 9 field, `get_modules_for_owner` 61 baris, `get_business_units_for_owner`
+  4 baris, `get_dashboard_stats` 7 field) → isolasi: `anon` DITOLAK (`permission denied for function
+  check_owner_identity`). DB scratch di-drop; TIDAK menyentuh DB live. Transkrip:
+  `supabase/baseline/rehearse-new-company.md`.
+- OPS-01 siap sekali-klik — `npm run smoke:ops01 -- --check` hijau: kredensial NRP002 terbaca dari
+  `supabase/akun/akun.txt` (parser kolom TAB, tanpa bocor ke log), spec `tests/e2e/worker-profile-smoke.spec.ts`
+  ada, Playwright 1.63.0, test terdaftar. Cara pakai: `npm run smoke:ops01` (headed, hasil otomatis
+  ditulis ke log via safe-file-writer) atau `-- --headless`; `-- --close` HANYA setelah user menyetujui
+  penutupan item (tanpa itu judul entri log sengaja tanpa kata DONE/SELESAI agar guard konsisten).
+- §5.8 diperbarui: sel status SQL-10 & OPS-02 diperkuat bukti di atas. SQL-11 tetap OPEN (35 drift
+  konten: audit per berkas restamp-vs-reapply).
+- Dampak lintas-page: worker → admin → dashboard → owner: **TIDAK terdampak** — perubahan murni
+  tooling checksum, guard test, dan dokumen; tidak menyentuh RPC, types, route, menu, design-system.
