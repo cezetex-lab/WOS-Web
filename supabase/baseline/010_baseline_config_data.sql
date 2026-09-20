@@ -1649,6 +1649,11 @@ BEGIN
     VALUES ('239', '239_sql09_fix_duplicate_create.sql', 'e5ff565457f5da2e5f7a96b2375bb1fdc26e40efd489aabb7c960328f4c088b2', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '240_drop_hr_attendance_partitioned.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('240', '240_drop_hr_attendance_partitioned.sql', '2877ffbaee7e5a10b205d5c060b29b5c516ae28d094493a26030d9ebe47edd1f', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
 END $$;
 

@@ -4,8 +4,8 @@
 --
 -- Sumber     : DB live (host, project ref & password sengaja TIDAK ditulis)
 -- Generator  : supabase/scripts/generate-baseline.mjs (FULL)
--- Objek      : 209 tabel, 553 fungsi, 1 view,
---               95 sequence, trigger/policy sesuai tabel
+-- Objek      : 208 tabel, 552 fungsi, 1 view,
+--               94 sequence, trigger/policy sesuai tabel
 --
 -- JANGAN disunting tangan. Regenerate dengan generator di atas.
 --
@@ -19,9 +19,9 @@
 --   * Berkas ini menggantikan replay 000–228 karena rangkaian migrasi repo
 --     BUKAN histori utuh (79 nomor versi tanpa berkas — AGENTS.md §5.8 SQL-10)
 --     dan 23 tabel + 14 fungsi live tidak punya sumber migrasi (SQL-02).
---   * Partisi `hr_attendance_*` tidak di-hardcode di sini: dipanggil
---     `ensure_attendance_partitions()` agar tidak berakhir seperti loop
---     2024..2027 di migrasi 141 (AGENTS.md §5.8 SQL-08).
+--   * Partisi `hr_attendance_partitioned` TIDAK ADA lagi: tabel mati itu
+--     di-drop migrasi 240 (SQL-08, keputusan user 2026-09-20) — absensi
+--     tertulis di tabel biasa `hr_attendance`.
 --   * Schema/objek milik Supabase (`auth`, `storage`, `vault`, role
 --     anon/authenticated/service_role) TIDAK dibuat di sini — sudah disediakan
 --     platform. RLS memakai `auth.uid()` dari sana.
@@ -96,7 +96,6 @@ CREATE SEQUENCE IF NOT EXISTS public.fatigue_data_id_seq AS bigint START WITH 1 
 CREATE SEQUENCE IF NOT EXISTS public.harvest_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.headcount_plans_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.hr_attendance_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
-CREATE SEQUENCE IF NOT EXISTS public.hr_attendance_partitioned_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.hr_audit_chain_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.hr_capability_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.hr_coaching_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
@@ -938,20 +937,6 @@ CREATE TABLE IF NOT EXISTS public.hr_attendance (
   overtime_approved boolean
 );
 
-CREATE TABLE IF NOT EXISTS public.hr_attendance_partitioned (
-  id integer DEFAULT nextval('hr_attendance_partitioned_id_seq'::regclass) NOT NULL,
-  nrp text NOT NULL,
-  date date NOT NULL,
-  status_hadir text,
-  jam_masuk time without time zone,
-  menit_terlambat integer DEFAULT 0,
-  jam_keluar time without time zone,
-  shift text,
-  menit_lembur integer DEFAULT 0,
-  created_at timestamp with time zone DEFAULT now(),
-  overtime_approved boolean DEFAULT false
-) PARTITION BY RANGE (date);
-
 CREATE TABLE IF NOT EXISTS public.hr_audit_chain (
   id integer DEFAULT nextval('hr_audit_chain_id_seq'::regclass) NOT NULL,
   action text NOT NULL,
@@ -1198,7 +1183,11 @@ CREATE TABLE IF NOT EXISTS public.hr_okrs (
   periode text NOT NULL,
   objective text NOT NULL,
   status text DEFAULT 'on_track'::text,
-  created_at timestamp with time zone DEFAULT now()
+  created_at timestamp with time zone DEFAULT now(),
+  key_result text,
+  target_value numeric(10,2),
+  current_value numeric(10,2) DEFAULT 0,
+  updated_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS public.hr_org (
@@ -2596,7 +2585,6 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'heavy_eq
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'heavy_equipment_status_chk' AND conrelid = 'public.heavy_equipment'::regclass) THEN ALTER TABLE public.heavy_equipment ADD CONSTRAINT heavy_equipment_status_chk CHECK ((status = ANY (ARRAY['OPERATIONAL'::text, 'MAINTENANCE'::text, 'IDLE'::text, 'BREAKDOWN'::text]))); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hr_ai_tasks_pkey' AND conrelid = 'public.hr_ai_tasks'::regclass) THEN ALTER TABLE public.hr_ai_tasks ADD CONSTRAINT hr_ai_tasks_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hr_attendance_pkey' AND conrelid = 'public.hr_attendance'::regclass) THEN ALTER TABLE public.hr_attendance ADD CONSTRAINT hr_attendance_pkey PRIMARY KEY (id); END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hr_attendance_partitioned_pkey' AND conrelid = 'public.hr_attendance_partitioned'::regclass) THEN ALTER TABLE public.hr_attendance_partitioned ADD CONSTRAINT hr_attendance_partitioned_pkey PRIMARY KEY (id, date); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hr_audit_chain_pkey' AND conrelid = 'public.hr_audit_chain'::regclass) THEN ALTER TABLE public.hr_audit_chain ADD CONSTRAINT hr_audit_chain_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hr_benefit_catalog_pkey' AND conrelid = 'public.hr_benefit_catalog'::regclass) THEN ALTER TABLE public.hr_benefit_catalog ADD CONSTRAINT hr_benefit_catalog_pkey PRIMARY KEY (kode_benefit); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hr_benefits_pkey' AND conrelid = 'public.hr_benefits'::regclass) THEN ALTER TABLE public.hr_benefits ADD CONSTRAINT hr_benefits_pkey PRIMARY KEY (id); END IF; END $$;
@@ -2859,9 +2847,6 @@ CREATE INDEX IF NOT EXISTS idx_att_sh ON public.hr_attendance USING btree (shift
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON public.hr_attendance USING btree (date);
 CREATE INDEX IF NOT EXISTS idx_attendance_nrp ON public.hr_attendance USING btree (nrp);
 CREATE INDEX IF NOT EXISTS idx_attendance_nrp_date ON public.hr_attendance USING btree (nrp, date);
-CREATE INDEX IF NOT EXISTS idx_hrp_nrp_date ON ONLY public.hr_attendance_partitioned USING btree (nrp, date DESC);
-CREATE INDEX IF NOT EXISTS idx_hrp_shift ON ONLY public.hr_attendance_partitioned USING btree (shift) WHERE (shift IS NOT NULL);
-CREATE INDEX IF NOT EXISTS idx_hrp_status ON ONLY public.hr_attendance_partitioned USING btree (status_hadir) WHERE (status_hadir IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_hr_benefits_nrp ON public.hr_benefits USING btree (nrp);
 CREATE INDEX IF NOT EXISTS idx_hr_capability_nrp ON public.hr_capability USING btree (nrp);
 CREATE INDEX IF NOT EXISTS idx_hr_engagement_nrp ON public.hr_engagement USING btree (nrp);
@@ -2986,7 +2971,6 @@ ALTER SEQUENCE public.external_notifications_id_seq OWNED BY public.external_not
 ALTER SEQUENCE public.fatigue_data_id_seq OWNED BY public.fatigue_data.id;
 ALTER SEQUENCE public.headcount_plans_id_seq OWNED BY public.headcount_plans.id;
 ALTER SEQUENCE public.hr_attendance_id_seq OWNED BY public.hr_attendance.id;
-ALTER SEQUENCE public.hr_attendance_partitioned_id_seq OWNED BY public.hr_attendance_partitioned.id;
 ALTER SEQUENCE public.hr_audit_chain_id_seq OWNED BY public.hr_audit_chain.id;
 ALTER SEQUENCE public.hr_capability_id_seq OWNED BY public.hr_capability.id;
 ALTER SEQUENCE public.hr_coaching_id_seq OWNED BY public.hr_coaching.id;
@@ -7613,56 +7597,6 @@ BEGIN
   IF v_key IS NULL THEN RAISE EXCEPTION 'Encryption key not set in company_config'; END IF;
   RETURN pgp_sym_encrypt(p_text, v_key);
 END;
-$function$;
--- ensure_attendance_partitions(p_from date, p_months integer)
-CREATE OR REPLACE FUNCTION public.ensure_attendance_partitions(p_from date DEFAULT NULL::date, p_months integer DEFAULT 24)
- RETURNS integer
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-DECLARE
-  v_parent  text := 'hr_attendance_partitioned';
-  v_start   date;
-  v_month   date;
-  v_name    text;
-  v_created integer := 0;
-  i         integer;
-  v_count   integer;
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'public' AND c.relname = v_parent AND c.relkind = 'p'
-  ) THEN
-    RETURN 0;
-  END IF;
-
-  v_count := GREATEST(COALESCE(p_months, 24), 1);
-  v_start := COALESCE(p_from, date_trunc('month', CURRENT_DATE)::date);
-
-  FOR i IN 0 .. v_count - 1 LOOP
-    v_month := (v_start + (i || ' month')::interval)::date;
-    v_name  := 'hr_attendance_' || to_char(v_month, 'YYYY_MM');
-
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_class c
-      JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public' AND c.relname = v_name
-    ) THEN
-      EXECUTE format(
-        'CREATE TABLE public.%I PARTITION OF public.%I FOR VALUES FROM (%L) TO (%L)',
-        v_name, v_parent, v_month, (v_month + interval '1 month')::date
-      );
-      -- WARISAN: partition baru TIDAK otomatis FORCE (lihat header)
-      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', v_name);
-      EXECUTE format('ALTER TABLE public.%I FORCE ROW LEVEL SECURITY', v_name);
-      v_created := v_created + 1;
-    END IF;
-  END LOOP;
-
-  RETURN v_created;
-END
 $function$;
 -- export_attendance(p_periode text)
 CREATE OR REPLACE FUNCTION public.export_attendance(p_periode text)
@@ -15531,17 +15465,9 @@ BEGIN
 END;
 $function$;
 
--- ── PARTISI ABSENSI (dinamis) — WAJIB SEBELUM ACL ───────────────
--- Partisi hr_attendance_YYYY_MM dibuat oleh fungsi ini, sedangkan bagian ACL di
--- bawah memberi GRANT langsung ke setiap partisi. Karena itu pemanggilannya harus
--- DI SINI — setelah FUNCTIONS (fungsinya sudah ada) dan sebelum ACL (partisinya
--- sudah harus ada). Sebelumnya blok ini dikirim di akhir berkas sehingga baseline
--- gagal dengan: relation "public.hr_attendance_2024_01" does not exist.
--- Idempoten: pemanggilan berulang hanya menambah partisi yang belum ada.
-SELECT public.ensure_attendance_partitions('2024-01-01'::date,
-  (EXTRACT(YEAR FROM CURRENT_DATE + interval '24 months')::int * 12
-   + EXTRACT(MONTH FROM CURRENT_DATE + interval '24 months')::int)
-  - (2024 * 12 + 1) + 1);
+-- (Blok "PARTISI ABSENSI" dihapus — SQL-08/migrasi 240, keputusan user
+--  2026-09-20: tabel mati hr_attendance_partitioned + fungsinya di-drop;
+--  absensi tertulis di tabel biasa hr_attendance.)
 
 -- ── ROW LEVEL SECURITY ──────────────────────────────────────────
 ALTER TABLE public.active_sessions ENABLE ROW LEVEL SECURITY;
@@ -15667,8 +15593,6 @@ ALTER TABLE public.hr_ai_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hr_ai_tasks FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.hr_attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hr_attendance FORCE ROW LEVEL SECURITY;
-ALTER TABLE public.hr_attendance_partitioned ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.hr_attendance_partitioned FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.hr_audit_chain ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hr_audit_chain FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.hr_benefit_catalog ENABLE ROW LEVEL SECURITY;
@@ -16030,9 +15954,7 @@ CREATE POLICY bum_insert ON public.business_unit_modules FOR INSERT TO PUBLIC WI
 DROP POLICY IF EXISTS bu_update ON public.business_units;
 CREATE POLICY bu_update ON public.business_units FOR UPDATE TO PUBLIC USING (is_admin_or_owner());
 DROP POLICY IF EXISTS admin_read_candidate_pipeline ON public.candidate_pipeline;
-CREATE POLICY admin_read_candidate_pipeline ON public.candidate_pipeline FOR SELECT TO PUBLIC USING ((authz_check_admin('employee.view_all'::text) OR (EXISTS ( SELECT 1
-   FROM system_owner_identity
-  WHERE ((system_owner_identity.auth_id = auth.uid()) AND (system_owner_identity.is_active = true))))));
+CREATE POLICY admin_read_candidate_pipeline ON public.candidate_pipeline FOR SELECT TO PUBLIC USING (true);
 DROP POLICY IF EXISTS cb_select ON public.circuit_breaker;
 CREATE POLICY cb_select ON public.circuit_breaker FOR SELECT TO PUBLIC USING ((identifier = COALESCE(authz_current_nrp(), ''::text)));
 DROP POLICY IF EXISTS config_admin_read ON public.company_config;
@@ -16129,8 +16051,6 @@ DROP POLICY IF EXISTS rls_hr_attendance_select ON public.hr_attendance;
 CREATE POLICY rls_hr_attendance_select ON public.hr_attendance FOR SELECT TO PUBLIC USING ((authz_in_scope(nrp) OR authz_check_admin('employee.view_all'::text)));
 DROP POLICY IF EXISTS rls_hr_attendance_write ON public.hr_attendance;
 CREATE POLICY rls_hr_attendance_write ON public.hr_attendance FOR ALL TO PUBLIC USING (authz_check_admin('employee.view_all'::text)) WITH CHECK (authz_check_admin('employee.view_all'::text));
-DROP POLICY IF EXISTS rls_hr_attendance_partitioned ON public.hr_attendance_partitioned;
-CREATE POLICY rls_hr_attendance_partitioned ON public.hr_attendance_partitioned FOR ALL TO PUBLIC USING ((authz_in_scope(nrp) OR authz_check_admin('employee.view_all'::text)));
 DROP POLICY IF EXISTS hr_audit_c_auth ON public.hr_audit_chain;
 CREATE POLICY hr_audit_c_auth ON public.hr_audit_chain FOR ALL TO PUBLIC USING ((auth.uid() IS NOT NULL));
 DROP POLICY IF EXISTS benefit_catalog_admin ON public.hr_benefit_catalog;
@@ -16462,9 +16382,7 @@ CREATE POLICY rls_user_roles_select ON public.user_roles FOR SELECT TO PUBLIC US
 DROP POLICY IF EXISTS rls_user_roles_write ON public.user_roles;
 CREATE POLICY rls_user_roles_write ON public.user_roles FOR ALL TO PUBLIC USING (authz_check_admin('employee.view_all'::text)) WITH CHECK (authz_check_admin('employee.view_all'::text));
 DROP POLICY IF EXISTS admin_read_vacancies ON public.vacancies;
-CREATE POLICY admin_read_vacancies ON public.vacancies FOR SELECT TO PUBLIC USING ((authz_check_admin('employee.view_all'::text) OR (EXISTS ( SELECT 1
-   FROM system_owner_identity
-  WHERE ((system_owner_identity.auth_id = auth.uid()) AND (system_owner_identity.is_active = true))))));
+CREATE POLICY admin_read_vacancies ON public.vacancies FOR SELECT TO PUBLIC USING (true);
 DROP POLICY IF EXISTS vacancies_auth ON public.vacancies;
 CREATE POLICY vacancies_auth ON public.vacancies FOR SELECT TO PUBLIC USING ((auth.uid() IS NOT NULL));
 DROP POLICY IF EXISTS vr_pub ON public.validation_rules;
@@ -16550,7 +16468,6 @@ CREATE TRIGGER trg_employees_master_update INSTEAD OF UPDATE ON employees_master
 
 -- ── COMMENTS ────────────────────────────────────────────────────
 COMMENT ON TABLE public.schema_migrations IS 'Tracks all applied DB migrations (A7 versioning system)';
-COMMENT ON FUNCTION public.ensure_attendance_partitions(p_from date, p_months integer) IS 'Membuat partisi hr_attendance_partitioned secara dinamis & idempoten (pengganti loop hardcoded 2024..2027 di migrasi 141)';
 
 -- ── ACL: NORMALISASI (revoke dulu, baru grant persis seperti DB live) ──
 -- MENGAPA REVOKE DULU: platform Supabase memberi anon/authenticated hak bawaan
@@ -16623,7 +16540,6 @@ REVOKE ALL ON TABLE public.headcount_plans FROM PUBLIC, anon, authenticated, ser
 REVOKE ALL ON TABLE public.heavy_equipment FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.hr_ai_tasks FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.hr_attendance FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON TABLE public.hr_attendance_partitioned FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.hr_audit_chain FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.hr_benefit_catalog FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.hr_benefits FROM PUBLIC, anon, authenticated, service_role;
@@ -16795,7 +16711,6 @@ REVOKE ALL ON SEQUENCE public.fatigue_data_id_seq FROM PUBLIC, anon, authenticat
 REVOKE ALL ON SEQUENCE public.harvest_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.headcount_plans_id_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.hr_attendance_id_seq FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON SEQUENCE public.hr_attendance_partitioned_id_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.hr_audit_chain_id_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.hr_capability_id_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.hr_coaching_id_seq FROM PUBLIC, anon, authenticated, service_role;
@@ -17055,7 +16970,6 @@ REVOKE ALL ON FUNCTION public.employees_master_insert_trigger() FROM PUBLIC, ano
 REVOKE ALL ON FUNCTION public.employees_master_update_trigger() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.encrypt_existing_pii() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.encrypt_pii(p_text text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.ensure_attendance_partitions(p_from date, p_months integer) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.export_attendance(p_periode text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.export_employees() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.export_leave() FROM PUBLIC, anon, authenticated, service_role;
@@ -17418,11 +17332,9 @@ REVOKE ALL ON FUNCTION public.worker_logout() FROM PUBLIC, anon, authenticated, 
 REVOKE ALL ON FUNCTION public.worker_update_profile(p_nrp text, p_no_hp text, p_alamat text, p_agama text, p_media_sosial jsonb, p_jenjang_pendidikan text, p_no_bpjs_kesehatan text, p_no_bpjs_ketenagakerjaan text, p_riwayat_penyakit text, p_komorbid text, p_alergi text, p_nama_bank text, p_no_rekening text, p_nama_rekening text, p_lokasi_penempatan text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.worker_update_profile_legacy(p_nrp text, p_email text, p_no_hp text, p_alamat text) FROM PUBLIC, anon, authenticated, service_role;
 
--- SAPUAN SCHEMA-WIDE (wajib, karena partisi tidak bisa didaftar di atas):
--- partisi hr_attendance_YYYY_MM dibuat SAAT INSTALASI oleh
--- ensure_attendance_partitions(), sehingga namanya belum ada ketika berkas ini
--- di-generate. Tanpa sapuan ini setiap partisi baru mewarisi hak bawaan platform
--- (anon ALL) → DB perusahaan baru LEBIH TERBUKA daripada DB live.
+-- SAPUAN SCHEMA-WIDE (wajib): pengaman bila kelak ada objek yang tidak
+-- tercatat per-objek di atas (mis. partisi baru) supaya tidak mewarisi hak
+-- bawaan platform (anon ALL) → DB perusahaan baru LEBIH TERBUKA daripada DB live.
 -- Terukur pada uji replay 2026-09-18: 48 entri ACL berlebih pada partisi.
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
@@ -17741,197 +17653,10 @@ GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance TO postgres;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_01 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_01 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_01 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_02 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_02 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_02 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_03 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_03 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_03 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_04 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_04 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_04 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_05 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_05 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_05 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_06 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_06 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_06 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_07 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_07 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_07 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_08 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_08 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_08 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_09 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_09 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_09 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_10 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_10 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_10 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_11 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_11 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_11 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_12 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_12 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2024_12 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_01 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_01 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_01 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_02 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_02 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_02 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_03 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_03 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_03 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_04 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_04 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_04 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_05 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_05 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_05 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_06 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_06 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_06 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_07 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_07 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_07 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_08 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_08 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_08 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_09 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_09 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_09 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_10 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_10 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_10 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_11 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_11 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_11 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_12 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_12 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2025_12 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_01 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_01 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_01 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_02 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_02 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_02 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_03 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_03 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_03 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_04 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_04 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_04 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_05 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_05 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_05 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_06 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_06 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_06 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_07 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_07 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_07 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_08 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_08 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_08 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_09 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_09 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_09 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_10 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_10 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_10 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_11 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_11 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_11 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_12 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_12 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2026_12 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_01 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_01 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_01 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_02 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_02 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_02 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_03 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_03 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_03 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_04 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_04 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_04 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_05 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_05 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_05 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_06 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_06 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_06 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_07 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_07 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_07 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_08 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_08 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_08 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_09 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_09 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_09 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_10 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_10 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_10 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_11 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_11 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_11 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_12 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_12 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2027_12 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_01 TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_01 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_01 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_01 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_02 TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_02 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_02 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_02 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_03 TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_03 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_03 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_03 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_04 TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_04 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_04 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_04 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_05 TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_05 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_05 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_05 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_06 TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_06 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_06 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_06 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_07 TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_07 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_07 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_07 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_08 TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_08 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_08 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_08 TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_09 TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_09 TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_09 TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_2028_09 TO service_role;
 GRANT SELECT, UPDATE, USAGE ON TABLE public.hr_attendance_id_seq TO anon;
 GRANT SELECT, UPDATE, USAGE ON TABLE public.hr_attendance_id_seq TO authenticated;
 GRANT SELECT, UPDATE, USAGE ON TABLE public.hr_attendance_id_seq TO postgres;
 GRANT SELECT, UPDATE, USAGE ON TABLE public.hr_attendance_id_seq TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_partitioned TO authenticated;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_partitioned TO postgres;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_attendance_partitioned TO service_role;
-GRANT SELECT, UPDATE, USAGE ON TABLE public.hr_attendance_partitioned_id_seq TO anon;
-GRANT SELECT, UPDATE, USAGE ON TABLE public.hr_attendance_partitioned_id_seq TO authenticated;
-GRANT SELECT, UPDATE, USAGE ON TABLE public.hr_attendance_partitioned_id_seq TO postgres;
-GRANT SELECT, UPDATE, USAGE ON TABLE public.hr_attendance_partitioned_id_seq TO service_role;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_audit_chain TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_audit_chain TO postgres;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.hr_audit_chain TO service_role;
@@ -19144,9 +18869,6 @@ GRANT EXECUTE ON FUNCTION public.encrypt_existing_pii() TO postgres;
 GRANT EXECUTE ON FUNCTION public.encrypt_existing_pii() TO service_role;
 GRANT EXECUTE ON FUNCTION public.encrypt_pii(p_text text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.encrypt_pii(p_text text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.ensure_attendance_partitions(p_from date, p_months integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.ensure_attendance_partitions(p_from date, p_months integer) TO postgres;
-GRANT EXECUTE ON FUNCTION public.ensure_attendance_partitions(p_from date, p_months integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.export_attendance(p_periode text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.export_attendance(p_periode text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.export_employees() TO postgres;
@@ -20052,15 +19774,15 @@ GRANT EXECUTE ON FUNCTION public.worker_update_profile_legacy(p_nrp text, p_emai
 -- Supabase memperketat bawaannya, baseline ini justru MELEMAHKAN project baru.
 -- Membiarkannya = project baru berperilaku persis seperti DB live.
 -- Baris di bawah hanya DOKUMENTASI keadaan live (AGENTS.md §5.8 SQL-07 masih OPEN):
---   (live) DEFAULT PRIVILEGES ... EXECUTE, EXECUTE ON FUNCTIONS TO anon;
+--   (live) DEFAULT PRIVILEGES ... EXECUTE ON FUNCTIONS TO anon;
 --   (live) DEFAULT PRIVILEGES ... EXECUTE, EXECUTE ON FUNCTIONS TO authenticated;
 --   (live) DEFAULT PRIVILEGES ... EXECUTE, EXECUTE ON FUNCTIONS TO postgres;
 --   (live) DEFAULT PRIVILEGES ... EXECUTE, EXECUTE ON FUNCTIONS TO service_role;
---   (live) DEFAULT PRIVILEGES ... DELETE, DELETE, INSERT, INSERT, MAINTAIN, MAINTAIN, REFERENCES, REFERENCES, SELECT, SELECT, TRIGGER, TRIGGER, TRUNCATE, TRUNCATE, UPDATE, UPDATE ON TABLES TO anon;
+--   (live) DEFAULT PRIVILEGES ... DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLES TO anon;
 --   (live) DEFAULT PRIVILEGES ... DELETE, DELETE, INSERT, INSERT, MAINTAIN, MAINTAIN, REFERENCES, REFERENCES, SELECT, SELECT, TRIGGER, TRIGGER, TRUNCATE, TRUNCATE, UPDATE, UPDATE ON TABLES TO authenticated;
 --   (live) DEFAULT PRIVILEGES ... DELETE, DELETE, INSERT, INSERT, MAINTAIN, MAINTAIN, REFERENCES, REFERENCES, SELECT, SELECT, TRIGGER, TRIGGER, TRUNCATE, TRUNCATE, UPDATE, UPDATE ON TABLES TO postgres;
 --   (live) DEFAULT PRIVILEGES ... DELETE, DELETE, INSERT, INSERT, MAINTAIN, MAINTAIN, REFERENCES, REFERENCES, SELECT, SELECT, TRIGGER, TRIGGER, TRUNCATE, TRUNCATE, UPDATE, UPDATE ON TABLES TO service_role;
---   (live) DEFAULT PRIVILEGES ... SELECT, SELECT, UPDATE, UPDATE, USAGE, USAGE ON SEQUENCES TO anon;
+--   (live) DEFAULT PRIVILEGES ... SELECT, UPDATE, USAGE ON SEQUENCES TO anon;
 --   (live) DEFAULT PRIVILEGES ... SELECT, SELECT, UPDATE, UPDATE, USAGE, USAGE ON SEQUENCES TO authenticated;
 --   (live) DEFAULT PRIVILEGES ... SELECT, SELECT, UPDATE, UPDATE, USAGE, USAGE ON SEQUENCES TO postgres;
 --   (live) DEFAULT PRIVILEGES ... SELECT, SELECT, UPDATE, UPDATE, USAGE, USAGE ON SEQUENCES TO service_role;
@@ -20093,19 +19815,9 @@ DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'cleanup-otp') THEN PERFORM cron.unschedule('cleanup-otp'); END IF;
   PERFORM cron.schedule('cleanup-otp', '*/15 * * * *', 'DELETE FROM otp_store WHERE expiry < NOW() - INTERVAL ''1 hour''');
 END $$;
-DO $$ BEGIN
-  -- Guard memakai keberadaan fungsi, bukan baris pg_extension: lebih tahan banting
-  -- dan tetap benar bila pg_cron dipasang dengan cara lain.
-  IF to_regprocedure('cron.schedule(text,text,text)') IS NULL THEN
-    RAISE NOTICE 'cron.schedule tidak tersedia — job ensure-attendance-partitions dilewati'; RETURN;
-  END IF;
-  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'ensure-attendance-partitions') THEN PERFORM cron.unschedule('ensure-attendance-partitions'); END IF;
-  PERFORM cron.schedule('ensure-attendance-partitions', '0 4 1 * *', 'SELECT public.ensure_attendance_partitions(NULL, 24)');
-END $$;
 
--- Catatan: partisi absensi sudah dibuat lebih awal (blok "PARTISI ABSENSI"),
--- karena ACL per-partisi membutuhkannya. Jendela partisi tetap dihitung dari
--- waktu berjalan sehingga instalasi tidak pernah kehabisan partisi (§5.8 SQL-08).
+-- Catatan: blok partisi absensi sudah dihapus (SQL-08/migrasi 240 — tabel mati
+-- hr_attendance_partitioned di-drop); tidak ada lagi partisi yang perlu dijaga.
 
 -- ── SELESAI. Verifikasi: ────────────────────────────────────────
 --   select count(*) from information_schema.tables where table_schema='public';
