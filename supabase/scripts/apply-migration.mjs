@@ -102,9 +102,20 @@ try {
     if (!same) {
       if (restamp) {
         console.log(`RESTAMP  : checksum diperbarui ke ${checksum}`);
+        // CATATAN (2026-09-20): sebelumnya baris ini menulis ke kolom `notes` yang
+        // TIDAK PERNAH ADA di public.schema_migrations (kolomnya: id, version,
+        // filename, checksum, applied_at, applied_by, execution_ms, description)
+        // sehingga SETIAP --restamp gagal dengan "column notes does not exist".
+        // Keterangan restamp disimpan ke `description`, di-append agar tidak
+        // menghapus keterangan asli.
         await client.query(
-          'UPDATE schema_migrations SET checksum = $2, applied_at = NOW(), notes = $3 WHERE filename = $1',
-          [shortName, checksum, `Restamped via --restamp (${shortName}) at ${new Date().toISOString()}`],
+          `UPDATE schema_migrations
+              SET checksum = $2,
+                  applied_at = NOW(),
+                  description = COALESCE(NULLIF(description, ''), 'restamped')
+                                || ' | restamped ${new Date().toISOString()}'
+            WHERE filename = $1`,
+          [shortName, checksum],
         );
         const verified = await client.query(
           'SELECT verify_migration_checksum($1, $2) AS ok',

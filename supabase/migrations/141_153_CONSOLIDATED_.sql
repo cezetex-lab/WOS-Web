@@ -1908,30 +1908,11 @@ END $$;
 -- STEP 3: Ensure canonical tables exist (idempotent)
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS hr_okrs (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  nrp TEXT,
-  periode TEXT,
-  objective TEXT NOT NULL,
-  key_result TEXT,
-  target_value NUMERIC(10,2),
-  current_value NUMERIC(10,2) DEFAULT 0,
-  status TEXT DEFAULT 'ACTIVE',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS hr_surveys (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  title TEXT NOT NULL,
-  description TEXT,
-  survey_type TEXT DEFAULT 'eNPS',
-  status TEXT DEFAULT 'ACTIVE',
-  target_audience TEXT DEFAULT 'ALL',
-  questions JSONB DEFAULT '[]'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
+-- CATATAN SQL-09 (2026-09-20): hr_okrs & hr_surveys sudah dibuat di bagian awal
+-- berkas ini (STEP 1, sekitar baris 545). Blok byte-identik yang dulu diulang di
+-- sini DIHAPUS — dua definisi dalam satu berkas adalah dead code (keduanya
+-- `IF NOT EXISTS`, jadi perilakunya tidak berubah sama sekali). Tabel lain
+-- (reviews_360, dst.) tetap dibuat di bagian ini.
 CREATE TABLE IF NOT EXISTS reviews_360 (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   reviewee_nrp TEXT NOT NULL,

@@ -1209,7 +1209,7 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '141_153_CONSOLIDATED_.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('141', '141_153_CONSOLIDATED_.sql', '1b97c9883eb502326a124491a60976c1c0b77dedee24c98776868a9848647f17', 'baseline install (schema dari DB live)');
+    VALUES ('141', '141_153_CONSOLIDATED_.sql', '17989aa042163cf15fb08b8ba40680f6b8e931372ffa9b29dbbee79318dfbdab', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '154_pilar2_self_service.sql') THEN
@@ -1625,6 +1625,26 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '233_reapply_226c_intended_revokes.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
     VALUES ('233', '233_reapply_226c_intended_revokes.sql', '6136222403da8a9f9bd14266e98636555573f25f451aa76a76d25c3949a510da', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '236_sql04_fix_hr_okrs.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('236', '236_sql04_fix_hr_okrs.sql', '171e330ca070985c8b931531036c650d5c4df6cb02e9bc717aea481496032a4d', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '237_sql05_fix_rls_policies.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('237', '237_sql05_fix_rls_policies.sql', '26f9b0530ffc5cfe273eeaf14bff8cf21f9fcfdc2af7dcd5cc3220eb4c873824', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '238_sql07_fix_default_privileges.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('238', '238_sql07_fix_default_privileges.sql', '2b6200c74992da909982e2caa3f287d4ef18fff9e0dd2efd0caf2f4af187677e', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '239_sql09_fix_duplicate_create.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('239', '239_sql09_fix_duplicate_create.sql', 'e5ff565457f5da2e5f7a96b2375bb1fdc26e40efd489aabb7c960328f4c088b2', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;

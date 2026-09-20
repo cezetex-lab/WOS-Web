@@ -1815,8 +1815,8 @@ melaporkan tidak ada anomali.
   keputusan SQL-13), dan itu terverifikasi: 0 berkas `supabase/migrations/` masuk stage.
 - `.agents/` dan `test-results/` terverifikasi tidak terlihat git (0 entri untracked dari keduanya).
 
-## [2026-09-19] Forensik SQL-04/05/07/09/07/OPS-01 — DONE
-- Status: ✅ SELESAI — forensik verifikasi ke DB live read-only (probe `.agents/scripts/probe-migrations-232-239.ts`).
+## [2026-09-19] Forensik SQL-04/05/07/09 + OPS-01 (DB live read-only)
+- Status: 📋 investigasi selesai (forensik verifikasi DB read-only, semua SELECT — tidak ada objek DB yang diubah)
 - Lingkup: verifikasi keabsahan klaim SQL-04/05/07/09 + OPS-01 di AGENTS.md §5.8 vs. keadaan DB live. **Tidak ada objek DB live yang diubah** — semua `SELECT` (read-only).
 - Bukti (read-only probe, tidak pernah ada INSERT/UPDATE/DELETE):
   - `schema_migrations`: versi 236/237/238/239 terdaftar semua, `applied_at` 2026-09-19 09:03:21–09:08:03 (WIB).
@@ -1904,3 +1904,154 @@ Data dummy lama tidak cocok dengan skema live: 9/10 NRP001–010 tanpa `email`/`
   (pola NIK) sudah ditambahkan ke `supabase/akun/akun.txt` via safe-file-writer (gitignored).
 - Skrip: `.agents/scripts/dummy-reconcile.sql` + `.agents/scripts/dummy-apply.ts` (mode `--dry`
   tersedia; idempoten — aman dijalankan ulang). Tidak di-commit (artefak, §0.11).
+## [2026-09-20] Forensik FASE 2: Rekonsiliasi Work Queue §5.8 + SQL-09 ditutup — DONE
+
+- Status: **DONE** untuk pekerjaan + verifikasi; **commit lokal saja, BELUM push/deploy** (menunggu perintah user).
+- Lingkup: menutup SQL-09 sesuai keputusan user (Opsi A: perbaiki **di sumber**, file 239 jadi *assertion*
+  non-destruktif), memangkas item ✅ dari §5.8, menambah temuan baru **SQL-10**, dan memperbaiki tiga cacat
+  turunan yang baru terlihat saat verifikasi. Semua klaim di bawah berasal dari probe/kode/DB — bukan salinan
+  catatan lama, dan **tidak ada objek DB live yang dihapus**.
+
+### (1) Bukti probe DB live — read-only, semua `SELECT`
+
+Dijalankan `.agents/scripts/probe-sql09-live.mjs` + `probe-sql09-live2.mjs`:
+
+- (a) `schema_migrations` — 236/237/238/239 terdaftar; `239` `applied_at` 2026-09-19T09:04:17Z.
+- (b) Objek bernama sama di `public`: **1** `hr_okrs` (`relkind=r`), **1** `hr_surveys` (`r`),
+  **1** `employees_master` (`v`). Tidak ada `okrs_old`/`surveys_old`/`hr_okrs_old` → **0 objek kembar**.
+- (c) `hr_okrs` punya **10 kolom** → bukti fix SQL-04 (migrasi 236) masih utuh.
+- (d) Constraint: `hr_okrs` 2, `hr_surveys` 2 (tidak ada constraint ganda dari blok duplikat).
+- (e) Baris data: `hr_okrs` = **9 baris nyata**, `hr_surveys` = 0, `hr_okr_results` = 0.
+- (f) Checksum `239`: disk = registry = `95784d3016a00dab…` → **`--restamp` saat itu memang no-op**.
+- (g) **5 fungsi** `prosrc` menyebut `hr_okrs`/`hr_surveys` → `DROP … CASCADE` akan ikut menghapusnya.
+- (h) **0 view/matview** menyebut kedua tabel; `employees_master` dibaca app
+  (`src/components/shared/DetailPageFactory.tsx:41` dan `:87` sebagai `fallbackTable`).
+
+### (2) Kenapa instruksi Task 3 **tidak** dijalankan apa adanya (dan diganti Opsi A)
+
+Duplikat SQL-09 bukan dua **objek** di database, melainkan dua **statement** di dalam berkas
+`141_153_CONSOLIDATED_.sql`: blok `hr_okrs` (545-556) dan `hr_surveys` (558-567) diulang **byte-identik**
+di 1911-1922 & 1924-1933 (`diff` kosong). Karena keduanya `CREATE TABLE IF NOT EXISTS`, pengulangan itu
+no-op dan **tidak pernah** menghasilkan objek kembar — konsisten dengan probe (b).
+
+Akibatnya `DROP TABLE hr_okrs` / `DROP VIEW employees_master` ke DB live **bukan perbaikan**: tidak ada yang
+kembar untuk dibuang, sementara 9 baris data `hr_okrs` + 5 fungsi + view yang dipakai app ikut terhapus.
+Selain itu migrasi tidak bisa menghapus teks dari berkas 141. User menyetujui **Opsi A** (perbaiki di sumber)
+dan **239 v2 = assertion non-destruktif**.
+
+Koreksi klaim audit: **"183 view `employees_master` 2×" SALAH** — berkas 183 hanya punya **satu**
+`CREATE VIEW employees_master` (baris 181); kemunculan lain adalah `DROP VIEW`/`DROP TABLE` di dalam
+DO-block yang justru wajib ada (lihat komentar FIX 2026-09-18 di berkas itu).
+
+### (3) Perubahan yang dieksekusi
+
+1. **141** — 24 baris blok duplikat dibuang, diganti 5 baris catatan SQL-09. Dikerjakan
+   `.agents/scripts/sql09-dedupe-141.mjs`: menolak jalan bila blok ≠ 2, menolak bila blok tidak identik
+   byte-per-byte, dan menulis lewat `scripts/safe-file-writer.ts`. Diff = **+5 / −24**.
+2. **239 v2** — dari berkas komentar (no-op) menjadi `DO`-block berisi 4 assertion: tepat satu relasi per
+   nama, `hr_okrs` = TABLE 10 kolom, `hr_surveys` ada, `employees_master` = VIEW. Gagal-cepat, tidak mengubah skema.
+3. **§5.8** — SQL-01/03/04/05/07 dipangkas (hasilnya sudah ada di log), SQL-09 → ✅ SELESAI,
+   SQL-10 ditambah, OPS-01 tetap OPEN dengan penanda "menunggu verifikasi manual user", plus baris pointer
+   "dipangkas" supaya tidak diinvestigasi ulang. Dikerjakan `.agents/scripts/wq-reconcile-2026-09-20.mjs`.
+
+### (4) Kaskade yang harus ditangani — tidak terlihat dari instruksi awal
+
+1. **`--restamp` ternyata CRASH.** `supabase/scripts/apply-migration.mjs:106` menulis ke kolom `notes`
+   padahal `public.schema_migrations` hanya punya `id, version, filename, checksum, applied_at, applied_by,
+   execution_ms, description`. Jadi **setiap** `--restamp` gagal "column notes does not exist". Diperbaiki
+   memakai `description` (di-append agar keterangan lama tidak hilang) — tanpa ini Task 3 mustahil dijalankan.
+2. **Mengedit 141 mengubah checksum-nya** → registry live di-restamp (`141` → `17989aa0…`, `239` → `e5ff5654…`),
+   keduanya diverifikasi `verify_migration_checksum()`.
+3. **Cap baseline jadi basi.** `supabase/baseline/010_baseline_config_data.sql` menyimpan checksum 141
+   secara harfiah. Disegarkan `.agents/scripts/sql09-baseline-restamp.mjs` — menyisir seluruh cap dan
+   membandingkannya dengan sha256 berkas repo: **160 diperiksa, 159 cocok, 1 disegarkan (141)**.
+4. **Cap baseline hanya 160 dari 164 berkas migrasi** (236-239 belum tercap) — pre-existing, bukan akibat
+   SQL-09. Terlihat di installer E2E sebagai `migration_cap live=164 install=160`. Atas persetujuan user
+   disegarkan dengan format & algoritma yang sama seperti generator
+   (`.agents/scripts/baseline-cap-extend.mjs`, +20 baris) → `install=164`.
+
+### (5) Temuan baru → **SQL-10** (OPEN, P3)
+
+`.gitattributes` memakai `* text=auto eol=crlf`: blob repo **LF**, working tree **CRLF**. Generator baseline
+dan `apply-migration.mjs` meng-hash **byte berkas kerja**, jadi checksum bergantung EOL checkout.
+Bukti: `git cat-file HEAD:141` = LF (2629 baris), berkas kerja = LF, dan sha256 keduanya = `1b97c988…`
+(= nilai cap lama). `check_migrations()` **tidak** membandingkan checksum berkas (hanya
+UNAPPLIED/DUPLICATE/VERSION_MISMATCH), jadi instalasi tidak terblokir; efeknya mesin dengan EOL berbeda
+akan diminta `--restamp`. DoD: normalisasi CRLF→LF sebelum hashing **atau** kunci `*.sql text eol=lf`,
+lalu buktikan sha256 identik di checkout LF dan CRLF.
+
+### (6) OPS-01 — tetap OPEN
+
+Menunggu smoke manual user di browser (login worker → WorkerProfile → edit 1 kolom → simpan → reload).
+Tidak ada langkah SQL tersisa (grant `EXECUTE TO authenticated` sudah termigrasi di 222).
+
+### (7) Verifikasi (semua dijalankan pada tree ini)
+
+- **Replay rantai instalasi dari nol:** `node supabase/scripts/replay-fresh-install.mjs --mode=chain` →
+  **164/164 berkas sukses, 0 GAGAL**, termasuk eksekusi `239_sql09_fix_duplicate_create.sql` (512 ms).
+  Laporan: `supabase/baseline/replay-chain.md`.
+- **Installer baseline E2E:** `node supabase/scripts/verify-install-e2e.mjs` → **PASS — installer siap dipakai**,
+  **9/9 metrik SAMA** (209 tabel non-partisi, 285 partisi, 1 view, 553 fungsi, 224 policy, 27 trigger,
+  96 sequence, 4 cron, cap 164), idempoten (`--force`: cap 164 → 164), identitas perusahaan tidak mewarisi
+  merek sumber. Laporan: `supabase/baseline/verify-install-e2e.md`.
+- **Assertion 239 di DB live:** `.agents/scripts/probe-239-run-live.mjs` → `NOTICE SQL-09 OK: 1 hr_okrs
+  (10 kolom), 1 hr_surveys, 1 VIEW employees_master — tidak ada objek kembar.` Dijalankan di dalam
+  transaksi yang di-`ROLLBACK` (registry tetap 164 baris → terbukti tidak mengubah apa pun).
+
+### (8) Dampak lintas-page (G7): worker → admin → dashboard → owner
+
+**Tidak terdampak.** Yang berubah: satu dead-code duplikat di berkas migrasi, isi berkas migrasi 239,
+dokumen §5.8, dan cap checksum di baseline. Tidak ada RPC/route/menu/authz/interface/kolom tabel yang
+berubah — `hr_okrs` tetap TABLE 10 kolom dengan 9 baris, `employees_master` tetap VIEW yang sama
+(dipakai Admin `DetailPageFactory`), Worker tidak menyentuh `hr_okrs` (0 referensi di `src/`).
+Empat halaman diuji lewat guard yang ada dan gate unit; smoke browser tetap milik OPS-01.
+
+### (9) Referensi
+
+- `ffeca8a` — commit sesi paralel (hanya 4 berkas migrasi, tidak pernah memperbarui §5.8).
+- `63dd92a` — diklaim di entry log lama tetapi **tidak ada di `git log --all`** (kontrafaksi; entry itu
+  sudah diganti di working tree pada 2026-09-19).
+- `08e0a51`, `61bcc72`, `5521874`, `6098165`, `4cebf4a` — rantai commit lokal sebelum FASE 2.
+- Catatan: guard `tests/unit/work-queue-consistency.test.ts` (R1/R2/R3) **masih untracked** milik sesi
+  paralel; TODO(SQL-09) di dalamnya kini usang karena arah yang dipilih adalah Opsi A (bukan migrasi 241
+  berisi `DROP`). Perlu keputusan user sebelum ikut di-commit.
+### (10) Gate + dua merah **pre-existing** yang harus dibereskan lebih dulu
+
+Run pertama gate penuh: `check:types` PASS 3.3s · `lint` PASS 57.2s · `build` PASS 15.1s ·
+`test` **FAIL** 84.1s (134/136 lulus). Kedua kegagalan **tidak berasal dari FASE 2**:
+
+- `doc-claims-vs-live.test.ts > §7.3` — `ARCHITECTURE.md:122` mengklaim "200 file TS total
+  (157 `src` + 37 `tests` + 6 config)", sedangkan disk = **38** berkas `tests` karena sesi paralel
+  menambah `tests/unit/work-queue-consistency.test.ts` (masih untracked). Diperbaiki menjadi
+  "201 file TS total (157 `src` + 38 `tests` + 6 config)".
+- `work-queue-consistency.test.ts > detektor Rule 1 & 2 (guard-the-guard)` — ekspektasi di berkas WIP itu
+  **salah sendiri**: title `'2026-09-18: Instalasi dari awal — DONE'` dituntut memuat `SQL-01` padahal tidak
+  (komentarnya berbunyi "title punya DONE + SQL-01"). Dijadikan `'… DONE (SQL-01)'` sesuai maksud komentar,
+  dan TODO(SQL-09) di berkas itu diperbarui karena arah yang dipilih adalah Opsi A, bukan migrasi berisi `DROP`.
+- Bukti FASE 2 sendiri konsisten: **Rule 1/2/3 guard itu HIJAU di run pertama** — termasuk
+  "Rule 1 — setiap item ✅ SELESAI punya entry completion" untuk SQL-09, "Rule 2" (SQL-02/06/08/10/OPS-01
+  tidak diklaim selesai), dan "Rule 3 — file migrasi no-op" (239 tidak lagi no-op). Tiga dari empat tes
+  `doc-claims-vs-live` serta `no-stale-file-references`, `rpc-contract`, `baseline-install-guard`,
+  `dummy-reconciliation-guard`, `db-security-and-partition-guard` juga hijau.
+
+Run akhir pada tree ini: **4/4 HIJAU** — `check:types` PASS · `lint` PASS · `test` PASS
+(**21 berkas, 136 tes**) · `build` PASS · **total ±50s**. Laporan: `test-results/parallel-gate-report.md`.
+
+### (11) Temuan turunan → **OPS-02** (OPEN, P2)
+
+`doc-claims-vs-live.test.ts` §7.3 menghitung berkas di **working tree**, termasuk yang belum di-commit
+(`find tests` = 38 vs `git ls-files tests` = 36). Akibatnya checkout bersih **tidak bisa** hijau selama ada
+berkas test untracked, dan angka §7.3 harus mengikuti disk (38) walau HEAD hanya punya 36 — kondisi ini
+sudah ada di HEAD sebelum FASE 2 (dokumen 37 vs HEAD 36). DoD: pilih commit berkas test WIP **atau** ubah
+guard agar menghitung hanya berkas ter-track, lalu buktikan §7.3 hijau pada tree kotor **dan** checkout bersih.
+
+### (12) Berkas yang ikut di-commit (spesifik, tanpa `git add -A`)
+
+`AGENTS.md` (§5.8), `agentsLogs_2026-09.md` (entri ini + koreksi entri forensik 2026-09-19 di working tree),
+`ARCHITECTURE.md` (§7.3), `supabase/migrations/141_153_CONSOLIDATED_.sql`,
+`supabase/migrations/239_sql09_fix_duplicate_create.sql`,
+`supabase/baseline/010_baseline_config_data.sql`, `supabase/baseline/replay-chain.md`,
+`supabase/baseline/verify-install-e2e.md`, `supabase/scripts/apply-migration.mjs`,
+`tests/unit/work-queue-consistency.test.ts`.
+Tidak di-stage: `tests/e2e/worker-profile-smoke.spec.ts` (WIP sesi paralel, terkait OPS-01), `test-results/`,
+`.agents/`, dan 1 berkas rusak `.freebuff/`.
