@@ -37,12 +37,12 @@ insightWOS adalah HR/WMS (Workforce Management System) dengan fokus industri (mi
 - ❌ **Tidak ada predictive AI** - hanya basic intelligence
 
 ### 1.3 Database State (from Forensic Audit)
-- **Total Tables**: ~210 (live DB 2026-09-19: 209 tabel non-partisi + 1 view; partisi absensi — kini 57 — dibuat otomatis oleh `ensure_attendance_partitions()`, jadi tidak dihitung; klaim 253/257 sudah ketinggalan)  
-- **Total Functions**: ~671 (live DB 2026-09-19: 667 → 671 setelah migrasi 231 menambah 4 nama baru — 3 wrapper `verify_*_core` hasil RENAME + `auth_testing_override_bypass`; termasuk overload legacy; klaim 617/667/672/673 sudah ketinggalan)  
-- **Search Path Violations**: 0 (migration `207` sudah fix semua — OBSOLETE, klaim "8 functions missing" salah)  
-- **pg_cron**: 4 jobs aktif (`cron.job`) 2026-09-18 (pasca-228: 3 job MV dipensiunkan; OBSOLETE klaim "6 jobs" dan "NOT installed")  
-- **Legacy Overloads**: 20 overloads masih ada tapi sudah di-rename ke `_legacy_*` (tidak semua di-drop — ini desain, bukan bug)  
-- **Audit Chain**: 172 rows (`verify_audit_chain()` = 0 issues); baris hanya bertambah, jadi angka ini bergerak  
+- **Total Tables**: ~209 (live DB saat ini: 208 tabel non-partisi + 1 view; klaim 253/257 sudah ketinggalan)
+- **Total Functions**: ~670 (live DB saat ini: 670 fungsi; klaim 617/667/672/673 sudah ketinggalan)
+- **Search Path Violations**: 0 (migration `207` sudah fix semua — OBSOLETE, klaim "8 functions missing" salah)
+- **pg_cron**: 3 jobs aktif (`cron.job`) 2026-09-18 (pasca-228: 3 job MV dipensiunkan)
+- **Legacy Overloads**: 20 overloads masih ada tapi sudah di-rename ke `_legacy_*` (tidak semua di-drop — ini desain, bukan bug)
+- **Audit Chain**: 172 rows (`verify_audit_chain()` = 0 issues); baris hanya bertambah, jadi angka ini bergerak
 - **RLS**: Semua tabel force-enabled
 
 ---

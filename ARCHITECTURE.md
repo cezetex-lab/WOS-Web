@@ -70,7 +70,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                    SUPABASE BACKEND                          │
 │  Auth: email+password + OTP + MFA TOTP                      │
-│  DB: 209 tables, 671 functions, RLS on all tables          │
+│  DB: 208 tables, 670 functions, RLS on all tables          │
 │  Edge Functions: password-reset, worker-auth-sync,          │
 │                  ai-copilot, mfa-service                     │
 │  Storage: employee documents, payslips (future)             │
@@ -128,13 +128,13 @@ Layer 3: DB-level (authz functions)
 
 | Metric | Count | Notes |
 |---|---|---|
-| Tables | 209 | 209 base table **non-partisi**; 210 kalau view dihitung. Partisi absensi (kini **57**) TIDAK dihitung karena dibuat otomatis oleh `ensure_attendance_partitions()` (migration 225) |
-| Functions | 671 | 20 overloads (legacy renamed `_legacy_*`); +1 `ensure_attendance_partitions` (migration 225). LIVE 2026-09-19: 667 → **671** (+4 nama baru dari migrasi 231: 3 wrapper `verify_*_core` hasil RENAME + `auth_testing_override_bypass`) |
-| Migrations tracked | 164 | Via `schema_migrations` (migration 219); 221–227 didaftarkan 2026-09-17 (§5.7 no.11); `008` + `229` + `230` diterapkan 2026-09-18 (`DITERAPKAN + terdaftar + checksum terverifikasi`). `231`–`233` diterapkan + terdaftar 2026-09-19. Rename sesi paralel 232–235 → 236–239 sudah terdaftar di live (236–239; nomor 232/233 dipakai file grant yang sudah ada), sehingga live kini 164 baris |
+| Tables | 208 | 208 base table **non-partisi**; 209 kalau view dihitung. Partisi absensi (kini **57**) TIDAK dihitung karena dibuat otomatis oleh `ensure_attendance_partitions()` (migration 225) |
+| Functions | 670 | 20 overloads (legacy renamed `_legacy_*`); +1 `ensure_attendance_partitions` (migration 225). LIVE 2026-09-19: 667 → **670** (+3 nama baru dari migrasi 231: 3 wrapper `verify_*_core` hasil RENAME + `auth_testing_override_bypass`) |
+| Migrations tracked | 165 | Via `schema_migrations` (migration 219); 221–227 didaftarkan 2026-09-17 (§5.7 no.11); `008` + `229` + `230` diterapkan 2026-09-18 (`DITERAPKAN + terdaftar + checksum terverifikasi`). `231`–`233` diterapkan + terdaftar 2026-09-19. Rename sesi paralel 232–235 → 236–239 sudah terdaftar di live (236–239; nomor 232/233 dipakai file grant yang sudah ada), sehingga live kini 165 baris |
 | RLS policies | All tables | Enabled di semua tabel tanpa USING(true); **9 tabel belum FORCE** (`employees_core`, `employees_extended`, `fatigue_data`, `heavy_equipment`, `jsa_data`, `production_daily`, `safety_incidents`, `schema_migrations`, `simper_data`) — pemilik tabel masih melewati RLS |
 | SECDEF search_path | 0 violations | Fixed via migration 207 |
 | anon/PUBLIC grants | 129 | **119 internal pgvector** + 3 RPC baca yang memang pra-login (`get_branding`, `get_branding_public`, `get_enabled_modules`) + 7 entry pra-login. Turun 132 → 129 lewat 226 lalu 232/233 (grant warisan RENAME + default privilege yang lolos karena guard `to_regprocedure` 226C) |
-| pg_cron jobs | 4 | LIVE 2026-09-18 (pasca-228 pensiun 3 job MV gagal/setiap jam): `cleanup-sessions`, `cleanup-rate-limits`, `cleanup-otp`, `ensure-attendance-partitions` |
+| pg_cron jobs | 3 | LIVE 2026-09-18 (pasca-228 pensiun 3 job MV gagal/setiap jam): `cleanup-sessions`, `cleanup-rate-limits`, `cleanup-otp`, `ensure-attendance-partitions` |
 | Audit chain | 172 rows | Hash-chain live, `verify_audit_chain()` = 0 issues (migration 220); baris hanya bertambah |
 
 ### 7.5 Frontend Status

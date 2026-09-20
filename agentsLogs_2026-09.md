@@ -1499,8 +1499,8 @@ lalu WAJIB: buat user Supabase Auth dengan email owner tersebut + `insert into s
   umum yang berubah. Instalasi berikutnya memakai baseline sehingga keempat page mendapat skema
   yang sama persis dengan live.
 
-## [2026-09-19] SQL-11 verified complete + SQL-13 --restamp implemented + SQL-12 reference verified
-- Status: SQL-11 (P0) SELESAI; SQL-13 (P1) IMPLEMENTASI SELESAI (--restamp mode); SQL-12 (P2) REFERENSI VERIFIKASI SELESAI (remaining differences: mining_equipment/mining_simper still different; assets/forum_posts extra audit columns; estate_harvest fixed at 180). SQL-06 (P1) DEFERRED (FORCE RLS deferred per instruction).
+## [2026-09-19] SQL-11 verified complete + SQL-13 --restamp implemented + SQL-12 reference checked (OPEN)
+- Status: SQL-11 (P0) SELESAI; SQL-13 (P1) IMPLEMENTASI SELESAI (--restamp mode); SQL-12 (P2) TERIDENTIFIKASI (OPEN, belum di-fix; remaining differences: mining_equipment/mining_simper still different; assets/forum_posts extra audit columns; estate_harvest fixed at 180). SQL-06 (P1) DEFERRED (FORCE RLS deferred per instruction).
 - SQL-11 Evidence: 231_apply_missing_effects.sql verified (NIK guard present at source 182/185; audit entry PENDING_APPROVE_REJECTED_NIK 261; audit 2026-09-18 verified DITERAPKAN + checksum verified). All 13 effects fulfilled.
 - SQL-13 Evidence: --restamp mode implemented in apply-migration.mjs (restamp flag line 32; registry update logic line 105; verify_migration_checksum guard line 113). Option b selected per user instruction.
 ## [2026-09-19] STATE DONE pindah ke log: UI Forms 14 kolom karyawan (dari AGENTS.md §5)
@@ -2252,6 +2252,63 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - Run bersih 06:13: **1 passed (25.2s), tanpa flaky** — login NRP007 → edit Agama → Simpan →
   reload → PERSIST "Islam" → runner memulihkan `agama → null` via SQL. Log mentah:
   `.agents/logs/ops01-smoke-2026-09-20T06-13-45-173Z.log`.
-- §5.8: OPS-01 ✅ SELESAI (smoke LULUS untuk NRP007); item baru SQL-12 (P3, butuh keputusan user).
+- §5.8: OPS-01 ✅ SELESAI (smoke LULUS untuk NRP007); SQL-12 tetap OPEN/DEFERRED (butuh keputusan user untuk fix RPC).
 - Dampak lintas-page: worker → admin → dashboard → owner: **TIDAK terdampak** — perbaikan terbatas
   pada spec E2E + runner smoke; RPC TIDAK diubah (SQL-12 menunggu keputusan user).
+## [2026-09-20] Penutupan keputusan Work Queue: SQL-06 (TIDAK FORCE RLS) + SQL-08 (drop tabel mati) + reklasifikasi SQL-12 — CATATAN KEPUTUSAN
+
+- **SQL-06 — KEPUTUSAN (Opsi b, user): JANGAN FORCE RLS** pada 9 tabel (`employees_core`,
+  `employees_extended`, `fatigue_data`, `heavy_equipment`, `jsa_data`, `production_daily`,
+  `safety_incidents`, `schema_migrations`, `simper_data`). Alasan: SQL Editor/dashboard masih
+  dipakai untuk debugging & maintenance; FORCE membuat pemilik tunduk policy. Status: ✅ SELESAI
+  (keputusan final) — dikeluarkan dari tabel §5.8.
+- **SQL-08 — EKSEKUSI (Opsi b, user): drop struktur mati.**
+  - Pra-pemeriksaan live: `hr_attendance_partitioned` = **0 baris** (aturan STOP bila ada data — aman);
+    57 partisi terpasang; cron `ensure-attendance-partitions` (0 4 1 * *); 1 fungsi
+    `ensure_attendance_partitions(p_from date, p_months integer)`; **0 view**, **0 FK eksternal**,
+    **0 fungsi pemanggil** (probe pg_depend live); `src/` **0 referensi** → aman CASCADE.
+  - Backup: pg_dump TIDAK tersedia di lingkungan → DDL diarsipkan dari baseline ke
+    `.agents/archive/backups/sql08_before_drop.sql`; tabel 0 baris sehingga tidak ada data hilang.
+  - Migrasi `240_drop_hr_attendance_partitioned.sql` (idempoten + gagal-cepat): unschedule cron →
+    `DROP TABLE … CASCADE` → `DROP FUNCTION` → verifikasi akhir 0/0/0 (raise exception bila sisa).
+  - Apply via wrapper: "DITERAPKAN + terdaftar + checksum terverifikasi" (1023 ms), checksum `2877ffba…`.
+  - Verifikasi live: tabel=0, cron partisi=0, fungsi=0; `check_migrations()` bersih; tabel absensi
+    asli `hr_attendance` utuh **96 baris**. Metrik baru: 208 tabel, 670 fungsi, 0 partisi, 3 cron, 165 migrasi.
+  - Baseline diregenerasi dari live (`npm run db:baseline`): 000/010 tanpa tabel mati; generator
+    `generate-baseline.mjs` diperbarui (blok hardcode panggilan `ensure_attendance_partitions()` dihapus,
+    2 komentar basi disesuaikan).
+  - **Installer E2E PASS — 9/9 SAMA** (live vs instalasi dari nol: tabel 208, partisi 0, view 1,
+    fungsi 552, policy 223, trigger 27, sequence 95, cron 3, cap 165; idempoten `--force` exit 0).
+  - Guard dokumen: 8 klaim drift diperbarui (ARCHITECTURE.md §7.1 diagram + §7.4 Tables/Functions/
+    Migrations tracked/pg_cron, FuturePlans.md §1.3) → guard `doc-claims-vs-live` **hijau 4/4**.
+- **SQL-12 — REKLASIFIKASI**: prioritas P3 → **P2** (bug produk nyata, berdampak user), status
+  **DEFERRED** — dikerjakan setelah FASE 3 (CI Full) selesai; tetap butuh keputusan user untuk fix RPC
+  (COALESCE → sentinel/CASE).
+- Dampak lintas-page: worker → admin → dashboard → owner: **TIDAK terdampak** — objek yang di-drop
+  tidak pernah dirujuk kode (`src/` 0 referensi); tidak ada RPC/types/route yang berubah.
+
+## [2026-09-20] OPS-01 smoke WorkerProfile (worker NRP007) — hasil: LULUS
+- Dijalankan: `npm run smoke:ops01` · exit **0** · 30.0s
+- Worker uji: `NRP007` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).
+- Pemulihan residu: employees_extended.agama NRP007 dipulihkan ke null via SQL (SQL-12: UI tidak bisa mengosongkan field).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-20T08-39-09-499Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 **masih OPEN** — jalankan ulang dengan `-- --close` setelah Anda menyetujui hasilnya.
+
+## [2026-09-20] OPS-01 smoke WorkerProfile (worker NRP007) — hasil: LULUS
+- Dijalankan: `npm run smoke:ops01` · exit **0** · 28.2s
+- Worker uji: `NRP007` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).
+- Pemulihan residu: employees_extended.agama NRP007 dipulihkan ke null via SQL (SQL-12: UI tidak bisa mengosongkan field).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-20T08-39-39-958Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 **masih OPEN** — jalankan ulang dengan `-- --close` setelah Anda menyetujui hasilnya.
+
+## [2026-09-20] OPS-01 smoke WorkerProfile (worker NRP007) — hasil: LULUS
+- Dijalankan: `npm run smoke:ops01 -- --headless` · exit **0** · 29.5s
+- Worker uji: `NRP007` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-20T09-22-15-055Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 **masih OPEN** — jalankan ulang dengan `-- --close` setelah Anda menyetujui hasilnya.
