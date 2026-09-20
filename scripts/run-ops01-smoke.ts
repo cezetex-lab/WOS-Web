@@ -46,8 +46,52 @@ interface Kredensial {
   sumber: string;
 }
 
+/**
+ * Pilih baris akun dari akun.txt. Tanpa OPS01_NRP, akun dipilih dengan mencocokkan
+ * role di DB live (WAJIB role='worker' + reset_required=false) — pelajaran 2026-09-20:
+ * NRP002 ternyata admin_hrd sehingga pasca-reload app memantul ke /admin dan smoke
+ * gagal walau alur simpannya sendiri benar.
+ */
+async function pilihBarisAkun(
+  baris: { nrp: string; email: string; password: string }[],
+): Promise<{ terpilih: (typeof baris)[number] | null; catatan: string }> {
+  const diminta = process.env.OPS01_NRP;
+  if (diminta) {
+    const pilih = baris.find((b) => b.nrp === diminta);
+    return {
+      terpilih: pilih ?? null,
+      catatan: pilih ? `dipilih eksplisit via OPS01_NRP=${diminta} (role TIDAK diverifikasi)` : '',
+    };
+  }
+
+  try {
+    const dotenv = await import('dotenv');
+    dotenv.config({ path: path.join(ROOT, '.env.local'), quiet: true });
+    const { Client } = await import('pg');
+    const c = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    await c.connect();
+    const r = await c.query(
+      "select u.nrp from user_roles u join worker_passwords w on w.nrp = u.nrp " +
+        "where u.role = 'worker' and w.reset_required = false order by u.nrp",
+    );
+    await c.end();
+    const workerNrp = new Set<string>(r.rows.map((x: { nrp: string }) => x.nrp));
+    const pilih = baris.find((b) => workerNrp.has(b.nrp));
+    if (pilih) {
+      return { terpilih: pilih, catatan: 'role=worker + reset_required=false terverifikasi ke DB live' };
+    }
+    return { terpilih: null, catatan: 'tidak ada akun role=worker di akun.txt yang cocok dengan DB' };
+  } catch (error) {
+    // DB tidak terjangkau — fallback perilaku lama (baris pertama) dengan peringatan.
+    return {
+      terpilih: baris[0] ?? null,
+      catatan: `PERINGATAN: role tidak terverifikasi (gagal query DB: ${(error as Error).message})`,
+    };
+  }
+}
+
 /** Ambil kredensial worker: env dulu, lalu `supabase/akun/akun.txt` (gitignored). */
-function resolveKredensial(): Kredensial | null {
+async function resolveKredensial(): Promise<Kredensial | null> {
   const email = process.env.OPS01_EMAIL;
   const password = process.env.OPS01_PASSWORD;
   if (email && password) {
@@ -62,6 +106,7 @@ function resolveKredensial(): Kredensial | null {
   // Jadi diparsing per kolom: kolom pertama = NRP, kolom berikut yang memuat '@'
   // = email, dan kolom SETELAH email = password. Catatan tambahan di kanan
   // (mis. "NRP002 (password = NIK)") tidak boleh membuat baris gagal parse.
+  const terparse: { nrp: string; email: string; password: string }[] = [];
   for (const l of baris) {
     const kolom = l.split('\t').map((v) => v.trim());
     if (!/^NRP\d+$/.test(kolom[0] ?? '')) continue;
@@ -69,14 +114,14 @@ function resolveKredensial(): Kredensial | null {
     if (idxEmail < 0) continue;
     const password = kolom[idxEmail + 1];
     if (!password) continue;
-    return {
-      nrp: kolom[0],
-      email: kolom[idxEmail],
-      password,
-      sumber: 'supabase/akun/akun.txt',
-    };
+    terparse.push({ nrp: kolom[0], email: kolom[idxEmail], password });
   }
-  return null;
+  if (terparse.length === 0) return null;
+
+  const { terpilih, catatan } = await pilihBarisAkun(terparse);
+  if (catatan) console.log(`pemilihan  : ${catatan}`);
+  if (!terpilih) return null;
+  return { ...terpilih, sumber: 'supabase/akun/akun.txt' };
 }
 
 /** Berkas log bulan berjalan (pola agentsLogs_YYYY-MM.md), fallback indeks. */
@@ -87,8 +132,8 @@ function logBulanIni(): string {
   return fs.existsSync(full) ? full : path.join(ROOT, 'agentsLogs.md');
 }
 
-function main(): number {
-  const kredensial = resolveKredensial();
+async function main(): Promise<number> {
+  const kredensial = await resolveKredensial();
   if (!kredensial) {
     console.error(
       'GAGAL: kredensial worker tidak ditemukan.\n' +
@@ -163,6 +208,60 @@ function main(): number {
     mode: 'overwrite',
   });
 
+  // ── Pemulihan residu (SQL-12) ───────────────────────────────────────────────
+  // Bila nilai asli field kosong, UI tidak bisa mengosongkannya kembali
+  // (RPC worker_update_profile memakai COALESCE — lihat spec smoke). Spec
+  // menulis penanda residu; nilai asli dipulihkan di sini via SQL langsung.
+  let pemulihanInfo: string | null = null;
+  const penanda = path.join(ROOT, '.agents', 'logs', 'ops01-residue.json');
+  if (fs.existsSync(penanda)) {
+    try {
+      const residu = JSON.parse(fs.readFileSync(penanda, 'utf8')) as {
+        nrp: string;
+        tabel: string;
+        field: string;
+        original: string | null;
+      };
+      const FIELD_AMAN = new Set([
+        'agama', 'no_hp', 'alamat', 'media_sosial', 'jenjang_pendidikan',
+        'no_bpjs_kesehatan', 'no_bpjs_ketenagakerjaan', 'riwayat_penyakit',
+        'komorbid', 'alergi', 'nama_bank', 'no_rekening', 'nama_rekening',
+        'lokasi_penempatan',
+      ]);
+      if (
+        residu.tabel === 'employees_extended' &&
+        FIELD_AMAN.has(residu.field) &&
+        /^NRP\d+$/.test(residu.nrp)
+      ) {
+        const dotenv = await import('dotenv');
+        dotenv.config({ path: path.join(ROOT, '.env.local'), quiet: true });
+        const { Client } = await import('pg');
+        const c = new Client({
+          connectionString: process.env.DATABASE_URL,
+          ssl: { rejectUnauthorized: false },
+        });
+        await c.connect();
+        await c.query(`update ${residu.tabel} set ${residu.field} = $1 where nrp = $2`, [
+          residu.original,
+          residu.nrp,
+        ]);
+        const ver = await c.query(`select ${residu.field} as v from ${residu.tabel} where nrp = $1`, [
+          residu.nrp,
+        ]);
+        await c.end();
+        pemulihanInfo =
+          `${residu.tabel}.${residu.field} ${residu.nrp} dipulihkan ke ` +
+          `${JSON.stringify(ver.rows[0]?.v)} via SQL (SQL-12: UI tidak bisa mengosongkan field)`;
+        console.log(`pemulihan  : ${pemulihanInfo}`);
+      }
+    } catch (error) {
+      pemulihanInfo = `GAGAL — periksa manual: ${(error as Error).message}`;
+      console.error('pemulihan residu GAGAL:', (error as Error).message);
+    } finally {
+      fs.rmSync(penanda, { force: true });
+    }
+  }
+
   if (/Executable doesn't exist|Please run the following command to download/i.test(keluaran)) {
     console.error('\nBrowser Playwright belum terpasang. Jalankan: npx playwright install chromium');
   }
@@ -180,7 +279,8 @@ function main(): number {
     `- Dijalankan: \`npm run smoke:ops01${HEADED ? '' : ' -- --headless'}\` · exit **${exitCode}** · ${durasi}s`,
     `- Worker uji: \`${kredensial.nrp}\` (kredensial dari \`${kredensial.sumber}\`, tidak pernah ditulis ke repo/log).`,
     `- Alur yang dibuktikan: login worker → \`/worker/profile\` → Edit → ubah kolom **Agama** → Simpan →`,
-    '  reload → nilai PERSIST → nilai asli dikembalikan (smoke ini menulis ke DB live).',
+    '  reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).',
+    ...(pemulihanInfo ? [`- Pemulihan residu: ${pemulihanInfo}.`] : []),
     `- Log mentah: \`.agents/logs/${path.basename(logMentah)}\` (gitignored).`,
     lulus
       ? CLOSE
@@ -200,8 +300,10 @@ function main(): number {
     const agents = path.join(ROOT, 'AGENTS.md');
     const isi = fs.readFileSync(agents, 'utf8');
     // Ganti SEL STATUS (sel terakhir), bukan menambah kolom: potong pada pipe
-    // kedua-dari-belakang, lalu tulis ulang sel terakhirnya.
-    const baru = isi.replace(/^\| OPS-01 \|.*\|$/m, (baris) => {
+    // kedua-dari-belakang, lalu tulis ulang sel terakhirnya. \r? — AGENTS.md
+    // bisa ber-EOL CRLF, dan tanpa itu regex gagal cocok.
+    const adaBaris = /^\| OPS-01 \|.*\|\r?$/m.test(isi);
+    const baru = isi.replace(/^\| OPS-01 \|.*\|\r?$/m, (baris) => {
       const akhir = baris.lastIndexOf('|');
       const sebelumStatus = baris.lastIndexOf('|', akhir - 1);
       const prefix = baris.slice(0, sebelumStatus).trimEnd();
@@ -210,8 +312,11 @@ function main(): number {
         `${kredensial.nrp}; bukti di entri log ${tanggal}) |`
       );
     });
-    if (baru === isi) {
+    if (!adaBaris) {
       console.error('PERINGATAN: baris OPS-01 tidak ketemu di AGENTS.md §5.8 — status TIDAK diubah.');
+    } else if (baru === isi) {
+      // Baris sudah berisi status yang persis sama (idempoten) — bukan kegagalan.
+      console.log('status      : baris OPS-01 di §5.8 sudah berisi status ini — tanpa perubahan.');
     } else {
       writeFileSafe(agents, baru, { mode: 'overwrite' });
       console.log('status      : OPS-01 ditandai ✅ SELESAI di AGENTS.md §5.8 (--close)');
@@ -228,4 +333,7 @@ function main(): number {
   return lulus ? 0 : 1;
 }
 
-process.exitCode = main();
+process.exitCode = 1;
+void main().then((code) => {
+  process.exitCode = code;
+});

@@ -2208,3 +2208,50 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
   konten: audit per berkas restamp-vs-reapply).
 - Dampak lintas-page: worker → admin → dashboard → owner: **TIDAK terdampak** — perubahan murni
   tooling checksum, guard test, dan dokumen; tidak menyentuh RPC, types, route, menu, design-system.
+
+## [2026-09-20] OPS-01 smoke WorkerProfile (worker NRP002) — hasil: GAGAL
+- Dijalankan: `npm run smoke:ops01` · exit **1** · 92.4s
+- Worker uji: `NRP002` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → nilai asli dikembalikan (smoke ini menulis ke DB live).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-20T05-33-13-252Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 tetap OPEN (smoke GAGAL — lihat log mentah).
+
+## [2026-09-20] OPS-01 smoke WorkerProfile (worker NRP007) — DONE
+- Dijalankan: `npm run smoke:ops01 -- --headless` · exit **0** · 110.8s
+- Worker uji: `NRP007` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → nilai asli dikembalikan (smoke ini menulis ke DB live).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-20T05-53-58-831Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 ditandai **✅ SELESAI** oleh runner ini (`--close`).
+
+## [2026-09-20] OPS-01 smoke WorkerProfile (worker NRP007) — DONE
+- Dijalankan: `npm run smoke:ops01 -- --headless` · exit **0** · 28.8s
+- Worker uji: `NRP007` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).
+- Pemulihan residu: employees_extended.agama NRP007 dipulihkan ke null via SQL (SQL-12: UI tidak bisa mengosongkan field).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-20T06-13-45-173Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 ditandai **✅ SELESAI** oleh runner ini (`--close`).
+## [2026-09-20] OPS-01 lanjutan: smoke LULUS bersih (1 attempt) + temuan SQL-12 (RPC tak bisa mengosongkan field)
+
+- Koreksi atas entri GAGAL (05:33) dan entri DONE pertama (05:53, "1 flaky"):
+  - Run 05:33 GAGAL dua sebab: (1) akun NRP002 ternyata `admin_hrd` — pasca-reload app memantul
+    ke `/admin`, dan (2) asersi spec menunggu tombol Simpan "aktif kembali" padahal simpan sukses
+    menutup form (tombol hilang dari DOM).
+  - Residu run gagal: `employees_extended.agama` NRP002 tertinggal 'Islam' — dipulihkan manual ke NULL.
+  - Runner diperbaiki: pemilihan akun kini query `user_roles` live (WAJIB `role='worker'` +
+    `reset_required=false`) → memilih NRP007; asersi spec diganti menunggu form keluar mode edit.
+  - Run 05:53 "flaky" (fail-then-pass): attempt-1 membuktikan persist tetapi gagal memulihkan
+    nilai asli karena...
+- TEMUAN BARU (SQL-12, §5.8): RPC `worker_update_profile` memakai `COALESCE(p_agama, agama)` —
+  NULL berarti "jangan ubah", sehingga field yang sudah terisi TIDAK BISA dikosongkan lewat UI.
+  Terverifikasi ke definisi live. Residu 'Islam' pada NRP007 dibersihkan manual ke NULL.
+- Spec + runner diperbaiki jujur terhadap batasan ini: bila nilai asli kosong, spec melewati
+  pemulihan UI dan menulis penanda residu; runner memulihkan nilai asli via SQL (whitelist field).
+- Run bersih 06:13: **1 passed (25.2s), tanpa flaky** — login NRP007 → edit Agama → Simpan →
+  reload → PERSIST "Islam" → runner memulihkan `agama → null` via SQL. Log mentah:
+  `.agents/logs/ops01-smoke-2026-09-20T06-13-45-173Z.log`.
+- §5.8: OPS-01 ✅ SELESAI (smoke LULUS untuk NRP007); item baru SQL-12 (P3, butuh keputusan user).
+- Dampak lintas-page: worker → admin → dashboard → owner: **TIDAK terdampak** — perbaikan terbatas
+  pada spec E2E + runner smoke; RPC TIDAK diubah (SQL-12 menunggu keputusan user).

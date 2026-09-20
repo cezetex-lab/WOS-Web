@@ -15,6 +15,8 @@
  * Jalankan lewat `npm run smoke:ops01` (headed, hasil terekam ke agentsLogs).
  */
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const EMAIL = process.env.OPS01_EMAIL;
 const PASSWORD = process.env.OPS01_PASSWORD;
@@ -67,8 +69,9 @@ test.describe('OPS-01 smoke WorkerProfile', () => {
     const tombolSimpan = page.getByRole('button', { name: /simpan/i }).first();
     await expect(tombolSimpan).toBeVisible({ timeout: 10_000 });
     await tombolSimpan.click();
-    // 'Menyimpan...' → tombol kembali aktif, lalu mode edit tertutup.
-    await expect(tombolSimpan).toBeEnabled({ timeout: 20_000 });
+    // Tunggu form KELUAR dari mode edit (handleSave sukses → setEditing(false) →
+    // tombol '✏️ Edit' muncul lagi). JANGAN menunggu tombol Simpan "aktif kembali":
+    // saat simpan cepat, form langsung tertutup dan tombolnya hilang dari DOM.
     await expect(page.getByRole('button', { name: /edit/i }).first()).toBeVisible({
       timeout: 20_000,
     });
@@ -82,11 +85,32 @@ test.describe('OPS-01 smoke WorkerProfile', () => {
     console.log(`[OPS-01] nilai Agama sesudah reload: "${NILAI_UJI}" → PERSIST`);
 
     // ── 5. PULIHKAN NILAI ASLI (smoke menulis ke DB live) ─────────────────────
+    if (nilaiAsli === '') {
+      // Nilai asli KOSONG: RPC `worker_update_profile` memakai pola
+      // `COALESCE(p_agama, agama)` di sisi DB — NULL berarti "jangan ubah" —
+      // sehingga field TIDAK BISA dikosongkan lewat UI (temuan SQL-12,
+      // AGENTS.md §5.8; terbukti 2026-09-20: simpan '' sukses di UI tapi DB
+      // tetap berisi nilai lama). Persist SUDAH terbukti di langkah 4, jadi
+      // smoke boleh lulus; penanda residu ditulis agar runner memulihkan
+      // nilai asli via SQL setelah browser ditutup.
+      console.log('[OPS-01] nilai asli kosong — pemulihan diserahkan ke runner via SQL (SQL-12)');
+      fs.writeFileSync(
+        path.join(process.cwd(), '.agents', 'logs', 'ops01-residue.json'),
+        JSON.stringify({
+          nrp: process.env.OPS01_NRP,
+          tabel: 'employees_extended',
+          field: 'agama',
+          original: null,
+        }),
+      );
+      return;
+    }
     await agamaSetelah.fill(nilaiAsli);
     await page.getByRole('button', { name: /simpan/i }).first().click();
     await expect(page.getByRole('button', { name: /edit/i }).first()).toBeVisible({
       timeout: 20_000,
     });
+    // Buktikan pemulihan benar-benar persist sebelum smoke dinyatakan lulus.
     await page.reload();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: /edit/i }).first().click();
