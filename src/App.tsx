@@ -1,7 +1,7 @@
 // src/App.tsx — Dynamic routing from module_definitions
 // Rewritten 2026-09-11: removed unused `import React` (JSX auto-runtime).
 // Behavior unchanged since the .jsx → .tsx entrypoint migration.
-import { useState } from 'react';
+import { lazy, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
@@ -23,7 +23,7 @@ import OwnerDashboard from './pages/OwnerDashboard';
 import CompanyConfig from './pages/CompanyConfig';
 import Admin from './pages/Admin';
 import Worker from './pages/Worker';
-import Dashboard from './pages/Dashboard';
+const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 function AppContent() {
   const [isDrawerOpen, setDrawerOpen] = useState(false);
