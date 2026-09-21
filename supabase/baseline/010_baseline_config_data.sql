@@ -1669,6 +1669,11 @@ BEGIN
     VALUES ('243', '243_sql02_drop_legacy_functions.sql', '2a5632ddba362f469d78ce779a875a497c65c784fd92f30197c3803e79e0704b', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '244_sql12_fix_coalesce.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('244', '244_sql12_fix_coalesce.sql', 'b421600b1bb5e8c7ec60ffa2922493a9069bedc2f9f8bb096205ebbaf2adb10f', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
 END $$;
 

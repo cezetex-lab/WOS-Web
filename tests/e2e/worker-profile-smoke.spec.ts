@@ -17,9 +17,12 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import dotenv from 'dotenv';
+import pg from 'pg';
 
 const EMAIL = process.env.OPS01_EMAIL;
 const PASSWORD = process.env.OPS01_PASSWORD;
+const NRP = process.env.OPS01_NRP; // nrp worker uji (untuk bukti DB di test SQL-12)
 const NILAI_UJI = process.env.OPS01_TEST_VALUE ?? 'Islam';
 const TANDA = `smoke-${Date.now()}`;
 
@@ -86,11 +89,11 @@ test.describe('OPS-01 smoke WorkerProfile', () => {
 
     // ── 5. PULIHKAN NILAI ASLI (smoke menulis ke DB live) ─────────────────────
     if (nilaiAsli === '') {
-      // Nilai asli KOSONG: RPC `worker_update_profile` memakai pola
-      // `COALESCE(p_agama, agama)` di sisi DB — NULL berarti "jangan ubah" —
-      // sehingga field TIDAK BISA dikosongkan lewat UI (temuan SQL-12,
-      // AGENTS.md §5.8; terbukti 2026-09-20: simpan '' sukses di UI tapi DB
-      // tetap berisi nilai lama). Persist SUDAH terbukti di langkah 4, jadi
+      // Nilai asli KOSONG: RPC `worker_update_profile` KINI (migrasi 244, SQL-12)
+      // memakai semantik NULL = jangan ubah / '' = kosongkan, sehingga clear/pulihkan
+      // via UI sudah mungkin — alurnya dibuktikan test kedua di bawah. (Sebelum
+      // 244: simpan '' sukses di UI tapi DB tetap berisi nilai lama — terbukti
+      // 2026-09-20.) Persist SUDAH terbukti di langkah 4, jadi
       // smoke boleh lulus; penanda residu ditulis agar runner memulihkan
       // nilai asli via SQL setelah browser ditutup.
       console.log('[OPS-01] nilai asli kosong — pemulihan diserahkan ke runner via SQL (SQL-12)');
@@ -118,5 +121,88 @@ test.describe('OPS-01 smoke WorkerProfile', () => {
       timeout: 15_000,
     });
     console.log(`[OPS-01] nilai Agama dipulihkan ke "${nilaiAsli}" (${TANDA})`);
+  });
+
+  test('SQL-12: kosongkan Agama ("") → simpan → reload → tetap kosong + DB NULL → pulihkan', async ({ page }) => {
+    // ── 1. LOGIN WORKER (sama seperti test pertama) ───────────────────────────
+    await page.goto('/');
+
+    const consent = page.locator('div[role="dialog"] button:has-text("Saya Setuju")');
+    try {
+      await consent.first().waitFor({ state: 'visible', timeout: 8_000 });
+      await consent.first().click();
+    } catch {
+      /* tidak ada dialog consent — lanjut */
+    }
+
+    await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 20_000 });
+    await page.locator('input[type="email"]').fill(EMAIL!);
+    await page.locator('input[type="password"]').first().fill(PASSWORD!);
+    await page.locator('button[type="submit"]').click();
+    await page.waitForURL(/\/worker/, { timeout: 30_000 });
+
+    // ── 2. BUKA /worker/profile, mode Edit, catat nilai asli ──────────────────
+    await page.goto('/worker/profile');
+    await page.waitForLoadState('domcontentloaded');
+    await page.getByRole('button', { name: /edit/i }).first().click();
+    const agama = page.getByLabel('Agama', { exact: true });
+    await expect(agama).toBeVisible({ timeout: 10_000 });
+    const nilaiAsli = await agama.inputValue();
+
+    // ── 3. KOSONGKAN + SIMPAN (UI kirim '' apa adanya) ────────────────────────
+    await agama.fill('');
+    await page.getByRole('button', { name: /simpan/i }).first().click();
+    await expect(page.getByRole('button', { name: /edit/i }).first()).toBeVisible({
+      timeout: 20_000,
+    });
+
+    // ── 4. RELOAD → bukti UI: field TETAP KOSONG ──────────────────────────────
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+    await page.getByRole('button', { name: /edit/i }).first().click();
+    await expect(page.getByLabel('Agama', { exact: true })).toHaveValue('', {
+      timeout: 15_000,
+    });
+
+    // ── 5. BUKTI DB: employees_extended.agama = NULL (read-only) ──────────────
+    const adaNrp = !!NRP && /^NRP\d+$/.test(NRP ?? '');
+    dotenv.config({ path: '.env.local', quiet: true });
+    const buka = () =>
+      new pg.Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      });
+    if (!adaNrp) {
+      console.log('[SQL-12] OPS01_NRP tidak tersedia/valid — bukti DB dilewati (bukti UI tetap jalan)');
+    } else {
+      const c = buka();
+      await c.connect();
+      const db = await c.query('select agama from employees_extended where nrp = $1', [NRP]);
+      await c.end();
+      expect(db.rows[0]?.agama, `DB agama ${NRP} harus NULL setelah clear via UI`).toBeNull();
+      console.log(`[SQL-12] DB agama ${NRP} = NULL → '' benar-benar mengosongkan field (migrasi 244)`);
+    }
+
+    // ── 6. PULIHKAN NILAI ASLI via UI ('' kini bisa dikirim apa adanya) ───────
+    await page.getByLabel('Agama', { exact: true }).fill(nilaiAsli);
+    await page.getByRole('button', { name: /simpan/i }).first().click();
+    await expect(page.getByRole('button', { name: /edit/i }).first()).toBeVisible({
+      timeout: 20_000,
+    });
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+    await page.getByRole('button', { name: /edit/i }).first().click();
+    await expect(page.getByLabel('Agama', { exact: true })).toHaveValue(nilaiAsli, {
+      timeout: 15_000,
+    });
+    // Buktikan pemulihan juga di level DB (nilai asli '' kini benar-benar NULL lagi).
+    if (adaNrp) {
+      const c2 = buka();
+      await c2.connect();
+      const db2 = await c2.query('select agama from employees_extended where nrp = $1', [NRP]);
+      await c2.end();
+      expect(db2.rows[0]?.agama ?? '').toBe(nilaiAsli || null);
+      console.log(`[SQL-12] pemulihan: DB agama ${NRP} = ${JSON.stringify(db2.rows[0]?.agama ?? null)}`);
+    }
   });
 });

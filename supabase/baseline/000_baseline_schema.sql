@@ -15158,26 +15158,33 @@ BEGIN
 
   UPDATE employees_core
   SET
-    lokasi_penempatan = COALESCE(p_lokasi_penempatan, lokasi_penempatan),
+    lokasi_penempatan = CASE
+      WHEN p_lokasi_penempatan = '' THEN NULL          -- worker kirim '' = kosongkan
+      ELSE COALESCE(p_lokasi_penempatan, lokasi_penempatan)  -- NULL = jangan ubah
+    END,
     updated_by = v_caller,
     updated_at = NOW()
   WHERE nrp = p_nrp;
 
   UPDATE employees_extended
   SET
-    no_hp = COALESCE(p_no_hp, no_hp),
-    alamat = COALESCE(p_alamat, alamat),
-    agama = COALESCE(p_agama, agama),
-    media_sosial = COALESCE(p_media_sosial, media_sosial),
-    jenjang_pendidikan = COALESCE(p_jenjang_pendidikan, jenjang_pendidikan),
-    no_bpjs_kesehatan = COALESCE(p_no_bpjs_kesehatan, no_bpjs_kesehatan),
-    no_bpjs_ketenagakerjaan = COALESCE(p_no_bpjs_ketenagakerjaan, no_bpjs_ketenagakerjaan),
-    riwayat_penyakit = COALESCE(p_riwayat_penyakit, riwayat_penyakit),
-    komorbid = COALESCE(p_komorbid, komorbid),
-    alergi = COALESCE(p_alergi, alergi),
-    nama_bank = COALESCE(p_nama_bank, nama_bank),
-    no_rekening = COALESCE(p_no_rekening, no_rekening),
-    nama_rekening = COALESCE(p_nama_rekening, nama_rekening)
+    no_hp = CASE WHEN p_no_hp = '' THEN NULL ELSE COALESCE(p_no_hp, no_hp) END,
+    alamat = CASE WHEN p_alamat = '' THEN NULL ELSE COALESCE(p_alamat, alamat) END,
+    agama = CASE WHEN p_agama = '' THEN NULL ELSE COALESCE(p_agama, agama) END,
+    media_sosial = CASE
+      WHEN p_media_sosial IS NULL THEN media_sosial    -- NULL = jangan ubah
+      WHEN p_media_sosial = '""'::jsonb THEN NULL      -- skalar jsonb "" = kosongkan
+      ELSE p_media_sosial
+    END,
+    jenjang_pendidikan = CASE WHEN p_jenjang_pendidikan = '' THEN NULL ELSE COALESCE(p_jenjang_pendidikan, jenjang_pendidikan) END,
+    no_bpjs_kesehatan = CASE WHEN p_no_bpjs_kesehatan = '' THEN NULL ELSE COALESCE(p_no_bpjs_kesehatan, no_bpjs_kesehatan) END,
+    no_bpjs_ketenagakerjaan = CASE WHEN p_no_bpjs_ketenagakerjaan = '' THEN NULL ELSE COALESCE(p_no_bpjs_ketenagakerjaan, no_bpjs_ketenagakerjaan) END,
+    riwayat_penyakit = CASE WHEN p_riwayat_penyakit = '' THEN NULL ELSE COALESCE(p_riwayat_penyakit, riwayat_penyakit) END,
+    komorbid = CASE WHEN p_komorbid = '' THEN NULL ELSE COALESCE(p_komorbid, komorbid) END,
+    alergi = CASE WHEN p_alergi = '' THEN NULL ELSE COALESCE(p_alergi, alergi) END,
+    nama_bank = CASE WHEN p_nama_bank = '' THEN NULL ELSE COALESCE(p_nama_bank, nama_bank) END,
+    no_rekening = CASE WHEN p_no_rekening = '' THEN NULL ELSE COALESCE(p_no_rekening, no_rekening) END,
+    nama_rekening = CASE WHEN p_nama_rekening = '' THEN NULL ELSE COALESCE(p_nama_rekening, nama_rekening) END
   WHERE nrp = p_nrp;
 
   RETURN jsonb_build_object('ok', true, 'msg', 'Profil berhasil diperbarui');

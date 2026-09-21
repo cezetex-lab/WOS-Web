@@ -2551,3 +2551,45 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
   sudah dicabut sejak 210/073.
 - **Artifacts:** migrasi 243 + baseline regen + ARCHITECTURE.md + FuturePlans.md + AGENTS.md (prune
   SQL-02) + log ini. Work Queue §5.8 kini hanya SQL-12 (DEFERRED → FASE 3).
+
+## [2026-09-21] OPS-01 smoke WorkerProfile (worker NRP007) — hasil: GAGAL
+- Dijalankan: `npm run smoke:ops01 -- --headless` · exit **1** · 236.4s
+- Worker uji: `NRP007` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-21T11-36-07-761Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 tetap OPEN (smoke GAGAL — lihat log mentah).
+## [2026-09-21] SQL-12 SELESAI: worker_update_profile COALESCE fix via migrasi 244 — semantik NULL=jangan ubah, ''=kosongkan. Signature tidak berubah. UI kirim '' apa adanya.
+
+- FASE 1A (read-only): functiondef live = 15 arg / 14 field COALESCE (13 di `employees_extended`
+  + `lokasi_penempatan` di `employees_core`), SECURITY DEFINER; UI `WorkerProfile.tsx:143-159`
+  selalu kirim 15 param penuh dengan konversi `form.X || null` (akar bug: ''→null sebelum keluar);
+  wrapper `rpcWorkerUpdateProfile` (`supabase-rpc.ts:190-207`) — G3: total pemakai 2 file.
+- **Keputusan user: Opsi D** — `''` = kosongkan, NULL = jangan ubah, signature SAMA.
+- **Migrasi 244** (`244_sql12_fix_coalesce.sql`): 13 field teks → `CASE WHEN p_param='' THEN NULL
+  ELSE COALESCE(...) END`; `media_sosial` (jsonb) → NULL=jangan ubah, `p = '"\""'::jsonb` (skalar "")
+  = kosongkan. Apply: `DITERAPKAN + terdaftar + checksum terverifikasi (708ms)`.
+- **Insiden jujur:** versi pertama 244 memakai `''::jsonb` — BUKAN JSON valid — sehingga SETIAP
+  panggilan `worker_update_profile` gagal `invalid input syntax for type json` (tertangkap probe
+  impersonasi, bukan produksi). Diperbaiki ke `'"\""'::jsonb`, diterapkan ulang, restamp checksum
+  `b421600b1bb5e8c7…` (RESTAMP: diperbarui + diverifikasi).
+- **Verifikasi semantik (impersonasi JWT worker NRP005, transaksi ROLLBACK, via `get_worker_profile`):**
+  isi → `"Islam Sementara"` ✓; kirim `''` → `null` ✓; kirim NULL → tetap null ✓; isi lagi → `"Hindu"` ✓.
+  SELECT langsung `employees_extended` diblokir RLS untuk role worker (isolasi bekerja) — bukti lewat
+  jalur baca yang sama dengan app.
+- **UI:** `WorkerProfile.tsx` handleSave — 13 konversi `|| null` dihapus (kirim nilai form mentah);
+  `p_nrp` + `p_media_sosial` tidak berubah bentuk. Wrapper typed tidak berubah.
+- **Smoke browser TIDAK LULUS — temuan baru, bukan bagian DoD SQL-12:** `npm run smoke:ops01 -- --headless`
+  2/2 test gagal — setelah login app-level sukses (`login_worker_by_email` 200), provisioning sesi
+  Supabase gagal: edge `worker-auth-sync` **timeout 5012ms (limit 5000)** + fallback
+  `signInWithPassword` **HTTP 400** → sesi Supabase tak pernah terbentuk → `get_enabled_modules`
+  terkirim dengan `Authorization: Bearer sb_publishable…` (anon) → respons `[]` (2 byte, 200 OK) →
+  shell worker stuck "Memuat modul…". **Bukti DB bersih:** impersonasi NRP005/NRP007/NRP009 masing-masing
+  `get_enabled_modules('worker')` = **31 item** + konteks lengkap — masalah murni di jalur sesi browser.
+  Didata sebagai item baru **OPS-04** di §5.8 (kemungkinan tumpang tindih F1–F4, OPEN_WORK.md).
+- **Gate:** tsc 0 (awal 3 error `NRP` di spec — diperbaiki: deklarasi konstanta), lint 0,
+  test **141/141** (guard `doc-claims-vs-live` → ARCHITECTURE §7.4 cap 169 disegarkan di sel + narasi),
+  build EXIT 0, main `index-DbloNgbT.js` = 27,58 kB gzip. verify-install: cap **169** pasca-regen baseline.
+- **Dampak lintas-page (G7):** worker → terdampak positif (clear-field kini berfungsi);
+  admin/dashboard/owner → tidak terdampak (RPC hanya konsumen self-service worker; definisi &
+  signature tidak berubah).
