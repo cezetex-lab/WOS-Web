@@ -2488,3 +2488,39 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - Dampak lintas-page: worker → admin → dashboard → owner: **TIDAK terdampak** — satu
   UPDATE is_active pada baris yang memang sudah tidak pernah muncul di menu/route
   (dedup + find-first); komponen Dashboard dilayani ceo_dashboard seperti sebelumnya.
+
+## [2026-09-21] OPS-03 SELESAI: bundle < 150 kB gzip — OPS-03c (lazy shell) + OPS-03b (manualChunks + posthog deferred). Initial load 4 file = 144,5 kB gzip (main 27,6 kB).
+
+- **Analisa read-only dulu (root-cause revisi):** H1 auto-import Lucide TERBANTAHKAN
+  (0 plugin auto-import; lucide-react hanya 1 file × 8 icon named-import =
+  tree-shakeable); chunk `auto-BMfztOn_.js` (69,6 kB gzip) = chart.js (`@kurkle/color`),
+  HANYA di-fetch oleh halaman ber-chart yang lazy — bukan initial load; catatan lama
+  "Dashboard static import" basi (Dashboard sudah lazy sebelumnya). Penyebab utama
+  main 197 kB gzip: supabase-js + posthog-js + dompurify tak tercakup manualChunks +
+  4 page shell statis di App.tsx.
+- **OPS-03c** (App.tsx): `OwnerDashboard/CompanyConfig/Admin/Worker` → `lazy()`
+  (Home + OwnerLogin tetap statis sesuai keputusan user); ditambah satu boundary
+  `<Suspense>` membungkus `<Routes>` (belum ada sebelumnya — terbukti grep).
+  - Build: main 709.414 B / 195.568 gzip → 608.482 B / **178.770 gzip** (−16,8 kB gzip);
+    chunk baru: Admin 3,35 kB, Worker 3,57 kB, CompanyConfig 2,39 kB gzip.
+- **OPS-03b** (vite.config.ts + lib/posthog.ts + komentar main.tsx):
+  - manualChunks diperluas: `@supabase` → `vendor-supabase`, `posthog` →
+    `vendor-posthog`, `dompurify` → `vendor-dompurify` (react-family tetap `vendor`).
+  - `lib/posthog.ts` ditulis ulang jadi loader tipis: posthog-js via **dynamic import**
+    yang dijadwalkan `requestIdleCallback` (timeout 3 dtk, fallback setTimeout 1,5 dtk),
+    idempoten; semua helper (track/isFeatureEnabled/identifyUser/resetUser/track*)
+    no-op aman via `window.posthog?` (G3: grep pemakai dulu — track/isFeatureEnabled/
+    identifyUser/resetUser = 0 pemakai; satu-satunya importer named = log-error.ts
+    yang memakai trackError window-based; ErrorBoundary sudah `window.posthog` guard).
+  - Bukti async: `vendor-posthog` = **0 referensi di dist/index.html** (tidak preload).
+- **Angka akhir (build EXIT 0):**
+  - `index-CMdHCDjD.js` = 103,18 kB / **27,58 kB gzip** (dari 197 kB gzip).
+  - Initial load (4 file di HTML): index 27,58 + vendor (react) 54,60 +
+    vendor-supabase 54,12 + vendor-dompurify 10,69 = **144,5 kB gzip < 150 kB target**.
+  - `vendor-posthog` (89 kB gzip) kini ASYNC — tidak dimuat saat startup.
+- **Gate (tree saat itu):** `check:types` EXIT 0; `lint` EXIT 0; `npm test` = **141/141**;
+  `npm run build` EXIT 0.
+- Dampak lintas-page: worker → admin → dashboard → owner: **POSITIVE-NEUTRAL** — semua
+  page tetap dirender sama (bukti: unit test 141/141; E2E full-sweep tidak dijalankan —
+  saran tindak lanjut); perubahan = pembagian chunk + defer analytics; tidak ada
+  perubahan RPC/types/route/session.

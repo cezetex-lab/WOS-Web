@@ -57,6 +57,11 @@ export default defineConfig({
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom') || id.includes('scheduler')) {
               return 'vendor';
             }
+            // OPS-03b: vendor berat dipisah dari main supaya bisa di-cache/
+            // di-defer terpisah (posthog malah didefer penuh — lihat lib/posthog.ts).
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('posthog')) return 'vendor-posthog';
+            if (id.includes('dompurify')) return 'vendor-dompurify';
           }
         },
       },

@@ -1,7 +1,7 @@
 // src/App.tsx — Dynamic routing from module_definitions
 // Rewritten 2026-09-11: removed unused `import React` (JSX auto-runtime).
 // Behavior unchanged since the .jsx → .tsx entrypoint migration.
-import { lazy, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
@@ -17,12 +17,15 @@ import ErrorBoundary from './components/ErrorBoundary';
 import DynamicRoutes from './components/DynamicRoutes';
 
 // Static pages (not from module_definitions)
+// OPS-03c: Home + OwnerLogin tetap STATIS (jalur login harus instant);
+// OwnerDashboard/CompanyConfig/Admin/Worker di-lazy() supaya tidak membebani
+// main bundle (pola yang sama dengan Dashboard yang sudah lazy).
 import Home from './pages/Home';
 import OwnerLogin from './pages/OwnerLogin';
-import OwnerDashboard from './pages/OwnerDashboard';
-import CompanyConfig from './pages/CompanyConfig';
-import Admin from './pages/Admin';
-import Worker from './pages/Worker';
+const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard'));
+const CompanyConfig = lazy(() => import('./pages/CompanyConfig'));
+const Admin = lazy(() => import('./pages/Admin'));
+const Worker = lazy(() => import('./pages/Worker'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 function AppContent() {
@@ -45,6 +48,9 @@ function AppContent() {
       <OfflineIndicator />
       <PrivacyConsent />
       <SessionGuard>
+        {/* OPS-03c: boundary Suspense untuk seluruh Routes — wajib karena
+            OwnerDashboard/CompanyConfig/Admin/Worker/Dashboard kini lazy(). */}
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center" role="status" aria-live="polite"><span className="text-slate-400 text-sm">Memuat…</span></div>}>
         <Routes>
           {/* PUBLIC — no auth needed */}
           <Route path="/" element={<Home />} />
@@ -61,6 +67,7 @@ function AppContent() {
           {/* DYNAMIC ROUTES from module_definitions */}
           <Route path="/*" element={<DynamicRoutes withNav={withNav} />} />
         </Routes>
+        </Suspense>
       </SessionGuard>
     </div>
   );
