@@ -2403,3 +2403,47 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
   reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).
 - Log mentah: `.agents/logs/ops01-smoke-2026-09-20T09-22-15-055Z.log` (gitignored).
 - Status AGENTS.md §5.8: OPS-01 **masih OPEN** — jalankan ulang dengan `-- --close` setelah Anda menyetujui hasilnya.
+
+## [2026-09-21] SQL-11 — 35 drift checksum registry: verifikasi 3 ronde + eksekusi (241 + restamp 35 + pulihkan 240) — DONE
+
+- Status: **DONE** — DoD §5.8 terpenuhi dengan bukti mentah (di bawah). Keputusan user: A = restamp
+  via flag `--only`, B = migrasi baru untuk efek 054+083, C = seed 011/018/027/053 TIDAK di-apply
+  (live sengaja tanpa data demo).
+- **Verifikasi klaim helper (3 ronde read-only; repro `.agents/scripts/sql11-verify-claims{,-2,-3}.mjs`):**
+  29/35 klaim kategori terkonfirmasi (live sudah memuat efek → restamp saja); 4 TERBANTAHKAN:
+  086 (live sudah WITH CHECK), 199 (live sudah join role_code), 180/181 (signature live identik
+  dengan berkas — bukan RE-APPLY); 2 butuh eksekusi: 054+083; 4 seed (C) → keputusan tanpa apply;
+  226 → REMOVE.
+- **Eksekusi:**
+  - Flag `--only` ditambahkan ke `supabase/scripts/refresh-migration-checksums.mjs` (dry run:
+    target registry tepat 35 drift konten, 0 di luar daftar).
+  - Migrasi `241_sql11_apply_missing_effects.sql` diterapkan (audit columns 16 tabel + trigger
+    `trg_*_updated` + policy `sv_select`/`ok_select`, idempoten pola 231):
+    "DITERAPKAN + terdaftar + checksum terverifikasi (1022ms)". Post-verify hijau
+    (`.agents/scripts/sql11-postverify-241.mjs`).
+  - Restamp 35 berkas via `--only --apply --db` + `verify_migration_checksum` PASS semua.
+  - **Residu SQL-08 ditemukan & dibereskan:** `db:verify-install` 8/9 — `migration_cap` live=166
+    vs install=165. Akar: file `240_drop_hr_attendance_partitioned.sql` diterapkan ke live
+    2026-09-20 (SQL-08) tapi tidak pernah di-commit → baris registry yatim tanpa file repo.
+    File dipulihkan sebagai rekonstruksi idempoten (semua IF EXISTS + gagal-cepat), restamp ke
+    checksum `a3d394b75f82efd59cfa2d88a349a94af6059b914f28843223715a5bf2ede961`, no-op live
+    diverifikasi (tabel=0, fungsi=0, cron=0; `hr_attendance` utuh 96 baris).
+  - Generator baseline diperbaiki (SQL-11): blok "PARTISI ABSENSI" usang dihapus dari
+    `generate-baseline.mjs` + komentar basi diselaraskan; `generate-baseline-data.mjs` —
+    baris verifikasi yang menyarankan memanggil `ensure_attendance_partitions()` (sudah di-drop)
+    dihapus dari template komentar baseline.
+- **Bukti DoD (mentah):**
+  - `refresh-migration-checksums --dry-run --db`: drift EOL-only = 0, drift KONTEN = 0.
+  - `check_migrations()`: issue rows = 0; registry total = 166 (= jumlah file migrasi repo).
+  - `npm run db:baseline`: tabel 208 | fungsi 552 | view 1 | sequence 94 | cron 3; cap 166.
+  - `npm run db:verify-install`: **PASS — EXIT 0, 9/9 SAMA** (tabel 208, partisi 0, view 1,
+    fungsi 552, policy 225, trigger 29, sequence 95, cron 3, cap 166) + idempoten `--force` exit 0.
+  - Gate tree saat itu: `check:types` EXIT 0; `lint` EXIT 0; `npm test` = 22 files / **141/141**;
+    `npm run build` EXIT 0.
+  - Guard konsistensi kini hijau: `work-queue-consistency` + `doc-claims-vs-live` = 8/8
+    (2 klaim false positive dibereskan: judul entri log SQL-13 "INVESTIGASI SELESAI" →
+    "INVESTIGASI TUNTAS (item tetap OPEN)"; ARCHITECTURE.md §7.4 Migrations tracked 165 → 166).
+- Dampak lintas-page: worker → admin → dashboard → owner: **TIDAK terdampak** — perubahan DB
+  (kolom audit/trigger/policy pada tabel tanpa pembaca langsung `src/`), registry checksum, dan
+  baseline installer; tidak ada RPC/types/route/session yang berubah. Halaman Owner terdampak
+  positif secara pasif (baseline instalasi kini memuat efek 241 + registry 166).

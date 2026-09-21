@@ -1651,7 +1651,12 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '240_drop_hr_attendance_partitioned.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
-    VALUES ('240', '240_drop_hr_attendance_partitioned.sql', '2877ffbaee7e5a10b205d5c060b29b5c516ae28d094493a26030d9ebe47edd1f', 'baseline install (schema dari DB live)');
+    VALUES ('240', '240_drop_hr_attendance_partitioned.sql', 'a3d394b75f82efd59cfa2d88a349a94af6059b914f28843223715a5bf2ede961', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '241_sql11_apply_missing_effects.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('241', '241_sql11_apply_missing_effects.sql', '203eca23160979640ade1044edf2e6f7e9c6be9ec3e5913a18beb8899c10510a', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
@@ -1662,5 +1667,4 @@ END $$;
 --   select count(*) from public.module_definitions;        -- > 0 = menu hidup
 --   select count(*) from public.schema_migrations;
 --   select public.check_migrations();
---   select public.ensure_attendance_partitions(NULL, 24);   -- jaga partisi absensi
 

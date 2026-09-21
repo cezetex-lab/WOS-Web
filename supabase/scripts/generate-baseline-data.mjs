@@ -294,7 +294,6 @@ emit(`--   select count(*) from information_schema.tables where table_schema='pu
 emit(`--   select count(*) from public.module_definitions;        -- > 0 = menu hidup`);
 emit(`--   select count(*) from public.schema_migrations;`);
 emit(`--   select public.check_migrations();`);
-emit(`--   select public.ensure_attendance_partitions(NULL, 24);   -- jaga partisi absensi`);
 emit('');
 
 // ── PEMINDAI KEBOCORAN IDENTITAS ──

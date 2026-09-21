@@ -19,9 +19,9 @@
 --   * Berkas ini menggantikan replay 000–228 karena rangkaian migrasi repo
 --     BUKAN histori utuh (79 nomor versi tanpa berkas — AGENTS.md §5.8 SQL-10)
 --     dan 23 tabel + 14 fungsi live tidak punya sumber migrasi (SQL-02).
---   * Partisi `hr_attendance_partitioned` TIDAK ADA lagi: tabel mati itu
---     di-drop migrasi 240 (SQL-08, keputusan user 2026-09-20) — absensi
---     tertulis di tabel biasa `hr_attendance`.
+--   * hr_attendance kini TABEL BIASA (SQL-08, migrasi 240: drop
+--     hr_attendance_partitioned + ensure_attendance_partitions), jadi tidak ada
+--     blok partisi dinamis di baseline — generator tidak lagi memanggilnya.
 --   * Schema/objek milik Supabase (`auth`, `storage`, `vault`, role
 --     anon/authenticated/service_role) TIDAK dibuat di sini — sudah disediakan
 --     platform. RLS memakai `auth.uid()` dari sana.
@@ -1187,7 +1187,9 @@ CREATE TABLE IF NOT EXISTS public.hr_okrs (
   key_result text,
   target_value numeric(10,2),
   current_value numeric(10,2) DEFAULT 0,
-  updated_at timestamp with time zone DEFAULT now()
+  updated_at timestamp with time zone DEFAULT now(),
+  created_by text,
+  updated_by text
 );
 
 CREATE TABLE IF NOT EXISTS public.hr_org (
@@ -1390,7 +1392,10 @@ CREATE TABLE IF NOT EXISTS public.hr_surveys (
   title text NOT NULL,
   questions jsonb DEFAULT '[]'::jsonb,
   status text DEFAULT 'active'::text,
-  created_at timestamp with time zone DEFAULT now()
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  created_by text,
+  updated_by text
 );
 
 CREATE TABLE IF NOT EXISTS public.hr_talent_catalog (
@@ -14781,13 +14786,9 @@ RETURN jsonb_build_object('ok',false,'msg','Tidak ditemukan.'); END; $function$;
 CREATE OR REPLACE FUNCTION public.update_audit_timestamp()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
-  IF TG_OP = 'UPDATE' THEN
-    NEW.updated_at = NOW();
-  END IF;
+  NEW.updated_at = NOW();
   RETURN NEW;
 END;
 $function$;
@@ -15465,10 +15466,11 @@ BEGIN
 END;
 $function$;
 
--- (Blok "PARTISI ABSENSI" dihapus — SQL-08/migrasi 240, keputusan user
---  2026-09-20: tabel mati hr_attendance_partitioned + fungsinya di-drop;
---  absensi tertulis di tabel biasa hr_attendance.)
-
+-- ── CATATAN PARTISI ABSENSI ─────────────────────────────────────
+-- Sejak SQL-08 (migrasi 240) hr_attendance adalah TABEL BIASA: partisi
+-- hr_attendance_YYYY_MM dan fungsi ensure_attendance_partitions() sudah di-drop.
+-- Tidak ada pemanggilan apa pun di sini; ACL hr_attendance tercakup blok per-tabel
+-- di bawah seperti tabel lain.
 -- ── ROW LEVEL SECURITY ──────────────────────────────────────────
 ALTER TABLE public.active_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.active_sessions FORCE ROW LEVEL SECURITY;
@@ -16141,6 +16143,11 @@ DROP POLICY IF EXISTS rls_hr_notifications_write ON public.hr_notifications;
 CREATE POLICY rls_hr_notifications_write ON public.hr_notifications FOR ALL TO PUBLIC USING (authz_check_admin('employee.view_all'::text)) WITH CHECK (authz_check_admin('employee.view_all'::text));
 DROP POLICY IF EXISTS hr_okr_res_auth ON public.hr_okr_results;
 CREATE POLICY hr_okr_res_auth ON public.hr_okr_results FOR ALL TO PUBLIC USING ((auth.uid() IS NOT NULL));
+DROP POLICY IF EXISTS ok_select ON public.hr_okrs;
+CREATE POLICY ok_select ON public.hr_okrs FOR SELECT TO PUBLIC USING (((nrp = ( SELECT employees_master.nrp
+   FROM employees_master
+  WHERE (employees_master.auth_id = auth.uid())
+ LIMIT 1)) OR is_admin_or_owner()));
 DROP POLICY IF EXISTS hr_org_authz ON public.hr_org;
 CREATE POLICY hr_org_authz ON public.hr_org FOR SELECT TO PUBLIC USING (((auth.uid() IS NOT NULL) AND (authz_in_scope(nrp) OR authz_has_permission('employee.view_all'::text))));
 DROP POLICY IF EXISTS rls_hr_overtime_read ON public.hr_overtime;
@@ -16209,6 +16216,8 @@ CREATE POLICY succession_matrix_admin ON public.hr_succession_matrix FOR ALL TO 
   WHERE ((user_roles.nrp = (auth.uid())::text) AND (user_roles.role_level >= 3)))));
 DROP POLICY IF EXISTS hr_survey__auth ON public.hr_survey_responses;
 CREATE POLICY hr_survey__auth ON public.hr_survey_responses FOR ALL TO PUBLIC USING ((auth.uid() IS NOT NULL));
+DROP POLICY IF EXISTS sv_select ON public.hr_surveys;
+CREATE POLICY sv_select ON public.hr_surveys FOR SELECT TO PUBLIC USING (true);
 DROP POLICY IF EXISTS hr_talent__auth ON public.hr_talent_catalog;
 CREATE POLICY hr_talent__auth ON public.hr_talent_catalog FOR SELECT TO PUBLIC USING ((auth.uid() IS NOT NULL));
 DROP POLICY IF EXISTS hr_task_bo_auth ON public.hr_task_board;
@@ -16427,6 +16436,8 @@ DROP TRIGGER IF EXISTS trg_audit_hr_notifications ON public.hr_notifications;
 CREATE TRIGGER trg_audit_hr_notifications AFTER INSERT OR DELETE OR UPDATE ON hr_notifications FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
 DROP TRIGGER IF EXISTS trg_audit_hr_okrs ON public.hr_okrs;
 CREATE TRIGGER trg_audit_hr_okrs AFTER INSERT OR DELETE OR UPDATE ON hr_okrs FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
+DROP TRIGGER IF EXISTS trg_hr_okrs_updated ON public.hr_okrs;
+CREATE TRIGGER trg_hr_okrs_updated BEFORE UPDATE ON hr_okrs FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
 DROP TRIGGER IF EXISTS trg_audit_hr_overtime ON public.hr_overtime;
 CREATE TRIGGER trg_audit_hr_overtime AFTER INSERT OR DELETE OR UPDATE ON hr_overtime FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
 DROP TRIGGER IF EXISTS trg_audit_hr_payroll ON public.hr_payroll;
@@ -16445,6 +16456,8 @@ DROP TRIGGER IF EXISTS trg_audit_hr_skills ON public.hr_skills;
 CREATE TRIGGER trg_audit_hr_skills AFTER INSERT OR DELETE OR UPDATE ON hr_skills FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
 DROP TRIGGER IF EXISTS trg_audit_hr_surveys ON public.hr_surveys;
 CREATE TRIGGER trg_audit_hr_surveys AFTER INSERT OR DELETE OR UPDATE ON hr_surveys FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
+DROP TRIGGER IF EXISTS trg_hr_surveys_updated ON public.hr_surveys;
+CREATE TRIGGER trg_hr_surveys_updated BEFORE UPDATE ON hr_surveys FOR EACH ROW EXECUTE FUNCTION update_audit_timestamp();
 DROP TRIGGER IF EXISTS trg_audit_hr_tasks ON public.hr_tasks;
 CREATE TRIGGER trg_audit_hr_tasks AFTER INSERT OR DELETE OR UPDATE ON hr_tasks FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
 DROP TRIGGER IF EXISTS trg_audit_hr_voice ON public.hr_voice;
@@ -17332,10 +17345,11 @@ REVOKE ALL ON FUNCTION public.worker_logout() FROM PUBLIC, anon, authenticated, 
 REVOKE ALL ON FUNCTION public.worker_update_profile(p_nrp text, p_no_hp text, p_alamat text, p_agama text, p_media_sosial jsonb, p_jenjang_pendidikan text, p_no_bpjs_kesehatan text, p_no_bpjs_ketenagakerjaan text, p_riwayat_penyakit text, p_komorbid text, p_alergi text, p_nama_bank text, p_no_rekening text, p_nama_rekening text, p_lokasi_penempatan text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.worker_update_profile_legacy(p_nrp text, p_email text, p_no_hp text, p_alamat text) FROM PUBLIC, anon, authenticated, service_role;
 
--- SAPUAN SCHEMA-WIDE (wajib): pengaman bila kelak ada objek yang tidak
--- tercatat per-objek di atas (mis. partisi baru) supaya tidak mewarisi hak
--- bawaan platform (anon ALL) → DB perusahaan baru LEBIH TERBUKA daripada DB live.
--- Terukur pada uji replay 2026-09-18: 48 entri ACL berlebih pada partisi.
+-- SAPUAN SCHEMA-WIDE (wajib): tanpa ini objek apa pun yang luput didaftar
+-- (mis. tabel baru hasil generator) mewarisi hak bawaan platform (anon ALL)
+-- → DB perusahaan baru LEBIH TERBUKA daripada DB live.
+-- Sejak SQL-08 tidak ada lagi partisi dinamis hr_attendance_* saat instalasi;
+-- sapuan tetap dipertahankan sebagai jaring pengaman ACL.
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
@@ -19816,8 +19830,8 @@ DO $$ BEGIN
   PERFORM cron.schedule('cleanup-otp', '*/15 * * * *', 'DELETE FROM otp_store WHERE expiry < NOW() - INTERVAL ''1 hour''');
 END $$;
 
--- Catatan: blok partisi absensi sudah dihapus (SQL-08/migrasi 240 — tabel mati
--- hr_attendance_partitioned di-drop); tidak ada lagi partisi yang perlu dijaga.
+-- Catatan: sejak SQL-08 hr_attendance tabel biasa — tidak ada partisi dinamis
+-- yang perlu dibuat saat instalasi (blok "PARTISI ABSENSI" dihapus).
 
 -- ── SELESAI. Verifikasi: ────────────────────────────────────────
 --   select count(*) from information_schema.tables where table_schema='public';

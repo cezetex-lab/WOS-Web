@@ -52,6 +52,27 @@ const apply = args.includes('--apply');
 const withDb = args.includes('--db');
 const forceContent = args.includes('--force-content');
 
+// --only <nama1,nama2,...> atau --only nama1 nama2 ...
+// Batasi cakupan (cap baseline + registry) hanya ke berkas yang disebut.
+// Dipakai SQL-11: restamp terpilih yang tiap barisnya sudah diverifikasi ke
+// DB live, TANPA menyentuh berkas lain yang belum diaudit.
+const onlyIdx = args.indexOf('--only');
+const onlyList =
+  onlyIdx === -1
+    ? null
+    : args
+        .slice(onlyIdx + 1)
+        .filter((v) => !v.startsWith('--'))
+        .join(',')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+const onlySet = onlyList && onlyList.length > 0 ? new Set(onlyList) : null;
+if (onlyIdx !== -1 && !onlySet) {
+  console.error('--only diberikan tapi daftar berkas kosong');
+  process.exit(2);
+}
+
 if (args.includes('--force-content') && !apply) {
   console.log('(catatan: --force-content tanpa --apply hanya memengaruhi laporan)');
 }
@@ -84,7 +105,18 @@ for (const m of baselineRaw.matchAll(capRegex)) {
     capStale.push({ nama, lamaCap, baru: h.baru, eolOnly: lamaCap === h.lama });
   }
 }
-console.log(`\ncap baseline perlu disegarkan : ${capStale.length}`);
+let capDiluarOnly = 0;
+if (onlySet) {
+  const sesudahFilter = capStale.filter((c) => onlySet.has(c.nama));
+  capDiluarOnly = capStale.length - sesudahFilter.length;
+  capStale.splice(0, capStale.length, ...sesudahFilter);
+  const takDikenal = [...onlySet].filter((n) => !hitung.has(n));
+  if (takDikenal.length > 0) {
+    console.error(`--only: nama berkas tidak dikenal: ${takDikenal.join(', ')}`);
+    process.exit(2);
+  }
+}
+console.log(`\ncap baseline perlu disegarkan : ${capStale.length}${onlySet ? ` (--only aktif; ${capDiluarOnly} di luar daftar dilewati)` : ''}`);
 const capKonten = capStale.filter((c) => !c.eolOnly);
 console.log(`  di antaranya bukan EOL-only : ${capKonten.length}${capKonten.length ? ' → ' + capKonten.map((c) => c.nama).join(', ') : ''}`);
 
@@ -100,10 +132,18 @@ if (withDb) {
   client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
   await client.connect();
   const rows = (await client.query('SELECT filename, checksum FROM schema_migrations')).rows;
+  let registryDiluarOnly = 0;
   for (const r of rows) {
     const h = hitung.get(r.filename);
     if (!h || r.checksum === h.baru) continue;
+    if (onlySet && !onlySet.has(r.filename)) {
+      registryDiluarOnly += 1;
+      continue;
+    }
     (r.checksum === h.lama ? eolOnly : konten).push(r.filename);
+  }
+  if (onlySet) {
+    console.log(`(--only aktif: ${registryDiluarOnly} drift di luar daftar TIDAK disentuh)`);
   }
   console.log(`\nregistry live — drift EOL-only : ${eolOnly.length}`);
   console.log(`registry live — drift KONTEN   : ${konten.length}`);
@@ -158,7 +198,7 @@ if (client) {
       `UPDATE schema_migrations
           SET checksum = $2,
               description = COALESCE(NULLIF(description, ''), 'restamped')
-                            || ' | checksum disegarkan (SQL-10, EOL-normal) ${new Date().toISOString()}'
+                            || ' | checksum disegarkan (SQL-10/11) ${new Date().toISOString()}'
         WHERE filename = $1`,
       [f, h.baru],
     );
