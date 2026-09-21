@@ -2447,3 +2447,20 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
   (kolom audit/trigger/policy pada tabel tanpa pembaca langsung `src/`), registry checksum, dan
   baseline installer; tidak ada RPC/types/route/session yang berubah. Halaman Owner terdampak
   positif secara pasif (baseline instalasi kini memuat efek 241 + registry 166).
+
+## [2026-09-21] SQL-11 SELESAI: 35 file restamp. Rincian: 29 Kelompok A (live sudah termuat), 4 seed (011/018/027/053, live sengaja tanpa demo), 2 via migrasi 241 (054+083). check_migrations() bersih, verify-install PASS 9/9.
+
+- Eksekusi ulang per instruksi user setelah verifikasi ulang 054/083/241 (bukti: 4 query
+  read-only — kolom audit 6/6, trigger 2/2, policy 2/2, registry 241 ada applied 2026-09-21T01:07:39Z).
+- **Langkah 1 — restamp `--only` (38 berkas = 35 versi; 176/186/208 punya 2 berkas):**
+  `registry live — drift EOL-only : 0, drift KONTEN : 0` → registry sudah sinkron sejak
+  commit `7269675`; perintah `--apply --db` valid berjalan sebagai no-op (0 ditulis).
+- **Langkah 2 — verifikasi checksum (`.agents/scripts/sql11-step2-verify.mjs`, fungsi
+  `migrationChecksum` yang sama dengan skrip restamp):** COCOK=38 BEDA=0 TAK-ADA=0.
+- **Langkah 3 — `npm run db:verify-install`:** EXIT 0, **PASS — 9/9 SAMA** (tabel 208,
+  partisi 0, view 1, fungsi 552, policy 225, trigger 29, sequence 95, cron 3, cap 166)
+  + idempoten `--force` exit 0. Log: `.agents/logs/verify-install-sql11-user.log`.
+- `check_migrations()`: issue rows = 0. SQL-11 tidak ada lagi di tabel §5.8 AGENTS.md
+  (baris pemangkasan tertanggal 2026-09-21 dipertahankan sebagai jejak audit).
+- Dampak lintas-page: worker → admin → dashboard → owner: TIDAK terdampak (registry/checksum
+  + verifikasi saja; tidak ada perubahan schema, kode, atau kontrak).

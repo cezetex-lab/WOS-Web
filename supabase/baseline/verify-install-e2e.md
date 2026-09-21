@@ -11,8 +11,8 @@ prereq platform disiapkan (schema auth/extensions, auth.*(), stub cron, default 
   role   : postgres
   postgres: 17.6
   tabel di public: 0
---- APPLY 000_baseline_schema.sql ... ok (4013ms)
---- APPLY 010_baseline_config_data.sql ... ok (691ms)
+--- APPLY 000_baseline_schema.sql ... ok (3640ms)
+--- APPLY 010_baseline_config_data.sql ... ok (642ms)
 --- IDENTITAS PERUSAHAAN ---
   branding.company_name → "PT Uji Instalasi Otomatis" (1 baris)
   company_config.owner_email → owner@uji-instalasi.test (baris baru dibuat, 1)
@@ -54,8 +54,8 @@ prereq platform disiapkan (schema auth/extensions, auth.*(), stub cron, default 
   merek DB sumber (tidak boleh muncul) : "insightWIP"
 
 --- 5) jalankan ulang dengan --force (uji idempoten) → exit 0
-    --- APPLY 000_baseline_schema.sql ... ok (2323ms)
-    --- APPLY 010_baseline_config_data.sql ... ok (414ms)
+    --- APPLY 000_baseline_schema.sql ... ok (2541ms)
+    --- APPLY 010_baseline_config_data.sql ... ok (411ms)
   tabel non-partisi : sebelum=208 sesudah=208 (harus sama)
   cap migrasi       : sebelum=166 sesudah=166 (harus sama)
 
