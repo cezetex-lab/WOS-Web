@@ -2651,3 +2651,23 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 [2026-09-21] OPS-04 SELESAI: edge B1a' (self-repair) + Home B2c' (timeout 20s + loading state) ter-deploy. Smoke OPS-01 PASS. 3 akun DIVERGEN (NRP002/005/007) direpair via repair-worker-auth.mjs --apply → SINKRON 9/9 (NRP002–NRP010), DIVERGEN 0. OPS-05 grant anon di migrasi 245 (check_login_lockout). OPS-06 terdaftar (deferred, JANGAN fix sekarang). OPS-07 terdaftar (P3, rate-limit login_attempts).
 
 [2026-09-21] OPS-05 SELESAI: grant anon check_login_lockout via migrasi 245. RPC 200, lockout aktif. OPS-07 tetap OPEN (rate-limit). S0.17 Destructive Operation Protocol ditambahkan.
+## [2026-09-21] FASE 3 Stage 1 — a11y suite axe-core (tests/a11y) — DONE
+
+- **Tujuan:** deteksi WCAG 2.0/2.1 A+AA violation (impact critical/serious wajib 0) di 4 page.
+- **Berkas baru:** `playwright.a11y.config.ts` (testDir `./tests/a11y` — config utama testDir-nya
+  `tests/e2e`, jadi script wajib `--config`), `tests/a11y/helpers/axe-config.ts`
+  (tags `wcag2a`,`wcag2aa`; 1 rule disabled global: `region`, alasan terdokumentasi, `bypass` tetap aktif),
+  `tests/a11y/accessibility.spec.ts` (5 suite: Login/Worker/Admin/Dashboard/Owner).
+- **Script baru:** `test:a11y` di package.json → `npx playwright test tests/a11y/ --config=playwright.a11y.config.ts --project=chromium`.
+- **.gitignore:** tidak berubah — `test-results/` (baris 42) sudah mencakup `test-results/a11y/`.
+- **Hasil run pertama (`A11Y_EXIT=0`, 51 dtk):** Login = **0 violation (semua impact)**;
+  Worker/Admin/Dashboard/Owner = **skipped** (kredensial env tidak lengkap).
+- **Akar skip (bukan bug suite):** `.env.local` hanya punya `E2E_WORKER_NRP=NRP001` + `E2E_WORKER_PASS`
+  (tanpa NIK/email); formula email fallback four-page-smoke mengecualikan NRP001 → `HAS_WORKER=false`.
+  `E2E_ADMIN_*` dan `E2E_OWNER_*` tidak ada sama sekali (Owner pakai `test.skip(!E2E_OWNER_EMAIL)` sesuai instruksi user).
+- **Keputusan etis:** kredensial smoke `OPS01_*` berasal dari `supabase/akun/akun.txt` (gitignored, §0.7) —
+  TIDAK disalin ke env E2E. Melengkapi `.env.local` = keputusan user.
+- **Dampak lintas-page:** worker → admin → dashboard → owner = tidak terdampak (tests-only; tidak ada perubahan src/).
+- **Gate:** tsc 0 / lint 0 / vitest 141 passed (141) — dijalankan pada tree final.
+- **Status:** DONE (commit lokal, belum push). Langkah lanjutan opsional: isi `E2E_WORKER_NIK`/`E2E_WORKER_EMAIL`
+  + `E2E_ADMIN_*`/`E2E_OWNER_*` lalu run ulang `test:a11y` untuk scan 4 page ter-autentikasi.
