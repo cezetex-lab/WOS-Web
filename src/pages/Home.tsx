@@ -22,15 +22,18 @@ async function provisionWorkerAuth(nrp: string, nik: string, password: string) {
     if (direct) return true;
     // fast path gagal -> fallback edge
 
-    // Timeout 5s: auth-sync bersifat best-effort — edge function yang hang
-    // tidak boleh memblokir redirect login (fetch default tidak pernah timeout).
+    // Timeout 20s (B2c′, OPS-04): provisioning/repair edge DAPAT memakan 10–13 s pada
+    // login pertama akun diverge (diukur 12,7 s: login_worker + getUserById + sync
+    // password + mintSession, region Tokyo). Timeout lama 5 s membuat klien membatalkan
+    // permintaan sebelum edge selesai → sesi tidak pernah diterima (OPS-04). Tetap
+    // dibatasi supaya edge yang benar-benar hang tidak memblokir login selamanya.
     // Edge mengembalikan SESI (access/refresh token), BUKAN password — password
     // plaintext tidak lagi melintas ke client (audit S6).
     type AuthSyncResponse = {
       ok?: boolean; msg?: string; email?: string;
       session?: { access_token?: string; refresh_token?: string };
     };
-    const d = await callEdgeFunction<AuthSyncResponse>('worker-auth-sync', { nrp, nik, password }, { timeoutMs: 5000 });
+    const d = await callEdgeFunction<AuthSyncResponse>('worker-auth-sync', { nrp, nik, password }, { timeoutMs: 20000 });
     const accessToken = d?.session?.access_token;
     const refreshToken = d?.session?.refresh_token;
     if (!d?.ok || !accessToken || !refreshToken) {
@@ -63,6 +66,8 @@ export default function Home() {
   const toast = useToast();
   const [tab, setTab] = useState('worker');
   const [loading, setLoading] = useState(false);
+  // B2c′ (OPS-04): catatan status jujur saat provisioning sesi auth (bisa 10–13 s).
+  const [loadingNote, setLoadingNote] = useState('');
   const [error, setError] = useState('');
   const [nrp, setNrp] = useState('');
   const [nik, setNik] = useState('');
@@ -122,6 +127,7 @@ export default function Home() {
   function switchTab(t: string) {
     setTab(t);
     setError('');
+    setLoadingNote('');
     setLoginStep('credentials');
     setOtp('');
     setOtpCode('');
@@ -167,11 +173,19 @@ export default function Home() {
       // MFA check gagal -> lanjut login (tidak memblokir user)
     }
     setSession(sessionData);
-    // Provision akun Supabase Auth supaya auth.uid() tersedia (authz/RLS)
+    // Provision akun Supabase Auth supaya auth.uid() tersedia (authz/RLS).
+    // B2c′ (OPS-04): status jujur di tombol — repair akun diverge bisa 10–13 s.
+    // Diletakkan di choke point ini (G2) supaya semua jalur login worker (email/NRP,
+    // OTP, MFA) ikut terbaca user tanpa patch per call-site.
     if (creds?.nik && creds?.password) {
-      const pw = await provisionWorkerAuth(d.nrp, creds.nik, creds.password);
-      if (!pw) {
-        toast.warning('Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
+      setLoadingNote('Menyiapkan sesi akun…');
+      try {
+        const pw = await provisionWorkerAuth(d.nrp, creds.nik, creds.password);
+        if (!pw) {
+          toast.warning('Auth sync gagal — beberapa fitur mungkin terbatas. Silakan muat ulang halaman.');
+        }
+      } finally {
+        setLoadingNote('');
       }
     }
     redirectAfterLogin(entry);
@@ -696,7 +710,7 @@ export default function Home() {
     }
   };
 
-  const btnLabel = loading ? '...' : (loginStep === 'otp' ? 'Verifikasi OTP' : 'Masuk');
+  const btnLabel = loading ? (loadingNote || '...') : (loginStep === 'otp' ? 'Verifikasi OTP' : 'Masuk');
 
   return (
     <div style={S.wrap}>

@@ -2593,3 +2593,58 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Dampak lintas-page (G7):** worker → terdampak positif (clear-field kini berfungsi);
   admin/dashboard/owner → tidak terdampak (RPC hanya konsumen self-service worker; definisi &
   signature tidak berubah).
+
+## [2026-09-21] OPS-01 smoke WorkerProfile (worker NRP007) — hasil: LULUS
+- Dijalankan: `npm run smoke:ops01 -- --headless` · exit **0** · 84.9s
+- Worker uji: `NRP007` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).
+- Pemulihan residu: employees_extended.agama NRP007 dipulihkan ke null via SQL (SQL-12: UI tidak bisa mengosongkan field).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-21T14-27-57-177Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 **masih OPEN** — jalankan ulang dengan `-- --close` setelah Anda menyetujui hasilnya.
+
+## [2026-09-21] OPS-04 FASE 3A — edge self-repair (B1a′ + fallback B1b) + timeout 20s (B2c′) + OPS-05 grant; item tetap OPEN (menunggu FASE 3B)
+- **Akar masalah (terbukti read-only):** edge `worker-auth-sync` merotasi `auth.users.password` ke
+  `randomPassword()` yang tidak diketahui siapa pun → divergen permanen dari `worker_passwords` → fast
+  path `signInWithPassword` 400 `invalid_credentials` selamanya → setiap login wajib lewat edge
+  (terukur **12,7 s**) yang di-abort klien pada **5000 ms** → sesi tidak pernah diterima → RPC berjalan
+  sebagai anon → `get_enabled_modules` = `[]` → shell "Memuat modul…".
+  Bukti: `.agents/logs/ops04-trace/1-trace.network` (edge `net::ERR_ABORTED` 5104,5 ms; 400
+  `{"code":"invalid_credentials"…}`; body `[]` dengan bearer anon), `auth.users.last_sign_in_at
+  12:18:08.850Z` (server rampung 7,6 s SETELAH klien menyerah), latensi PostgREST 0,8–6,9 s vs DB
+  langsung 0,12–0,2 s (region `ap-northeast-1`).
+- **Fix edge (B1a′ + fallback B1b)** — `supabase/functions/worker-auth-sync/index.ts`: cabang
+  `emp.auth_id` kini (1) `mintSession(authEmail, password_user)` DULU — sukses = **tanpa menulis apa pun**;
+  (2) gagal (divergen) → `updateUserById({ password_user })` (password sudah diverifikasi `login_worker`)
+  lalu mint ulang; (3) bila GoTrue menolak password user → fallback rotasi internal (perilaku lama).
+  Cabang akun baru (`createUser`) memakai `password` user → sinkron sejak lahir.
+- **Fix klien (B2c′)** — `src/pages/Home.tsx`: `timeoutMs` 5000 → **20000** + state `loadingNote`
+  ("Menyiapkan sesi akun…") di satu choke point `finalizeWorkerSession` (semua jalur login worker).
+- **OPS-05** — `supabase/migrations/245_ops05_grant_anon_lockout.sql`: `GRANT EXECUTE ON FUNCTION
+  public.check_login_lockout(text,text) TO anon` (DITERAPKAN + terdaftar + checksum `bbd9ccdf…`, 933 ms).
+  Verifikasi: `has_function_privilege('anon',…) = true`, `count(schema_migrations) = 170`, dan RPC via
+  anon → **200** `{"locked": false, "reason": "", "failed_attempts": 0, "remaining_seconds": 0}`
+  (sebelumnya 401 `permission denied`). Badan fungsi menulis audit `login_attempts` (INSERT) → masuk
+  `PRE_AUTH_WHITELIST` guard `db-security-and-partition-guard` (jalur yang disebut pesan guard itu sendiri).
+- **Gate lokal (detached, exit code mentah):** `check:types` **0**, `lint` **0**, `npm test` **0**
+  (22 file / **141 passed**), `build` **0** (`✓ built in 7.33s`, `index-EZHiObp7.js` 27,62 kB gzip).
+  Dua kegagalan awal (`db-security-and-partition-guard` + `doc-claims-vs-live` anon grants 129→130)
+  adalah drift yang memang ditimbulkan grant OPS-05 → diperbaiki di dokumen/whitelist sesuai panduan
+  guard, bukan dengan melonggarkan tes.
+- **Deploy edge:** `supabase functions deploy worker-auth-sync --project-ref verwobaejumvpagwynae --use-api`
+  → `Deployed Functions on project verwobaejumvpagwynae: worker-auth-sync` (Docker tidak terpasang → `--use-api`).
+- **Smoke OPS-01 (`npm run smoke:ops01 -- --headless`) — exit 0, 84,9 s, 2 passed:** login worker →
+  `/worker/profile` ter-render penuh (tombol Edit ada, Agama diubah + PERSIST setelah reload) + test
+  SQL-12 (`''` → DB NULL + pulih). Bukti self-repair: harness `.agents/scripts/probe-auth-divergence.ts`
+  → NRP007 **DIVERGEN → SINKRON** (`last_sign_in_at 14:27:30Z`), DIVERGEN 3 → **2** (NRP002/NRP005,
+  akan self-heal saat login berikutnya).
+- **Dampak lintas-page (G7):** worker → diperbaiki (sesi JWT hidup, RPC tidak lagi anon); admin → tidak
+  terdampak (`Home.tsx:278` memakai `syncSupabaseAuth` langsung, `provisionWorkerAuth` tidak dipakai);
+  dashboard/owner → tidak terdampak (login OTP/owner lewat edge `password-reset`, bukan `worker-auth-sync`);
+  DB → +1 grant `anon` (OPS-05) yang justru mengaktifkan cek lockout yang sebelumnya fail-open.
+- **Risiko diterima (terverifikasi probe):** `updateUserById({password})` mencabut SEMUA sesi akun itu
+  (access 403 `session_not_found`, refresh 400 `refresh_token_not_found`). Karena repair hanya berjalan
+  saat divergen → maksimal 1× per akun; edge menulis log penanda saat repair terjadi.
+- **Belum dikerjakan (FASE 3B, menunggu approve):** B1d′ harness repair lokal, pembuktian lockout
+  benar-benar menolak login ke-N, penutupan OPS-04 di §5.8, dan push + deploy frontend.
+

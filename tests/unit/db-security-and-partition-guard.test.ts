@@ -39,6 +39,11 @@ const PRE_AUTH_WHITELIST = [
   'register_session',
   'submit_registration',
   'hit_rate_limit',
+  // OPS-05 (2026-09-21): cek lockout pra-login. `Home.tsx:189` (worker) & `:270` (admin)
+  // memanggilnya SEBELUM sesi Supabase ada, jadi `anon` memang harus boleh. Badan fungsi
+  // menulis baris audit ke `login_attempts` (INSERT) — itulah sebabnya guard ini menyorotnya,
+  // dan whitelist ini jalur resmi yang disebut pesan guard (preseden: `hit_rate_limit`).
+  'check_login_lockout',
 ];
 
 /** Pola isi badan fungsi yang menandakan RPC tersebut menulis data. */

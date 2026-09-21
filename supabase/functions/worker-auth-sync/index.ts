@@ -4,19 +4,27 @@
 // ROOT CAUSE: login_worker() hanya menerbitkan RPC-token dan tidak pernah
 // membuat akun di auth.users → auth.uid() selalu NULL → authz/RLS menolak.
 //
-// v2 PATCHED:
+// v3 (OPS-04, 2026-09-21) — SELF-REPAIR, BUKAN ROTASI ACAK:
 //  1. Email anchor SELALU sintetis {nrp}@insightwos.internal — satu sumber,
-//     konsisten dengan fast path di Home.jsx.
+//     konsisten dengan fast path di Home.tsx.
 //  2. UPDATE auth_id ke employees_core (BASE TABLE), BUKAN view
 //     employees_master yang non-updatable.
-//  3. Jika auth_id sudah ada: ambil email asli akun auth via admin,
-//     rotate password, kembalikan email itu (bukan menebak dari employee).
-//  4. Jika belum: createUser dengan email sintetis saja (tanpa loop candidates).
-//  5. JANGAN PERNAH mengembalikan password ke client (audit S6). Edge menukar
-//     password internal menjadi SESI Supabase (access/refresh token) lewat client
-//     anon, lalu hanya sesi itu yang dikirim — password plaintext tidak pernah
-//     melintas ke client. Password internal tetap acak 24 karakter (bukan password
-//     user), jadi provisioning tidak bergantung pada kuat-lemahnya password user.
+//  3. auth_id SUDAH ada → coba `mintSession(authEmail, password_user)` DULU.
+//     Sukses = TIDAK menulis apa pun (jalur normal, tanpa cabut sesi). Gagal =
+//     DIVERGEN → baru `updateUserById({ password_user })` (password itu sudah
+//     diverifikasi `login_worker` di atas, jadi body tetap tidak dipercaya) lalu mint ulang.
+//     v2 SEBELUMNYA selalu merotasi ke `randomPassword()` yang tidak diketahui siapa pun
+//     → `auth.users.password` divergen permanen dari `worker_passwords` → fast path
+//     `signInWithPassword` mati selamanya + setiap login wajib lewat edge (10–13 s)
+//     yang di-abort klien pada 5 s → itulah OPS-04.
+//  4. Bila GoTrue MENOLAK password user (kebijakan password lemah), fallback ke
+//     perilaku v2 (rotasi ke password internal acak) supaya login tetap berhasil.
+//  5. Akun baru (belum ada auth_id) dibuat LANGSUNG dengan password user → sinkron
+//     sejak lahir. Pola ini sama dengan edge `password-reset`. Audit S6 tetap utuh:
+//     password plaintext TIDAK PERNAH dikembalikan ke client — hanya SESI.
+//  6. Terverifikasi (probe 2026-09-21): `updateUserById({password})` mencabut SEMUA
+//     sesi akun itu (access 403 session_not_found, refresh 400 refresh_token_not_found).
+//     Karena itu repair hanya dijalankan saat memang perlu → maksimal 1× per akun divergen.
 // ============================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -103,7 +111,8 @@ serve(async (req: Request) => {
     const tempPassword = randomPassword();
     const syntheticEmail = `${String(nrp).toLowerCase().trim()}@insightwos.internal`;
 
-    // 3a. Akun auth sudah ada → rotate password, pakai email asli akun auth
+    // 3a. Akun auth sudah ada → SINKRONKAN ke password user (self-repair), bukan rotasi acak.
+    // Pakai email asli akun auth (bukan menebak dari employee).
     if (emp.auth_id) {
       const { data: existingUser, error: getErr } =
         await supabase.auth.admin.getUserById(emp.auth_id);
@@ -116,6 +125,46 @@ serve(async (req: Request) => {
         return json({ ok: false, msg: "Auth user tidak punya email." }, 500);
       }
 
+      // 3a-1. Jalur NORMAL: password auth sudah sinkron dengan password worker
+      // (kombinasi sama dengan fast path di Home.tsx) → sukses tanpa menulis apa pun.
+      const direct = await mintSession(authEmail, password);
+      if (direct) {
+        return json({
+          ok: true,
+          email: authEmail,
+          auth_id: emp.auth_id,
+          session: direct,
+        });
+      }
+
+      // 3a-2. DIVERGEN (bekas rotasi acak v2 / change_password /
+      // admin_reset_worker_password) → sinkronkan ke password yang SUDAH diverifikasi
+      // login_worker. Catatan: GoTrue mencabut semua sesi akun ini saat password
+      // berubah (probe 2026-09-21) — konsekuensi yang diterima, sekali per akun.
+      const { error: syncErr } = await supabase.auth.admin.updateUserById(emp.auth_id, {
+        password,
+      });
+      if (!syncErr) {
+        console.log(
+          `[worker-auth-sync] repair auth password utk ${nrp} (auth_id ${emp.auth_id}) — sesi lama akun ini dicabut`,
+        );
+        const session = await mintSession(authEmail, password);
+        if (!session) {
+          return json({ ok: false, msg: "Gagal menukar sesi auth setelah sinkron password." }, 500);
+        }
+        return json({
+          ok: true,
+          email: authEmail,
+          auth_id: emp.auth_id,
+          session,
+        });
+      }
+
+      // 3a-3. Fallback: GoTrue menolak password user (mis. kebijakan password lemah)
+      // → pertahankan perilaku v2 (rotasi internal acak) supaya login tetap berhasil.
+      console.log(
+        `[worker-auth-sync] sinkron password auth GAGAL utk ${nrp}: ${syncErr.message} → fallback rotasi internal`,
+      );
       const { error: rotErr } = await supabase.auth.admin.updateUserById(emp.auth_id, {
         password: tempPassword,
       });
@@ -136,10 +185,10 @@ serve(async (req: Request) => {
       });
     }
 
-    // 3b. Belum ada → create dengan email SINTETIS (satu-satunya kandidat)
+    // 3b. Belum ada → create dengan email SINTETIS + **password user** (sinkron sejak lahir)
     const { data: created, error: createErr } = await supabase.auth.admin.createUser({
       email: syntheticEmail,
-      password: tempPassword,
+      password,
       email_confirm: true,
       user_metadata: { nrp: emp.nrp, nama: emp.nama },
     });

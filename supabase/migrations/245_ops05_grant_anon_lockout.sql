@@ -1,0 +1,30 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- 245_ops05_grant_anon_lockout.sql — OPS-05 (keputusan user 2026-09-21)
+--
+-- Masalah: `public.check_login_lockout(p_identifier text, p_attempt_type text)`
+-- TIDAK bisa dipanggil `anon`, padahal ia dipanggil SEBELUM sesi Supabase ada:
+--   src/pages/Home.tsx:189 (worker) & :270 (admin) — cek lockout pra-login.
+-- Akibatnya kontrol S10 hanya dekorasi (fail-open): respons 401 diabaikan dan
+-- login tetap diproses tanpa pernah memverifikasi lockout.
+--
+-- Bukti (2026-09-21, trace OPS-04 di `.agents/logs/ops04-trace/1-trace.network`):
+--   POST /rest/v1/rpc/check_login_lockout → 401
+--   {"code":"42501","message":"permission denied for function check_login_lockout"}
+-- Probe hak akses (pg_proc/has_function_privilege):
+--   anon          = false   → inilah yang diperbaiki migrasi ini
+--   authenticated = true    (tidak diubah)
+--   PUBLIC        = false   (tidak diubah)
+--   Pembanding: `hit_rate_limit`, `login_worker`, `login_worker_by_email`,
+--   `get_enabled_modules` = true untuk anon (jadi ini kasus lupa whitelist).
+--
+-- Preseden repo: migrasi 231 memberi grant eksplisit `verify_admin_otp(text)`
+-- karena pemanggilannya juga pra-sesi (dicatat "sudah diverifikasi BUKAN
+-- masalah" di AGENTS.md §5.8).
+--
+-- Eksekusi: satu GRANT, idempoten (aman di-apply ulang), tanpa perubahan
+-- definisi/signature/RLS. Dampak lintas-page (G1–G7): hanya jalur login
+-- worker/admin/dashboard/owner yang memanggil RPC ini pra-sesi; sesudah grant,
+-- cek lockout benar-benar berjalan (`attempts`/`blocked_until` server-side).
+-- ════════════════════════════════════════════════════════════════════════════
+
+GRANT EXECUTE ON FUNCTION public.check_login_lockout(text, text) TO anon;
