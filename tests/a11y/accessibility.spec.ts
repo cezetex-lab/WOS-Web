@@ -1,5 +1,6 @@
 /**
- * accessibility.spec.ts — FASE 3 Stage 1: a11y scan (axe-core) 4 page.
+ * accessibility.spec.ts — FASE 3 Stage 1: a11y scan (axe-core) 6 halaman
+ * (Login, Worker, Admin, Dashboard, Owner, Owner Config).
  *
  * Sumber alur login: replika persis dari tests/e2e/four-page-smoke.spec.ts
  * (catatan: tests/e2e/helpers/pages/ TIDAK ada di repo ini, jadi tidak ada POM
@@ -191,5 +192,20 @@ test.describe('Owner page (/owner/dashboard)', () => {
     await page.locator('form button[type="submit"]').first().click();
     await waitForPath(page, '/owner/dashboard');
     await scanAndAssert(page, testInfo, 'owner');
+  });
+});
+
+test.describe('Owner Config page (/owner/dashboard/config)', () => {
+  test.skip(() => !HAS_OWNER, 'Owner creds not set (E2E_OWNER_EMAIL/E2E_OWNER_PASS kosong)');
+  test('a11y: login owner -> scan /owner/dashboard/config', async ({ page }, testInfo) => {
+    await page.goto(BASE + '/owner');
+    await acceptConsent(page);
+    await fillEmail(page, OWNER_EMAIL);
+    await fillSecret(page, OWNER_PASS);
+    await page.locator('form button[type="submit"]').first().click();
+    await waitForPath(page, '/owner/dashboard');
+    await page.goto(BASE + '/owner/dashboard/config');
+    await page.waitForURL((url) => url.pathname === '/owner/dashboard/config', { timeout: 30000 });
+    await scanAndAssert(page, testInfo, 'owner-config');
   });
 });

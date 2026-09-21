@@ -429,7 +429,7 @@ export default function OwnerDashboard() {
             <div><h1 className="text-white font-bold text-lg">Owner Dashboard</h1><p className="text-gray-400 text-xs">Platform Management</p></div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/owner/dashboard/config')} className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 text-sm font-medium">Config</button>
+            <button onClick={() => navigate('/owner/dashboard/config')} className="px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-600 text-sm font-medium">Config</button>
             <button onClick={() => setActiveTab('branding')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'branding' ? 'bg-amber-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>ðŸŽ¨ Branding</button>
             <button onClick={() => { clearSession(); signOutAuth().catch(()=>{}); navigate('/owner'); }} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">Logout</button>
           </div>

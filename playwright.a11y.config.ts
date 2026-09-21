@@ -14,7 +14,9 @@ dotenv.config({ path: '.env.local' });
 export default defineConfig({
   testDir: './tests/a11y',
   timeout: 90000,
-  retries: 0,
+  // Alur login auth (RPC + OTP) sesekali flake di jaringan lokal — 1 retry,
+  // selaras dengan playwright.config.ts utama.
+  retries: 1,
   expect: { timeout: 10000 },
   use: {
     baseURL: process.env.TEST_BASE_URL || 'http://localhost:5173',

@@ -2671,3 +2671,26 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Gate:** tsc 0 / lint 0 / vitest 141 passed (141) — dijalankan pada tree final.
 - **Status:** DONE (commit lokal, belum push). Langkah lanjutan opsional: isi `E2E_WORKER_NIK`/`E2E_WORKER_EMAIL`
   + `E2E_ADMIN_*`/`E2E_OWNER_*` lalu run ulang `test:a11y` untuk scan 4 page ter-autentikasi.
+## [2026-09-22] FASE 3 Stage 1 — a11y: fix kontras Owner + cakupan 6 halaman — DONE
+
+- **Fix kontras (Opsi A):** `bg-cyan-600` → `bg-cyan-700` di 2 lokasi — `OwnerDashboard.tsx`
+  (tombol Config) dan `CompanyConfig.tsx` (tombol Simpan). Axe `color-contrast` (wcag2aa):
+  ratio 3.68:1 < 4.5:1 → kini ~4.9:1. `hover:bg-cyan-600` dibiarkan (pseudo-class hover tidak
+  dievaluasi scan axe default; 0 match `bg-cyan-600` base tersisa).
+- **Cakupan ditambah:** suite Owner Config (`/owner/dashboard/config`) → total **6 test**.
+- **playwright.a11y.config.ts:** `retries` 0 → 1 (selaras config e2e utama; auth flow OTP
+  sesekali flake).
+- **Temuan infra (bukan bug app, dokumentasi):** run 4–5 gagal karena **rate limiter OTP**
+  edge `password-reset` — `pwreset_login_otp` maks **3 per fixed-window 15 menit per NRP**
+  (`hit_rate_limit` migrasi 193, tabel `rate_limits`; bukti: NRP101 count=3 di 2 window
+  beruntun). Suite a11y memakai 2–3 OTP per run (Admin + Dashboard login admin) → run
+  beruntun dalam 15 menit yang sama pasti diblokir "Terlalu banyak request OTP. Coba lagi
+  nanti." Re-run wajib menunggu window habis atau memutar NRP admin uji. Limiter TIDAK
+  diubah (perilaku security yang benar).
+- **Hasil final (run-6, `.agents/logs/a11y-run6.log`):** **6/6 passed (1.5m), EXIT 0 —
+  0 violation critical/serious**, bahkan 0 total semua impact, di semua halaman: Login,
+  Worker, Admin, Dashboard, Owner, Owner Config.
+- **Gate tree final:** tsc 0 / lint 0 / build EXIT 0 (main tetap 27,64 kB gzip).
+- **Dampak lintas-page:** worker → tidak terdampak (tidak ada perubahan di pohon worker);
+  admin → tidak terdampak; dashboard → tidak terdampak; **owner → terdampak visual kecil**
+  (2 tombol cyan-600→cyan-700) + halaman config kini masuk cakupan scan a11y.

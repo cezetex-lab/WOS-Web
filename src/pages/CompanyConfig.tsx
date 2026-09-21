@@ -147,7 +147,7 @@ export default function CompanyConfig() {
               className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-green-400 text-sm font-mono focus:outline-none focus:border-cyan-500" />
             <div className="flex gap-2 mt-4">
               <button onClick={() => setEditing(null)} className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm">Batal</button>
-              <button onClick={saveConfig} className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-bold hover:bg-cyan-500">Simpan</button>
+              <button onClick={saveConfig} className="flex-1 px-4 py-2 bg-cyan-700 text-white rounded-lg text-sm font-bold hover:bg-cyan-600">Simpan</button>
             </div>
           </div>
         </div>
