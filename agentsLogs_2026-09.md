@@ -2648,3 +2648,4 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Belum dikerjakan (FASE 3B, menunggu approve):** B1d′ harness repair lokal, pembuktian lockout
   benar-benar menolak login ke-N, penutupan OPS-04 di §5.8, dan push + deploy frontend.
 
+[2026-09-21] OPS-04 SELESAI: edge B1a' (self-repair) + Home B2c' (timeout 20s + loading state) ter-deploy. Smoke OPS-01 PASS. 3 akun DIVERGEN (NRP002/005/007) direpair via repair-worker-auth.mjs --apply → SINKRON 9/9 (NRP002–NRP010), DIVERGEN 0. OPS-05 grant anon di migrasi 245 (check_login_lockout). OPS-06 terdaftar (deferred, JANGAN fix sekarang). OPS-07 terdaftar (P3, rate-limit login_attempts).
