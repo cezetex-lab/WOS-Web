@@ -2524,3 +2524,30 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
   page tetap dirender sama (bukti: unit test 141/141; E2E full-sweep tidak dijalankan —
   saran tindak lanjut); perubahan = pembagian chunk + defer analytics; tidak ada
   perubahan RPC/types/route/session.
+## [2026-09-21] SQL-02 SELESAI: DROP 13 fungsi `_legacy_*` tanpa sumber migrasi via migrasi 243 — keputusan user Opsi A
+
+- DoD §5.8 terpenuhi dengan bukti mentah:
+- **Bukti read-only (pra-eksekusi):** `git grep "_legacy" src/` = **0 match** (GREP_SRC_EXIT=1);
+  caller internal (pg_proc.prosrc cross-join) = **0 baris**; view yang menyinggung (pg_views.definition)
+  = **0 baris**; grant sudah dicabut (REVOKE di 210/073). Live memuat 15 baris `%_legacy%`, dari mana
+  13 tanpa sumber (12 `_legacy_*` + `worker_update_profile_legacy`) dan 2 bersumber migrasi
+  (`_legacy_get_estate_blocks_paged` via 073 — hasil restamp SQL-11; `get_enabled_modules_legacy_noarg`
+  via 205) — keduanya dipertahankan.
+- **Migrasi 243** (`supabase/migrations/243_sql02_drop_legacy_functions.sql`): DO-block idempoten
+  guard `to_regprocedure` (pola 172/210/221/226), signature 13 fungsi dicocokkan 1:1 dengan probe live.
+  Apply: `status : DITERAPKAN + terdaftar + checksum terverifikasi (1150ms)`, checksum
+  `2a5632ddba362f469d78ce779a875a497c65c784fd92f30197c3803e79e0704b`.
+- **Verify DROP:** sisa `%_legacy%` di live = **2 baris** (`_legacy_get_estate_blocks_paged`,
+  `get_enabled_modules_legacy_noarg`) — persis ekspektasi.
+- **Baseline regen:** fungsi **552 → 539** (−13); cap **168**; sisa `_legacy` di baseline hanya milik
+  2 fungsi tersisa (12 di 000: CREATE/REVOKE/GRANT) + 3 baris registry historis di 010 (205/218/243).
+- **Verify installer: PASS — EXIT 0, 9/9 SAMA** (fungsi 539=539, cap 168=168); log
+  `.agents/logs/verify-install-sql02.log`.
+- **Gate:** `check:types` EXIT 0; `lint` EXIT 0; `npm test` awal 1 failed → root cause guard
+  `doc-claims-vs-live` (dokumen 670 vs live 657; cap 167 vs 168) → ARCHITECTURE.md §7.1/§7.4 +
+  FuturePlans.md §1.3 disegarkan → **test 141/141** hijau; guard konsistensi 8/8.
+- **Dampak lintas-page (G7):** worker → admin → dashboard → owner = **tidak terdampak** — fungsi yang
+  di-drop tidak punya pemanggil frontend (0 match src/), tidak dipanggil fungsi/view lain, grant-nya
+  sudah dicabut sejak 210/073.
+- **Artifacts:** migrasi 243 + baseline regen + ARCHITECTURE.md + FuturePlans.md + AGENTS.md (prune
+  SQL-02) + log ini. Work Queue §5.8 kini hanya SQL-12 (DEFERRED → FASE 3).

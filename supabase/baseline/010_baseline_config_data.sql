@@ -1664,6 +1664,11 @@ BEGIN
     VALUES ('242', '242_sql13_deactivate_dashboard_landing.sql', '64572d62bfd0fcdd840682b47c0268ae967143f3a60baaf2cc506807714d57f5', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '243_sql02_drop_legacy_functions.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('243', '243_sql02_drop_legacy_functions.sql', '2a5632ddba362f469d78ce779a875a497c65c784fd92f30197c3803e79e0704b', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
 END $$;
 

@@ -4,7 +4,7 @@
 --
 -- Sumber     : DB live (host, project ref & password sengaja TIDAK ditulis)
 -- Generator  : supabase/scripts/generate-baseline.mjs (FULL)
--- Objek      : 208 tabel, 552 fungsi, 1 view,
+-- Objek      : 208 tabel, 539 fungsi, 1 view,
 --               94 sequence, trigger/policy sesuai tabel
 --
 -- JANGAN disunting tangan. Regenerate dengan generator di atas.
@@ -3284,102 +3284,6 @@ BEGIN
   );
 END;
 $function$;
--- _legacy_create_worker_request_dated(p_nrp text, p_type text, p_reason text, p_from date, p_to date)
-CREATE OR REPLACE FUNCTION public._legacy_create_worker_request_dated(p_nrp text, p_type text, p_reason text, p_from date, p_to date)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  IF NOT check_access_(p_nrp, 1, 'MINIMALIS') THEN
-    RETURN jsonb_build_object('ok',false,'msg',tier_msg_('Buat Request','MINIMALIS')); END IF;
-  INSERT INTO hr_requests(id,nrp,type,status,note) VALUES(encode(gen_random_bytes(8),'hex'),p_nrp,p_type,'Pending',p_reason);
-  RETURN jsonb_build_object('ok',true,'msg','Request berhasil dikirim.'); END;
-$function$;
--- _legacy_generate_worker_otp_nopass(p_nrp text, p_nik text)
-CREATE OR REPLACE FUNCTION public._legacy_generate_worker_otp_nopass(p_nrp text, p_nik text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-DECLARE v_code TEXT; v_emp RECORD; v_att RECORD;
-BEGIN
-  SELECT * INTO v_emp FROM employees_master WHERE nrp = p_nrp AND nik = p_nik AND is_active = true;
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('ok', false, 'msg', 'NRP/NIK tidak ditemukan');
-  END IF;
-
-  -- Rate limit: maks 3 request / 10 menit
-  SELECT * INTO v_att FROM otp_attempts WHERE nrp = p_nrp;
-  IF v_att.request_count IS NOT NULL AND v_att.request_window_start > NOW() - INTERVAL '10 minutes'
-     AND v_att.request_count >= 3 THEN
-    RETURN jsonb_build_object('ok', false, 'msg', 'Terlalu banyak request OTP. Coba lagi nanti.');
-  END IF;
-  IF v_att.request_window_start IS NULL OR v_att.request_window_start <= NOW() - INTERVAL '10 minutes' THEN
-    INSERT INTO otp_attempts (nrp, request_count, request_window_start)
-    VALUES (p_nrp, 1, NOW())
-    ON CONFLICT (nrp) DO UPDATE SET request_count = 1, request_window_start = NOW();
-  ELSE
-    UPDATE otp_attempts SET request_count = request_count + 1 WHERE nrp = p_nrp;
-  END IF;
-
-  v_code := LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0');
-  INSERT INTO otp_store (nrp, code_hash, expiry, used)
-  VALUES (p_nrp, encode(digest(v_code, 'sha256'), 'hex'), NOW() + INTERVAL '5 minutes', FALSE)
-  ON CONFLICT (nrp) DO UPDATE SET
-    code_hash = EXCLUDED.code_hash, expiry = EXCLUDED.expiry, used = FALSE;
-  INSERT INTO audit_log (action, detail, timestamp) VALUES ('OTP_GENERATED', 'NRP: ' || p_nrp, NOW());
-  RETURN jsonb_build_object('ok', true, 'msg', 'OTP sent', 'otp_code', v_code);
-END;
-$function$;
--- _legacy_get_breakdown_log_by_site(p_site_code text)
-CREATE OR REPLACE FUNCTION public._legacy_get_breakdown_log_by_site(p_site_code text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  RETURN (SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
-  FROM (
-    SELECT jsonb_build_object(
-      'id', br.id, 'equipment_code', br.equipment_code, 'equipment_name', br.equipment_name,
-      'breakdown_time', br.breakdown_time, 'resolved_time', br.resolved_time,
-      'severity', br.severity, 'category', br.category,
-      'description', br.description, 'root_cause', br.root_cause,
-      'action_taken', br.action_taken, 'reported_by', br.reported_by,
-      'assigned_to', br.assigned_to, 'status', br.status,
-      'downtime_hours', br.downtime_hours, 'cost', br.cost, 'site_code', br.site_code
-    ) AS sub
-    FROM mill_breakdowns br
-    WHERE p_site_code IS NULL OR br.site_code = p_site_code
-    ORDER BY br.breakdown_time DESC
-  ) sub);
-END;
-$function$;
--- _legacy_get_estate_blocks_by_bu(p_bu_id text)
-CREATE OR REPLACE FUNCTION public._legacy_get_estate_blocks_by_bu(p_bu_id text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  RETURN (SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
-  FROM (
-    SELECT jsonb_build_object(
-      'id', e.id, 'block_name', e.block_name, 'area_hectare', e.area_hectare,
-      'terrain', e.terrain, 'division', e.division, 'status', e.status,
-      'business_unit_id', e.business_unit_id
-    ) AS sub
-    FROM estate_blocks e
-    WHERE p_bu_id IS NULL OR e.business_unit_id = p_bu_id
-    ORDER BY e.block_name
-  ) sub);
-END;
-$function$;
 -- _legacy_get_estate_blocks_paged(p_page integer, p_limit integer)
 CREATE OR REPLACE FUNCTION public._legacy_get_estate_blocks_paged(p_page integer DEFAULT 1, p_limit integer DEFAULT 20)
  RETURNS jsonb
@@ -3401,171 +3305,6 @@ BEGIN
   ORDER BY created_at DESC NULLS LAST
   LIMIT p_limit OFFSET (p_page - 1) * p_limit) t;
   RETURN COALESCE(v_result, '[]'::JSONB);
-END; $function$;
--- _legacy_get_harvest_records_by_bu(p_bu_id text)
-CREATE OR REPLACE FUNCTION public._legacy_get_harvest_records_by_bu(p_bu_id text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  RETURN (SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
-  FROM (
-    SELECT jsonb_build_object(
-      'id', h.id, 'date', h.date, 'block_name', h.block_name,
-      'tonnage', h.tonnage, 'harvester_nrp', h.harvester_nrp,
-      'harvester_nama', h.harvester_nama, 'quality', h.quality, 'status', h.status
-    ) AS sub
-    FROM estate_harvest h
-    WHERE p_bu_id IS NULL OR h.business_unit_id = p_bu_id
-    ORDER BY h.date DESC
-  ) sub);
-END;
-$function$;
--- _legacy_get_nursery_data_by_bu(p_bu_id text)
-CREATE OR REPLACE FUNCTION public._legacy_get_nursery_data_by_bu(p_bu_id text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  RETURN (SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
-  FROM (
-    SELECT jsonb_build_object(
-      'id', n.id, 'nursery_name', n.nursery_name, 'seedling_type', n.seedling_type,
-      'quantity', n.quantity, 'age_weeks', n.age_weeks,
-      'health_status', n.health_status, 'target_date', n.target_date
-    ) AS sub
-    FROM estate_nursery n
-    WHERE p_bu_id IS NULL OR n.business_unit_id = p_bu_id
-    ORDER BY n.target_date DESC
-  ) sub);
-END;
-$function$;
--- _legacy_get_packing_log_by_site(p_site_code text)
-CREATE OR REPLACE FUNCTION public._legacy_get_packing_log_by_site(p_site_code text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  RETURN (SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
-  FROM (
-    SELECT jsonb_build_object(
-      'id', pk.id, 'pack_date', pk.pack_date, 'pack_time', pk.pack_time,
-      'product_type', pk.product_type, 'quantity_kg', pk.quantity_kg,
-      'batch_id', pk.batch_id, 'destination', pk.destination,
-      'truck_plate', pk.truck_plate, 'driver_name', pk.driver_name,
-      'status', pk.status, 'qc_status', pk.qc_status,
-      'operator_nrp', pk.operator_nrp, 'site_code', pk.site_code
-    ) AS sub
-    FROM mill_packing pk
-    WHERE p_site_code IS NULL OR pk.site_code = p_site_code
-    ORDER BY pk.pack_date DESC
-  ) sub);
-END;
-$function$;
--- _legacy_get_qc_results_by_site(p_site_code text)
-CREATE OR REPLACE FUNCTION public._legacy_get_qc_results_by_site(p_site_code text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  RETURN (SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
-  FROM (
-    SELECT jsonb_build_object(
-      'id', q.id, 'batch_id', q.batch_id, 'sample_date', q.sample_date,
-      'sample_time', q.sample_time, 'ffa_pct', q.ffa_pct, 'moisture_pct', q.moisture_pct,
-      'dobi', q.dobi, 'color', q.color, 'dirt_pct', q.dirt_pct,
-      'result', q.result, 'tested_by', q.tested_by, 'notes', q.notes,
-      'site_code', q.site_code
-    ) AS sub
-    FROM mill_qc_results q
-    WHERE p_site_code IS NULL OR q.site_code = p_site_code
-    ORDER BY q.sample_date DESC
-  ) sub);
-END;
-$function$;
--- _legacy_get_transport_dispatch_by_bu(p_bu_id text)
-CREATE OR REPLACE FUNCTION public._legacy_get_transport_dispatch_by_bu(p_bu_id text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  RETURN (SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
-  FROM (
-    SELECT jsonb_build_object(
-      'id', t.id, 'date', t.date, 'origin', t.origin,
-      'destination', t.destination, 'tonnage', t.tonnage,
-      'vehicle_code', t.vehicle_code, 'driver_nama', t.driver_nama, 'status', t.status
-    ) AS sub
-    FROM estate_transport t
-    WHERE p_bu_id IS NULL OR t.business_unit_id = p_bu_id
-    ORDER BY t.date DESC
-  ) sub);
-END;
-$function$;
--- _legacy_get_worker_requests_by_nrp(p_nrp text)
-CREATE OR REPLACE FUNCTION public._legacy_get_worker_requests_by_nrp(p_nrp text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  IF NOT check_access_(p_nrp, 1, 'MINIMALIS') THEN
-    RETURN jsonb_build_object('ok',false,'msg',tier_msg_('Request Saya','MINIMALIS')); END IF;
-  RETURN (SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
-    jsonb_build_object('id',id,'type',type,'status',status,'note',note,'created_at',created_at) ORDER BY created_at DESC),'[]'::jsonb))
-  FROM hr_requests WHERE nrp=p_nrp LIMIT 20); END;
-$function$;
--- _legacy_list_ideas_by_nrp(p_nrp text)
-CREATE OR REPLACE FUNCTION public._legacy_list_ideas_by_nrp(p_nrp text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-BEGIN
-  IF auth.uid() IS NULL THEN
-    RETURN jsonb_build_object('ok', false, 'msg', 'Autentikasi diperlukan');
-  END IF;
-  RETURN (SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-    jsonb_build_object('id', id, 'type', type, 'title', title, 'status', status, 'votes', votes)
-    ORDER BY created_at DESC), '[]'::jsonb))
-  FROM hr_voice LIMIT 50);
-EXCEPTION WHEN OTHERS THEN
-  RETURN jsonb_build_object('ok', false, 'msg', 'Terjadi kesalahan sistem');
-END;
-$function$;
--- _legacy_owner_toggle_lock_2arg(p_module_code text, p_enable boolean)
-CREATE OR REPLACE FUNCTION public._legacy_owner_toggle_lock_2arg(p_module_code text, p_enable boolean)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-DECLARE v_ctx JSONB := get_current_user_context(); v_old BOOLEAN; v_bu_id TEXT;
-BEGIN
-  IF v_ctx IS NULL OR NOT (v_ctx->>'is_owner')::BOOLEAN THEN
-    RETURN jsonb_build_object('ok', FALSE, 'msg', 'Hanya Owner.');
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM module_definitions WHERE module_code = p_module_code AND is_industry_module = TRUE) THEN
-    RETURN jsonb_build_object('ok', FALSE, 'msg', 'Bukan Industry module.');
-  END IF;
-  v_bu_id := (v_ctx->>'business_unit_id')::TEXT;
-  SELECT is_enabled INTO v_old FROM business_unit_modules WHERE business_unit_id = v_bu_id AND module_code = p_module_code;
-  UPDATE business_unit_modules SET is_enabled = p_enable, toggled_by = (v_ctx->>'nrp'), toggled_at = NOW() WHERE business_unit_id = v_bu_id AND module_code = p_module_code;
-  INSERT INTO audit_log_owner (owner_nrp, action, target_type, target_id, old_value, new_value)
-  VALUES ((v_ctx->>'nrp'), 'TOGGLE_LOCK', 'module', p_module_code, jsonb_build_object('enabled', COALESCE(v_old, FALSE)), jsonb_build_object('enabled', p_enable));
-  RETURN jsonb_build_object('ok', TRUE, 'msg', CASE WHEN p_enable THEN 'Lock ON' ELSE 'Lock OFF' END);
 END; $function$;
 -- activate_license(p_license_key text)
 CREATE OR REPLACE FUNCTION public.activate_license(p_license_key text)
@@ -15444,27 +15183,6 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'msg', 'Profil berhasil diperbarui');
 END;
 $function$;
--- worker_update_profile_legacy(p_nrp text, p_email text, p_no_hp text, p_alamat text)
-CREATE OR REPLACE FUNCTION public.worker_update_profile_legacy(p_nrp text, p_email text, p_no_hp text, p_alamat text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-DECLARE v_caller TEXT;
-BEGIN
-  v_caller := authz_current_nrp();
-  IF v_caller IS NULL THEN
-    RETURN jsonb_build_object('ok', FALSE, 'msg', 'Unauthorized');
-  END IF;
-  IF p_nrp IS NULL OR p_nrp <> v_caller THEN
-    RETURN jsonb_build_object('ok', FALSE, 'msg', 'Akses ditolak: hanya profil sendiri.');
-  END IF;
-  UPDATE employees_master SET email=COALESCE(p_email,email), no_hp=COALESCE(p_no_hp,no_hp),
-    alamat=COALESCE(p_alamat,alamat), updated_at=NOW() WHERE nrp=p_nrp;
-  RETURN jsonb_build_object('ok',TRUE,'msg','Profil diperbarui.');
-END;
-$function$;
 
 -- ── CATATAN PARTISI ABSENSI ─────────────────────────────────────
 -- Sejak SQL-08 (migrasi 240) hr_attendance adalah TABEL BIASA: partisi
@@ -16800,19 +16518,7 @@ REVOKE ALL ON FUNCTION public._get_admin_bu_filter() FROM PUBLIC, anon, authenti
 REVOKE ALL ON FUNCTION public._get_caller_nrp() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public._is_admin_or_owner() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public._is_admin_or_owner_caller() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_create_worker_request_dated(p_nrp text, p_type text, p_reason text, p_from date, p_to date) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_generate_worker_otp_nopass(p_nrp text, p_nik text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_get_breakdown_log_by_site(p_site_code text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_get_estate_blocks_by_bu(p_bu_id text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public._legacy_get_estate_blocks_paged(p_page integer, p_limit integer) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_get_harvest_records_by_bu(p_bu_id text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_get_nursery_data_by_bu(p_bu_id text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_get_packing_log_by_site(p_site_code text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_get_qc_results_by_site(p_site_code text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_get_transport_dispatch_by_bu(p_bu_id text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_get_worker_requests_by_nrp(p_nrp text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_list_ideas_by_nrp(p_nrp text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public._legacy_owner_toggle_lock_2arg(p_module_code text, p_enable boolean) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.activate_license(p_license_key text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.add_okr_result(p_okr_id integer, p_kr text, p_target numeric, p_unit text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.add_perf_note(p_nrp text, p_type text, p_text text) FROM PUBLIC, anon, authenticated, service_role;
@@ -17343,7 +17049,6 @@ REVOKE ALL ON FUNCTION public.vote_idea(p_idea_id text) FROM PUBLIC, anon, authe
 REVOKE ALL ON FUNCTION public.worker_change_password(p_nrp text, p_old text, p_new text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.worker_logout() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.worker_update_profile(p_nrp text, p_no_hp text, p_alamat text, p_agama text, p_media_sosial jsonb, p_jenjang_pendidikan text, p_no_bpjs_kesehatan text, p_no_bpjs_ketenagakerjaan text, p_riwayat_penyakit text, p_komorbid text, p_alergi text, p_nama_bank text, p_no_rekening text, p_nama_rekening text, p_lokasi_penempatan text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.worker_update_profile_legacy(p_nrp text, p_email text, p_no_hp text, p_alamat text) FROM PUBLIC, anon, authenticated, service_role;
 
 -- SAPUAN SCHEMA-WIDE (wajib): tanpa ini objek apa pun yang luput didaftar
 -- (mis. tabel baru hasil generator) mewarisi hak bawaan platform (anon ALL)
@@ -18418,44 +18123,9 @@ GRANT EXECUTE ON FUNCTION public._is_admin_or_owner() TO postgres;
 GRANT EXECUTE ON FUNCTION public._is_admin_or_owner() TO service_role;
 GRANT EXECUTE ON FUNCTION public._is_admin_or_owner_caller() TO postgres;
 GRANT EXECUTE ON FUNCTION public._is_admin_or_owner_caller() TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_create_worker_request_dated(p_nrp text, p_type text, p_reason text, p_from date, p_to date) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_create_worker_request_dated(p_nrp text, p_type text, p_reason text, p_from date, p_to date) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_create_worker_request_dated(p_nrp text, p_type text, p_reason text, p_from date, p_to date) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_generate_worker_otp_nopass(p_nrp text, p_nik text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_generate_worker_otp_nopass(p_nrp text, p_nik text) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_get_breakdown_log_by_site(p_site_code text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_get_breakdown_log_by_site(p_site_code text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_get_breakdown_log_by_site(p_site_code text) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_get_estate_blocks_by_bu(p_bu_id text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_get_estate_blocks_by_bu(p_bu_id text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_get_estate_blocks_by_bu(p_bu_id text) TO service_role;
 GRANT EXECUTE ON FUNCTION public._legacy_get_estate_blocks_paged(p_page integer, p_limit integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public._legacy_get_estate_blocks_paged(p_page integer, p_limit integer) TO postgres;
 GRANT EXECUTE ON FUNCTION public._legacy_get_estate_blocks_paged(p_page integer, p_limit integer) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_get_harvest_records_by_bu(p_bu_id text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_get_harvest_records_by_bu(p_bu_id text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_get_harvest_records_by_bu(p_bu_id text) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_get_nursery_data_by_bu(p_bu_id text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_get_nursery_data_by_bu(p_bu_id text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_get_nursery_data_by_bu(p_bu_id text) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_get_packing_log_by_site(p_site_code text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_get_packing_log_by_site(p_site_code text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_get_packing_log_by_site(p_site_code text) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_get_qc_results_by_site(p_site_code text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_get_qc_results_by_site(p_site_code text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_get_qc_results_by_site(p_site_code text) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_get_transport_dispatch_by_bu(p_bu_id text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_get_transport_dispatch_by_bu(p_bu_id text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_get_transport_dispatch_by_bu(p_bu_id text) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_get_worker_requests_by_nrp(p_nrp text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_get_worker_requests_by_nrp(p_nrp text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_get_worker_requests_by_nrp(p_nrp text) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_list_ideas_by_nrp(p_nrp text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_list_ideas_by_nrp(p_nrp text) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_list_ideas_by_nrp(p_nrp text) TO service_role;
-GRANT EXECUTE ON FUNCTION public._legacy_owner_toggle_lock_2arg(p_module_code text, p_enable boolean) TO authenticated;
-GRANT EXECUTE ON FUNCTION public._legacy_owner_toggle_lock_2arg(p_module_code text, p_enable boolean) TO postgres;
-GRANT EXECUTE ON FUNCTION public._legacy_owner_toggle_lock_2arg(p_module_code text, p_enable boolean) TO service_role;
 GRANT EXECUTE ON FUNCTION public.activate_license(p_license_key text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.activate_license(p_license_key text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.add_okr_result(p_okr_id integer, p_kr text, p_target numeric, p_unit text) TO authenticated;
@@ -19777,9 +19447,6 @@ GRANT EXECUTE ON FUNCTION public.worker_logout() TO service_role;
 GRANT EXECUTE ON FUNCTION public.worker_update_profile(p_nrp text, p_no_hp text, p_alamat text, p_agama text, p_media_sosial jsonb, p_jenjang_pendidikan text, p_no_bpjs_kesehatan text, p_no_bpjs_ketenagakerjaan text, p_riwayat_penyakit text, p_komorbid text, p_alergi text, p_nama_bank text, p_no_rekening text, p_nama_rekening text, p_lokasi_penempatan text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.worker_update_profile(p_nrp text, p_no_hp text, p_alamat text, p_agama text, p_media_sosial jsonb, p_jenjang_pendidikan text, p_no_bpjs_kesehatan text, p_no_bpjs_ketenagakerjaan text, p_riwayat_penyakit text, p_komorbid text, p_alergi text, p_nama_bank text, p_no_rekening text, p_nama_rekening text, p_lokasi_penempatan text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.worker_update_profile(p_nrp text, p_no_hp text, p_alamat text, p_agama text, p_media_sosial jsonb, p_jenjang_pendidikan text, p_no_bpjs_kesehatan text, p_no_bpjs_ketenagakerjaan text, p_riwayat_penyakit text, p_komorbid text, p_alergi text, p_nama_bank text, p_no_rekening text, p_nama_rekening text, p_lokasi_penempatan text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.worker_update_profile_legacy(p_nrp text, p_email text, p_no_hp text, p_alamat text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.worker_update_profile_legacy(p_nrp text, p_email text, p_no_hp text, p_alamat text) TO postgres;
-GRANT EXECUTE ON FUNCTION public.worker_update_profile_legacy(p_nrp text, p_email text, p_no_hp text, p_alamat text) TO service_role;
 
 -- ── DEFAULT PRIVILEGES — SENGAJA TIDAK DI-EMIT ──────────────────
 -- Hak istimewa bawaan ini DIPASANG OLEH PLATFORM Supabase pada project baru,
