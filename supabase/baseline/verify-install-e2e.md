@@ -11,8 +11,8 @@ prereq platform disiapkan (schema auth/extensions, auth.*(), stub cron, default 
   role   : postgres
   postgres: 17.6
   tabel di public: 0
---- APPLY 000_baseline_schema.sql ... ok (3640ms)
---- APPLY 010_baseline_config_data.sql ... ok (642ms)
+--- APPLY 000_baseline_schema.sql ... ok (3750ms)
+--- APPLY 010_baseline_config_data.sql ... ok (691ms)
 --- IDENTITAS PERUSAHAAN ---
   branding.company_name → "PT Uji Instalasi Otomatis" (1 baris)
   company_config.owner_email → owner@uji-instalasi.test (baris baru dibuat, 1)
@@ -23,7 +23,7 @@ prereq platform disiapkan (schema auth/extensions, auth.*(), stub cron, default 
   trigger                   : 29
   partisi absensi           : 0
   menu (module_definitions) : 155
-  cap schema_migrations     : 166
+  cap schema_migrations     : 167
   branding (nama perusahaan): PT Uji Instalasi Otomatis
   owner_email               : owner@uji-instalasi.test
   check_migrations()        : bersih (0 issue)
@@ -43,7 +43,7 @@ prereq platform disiapkan (schema auth/extensions, auth.*(), stub cron, default 
   SAMA  trigger            live=   29  install=   29
   SAMA  sequence           live=   95  install=   95
   SAMA  cron_job           live=    3  install=    3
-  SAMA  migration_cap      live=  166  install=  166
+  SAMA  migration_cap      live=  167  install=  167
 
 --- 4) identitas perusahaan hasil instalasi ---
   branding.company_name   : "PT Uji Instalasi Otomatis"  (dari --company-name)
@@ -54,10 +54,10 @@ prereq platform disiapkan (schema auth/extensions, auth.*(), stub cron, default 
   merek DB sumber (tidak boleh muncul) : "insightWIP"
 
 --- 5) jalankan ulang dengan --force (uji idempoten) → exit 0
-    --- APPLY 000_baseline_schema.sql ... ok (2541ms)
-    --- APPLY 010_baseline_config_data.sql ... ok (411ms)
+    --- APPLY 000_baseline_schema.sql ... ok (2187ms)
+    --- APPLY 010_baseline_config_data.sql ... ok (413ms)
   tabel non-partisi : sebelum=208 sesudah=208 (harus sama)
-  cap migrasi       : sebelum=166 sesudah=166 (harus sama)
+  cap migrasi       : sebelum=167 sesudah=167 (harus sama)
 
 database scratch wos_replay_install_e2e di-drop (pakai --keep untuk menyimpannya)
 

@@ -2464,3 +2464,27 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
   (baris pemangkasan tertanggal 2026-09-21 dipertahankan sebagai jejak audit).
 - Dampak lintas-page: worker → admin → dashboard → owner: TIDAK terdampak (registry/checksum
   + verifikasi saja; tidak ada perubahan schema, kode, atau kontrak).
+
+## [2026-09-21] SQL-13 SELESAI: duplikat module_definitions /dashboard. Keputusan: nonaktifkan dashboard_landing (0 ref kode, tidak di pathMap); ceo_dashboard tetap aktif (dipakai menu-builder). Via migrasi 242 + baseline regenerate.
+
+- Analisa read-only dulu (query konteks 2 baris + grep + buildMenu): `dashboard_landing`
+  = 0 match di `src/`, tidak ada di `pathMap` `getModulePath()` → sudah tersaring keluar
+  dari menu oleh dedup per route_path (`buildMenu`, kalah menu_order 201 vs 200);
+  `ceo_dashboard` dipakai `menu-builder.ts:124`. Kedua baris identik di semua kolom
+  lain (module_name "CEO Dashboard", icon, tier 0, component 'Dashboard').
+- **Keputusan user: Opsi B** — `dashboard_landing` dinonaktifkan.
+- **Eksekusi:**
+  - Migrasi `242_sql13_deactivate_dashboard_landing.sql` (UPDATE ter-guard idempoten +
+    verifikasi gagal-cepat): "DITERAPKAN + terdaftar + checksum terverifikasi (1021ms)",
+    checksum `64572d62bfd0fcdd…`.
+  - Verify live: `ceo_dashboard is_active=true`, `dashboard_landing is_active=false`
+    (output mentah di transkrip sesi).
+  - `npm run db:baseline`: cap 167; baris baseline data `dashboard_landing … 'false'`
+    (baris 205) + 242 ter-cap di registry baseline.
+  - `npm run db:verify-install`: **PASS — EXIT 0, 9/9 SAMA** (cap 167=167) + idempoten
+    `--force` exit 0. Log: `.agents/logs/verify-install-sql13.log`.
+  - ARCHITECTURE.md §7.4 Migrations tracked 166 → 167 (guard doc-claims tetap hijau).
+- Bukti pendukung: `check_migrations()` 0 issue (registry 167 = jumlah file repo).
+- Dampak lintas-page: worker → admin → dashboard → owner: **TIDAK terdampak** — satu
+  UPDATE is_active pada baris yang memang sudah tidak pernah muncul di menu/route
+  (dedup + find-first); komponen Dashboard dilayani ceo_dashboard seperti sebelumnya.
