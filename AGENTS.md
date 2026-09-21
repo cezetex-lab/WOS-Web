@@ -224,6 +224,28 @@ Yang DILARANG:
 - 2026-09-20: helper klaim "gzip max 2 kB" padahal output build menunjukkan 200 kB.
 - 2026-09-20: helper klaim "SELESAI" untuk SQL-09 padahal file migrasi hanya berisi komentar.
 
+## 0.17 DESTRUCTIVE OPERATION PROTOCOL
+
+Operasi berikut WAJIB dry-run dulu, STOP, tunggu approval user:
+
+| Operasi | Contoh | Gate |
+|---|---|---|
+| DROP | DROP TABLE, DROP FUNCTION, DROP POLICY | `--dry` dulu, STOP |
+| DELETE massal | DELETE tanpa WHERE, TRUNCATE | `--dry` dulu, STOP |
+| ALTER destruktif | DROP COLUMN, RENAME, ALTER TYPE | Preview diff, STOP |
+| Migration --apply | npm run db:migrate -- --apply | Dry + checksum, STOP |
+| Deploy production | npx vercel --prod, supabase functions deploy | Gate hijau dulu, STOP |
+| Git force | push --force, reset --hard, revert | Konfirmasi eksplisit, STOP |
+| Update auth.users | updateUserById, createUser massal | Dry count dulu, STOP |
+
+**DILARANG** menjalankan dry-run dan apply dalam satu instruksi. Kalau prompt bilang "dry dulu, apply", helper WAJIB:
+1. Jalankan dry.
+2. Tampilkan output mentah.
+3. STOP — tunggu user ketik "APPROVE".
+4. Baru apply.
+
+**Pelanggaran = revert + catat di log sebagai insiden.**
+
 ## 5.8 STATE OPEN — WORK QUEUE: Temuan Audit SQL (WAJIB DISELESAIKAN)
 
 > **Sumber:** audit menyeluruh 2026-09-17 — 150+ migrasi diparsing lalu **setiap temuan
@@ -243,7 +265,6 @@ Yang DILARANG:
 
 | ID | Prio | Masalah | Bukti (terverifikasi) | Definition of Done | Status |
 |---|---|---|---|---|---|
-| OPS-05 | **P1** | **`check_login_lockout` 401 untuk `anon`** → cek lockout pra-login tidak pernah berjalan (fail-open; kontrol S10 hanya dekorasi). Ditemukan saat investigasi OPS-04 | Trace OPS-04 2026-09-21 (2 run): `401 {"code":"42501","message":"permission denied for function check_login_lockout"}` (grep: `has_function_privilege('anon','check_login_lockout(text,text)','EXECUTE') = false`, sedangkan `hit_rate_limit`/`login_worker*`/`get_enabled_modules` = true). Dipanggil `Home.tsx:189` & `:270` SEBELUM sesi ada | Grant anon via migrasi baru ATAU pindahkan cek lockout ke dalam `login_worker_by_email`/`login_worker`; bukti: percobaan login ke-N benar-benar ditolak (`attempts`/`blocked_until` naik) + login normal tetap 200 | OPEN |
 | OPS-06 | **P2** | **`change_password` & `admin_reset_worker_password` tidak menyinkronkan `auth.users.password`** → setiap worker yang mengganti/reset password kembali DIVERGEN (fast path `signInWithPassword` mati lagi). Ditemukan saat FASE 1 OPS-04. **Keputusan user 2026-09-21: JANGAN fix sekarang** | `pg_get_functiondef`: kedua RPC hanya menulis `worker_passwords` (`SET password_hash = crypt(p_new_password, gen_salt('bf'))`); hanya edge `password-reset` yang juga `updateUserById` (`index.ts:229-243`); `Home.tsx:245-251` (alur `reset_required`) memakai `change_password` lalu `provisionWorkerAuth` dengan password baru | Setelah B1a′ terpasang: buktikan self-heal (ubah password → login berikutnya → fast path hijau) ATAU sinkronkan kedua RPC ke `auth.users`; bukti: probe signIn mengembalikan SINKRON untuk akun yang baru ganti/reset password | OPEN |
 | OPS-07 | **P3** | **`check_login_lockout` anon bisa INSERT ke `login_attempts`** → fungsional (lockout benar-benar berjalan setelah OPS-05 grant) tapi bisa inflasi tabel via spam langsung tanpa login. Ditemukan saat disclosure OPS-05 (2026-09-21) | Helper OPS-05 disclosure 2026-09-21; badan fungsi: `L35: INSERT INTO login_attempts (identifier, attempt_type, success, ip_address)` (probe `pg_get_functiondef`); grant `anon` = true (migrasi 245) | Tambah rate-limit pada `check_login_lockout` ATAU cleanup otomatis `login_attempts` (retensi > X hari) ATAU pindahkan cek ke `login_worker_by_email`. Bukti: tabel `login_attempts` tidak tumbuh > ambang wajar selama seminggu | OPEN |
 
@@ -253,6 +274,7 @@ Yang DILARANG:
 > ini sesuai aturan #3 di atas: **SQL-01, SQL-03, SQL-04, SQL-05, SQL-07** + **SQL-06** (keputusan 2026-09-20: TIDAK FORCE RLS — SQL Editor masih dipakai debugging/maintenance) + **SQL-08** (dieksekusi migrasi 240: drop tabel mati + cron + fungsi terkait) + **SQL-09, SQL-10, OPS-01, OPS-02** (dipangkas 2026-09-20). Jangan diinvestigasi ulang.
 > **Dipangkas 2026-09-21** — **SQL-11**: DONE (verifikasi 3 ronde + migrasi 241 + restamp 35 berkas + pulihkan file 240 + baseline/verify-install PASS 9/9; bukti di `agentsLogs_2026-09.md` entri 2026-09-21). Jangan diinvestigasi ulang.
 > **Dipangkas 2026-09-21** — **SQL-12**: DONE (keputusan user Opsi D: migrasi 244 — semantik NULL=jangan ubah, ''=kosongkan; signature TIDAK berubah; 13 konversi `‖ null` dihapus dari `WorkerProfile.tsx`; verifikasi impersonasi 4 langkah via `get_worker_profile`; restamp `b421600b…`; **catatan: smoke browser gagal karena temuan baru OPS-04 — provisioning sesi, bukan bagian DoD SQL-12**; bukti di `agentsLogs_2026-09.md` entri 2026-09-21). Jangan diinvestigasi ulang.
+> **Dipangkas 2026-09-21** — **OPS-05**: DONE (grant anon `check_login_lockout` via migrasi 245; RPC 200, lockout aktif; OPS-07 tetap OPEN sebagai follow-up rate-limit `login_attempts`; bukti di `agentsLogs_2026-09.md` entri 2026-09-21). Jangan diinvestigasi ulang.
 > **Dipangkas 2026-09-21** — **SQL-02**: DONE (keputusan user Opsi A: DROP 13 fungsi legacy tanpa sumber via migrasi 243; bukti 0 pemakai `src/`, 0 caller internal, 0 view, grant sudah dicabut 210/073; sisa 2 fungsi legacy bersumber 073/205 dipertahankan; baseline regen fungsi 552→539; verify-install PASS 9/9 cap 168; bukti di `agentsLogs_2026-09.md` entri 2026-09-21). Jangan diinvestigasi ulang.
 > **Dipangkas 2026-09-21** — **SQL-13**: DONE (keputusan user Opsi B: `dashboard_landing` dinonaktifkan via migrasi 242; 0 ref kode, tidak di pathMap menu-builder; `ceo_dashboard` tetap aktif melayani /dashboard; verify-install PASS 9/9; bukti di `agentsLogs_2026-09.md` entri 2026-09-21). Jangan diinvestigasi ulang.
 > **Dipangkas 2026-09-21** — **OPS-03**: DONE (OPS-03c: lazy() shell App.tsx + boundary Suspense; OPS-03b: manualChunks vendor-supabase/posthog/dompurify + posthog deferred idle-init. Main `index-*.js` = 27,6 kB gzip; initial load 4 file = **144,5 kB gzip < 150 kB** — DoD terpenuhi; gate tsc/lint/build/test 141/141 hijau; bukti di `agentsLogs_2026-09.md` entri 2026-09-21). Jangan diinvestigasi ulang.
