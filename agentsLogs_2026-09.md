@@ -2694,3 +2694,21 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Dampak lintas-page:** worker → tidak terdampak (tidak ada perubahan di pohon worker);
   admin → tidak terdampak; dashboard → tidak terdampak; **owner → terdampak visual kecil**
   (2 tombol cyan-600→cyan-700) + halaman config kini masuk cakupan scan a11y.
+## [2026-09-22] a11y Stage 1 rampung final: 6 halaman 0 violation — OPS-08 didaftarkan (OPEN)
+
+- **Hasil final (run-6):** **6/6 passed (1.5m), 0 violation critical/serious** — bahkan 0 total
+  semua impact — di Login `/`, Worker `/worker`, Admin `/admin`, Dashboard `/dashboard`,
+  Owner `/owner/dashboard`, Owner Config `/owner/dashboard/config`.
+- **Fix kontras:** `bg-cyan-600` → `bg-cyan-700` (OwnerDashboard tombol Config + CompanyConfig
+  tombol Simpan); ratio 3.68:1 → ~4.9:1 (WCAG 2.1 AA 1.4.3). Commit `ed7a08e`.
+- **Root cause run 4–5 BUKAN flake — rate limiter OTP bekerja benar:** `hit_rate_limit`
+  (migrasi 193) `pwreset_login_otp` maks **3/NRP per fixed-window 15 menit**; bukti DB
+  `rate_limits` `{identifier:"NRP101", action:"pwreset_login_otp", count:3, window_start:
+  2026-09-21T16:00Z}` + snapshot Playwright "Terlalu banyak request OTP. Coba lagi nanti."
+  Suite a11y memakai 2–3 OTP per run (Admin + Dashboard sama-sama login admin NRP101) →
+  run beruntun dalam window yang sama pasti diblokir. Limiter TIDAK diubah.
+- **OPS-08 (P3) terdaftar di §5.8** — test infra: runner a11y wajib rotate NRP admin per test
+  ATAU delay antar run ATAU opsi tanpa cek rate-limit; DoD: 3 run beruntun < 5 menit = 0 OTP block.
+- **Dampak lintas-page:** worker → tidak terdampak; admin → tidak terdampak; dashboard →
+  tidak terdampak; owner → terdampak visual kecil (2 tombol cyan-700) + halaman config masuk
+  cakupan scan a11y.
