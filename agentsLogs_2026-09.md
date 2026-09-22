@@ -2718,3 +2718,28 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - Bukti TASK 2 (probe login REAL, `.agents/scripts/probe-login-real.cjs`): `[NRP002] login_worker_by_email: OK ok=true` + `signInWithPassword: OK (user=55f100d8…)`; `[NRP100-admin]` RPC `ok=false` (semantik benar — bukan worker) + `signInWithPassword: OK (user=023d3e58…)`; `[CEO]` RPC `ok=false` + `signInWithPassword: OK (user=1e4c944e…)`. Fast-path auth SINKRON untuk 3 akun (sinyal baik utk OPS-06).
 - Bukti jumlah (probe live 2026-09-22, `.agents/scripts/fase1c1-counts.cjs`): employees_core=17, user_roles=17, worker_passwords=10, system_owner_identity aktif=1 (owner@).
 - `supabase/baseline/verify-install-e2e.md` di-commit ulang: artefak run ulang pasca-reset — verdict `HASIL: PASS — installer siap dipakai`; satu-satunya perubahan semantik = `merek DB sumber: "insightWIP" → "Perusahaan Anda"` (efek reset ke baseline), sisanya timing run.
+
+## [2026-09-22] OPS-01 smoke WorkerProfile (worker NRP002) — hasil: GAGAL
+- Dijalankan: `npm run smoke:ops01 -- --headless` · exit **1** · 157.4s
+- Worker uji: `NRP002` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-22T06-28-17-116Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 tetap OPEN (smoke GAGAL — lihat log mentah).
+
+## [2026-09-22] OPS-01 smoke WorkerProfile (worker NRP002) — hasil: LULUS
+- Dijalankan: `npm run smoke:ops01 -- --headless` · exit **0** · 44.7s
+- Worker uji: `NRP002` (kredensial dari `supabase/akun/akun.txt`, tidak pernah ditulis ke repo/log).
+- Alur yang dibuktikan: login worker → `/worker/profile` → Edit → ubah kolom **Agama** → Simpan →
+  reload → nilai PERSIST → pemulihan nilai asli (via UI, atau via SQL oleh runner bila aslinya kosong).
+- Pemulihan residu: employees_extended.agama NRP002 dipulihkan ke null via SQL (SQL-12: UI tidak bisa mengosongkan field).
+- Log mentah: `.agents/logs/ops01-smoke-2026-09-22T06-58-26-623Z.log` (gitignored).
+- Status AGENTS.md §5.8: OPS-01 **masih OPEN** — jalankan ulang dengan `-- --close` setelah Anda menyetujui hasilnya.
+## [2026-09-22] FASE 1C-2 SELESAI: seed-test-workers.mjs (crypt() langsung) + npm run db:seed-test (seed + smoke otomatis). Smoke OPS-01 PASS, a11y 6/6 PASS. reset_required cleared (0). Auth linked 17/17. Siap FASE 2 (a11y sweep 158 halaman).
+
+- **Latar:** pasca reset DB ke baseline, smoke OPS-01 gagal 2/2 (Stage A) karena `employees_extended` = 0 baris (baseline sengaja tanpa PII, kontrak header 010). Akar dibuktikan probe: `employees_extended NRP002 rows: 0`.
+- **Keputusan user:** Opsi L1 (skrip seed terpisah, baseline tetap bersih) + integrasi (b) `db:seed-test` = seed+smoke satu perintah, (c) smoke runner selalu seed `--apply` idempoten, (e) exit tanpa rollback, (Y) password via `crypt($2, gen_salt('bf'))` langsung — BUKAN RPC `admin_reset_worker_password` (gate authz menolak koneksi postgres; functiondef membuktikan `reset_required = TRUE` oleh RPC, jadi skrip men-clear-nya sendiri).
+- **Bukti apply:** `extended=+17, roles=+0, pw=+7 baru / 10 update, reset_required cleared=+0, auth_id sync=+0` → `VERIFY: core=17 ext=17 roles=17 pw=17 rr_true=0 auth_linked=17` → `HASIL: PASS`. Verify SQL independen: 17/17/17/17/0/17.
+- **Bukti `npm run db:seed-test` end-to-end:** seed PASS otomatis dari runner → smoke **2 passed (41.0s)**: `[OPS-01] nilai Agama sesudah reload: "Islam" → PERSIST`; `[SQL-12] DB agama NRP002 = NULL → '' benar-benar mengosongkan field (migrasi 244)` + pemulihan via SQL.
+- **Bukti a11y:** `6 passed (1.2m)` — Login, Worker, Admin, Dashboard, Owner, Owner Config; semua `0 critical/serious. Total violation (semua impact): 0`.
+- **Dry-run kejujuran:** 2 bug skrip tertangkap sebelum menyentuh DB — `await` di callback `filter()` non-async (diperbaiki via precompute Set), dan verdict DRY kini dievaluasi atas proyeksi pasca-apply.

@@ -39,6 +39,13 @@ const HEADED = !argv.includes('--headless');
 const CLOSE = argv.includes('--close');
 const CHECK_ONLY = argv.includes('--check');
 
+// Keputusan (c) 2026-09-22: smoke runner SELALU seed --apply dulu (idempoten —
+// ON CONFLICT DO NOTHING), supaya pasca reset DB smoke self-sufficient.
+if (!CHECK_ONLY) {
+  const r = spawnSync('node', ['supabase/scripts/seed-test-workers.mjs', '--apply'], { stdio: 'inherit', cwd: ROOT });
+  if (r.status !== 0) { console.error('seed-test-workers GAGAL — smoke dihentikan.'); process.exit(r.status ?? 1); }
+}
+
 interface Kredensial {
   nrp: string;
   email: string;

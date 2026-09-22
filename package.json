@@ -26,6 +26,7 @@
     "db:verify-install": "node supabase/scripts/verify-install-e2e.mjs",
     "db:rehearse-newco": "node supabase/scripts/rehearse-new-company.mjs",
     "db:refresh-checksums": "node supabase/scripts/refresh-migration-checksums.mjs",
+    "db:seed-test": "node supabase/scripts/seed-test-workers.mjs --apply && npm run smoke:ops01 -- --headless",
     "smoke:ops01": "node scripts/run-ops01-smoke.ts"
   },
   "dependencies": {
