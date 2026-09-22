@@ -2712,3 +2712,9 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Dampak lintas-page:** worker → tidak terdampak; admin → tidak terdampak; dashboard →
   tidak terdampak; owner → terdampak visual kecil (2 tombol cyan-700) + halaman config masuk
   cakupan scan a11y.
+## [2026-09-22] FASE 1C-1 SELESAI: DB di-reset via baseline install. 17 employees_core + 17 user_roles + 10 worker_passwords (garbage 8 dihapus). Login probe: NRP002 (worker) ok=true, NRP100 (admin) signIn OK, CEO signIn OK. Owner login OK. Data siap untuk FASE 2 (a11y sweep 158 halaman).
+
+- Bukti TASK 1 (DELETE garbage `worker_passwords`, approval ke-3; skrip `.agents/scripts/task1-delete-garbage.cjs`): pre-check live = 10 baris, semua `in_employees_core=true`; `DELETE rowCount = 0` → live sudah bersih sebelum skrip dijalankan (garbage NRP100–106 + NRP001 lama sudah terhapus di langkah reset sebelumnya; dump 07:17 masih memuat 17 NRP); VERIFY `COUNT=10`, sisa persis NRP001–NRP010.
+- Bukti TASK 2 (probe login REAL, `.agents/scripts/probe-login-real.cjs`): `[NRP002] login_worker_by_email: OK ok=true` + `signInWithPassword: OK (user=55f100d8…)`; `[NRP100-admin]` RPC `ok=false` (semantik benar — bukan worker) + `signInWithPassword: OK (user=023d3e58…)`; `[CEO]` RPC `ok=false` + `signInWithPassword: OK (user=1e4c944e…)`. Fast-path auth SINKRON untuk 3 akun (sinyal baik utk OPS-06).
+- Bukti jumlah (probe live 2026-09-22, `.agents/scripts/fase1c1-counts.cjs`): employees_core=17, user_roles=17, worker_passwords=10, system_owner_identity aktif=1 (owner@).
+- `supabase/baseline/verify-install-e2e.md` di-commit ulang: artefak run ulang pasca-reset — verdict `HASIL: PASS — installer siap dipakai`; satu-satunya perubahan semantik = `merek DB sumber: "insightWIP" → "Perusahaan Anda"` (efek reset ke baseline), sisanya timing run.

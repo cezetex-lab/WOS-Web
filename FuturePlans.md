@@ -42,7 +42,7 @@ insightWOS adalah HR/WMS (Workforce Management System) dengan fokus industri (mi
 - **Search Path Violations**: 0 (migration `207` sudah fix semua — OBSOLETE, klaim "8 functions missing" salah)
 - **pg_cron**: 3 jobs aktif (`cron.job`) 2026-09-18 (pasca-228: 3 job MV dipensiunkan)
 - **Legacy Overloads**: 20 overloads masih ada tapi sudah di-rename ke `_legacy_*` (tidak semua di-drop — ini desain, bukan bug)
-- **Audit Chain**: 172 rows (`verify_audit_chain()` = 0 issues); baris hanya bertambah, jadi angka ini bergerak
+- **Audit Chain**: 44 rows (`verify_audit_chain()` = 0 issues); baris hanya bertambah, jadi angka ini bergerak
 - **RLS**: Semua tabel force-enabled
 
 ---
