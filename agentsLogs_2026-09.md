@@ -2743,3 +2743,21 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Bukti `npm run db:seed-test` end-to-end:** seed PASS otomatis dari runner → smoke **2 passed (41.0s)**: `[OPS-01] nilai Agama sesudah reload: "Islam" → PERSIST`; `[SQL-12] DB agama NRP002 = NULL → '' benar-benar mengosongkan field (migrasi 244)` + pemulihan via SQL.
 - **Bukti a11y:** `6 passed (1.2m)` — Login, Worker, Admin, Dashboard, Owner, Owner Config; semua `0 critical/serious. Total violation (semua impact): 0`.
 - **Dry-run kejujuran:** 2 bug skrip tertangkap sebelum menyentuh DB — `await` di callback `filter()` non-async (diperbaiki via precompute Set), dan verdict DRY kini dievaluasi atas proyeksi pasca-apply.
+## [2026-09-22] a11y sweep 154 halaman (full-sweep run-2) + registrasi OPS-09
+
+- Sweep `accessibility-full-sweep.spec.ts` (config `playwright.a11y.config.ts`, chromium, detached
+  ±41 menit): **154 test — 116 PASS, 35 failed (violation), 3 timedOut**; 1 flaky (`/worker/safety`,
+  failed→passed). JSON: `.agents/logs/a11y-sweep-result2.json` (7,5 MB); parsed:
+  `.agents/logs/sweep-final-rows.json`; parser `.agents/scripts/sweep-final-report.cjs`.
+- **36 halaman violation, 55 node (23 critical + 32 serious).** Per rule (test/node):
+  color-contrast 25/31, select-name 8/18, label 2/5, scrollable-region-focusable 1/1.
+  Akar masalah dominan: kelas Tailwind `bg-teal-500`/`bg-blue-500`/`bg-sky-600` + teks putih
+  (rasio 2.48–3.67 < 4.5:1), `<select>` filter tanpa accessible name, input form tanpa label.
+- 3 timeout (networkidle, bukan a11y): `/worker`, `/worker/continuous-perf`, `/worker/fatigue`.
+  Dashboard `/admin /dashboard` PASS; owner 2/2 PASS. Cakupan aktual 154 (bukan 156):
+  worker 52 + admin 99 + dashboard 1 + owner 2; route `/owner` (landing) tidak ada di routes dump.
+- **Keputusan user:** fix color-contrast sekarang (Opsi B); 36 violation lainnya dicatat **OPS-09 (P2, OPEN)**
+  di §5.8 AGENTS.md. Target akhir re-run sweep 154/154 PASS.
+- Dampak lintas-page: worker → admin → dashboard → owner — sweep mencakup keempat area; violation
+  admin terbanyak (25 test), worker 10, dashboard/owner 0; fix kontras di layer bersama (kelas
+  Tailwind/komponen) berdampak ke semua page yang memakai kelas sama.

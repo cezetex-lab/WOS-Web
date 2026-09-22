@@ -229,7 +229,7 @@ export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
         >
           🤖
           {unread > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-micro text-white font-bold">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-700 rounded-full flex items-center justify-center text-micro text-white font-bold">
               {unread > 9 ? '9+' : unread}
             </span>
           )}
@@ -284,7 +284,7 @@ export default function ChatCopilot({ context = 'general' }: ChatCopilotProps) {
               <button
                 onClick={() => handleSend()}
                 disabled={!input.trim() || isLoading}
-                className="w-9 h-9 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:bg-slate-700 disabled:text-slate-500 flex items-center justify-center text-white transition-colors mr-1"
+                className="w-9 h-9 rounded-lg bg-sky-800 hover:bg-sky-700 disabled:bg-slate-700 disabled:text-slate-500 flex items-center justify-center text-white transition-colors mr-1"
               >
                 {isLoading ? (
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

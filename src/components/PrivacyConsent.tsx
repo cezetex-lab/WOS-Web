@@ -94,7 +94,7 @@ export default function PrivacyConsent({ onAccept }: PrivacyConsentProps) {
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
           <button
             onClick={handleAccept}
-            className="flex-1 bg-teal-500 hover:bg-teal-400 text-white font-semibold py-3 px-4 rounded-xl transition-colors"
+            className="flex-1 bg-teal-700 hover:bg-teal-600 text-white font-semibold py-3 px-4 rounded-xl transition-colors"
             autoFocus
           >
             ✅ Saya Setuju

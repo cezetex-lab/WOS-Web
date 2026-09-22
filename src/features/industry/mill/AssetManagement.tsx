@@ -114,7 +114,7 @@ export default function AssetManagement() {
                   key={c.key}
                   onClick={() => setCatFilter(c.key)}
                   className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all ${
-                    catFilter === c.key ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    catFilter === c.key ? 'bg-blue-700 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                   }`}
                 >
                   {c.label}
@@ -205,7 +205,7 @@ export default function AssetManagement() {
                     key={c}
                     onClick={() => setCondition(c)}
                     className={`flex-1 py-2 rounded-lg text-xs font-semibold ${
-                      condition === c ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'
+                      condition === c ? 'bg-blue-700 text-white' : 'bg-slate-700 text-slate-300'
                     }`}
                   >
                     {c === 'good' ? '✅ Baik' : c === 'fair' ? '⚠️ Cukup' : '🔴 Rusak'}

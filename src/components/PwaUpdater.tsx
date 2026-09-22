@@ -80,7 +80,7 @@ export default function PwaUpdater() {
         </div>
         <button
           onClick={handleUpdate}
-          className="px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-xl text-sm font-medium text-white transition-colors flex-shrink-0"
+          className="px-4 py-2 bg-sky-800 hover:bg-sky-700 rounded-xl text-sm font-medium text-white transition-colors flex-shrink-0"
         >
           Update
         </button>

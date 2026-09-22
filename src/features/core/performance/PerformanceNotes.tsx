@@ -93,7 +93,7 @@ export default function PerformanceNotes() {
           <button
             onClick={() => setFilter('all')}
             className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap ${
-              filter === 'all' ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-300'
+              filter === 'all' ? 'bg-blue-700 text-white' : 'bg-slate-800 text-slate-300'
             }`}
           >
             📋 Semua
@@ -103,7 +103,7 @@ export default function PerformanceNotes() {
               key={t.key}
               onClick={() => setFilter(t.key)}
               className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap ${
-                filter === t.key ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-300'
+                filter === t.key ? 'bg-blue-700 text-white' : 'bg-slate-800 text-slate-300'
               }`}
             >
               {t.label}
@@ -149,7 +149,7 @@ export default function PerformanceNotes() {
                     key={t.key}
                     onClick={() => setNoteType(t.key)}
                     className={`py-2 rounded-lg text-xs ${
-                      noteType === t.key ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-300'
+                      noteType === t.key ? 'bg-blue-700 text-white' : 'bg-slate-800 text-slate-300'
                     }`}
                   >
                     {t.label}

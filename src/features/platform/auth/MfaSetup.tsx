@@ -130,7 +130,7 @@ export default function MfaSetup() {
           <p className="text-4xl mb-4">🔒</p>
           <p className="text-white text-lg font-bold mb-2">Login Diperlukan</p>
           <p className="text-slate-400 text-sm mb-6">Silakan login dulu (tab Worker / Admin / Dashboard), lalu buka MFA Setup dari halaman login.</p>
-          <a href="/" className="inline-block px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-all">Kembali ke Login</a>
+          <a href="/" className="inline-block px-6 py-3 bg-teal-700 hover:bg-teal-800 text-white font-semibold rounded-xl transition-all">Kembali ke Login</a>
         </div>
       </GlassCard>
     </PageLayout>

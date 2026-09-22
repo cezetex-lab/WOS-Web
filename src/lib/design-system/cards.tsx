@@ -65,7 +65,7 @@ export function QuickTile({ icon, label, color = 'slate', onClick, badge }: Quic
     <button onClick={onClick} className={`relative flex flex-col items-center justify-center p-3 rounded-2xl ${bgColors[color]} backdrop-blur-sm border border-white/5 transition-all duration-200 hover:border-white/15 active:scale-95`}>
       <span className="text-2xl mb-1">{icon}</span>
       <span className="text-[11px] font-medium text-slate-300 text-center leading-tight">{label}</span>
-      {badge !== undefined && badge > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[11px] font-bold rounded-full px-1">{badge > 99 ? '99+' : badge}</span>}
+      {badge !== undefined && badge > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-700 text-white text-[11px] font-bold rounded-full px-1">{badge > 99 ? '99+' : badge}</span>}
     </button>
   );
 }

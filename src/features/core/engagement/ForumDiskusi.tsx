@@ -61,7 +61,7 @@ export default function ForumDiskusi() {
               <label className="text-xs text-slate-400 mb-1 block">Kategori</label>
               <div className="flex gap-1 flex-wrap">
                 {categories.map(c => (
-                  <button key={c} onClick={() => setNewCategory(c)} className={`text-micro px-3 py-1 rounded-full transition-all ${newCategory === c ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}>{c}</button>
+                  <button key={c} onClick={() => setNewCategory(c)} className={`text-micro px-3 py-1 rounded-full transition-all ${newCategory === c ? 'bg-blue-700 text-white' : 'bg-slate-800 text-slate-400'}`}>{c}</button>
                 ))}
               </div>
             </div>

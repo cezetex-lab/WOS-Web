@@ -145,7 +145,7 @@ export default function DashboardPage() {
   if (loading) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><LoadingSpinner text="Memuat dashboard..." /></div>;
 
   // Role worker tidak punya akses dashboard — arahkan login ulang via tab dashboard.
-  if (noAccess) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><div className="text-center max-w-sm px-6"><p className="text-4xl mb-4">🔒</p><p className="text-white text-lg font-bold mb-2">Akses Dashboard Ditolak</p><p className="text-slate-400 text-sm mb-6">Akun worker tidak punya akses dashboard. Silakan login ulang via tab Dashboard.</p><button onClick={logout} className="px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-all">Kembali ke Login</button></div></div>;
+  if (noAccess) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center"><div className="text-center max-w-sm px-6"><p className="text-4xl mb-4">🔒</p><p className="text-white text-lg font-bold mb-2">Akses Dashboard Ditolak</p><p className="text-slate-400 text-sm mb-6">Akun worker tidak punya akses dashboard. Silakan login ulang via tab Dashboard.</p><button onClick={logout} className="px-6 py-3 bg-teal-700 hover:bg-teal-800 text-white font-semibold rounded-xl transition-all">Kembali ke Login</button></div></div>;
 
   if (menuDetail) return <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900"><div className="max-w-7xl mx-auto px-4 py-4 pb-24"><button onClick={() => setMenuDetail(null)} className="text-teal-400 text-sm font-semibold mb-4 hover:text-teal-300 transition-colors">← Kembali ke Menu</button><GlassCard title={menuDetail.charAt(0).toUpperCase() + menuDetail.slice(1)} icon="📄" accent="blue"><EmptyState icon="🚧" title="Halaman dalam pengembangan" subtitle={`Detail ${menuDetail} segera tersedia`} /></GlassCard></div></div>;
 
@@ -187,7 +187,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3"><Avatar name={user?.nama} size="md" /><div><div className="text-xs text-slate-400">{greetingTime()}</div><div className="text-sm font-bold text-white">{user?.nama || 'User'}</div></div></div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setActiveTab('notifikasi')} className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800/50 border border-white/5 text-slate-400 hover:text-white transition-all">🔔{pendingItems.length > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center bg-red-500 text-white text-[11px] font-bold rounded-full px-1">{pendingItems.length > 9 ? '9+' : pendingItems.length}</span>}</button>
+            <button onClick={() => setActiveTab('notifikasi')} className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800/50 border border-white/5 text-slate-400 hover:text-white transition-all">🔔{pendingItems.length > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center bg-red-700 text-white text-[11px] font-bold rounded-full px-1">{pendingItems.length > 9 ? '9+' : pendingItems.length}</span>}</button>
             <button onClick={logout} className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800/50 border border-white/5 text-red-400 hover:text-red-300 transition-all" title="Logout">🚪</button>
           </div>
         </div>
@@ -201,7 +201,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-around h-16">
           {[{ id: 'beranda', icon: '🏠', label: 'Beranda', badge: 0 }, { id: 'menu', icon: '📋', label: 'Menu', badge: 0 }, { id: 'notifikasi', icon: '🔔', label: 'Notifikasi', badge: pendingItems.length }].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all ${activeTab === tab.id ? 'text-teal-400 bg-teal-400/10' : 'text-slate-400 hover:text-white'}`}>
-              <span className="text-xl relative">{tab.icon}{tab.badge > 0 && <span className="absolute -top-1 -right-2 min-w-[14px] h-3.5 flex items-center justify-center bg-red-500 text-white text-[8px] font-bold rounded-full px-0.5">{tab.badge > 9 ? '9+' : tab.badge}</span>}</span>
+              <span className="text-xl relative">{tab.icon}{tab.badge > 0 && <span className="absolute -top-1 -right-2 min-w-[14px] h-3.5 flex items-center justify-center bg-red-700 text-white text-[8px] font-bold rounded-full px-0.5">{tab.badge > 9 ? '9+' : tab.badge}</span>}</span>
               <span className="text-[11px] font-medium mt-0.5">{tab.label}</span>
             </button>
           ))}

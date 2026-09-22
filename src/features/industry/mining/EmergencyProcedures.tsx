@@ -34,7 +34,7 @@ export default function EmergencyProcedures() {
         <div className="bg-red-600/20 border-2 border-red-500 rounded-2xl p-4 mb-4 text-center">
           <div className="text-3xl mb-2">🆘</div>
           <div className="text-lg font-bold text-red-400">DARURAT? HUBUNGI SEGERA</div>
-          <a href="tel:+62812xxxx100" className="inline-block mt-2 px-6 py-2 bg-red-500 text-white rounded-lg font-bold text-lg">📞 ext 100</a>
+          <a href="tel:+62812xxxx100" className="inline-block mt-2 px-6 py-2 bg-red-700 text-white rounded-lg font-bold text-lg">📞 ext 100</a>
         </div>
 
         <SectionHeader title="📋 Prosedur Darurat" />

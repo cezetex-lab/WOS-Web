@@ -39,7 +39,7 @@ export default function PreventiveMaintenance() {
       <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
         {['ALL', 'SCHEDULED', 'IN_PROGRESS', 'OVERDUE', 'COMPLETED'].map(s => (
           <button key={s} onClick={() => setFilter(s)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${filter === s ? 'bg-teal-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${filter === s ? 'bg-teal-700 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
             {s === 'ALL' ? 'Semua' : s}
           </button>
         ))}

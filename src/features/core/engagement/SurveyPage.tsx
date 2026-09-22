@@ -178,7 +178,7 @@ export default function SurveyPage() {
                     score === i
                       ? getEnpsLabel(i).color === 'green' ? 'bg-green-500 text-white'
                         : getEnpsLabel(i).color === 'yellow' ? 'bg-yellow-500 text-white'
-                        : 'bg-red-500 text-white'
+                        : 'bg-red-700 text-white'
                       : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                   }`}
                 >
