@@ -4,8 +4,9 @@
  * Sumber route: .agents/logs/sweep-routes.json (dump DB live 2026-09-22:
  * worker=52, admin=102). Shell statis: / (login, no-auth), /worker, /admin,
  * /dashboard, /owner/dashboard, /owner/dashboard/config.
- * Auth: storageState 1x per role (.agents/logs/auth-{worker,admin,owner}.json)
- * — prinsip OPS-08, tanpa OTP ulang.
+ * Auth: storageState 1x per role (.agents/logs/auth-{worker,admin,owner,admin-mill}.json)
+ * — prinsip OPS-08, tanpa OTP ulang. /admin/mill memakai state admin-mill (NRP105,
+ * role admin_mill — OPS-10; akun admin lain di-redirect oleh useAdminAuth).
  * Aturan: HANYA laporkan violation. Timeout per test 20s (spesifikasi Stage C).
  */
 import { test, expect } from '@playwright/test';
@@ -27,6 +28,7 @@ const AUTH = {
   worker: path.join(ROOT, '.agents', 'logs', 'auth-worker.json'),
   admin: path.join(ROOT, '.agents', 'logs', 'auth-admin.json'),
   owner: path.join(ROOT, '.agents', 'logs', 'auth-owner.json'),
+  'admin-mill': path.join(ROOT, '.agents', 'logs', 'auth-admin-mill.json'), // OPS-10
 };
 for (const [k, p] of Object.entries(AUTH)) {
   if (!fs.existsSync(p)) throw new Error(`storageState ${k} hilang: ${p} — jalankan LANGKAH 1 dulu`);
@@ -87,14 +89,24 @@ test.describe('STAGE C sweep — worker (52 route + shell)', () => {
   }
 });
 
-test.describe('STAGE C sweep — admin (100 route + shell + dashboard)', () => {
+test.describe('STAGE C sweep — admin (route + shell + dashboard; rute pabrik di describe terpisah)', () => {
   test.use({ storageState: AUTH.admin });
-  for (const route of dedup(['/admin', '/dashboard', ...byArea.admin])) {
+  for (const route of dedup(['/admin', '/dashboard', ...byArea.admin]).filter((r) => r !== '/admin/mill')) {
     test(`admin ${route}`, async ({ page }, testInfo) => {
       test.setTimeout(20000);
       await scanRoute(page, testInfo, 'admin', route);
     });
   }
+});
+
+// OPS-10: /admin/mill butuh role admin_mill (NRP105) — akun admin_hrd di-redirect
+// ke /admin oleh useAdminAuth, sehingga test-nya timeout (spinner selamanya + churn network).
+test.describe('STAGE C sweep — admin-mill (/admin/mill, role admin_mill)', () => {
+  test.use({ storageState: AUTH['admin-mill'] });
+  test('admin /admin/mill', async ({ page }, testInfo) => {
+    test.setTimeout(20000);
+    await scanRoute(page, testInfo, 'admin', '/admin/mill');
+  });
 });
 
 test.describe('STAGE C sweep — owner shell', () => {

@@ -60,7 +60,9 @@ export function summarize(results: AxeResults): string {
 /** Settle SPA: tunggu networkidle secara toleran (websocket supabase bisa
  *  menahan networkidle selamanya), lalu jeda kecil untuk render lazy chunk. */
 export async function settle(page: Page): Promise<void> {
-  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {
+  // OPS-10: 15s — churn get_branding/token refresh (lihat OPS-11) bisa menyapu
+  // jendela idle 8s; 15s memberi ruang tanpa melebihi budget test 20s.
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {
     /* networkidle tidak tercapai (realtime/websocket) — anggap settled */
   });
   await page.waitForTimeout(1500);
