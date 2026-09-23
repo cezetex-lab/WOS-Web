@@ -107,8 +107,8 @@ export default function SimperPage() {
         <GlassCard title="📝 Ajukan SIMPER Baru" icon="📝" accent="blue" className="mt-4">
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Zona Tujuan</label>
-              <select className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+              <label htmlFor="simper-zone" className="text-xs text-slate-400 mb-1 block">Zona Tujuan</label>
+              <select id="simper-zone" className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
                 <option>PIT-1</option><option>PIT-2</option><option>PIT-3</option>
                 <option>CRUSHER</option><option>HAUL ROAD</option><option>WORKSHOP</option>
               </select>

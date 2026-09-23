@@ -96,16 +96,16 @@ export default function SafetyK3() {
         {/* Report Form */}
         <GlassCard title="📝 Laporkan Insiden" icon="📝" accent="red" className="mt-4">
           <div className="space-y-3">
-            <select value={formType} onChange={e => setFormType(e.target.value)} className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+            <select aria-label="Jenis laporan insiden" value={formType} onChange={e => setFormType(e.target.value)} className="w-full bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
               <option value="INCIDENT">🔴 Incident (Ada cedera)</option>
               <option value="NEAR_MISS">🟡 Near Miss (Hampir terjadi)</option>
               <option value="OBSERVATION">🔵 Observation (Observasi)</option>
             </select>
             <div className="grid grid-cols-2 gap-2">
-              <select value={formZone} onChange={e => setFormZone(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+              <select aria-label="Zona lokasi" value={formZone} onChange={e => setFormZone(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
                 <option>PIT-1</option><option>PIT-2</option><option>PIT-3</option><option>CRUSHER</option><option>HAUL ROAD</option><option>WORKSHOP</option>
               </select>
-              <select value={formSeverity} onChange={e => setFormSeverity(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+              <select aria-label="Tingkat keparahan" value={formSeverity} onChange={e => setFormSeverity(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
                 <option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option>
               </select>
             </div>

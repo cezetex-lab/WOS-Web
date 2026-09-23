@@ -50,7 +50,7 @@ export default function PipelineKanban() {
 
   return (
     <PageLayout backTo="/admin" title="🔄 Pipeline Kanban" subtitle={`${candidates.length} pelamar`}>
-      <div className="flex gap-3 overflow-x-auto pb-4">
+      <div tabIndex={0} role="region" aria-label="Tahapan pipeline" className="flex gap-3 overflow-x-auto pb-4">
         {STAGES.map(stage => {
           const stageCandidates = candidates.filter(c => c.stage === stage.id);
           return (

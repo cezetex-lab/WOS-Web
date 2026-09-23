@@ -105,10 +105,10 @@ export default function HarvestRecord() {
         <GlassCard title="📝 Log Panen Baru" icon="📝" accent="green" className="mt-4">
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <select value={formBlock} onChange={e => setFormBlock(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+              <select aria-label="Blok panen" value={formBlock} onChange={e => setFormBlock(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
                 <option>BLOK-A1</option><option>BLOK-A2</option><option>BLOK-B1</option><option>BLOK-B2</option><option>BLOK-C1</option><option>BLOK-C2</option>
               </select>
-              <select value={formQuality} onChange={e => setFormQuality(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+              <select aria-label="Grade kualitas" value={formQuality} onChange={e => setFormQuality(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
                 <option value="A">Grade A</option><option value="B">Grade B</option><option value="C">Grade C</option>
               </select>
             </div>

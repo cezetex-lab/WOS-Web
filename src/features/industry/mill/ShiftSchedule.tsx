@@ -34,7 +34,7 @@ export default function ShiftSchedule() {
       <p className="text-slate-400 text-sm mb-6">Pagi (06-14) · Sore (14-22) · Malam (22-06) — MINING & MILL</p>
 
       <div className="flex gap-3 mb-6">
-        <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+        <input type="date" aria-label="Tanggal jadwal shift" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
           className="bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-white text-sm" />
       </div>
 

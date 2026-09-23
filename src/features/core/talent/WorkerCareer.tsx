@@ -36,7 +36,7 @@ export default function WorkerCareer() {
               const isCurrent = i + 1 === parseInt(currentLevel);
               return (
                 <div key={level} className="flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isCurrent ? 'bg-blue-700 text-white scale-110 ring-2 ring-blue-400' : isActive ? 'bg-teal-700 text-white' : 'bg-slate-700 text-slate-400'}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isCurrent ? 'bg-blue-700 text-white scale-110 ring-2 ring-blue-400' : isActive ? 'bg-teal-700 text-white' : 'bg-slate-700 text-slate-300'}`}>
                     {level}
                   </div>
                   <span className="text-[11px] text-slate-400 mt-1">{['Staff', 'Sr Staff', 'Lead', 'Manager', 'Director'][i]}</span>

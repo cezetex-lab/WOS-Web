@@ -98,10 +98,10 @@ export default function FacilityRequest() {
         <GlassCard title="📝 Ajukan Request" icon="📝" accent="blue" className="mt-4">
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <select value={formType} onChange={e => setFormType(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+              <select aria-label="Jenis request fasilitas" value={formType} onChange={e => setFormType(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
                 <option>Mess Repair</option><option>Office Supply</option><option>Vehicle Repair</option><option>Water System</option><option>Electricity</option><option>Other</option>
               </select>
-              <select value={formPriority} onChange={e => setFormPriority(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+              <select aria-label="Prioritas request" value={formPriority} onChange={e => setFormPriority(e.target.value)} className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
                 <option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="URGENT">URGENT</option>
               </select>
             </div>

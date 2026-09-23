@@ -153,12 +153,13 @@ export default function WorkforceSimulation() {
             ].map((p) => (
               <div key={p.key}>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-slate-400">{p.label}</label>
+                  <label htmlFor={`sim-${p.key}`} className="text-xs text-slate-400">{p.label}</label>
                   <span className={`text-xs font-mono ${params[p.key] > 0 ? 'text-green-400' : params[p.key] < 0 ? 'text-red-400' : 'text-slate-400'}`}>
                     {params[p.key] > 0 ? '+' : ''}{params[p.key]}%
                   </span>
                 </div>
                 <input
+                  id={`sim-${p.key}`}
                   type="range"
                   min={p.min}
                   max={p.max}
