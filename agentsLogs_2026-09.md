@@ -2761,3 +2761,69 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - Dampak lintas-page: worker → admin → dashboard → owner — sweep mencakup keempat area; violation
   admin terbanyak (25 test), worker 10, dashboard/owner 0; fix kontras di layer bersama (kelas
   Tailwind/komponen) berdampak ke semua page yang memakai kelas sama.
+[2026-09-22] a11y color-contrast fix TER-APPLY (commit e3ca82d, pushed): 24 lokasi/19 file — Button shared forms.tsx, cards badge, ChatCopilot, per-page; gate types/lint 0 error; regresi a11y 6 halaman 6/6 PASS 0 violation (no-regression). SESUDAH fix vs sweep 154 halaman: BELUM DIUKUR — re-sweep ditunda (keputusan user); draft "25→1, 96%" adalah proyeksi, bukan hasil ukur. Sisa OPS-09: select-name 8, label 2, scrollable 1, timeout 3. Command dipisah: npm run test:a11y (6 halaman, 1.8m) vs test:a11y:full (sweep 154, config playwright.a11y-sweep.config.ts).
+## [2026-09-23] LANGKAH 5: seed-test-workers.mjs realign sites + employees_core ke kontrak dummy-reconciliation-guard — DONE
+
+- **Latar:** pasca reset baseline kedua, guard `tests/unit/dummy-reconciliation-guard.test.ts` akan
+  gagal — `sites` kosong (0 baris) dan NRP001–NRP010 kehilangan `business_unit`/`divisi`/
+  `divisi_code`/`site_id` (NULL sisa baseline); bahkan `business_unit_id`-nya salah mapping
+  (NRP002→BU01, NRP003→BU02, dst.). Seed-test-workers.mjs versi lama hanya mengisi
+  employees_extended/user_roles/worker_passwords/auth_id.
+- **Sumber nilai:** backup pre-nuke 2026-09-22 07:17 (`.agents/backups/`) = data yang dulu lolos
+  guard: 4 baris sites (HQ/MINING/ESTATE/MILL, radius 250–500 m, ACTIVE) + mapping NRP001–010
+  persis kontrak EXPECTED di guard. Mapping `business_units.unit_code` live: BU01=MINING,
+  BU02=ESTATE, BU03=MILL, BU04=HQ (probe).
+- **Perubahan skrip** (`supabase/scripts/seed-test-workers.mjs`): (6) seed 4 baris `sites`
+  idempoten per id (ON CONFLICT DO NOTHING); (7) realign employees_core NRP001–010 — 5 kolom
+  ditulis ulang per NRP (NULL-safe, hanya NRP001–010; NRP100–106 admin tidak disentuh);
+  (8) VERIFY baru: `sites_ok` (sites ACTIVE utk 4 BU kontrak) + `recon_bad` (baris NRP001–010
+  yang salah kontrak ATAU hilang, CASE-exact per NRP) + kondisi ok baru `sites_ok=4` dan
+  `recon_bad=0`. Semantik DRY: baris VERIFY menampilkan STATE LIVE (alasan run), verdict
+  dievaluasi atas proyeksi pasca-apply.
+- **Bukti dry:** `[DRY] extended=+0, roles=+0, pw=+0 baru / 17 update, reset_required cleared=+0,
+  auth_id sync=+0, sites=+4, core realign=+10` → `VERIFY: core=17 ext=17 roles=17 pw=17 rr_true=0
+  auth_linked=17 sites_ok=0 recon_bad=10` → `HASIL: PASS` EXIT=0 (target terpenuhi persis).
+- **Bukti apply:** `extended=+0, roles=+0, pw=+0 baru / 17 update, reset_required cleared=+0,
+  auth_id sync=+0, sites=+4, core realign=+10` → `VERIFY: core=17 ext=17 roles=17 pw=17 rr_true=0
+  auth_linked=17 sites_ok=4 recon_bad=0` → `HASIL: PASS` EXIT=0.
+- **Bukti verify SQL (5d):** `SELECT ... FROM employees_core WHERE nrp LIKE 'NRP%'` = 17 rows;
+  NRP001–010 kini: NRP001 [BU04/HQ/KORPORAT/CORP/SITE-HQ-01], NRP002+010 [BU04/HQ/HRD/HRD/
+  SITE-HQ-01], NRP003–005 [BU01/MINING/MINING/MIN/SITE-MINING-01], NRP006–007 [BU02/ESTATE/
+  ESTATE/EST/SITE-ESTATE-01], NRP008–009 [BU03/MILL/MILL/MIL/SITE-MILL-01]; NRP100–106 tetap
+  baseline (BU04/BU01/BU03/BU02, kolom lain NULL — sesuai desain). `SELECT id, business_unit,
+  status FROM sites` = 4 rows semua ACTIVE (ESTATE/HQ/MILL/MINING). Cocok kontrak: 10/10.
+- **Gate (5e):** `npm test` = Test Files 22 passed (22), **Tests 141 passed (141)**, EXIT 0;
+  `npm run check:types` = tsc --noEmit EXIT 0; `npm run lint` = eslint src/ tests/ EXIT 0.
+- **Dampak lintas-page: worker → admin → dashboard → owner** — worker: login worker NRP002–010
+  kini punya site/divisi/BU benar (geofence `login_worker_by_email` bisa baca sites); admin:
+  filter/list per-BU & divisi konsisten; dashboard: KPI per-BU/divisi tidak lagi NULL; owner:
+  tidak berubah struktur (data + user_roles + business_units tidak disentuh). Guard unit test
+  `dummy-reconciliation-guard` kini lulus terhadap live (termasuk dalam 141/141).
+- **Idempoten:** dry ulang pasca apply = +0 semua (sites sudah ada, realign 0 misaligned).
+## [2026-09-23] Review fix: sites DO UPDATE (self-heal drift) + sinkron §7.3 206→207 — DONE
+
+- **Review 2026-09-23 (2 celah):** Celah 1 (klaim subquery `sites_ok`/`recon_bad` tidak ditambahkan
+  ke VERIFY) **TIDAK terbukti** — subquery sudah ada di SELECT VERIFY cabang APPLY; bukti: output
+  apply mencetak `sites_ok=4 recon_bad=0` (jika `undefined`, verdict pasti `HASIL: GAGAL`, nyatanya
+  PASS EXIT=0). Celah 2 VALID → diterapkan: `ON CONFLICT (id) DO NOTHING` memang melewatkan
+  perbaikan baris lama yang salah nilai.
+- **Fix celah 2:** blok sites kini **DO UPDATE (self-heal)**. Drift = id sudah ada TAPI ada kolom
+  seed tidak sesuai kontrak (7 kolom + `status='ACTIVE'`, null-safe via `IS NOT DISTINCT FROM`),
+  dihitung via VALUES **parameterized** (tanpa interpolasi string ke SQL — penyempurnaan atas
+  snippet review yang pakai `${SITES_VALUES}`). Apply = INSERT..ON CONFLICT (id) DO UPDATE SET
+  **semua 7 kolom** (snippet review hanya 3 kolom — location/lat/lng/radius akan tertinggal nilai
+  lama). `nSites` = jumlah baris drift, bukan rowCount upsert. `nCore` diperjelas: apply hanya
+  UPDATE baris yang benar-benar mismatch.
+- **Bukti self-heal (simulasi drift 1 baris data uji):** `UPDATE sites SET status='INACTIVE',
+  business_unit='HQ', site_name='CORRUPTED' WHERE id='SITE-MILL-01'` → skrip --apply:
+  `sites=+1` → `VERIFY: ... sites_ok=4 recon_bad=0 HASIL: PASS` EXIT=0 → verify SQL: 4/4 sites
+  ACTIVE, SITE-MILL-01 kembali `MILL/ACTIVE` (nilai seed pulih). Dry pasca apply: `sites=+0,
+  core realign=+0` + `sites_ok=4 recon_bad=0` — idempoten & konvergen.
+- **Efek samping positif (guard bekerja):** commit 5861197 membuat `playwright.a11y-sweep.config.ts`
+  ter-track sehingga run review `doc-claims-vs-live` merah (klaim §7.3 206 vs live 207). §7.3
+  ARCHITECTURE.md di-sync sesuai pesan test: **207 file TS total (157 src + 42 tests + 8 config)**.
+- **Gate ulang (tree final):** `npm test` = **141 passed (141)** EXIT 0; `check:types` EXIT 0;
+  `lint` EXIT 0. Amend ke commit LANGKAH 5 (masih lokal, tanpa push).
+- **Dampak lintas-page: worker → admin → dashboard → owner** — tidak berubah versus entri LANGKAH 5:
+  data live identik (self-heal hanya jalur perbaikan baru); perubahan = skrip lebih tahan drift +
+  sinkronisasi angka dokumen.

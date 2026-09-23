@@ -13,7 +13,7 @@ import type { Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scanA11y, seriousViolations, summarize, attachAxeReport, settle } from './helpers/axe-config';
+import { scanA11y, seriousViolations, summarize, attachAxeReport, settle } from '../a11y/helpers/axe-config';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:5173';
