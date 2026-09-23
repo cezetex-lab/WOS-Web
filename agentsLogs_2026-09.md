@@ -2848,3 +2848,16 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - Regresi a11y 6 halaman existing: 6/6 PASS, 0 violation.
 - **Dampak lintas-page: worker → admin → dashboard → owner** — tidak ada; perubahan docs-only, 0 file di `src/`
   (hanya Work Queue AGENTS.md + log). Tidak ada route/RPC/session/kontrak bersama yang berubah.
+## [2026-09-23] a11y sweep FINAL — 153/154 PASS, 0 violation a11y — OPS-09 CLOSED
+
+- Sweep FINAL FRESH (detached, 2009 dtk ≈ 33,5 menit) terhadap HEAD `3b1e7e6` — file bukti: `.agents/logs/a11y-sweep-final.json` (224.462 byte, 21:33 WIB) + hasil parse `.agents/logs/sweep-final-parsed.json`.
+- Hasil: 154 halaman → **153 passed, 1 timedOut**; **0 violation a11y** (0 critical, 0 serious, 0 baris rule).
+  - color-contrast: 25 → 0
+  - select-name: 8 → 0
+  - label: 2 → 0
+  - scrollable: 1 → 0
+  - timeout: 3 → 1 (`/admin/mill`, non-a11y/networkidle)
+- Fix via commit `3b1e7e6` (14 edit, 8 file): select-name 8, label 2, scrollable 1, color-contrast 1 (worker/career stepper).
+- Perbandingan penuh: BEFORE 22-Sep 39 non-passed (color-contrast 25, select-name 8, label 2, scrollable 1, timeout 3) → colorfix-only 23-Sep 12 → FINAL 23-Sep 1 (timeout saja). Tanpa regresi (0 test yang dulu pass jadi fail; 3 timeout BEFORE 2 kini PASS).
+- OPS-09 CLOSED (dipangkas dari §5.8 AGENTS.md, entri Dipangkas 2026-09-23). OPS-10 (P3, OPEN) terdaftar: timeout `/admin/mill` 20s networkidle — non-a11y.
+- **Dampak lintas-page: worker → admin → dashboard → owner** — commit docs-only ini 0 file `src/` (worker/admin/dashboard/owner tidak terdampak oleh commit ini); fix a11y di `3b1e7e6` sudah ter-apply & terverifikasi sweep FINAL: worker 52/52, admin 98/99 (1 timeout), dashboard 1/1, owner 2/2.
