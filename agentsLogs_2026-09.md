@@ -2827,3 +2827,24 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Dampak lintas-page: worker → admin → dashboard → owner** — tidak berubah versus entri LANGKAH 5:
   data live identik (self-heal hanya jalur perbaikan baru); perubahan = skrip lebih tahan drift +
   sinkronisasi angka dokumen.
+## [2026-09-23] LANGKAH 7-8 Bagian 1: push d5da29f + keputusan SKIP deploy (justifikasi teknis)
+
+- **LANGKAH 7 — push (user-ordered):** `git push origin migrasi-vite` → `e3ca82d..d5da29f  migrasi-vite -> migrasi-vite` (PUSH_EXIT=0).
+  Verifikasi remote: `git log origin/migrasi-vite --oneline -1` → `d5da29f fix(seed): align employees_core columns + NRP→BU mapping with dummy-reconciliation-guard contract; split test:a11y commands`; `git rev-list --left-right --count` → `0 0` (lokal = remote). Working tree bersih.
+- **Deploy decision (LANGKAH 8 Bagian 1):** Deploy di-skip dengan justifikasi teknis — perubahan non-frontend (seed script + test config + doc). §0.3 chain: COMMIT → PUSH → DEPLOY(skipped, no frontend change).
+  - Bukti: `git diff --name-only e3ca82d..d5da29f` → AGENTS.md, ARCHITECTURE.md, agentsLogs_2026-09.md, package.json, playwright.a11y-sweep.config.ts, supabase/scripts/seed-test-workers.mjs, tests/a11y-sweep/accessibility-full-sweep.spec.ts — **0 file di `src/`, 0 config build Vite/TS**. Tidak ada bundle yang berubah → `npx vercel --prod` = no-op.
+  - `package.json` berubah hanya scripts (pemisahan `test:a11y` vs `test:a11y:full`) — tidak memengaruhi build output produksi.
+- **Vercel auth:** `npx vercel whoami` → `cezetex-lab` (VERCEL_WHOAMI_EXIT=0) — kredensial CLI sehat.
+- **Vercel auto-deploy (push-triggered):** push ini menyeret b298f0f..d5da29f ke remote → Vercel memicu build otomatis untuk branch. Hasil pemeriksaan: Lihat entri [2026-09-23] a11y sweep AFTER di bawah ini untuk hasil akhir.
+
+## [2026-09-23] a11y sweep AFTER color-contrast fix
+
+- BEFORE: 39 non-passed (38 failed + 1 flaky), 3 timeout-affected.
+  Breakdown dedup route-rule: color-contrast 25, select-name 8, label 2, scrollable 1.
+- AFTER: 12 failed, 0 timeout.
+  Breakdown: color-contrast 1 (worker/career stepper bg-slate-700), select-name 8, label 2, scrollable 1.
+- Fix color-contrast: commit e3ca82d (24 lokasi/19 file: Button shared forms.tsx, cards.tsx badge, ChatCopilot + per-page).
+- Bukti: .agents/logs/a11y-sweep-result2.json (BEFORE) + a11y-sweep-after-fix.json (AFTER).
+- Regresi a11y 6 halaman existing: 6/6 PASS, 0 violation.
+- **Dampak lintas-page: worker → admin → dashboard → owner** — tidak ada; perubahan docs-only, 0 file di `src/`
+  (hanya Work Queue AGENTS.md + log). Tidak ada route/RPC/session/kontrak bersama yang berubah.
