@@ -2861,3 +2861,12 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - Perbandingan penuh: BEFORE 22-Sep 39 non-passed (color-contrast 25, select-name 8, label 2, scrollable 1, timeout 3) → colorfix-only 23-Sep 12 → FINAL 23-Sep 1 (timeout saja). Tanpa regresi (0 test yang dulu pass jadi fail; 3 timeout BEFORE 2 kini PASS).
 - OPS-09 CLOSED (dipangkas dari §5.8 AGENTS.md, entri Dipangkas 2026-09-23). OPS-10 (P3, OPEN) terdaftar: timeout `/admin/mill` 20s networkidle — non-a11y.
 - **Dampak lintas-page: worker → admin → dashboard → owner** — commit docs-only ini 0 file `src/` (worker/admin/dashboard/owner tidak terdampak oleh commit ini); fix a11y di `3b1e7e6` sudah ter-apply & terverifikasi sweep FINAL: worker 52/52, admin 98/99 (1 timeout), dashboard 1/1, owner 2/2.
+## [2026-09-23] OPS-08 SELESAI — 6-page a11y suite reuse storageState (0 OTP/run)
+
+- **Sebelum:** suite 6-halaman (`tests/a11y/accessibility.spec.ts`) full login tiap run — 2 OTP/run pada satu email (NRP101) → kena limiter `pwreset_login_otp` (3/NRP/15 menit) di run ke-2 beruntun.
+- **Sesudah:** 0 OTP/run — semua auth dari storageState 1× per role (`auth-{worker,admin,owner}.json`, pola sweep 154; dashboard fallback state admin; login page = state kosong eksplisit). Helper login (±86 baris) dihapus; throw jelas bila storageState hilang → regenerasi via `.agents/scripts/setup-auth-state.cjs`.
+- **Bukti DoD:** 3 run berturut `npm run test:a11y` = **6/6 PASS** (1.7m / 1.9m / 1.4m), 0 OTP block, 0 violation critical/serious di semua halaman.
+- Rate limiter TIDAK disentuh. TIDAK ada provisioning password DB (NRP102–106 tidak disentuh).
+- Commit: `4804f5d` test(a11y): reuse storageState for 6-page suite (OPS-08) — 0 OTP/run (34+/120−).
+- OPS-08 CLOSED (dipangkas dari §5.8, entri Dipangkas 2026-09-23).
+- **Dampak lintas-page: worker → admin → dashboard → owner** — 0 file `src/` (test file only); keempat page tetap di-scan suite ini dengan hasil 0 violation (worker/admin/dashboard/owner/owner-config).
