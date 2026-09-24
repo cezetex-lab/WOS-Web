@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { rpc, isRpcError } from '@/lib/supabase-browser';
+import { rpc, isRpcError, invalidateBrandingCache } from '@/lib/supabase-browser';
 
 interface LogoUploaderProps {
   onSaved?: () => void;
@@ -50,7 +50,7 @@ export default function LogoUploader({ onSaved }: LogoUploaderProps) {
         p_primary_color: primaryColor || null,
       });
       if (res?.ok === false) setMsg('❌ ' + (res.msg || 'Gagal'));
-      else { setMsg('✅ Branding tersimpan!'); if (onSaved) onSaved(); }
+      else { setMsg('✅ Branding tersimpan!'); invalidateBrandingCache(); if (onSaved) onSaved(); }
     } catch (e: unknown) {
       const errorMsg = e instanceof Error ? e.message : String(e);
       setMsg('❌ Gagal: ' + errorMsg);

@@ -34,6 +34,20 @@ function rpcError(fn: string, kind: RpcErrorKind, msg: string): RpcError {
   return { ok: false, msg, kind };
 }
 
+// OPS-11: cache + dedupe in-flight untuk RPC baca publik `get_branding`.
+// Branding jarang berubah → 1x per 5 menit per tab (stale sedikit dapat diterima).
+// Dedupe in-flight: N komponen yang menembak paralel (mis. AppDrawer + Home, atau
+// duplikasi effect oleh StrictMode di dev) berbagi SATU permintaan jaringan, dan
+// remount saat in-flight pun tidak menembak ulang. Error TIDAK di-cache.
+const BRANDING_CACHE_TTL_MS = 5 * 60 * 1000;
+let brandingCache: { data: unknown; at: number } | null = null;
+let brandingInFlight: Promise<unknown> | null = null;
+
+/** OPS-11: buang cache branding — WAJIB dipanggil setelah `update_branding` sukses. */
+export function invalidateBrandingCache(): void {
+  brandingCache = null;
+}
+
 export async function rpc<T = any>(
   fn: string,
   params: Record<string, unknown> = {},
@@ -41,6 +55,30 @@ export async function rpc<T = any>(
   const { allowed, retryAfter } = checkRateLimit(fn);
   if (!allowed) {
     return rpcError(fn, 'rate_limited', `Rate limited. Retry in ${retryAfter}s.`);
+  }
+
+  // OPS-11: get_branding tanpa parameter → jalur cache + dedupe in-flight (lihat blok di atas).
+  if (fn === 'get_branding' && Object.keys(params).length === 0) {
+    if (brandingCache && Date.now() - brandingCache.at < BRANDING_CACHE_TTL_MS) {
+      return brandingCache.data as T;
+    }
+    if (!brandingInFlight) {
+      brandingInFlight = (async () => {
+        try {
+          const { data, error } = await supabase.rpc('get_branding', {});
+          const result: unknown = error
+            ? rpcError('get_branding', 'transport', error.message)
+            : (data === null || data === undefined)
+              ? rpcError('get_branding', 'no_response', 'No response')
+              : data;
+          if (!isRpcError(result)) brandingCache = { data: result, at: Date.now() }; // error TIDAK di-cache
+          return result;
+        } finally {
+          brandingInFlight = null;
+        }
+      })();
+    }
+    return brandingInFlight as Promise<T | RpcError>;
   }
 
   const { data, error } = await supabase.rpc(fn, params);
