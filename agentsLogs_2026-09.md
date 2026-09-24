@@ -3069,3 +3069,13 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Trade-off yang disadari:** budget 45 s hanya menaikkan batas atas (durasi kasus normal tetap ~7–10 s per test, total sweep 8 test ~2 m); `settle()` memendekkan 16,5 s → maks ~12,5 s dan menggantinya dengan wait heading terarah.
 - **Dampak lintas-page: worker → admin → dashboard → owner** — `settle()` dipakai bersama oleh sweep penuh (semua 154 route: worker, admin, dashboard, owner) **dan** suite 6-halaman, jadi seluruh scan a11y ikut lebih stabil; tidak ada perubahan kode aplikasi (`src/`) maupun kontrak RPC/route/session — perubahan murni pada helper & budget pengujian.
 
+
+## [2026-09-24] Fix guard `work-queue-consistency` — terima Work Queue §5.8 kosong
+
+- **Akar:** setelah seluruh item OPS/SQL selesai (tabel §5.8 kosong, 18 ID sudah dipangkas), guard `tests/unit/work-queue-consistency.test.ts:63` gagal by-design: `expect(items.length, 'Work Queue §5.8 harus mengandung item').toBeGreaterThan(0)`. Asumsi "tabel selalu punya ≥1 baris" sudah usang. Terlihat saat audit state proyek 2026-09-24 (unit 139/141; 2 test gagal: Rule 1 & Rule 2).
+- **Fix (Opsi A, disetujui user):** guard menerima queue kosong **dengan syarat eksplisit** — `items.length === 0` → wajib ada blok `Dipangkas <tanggal>` di AGENTS.md **dan** blok itu memuat ≥1 ID `**SQL-*`/`**OPS-*`. Kalau tabel berisi, jalur R1/R2 berjalan persis seperti semula (baris R1/R2 tidak disentuh; hanya 1 baris assert yang diganti).
+- **Yang TIDAK melemah:** R1 (item ✅ SELESAI wajib punya entry completion) & R2 (item OPEN tak boleh ada entry DONE) tetap utuh; queue kosong tanpa blok Dipangkas → FAIL; blok Dipangkas tanpa ID → FAIL; header tabel §5.8 hilang → FAIL (guard baris 51 tidak disentuh).
+- **Bukti:** `npm test` = **22 files / 141 passed** (135,22 s) · `check:types` EXIT 0 (12,6 s) · `lint` EXIT 0 (105,6 s) · secret scan 0 hit. Kondisi nyata yang diuji: 11 baris blok "Dipangkas 2026-…" memuat 18 ID (OPS-03/04/05/06/06b/07/08/09/10/11/12/14/14b · SQL-02/06/11/12/13).
+- **Catatan proses (§0.16):** commit `83863f7` (OPS-13) sempat mencatat "gate 141/141" padahal run-nya dilakukan **sebelum** baris OPS-13 dihapus dari AGENTS.md — tree yang dipush itu membuat 2 test guard ini merah. Ketidaksesuaian proses ini ditemukan oleh audit, bukan oleh gate, dan diperbaiki di commit `cc017f8` dengan gate yang dijalankan **setelah** seluruh perubahan (tree final).
+- **Dampak lintas-page: worker → admin → dashboard → owner** — tidak ada perubahan kode aplikasi (`src/`), RPC, route, atau session; perubahan murni pada guard pengujian dokumen (`tests/unit/`).
+
