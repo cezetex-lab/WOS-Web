@@ -517,7 +517,7 @@ export async function loginAsWorker(page: Page) {
   await page.locator('input[placeholder*="email"]').fill(WORKER_LOGIN.email);
   await page.locator('input[placeholder*="password"]').fill(WORKER_LOGIN.password);
   await page.locator('button[type="submit"]').click();
-  await page.waitForURL('**/worker', { timeout: 15000 });
+  await page.waitForURL('**/worker', { timeout: 30000 });
   await expect(page.getByRole('heading', { name: /Ringkasan Hari Ini/i })).toBeVisible();
 }
 
@@ -535,7 +535,7 @@ export async function loginAsWorkerByNrp(page: Page) {
   await page.locator('input[placeholder*="NIK"]').fill(WORKER_LOGIN.nik);
   await page.locator('input[placeholder*="password"]').fill(WORKER_LOGIN.password);
   await page.locator('button[type="submit"]').click();
-  await page.waitForURL('**/worker', { timeout: 15000 });
+  await page.waitForURL('**/worker', { timeout: 30000 });
   await expect(page.getByRole('heading', { name: /Ringkasan Hari Ini/i })).toBeVisible();
 }
 
@@ -553,9 +553,9 @@ export async function loginAsAdmin(page: Page, role = 'admin_pusat') {
   await page.locator('button[type="submit"]').click();
   // Admin login is two-step: password → OTP (edge password-reset / verify_admin_otp).
   const otpInput = page.locator('input[placeholder="000000"]');
-  await expect(otpInput).toBeVisible({ timeout: 15000 });
+  await expect(otpInput).toBeVisible({ timeout: 30000 });
   await otpInput.fill(MOCK_OTP);
   await page.locator('button[type="submit"]').click();
-  await page.waitForURL('**/admin', { timeout: 15000 });
+  await page.waitForURL('**/admin', { timeout: 30000 });
   await expect(page.getByRole('heading', { name: /Selamat Datang, Admin/i })).toBeVisible();
 }

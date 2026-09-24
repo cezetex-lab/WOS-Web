@@ -7,11 +7,15 @@ dotenv.config({ path: '.env.local' });
 export default defineConfig({
   testDir: './tests/e2e',
   // Generous timeout: cold Vite compiles the import graph lazily per page.
-  timeout: 60000,
+  timeout: 90000,
   retries: 1,
   expect: {
-    timeout: 10000,
+    timeout: 20000,
   },
+  // 12 CPU → default 6 worker menjadikan Vite dev-server (compile chunk dingin)
+  // bottleneck: login mocked time-out 15 dtk → 2 fail + 8 flaky (2026-09-24).
+  // 2 worker = stabil tanpa mengubah asersi test.
+  workers: 2,
   use: {
     baseURL: 'http://localhost:5173',
     headless: true,
