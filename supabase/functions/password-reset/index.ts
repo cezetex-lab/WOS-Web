@@ -1,6 +1,6 @@
 // ============================================================
 // password-reset Edge Function
-// Actions: request, verify, reset, login_otp, verify_login_otp, change_password_sync
+// Actions: request, verify, reset, login_otp, verify_login_otp, change_password_sync, admin_reset_sync
 // ============================================================
 //
 // HARDENING (hasil audit "New Text Document (2).txt"):
@@ -40,6 +40,7 @@ const LIMITS: Record<string, number> = {
   login_otp: 3,
   verify_login_otp: 5,
   change_password_sync: 5,
+  admin_reset_sync: 10,
 };
 
 // Rate limit ATOMIC via RPC hit_rate_limit (migration 193).
@@ -209,6 +210,73 @@ serve(async (req: Request) => {
         msg: "Password berhasil diubah." + (authSynced ? "" : " (akun auth tidak tersedia — login via NRP/NIK)"),
         auth_synced: authSynced,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── OPS-06b: admin_reset_sync — sinkronkan auth.users.password setelah admin
+    // me-reset password karyawan via RPC admin_reset_worker_password (jalur G2/shared).
+    //
+    // Authz: WAJIB JWT user di header Authorization (bukan anon/apikey). Caller
+    // diverifikasi via auth.getUser(jwt) → auth_id → NRP (employees_core) → role
+    // (user_roles). Hanya role admin* / owner boleh lanjut; selain itu 403 fail-closed.
+    // RPC admin_reset_worker_password (yang menulis worker_passwords) tetap dijalankan
+    // lebih dulu oleh frontend — action ini HANYA menutup celah sync auth.users.
+    if (action === "admin_reset_sync") {
+      const targetNrp = (nrp || "").toUpperCase().trim();
+      if (!targetNrp || !new_password) {
+        return new Response(JSON.stringify({ ok: false, msg: "NRP dan password baru required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (new_password.length < 8) {
+        return new Response(JSON.stringify({ ok: false, msg: "Password baru minimal 8 karakter" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const authHeader = req.headers.get("Authorization") || "";
+      const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+      if (!jwt) {
+        return new Response(JSON.stringify({ ok: false, msg: "Akses ditolak: JWT admin required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: caller, error: callerErr } = await adminClient.auth.getUser(jwt);
+      if (callerErr || !caller?.user) {
+        return new Response(JSON.stringify({ ok: false, msg: "Akses ditolak: JWT tidak valid" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: callerEmp } = await adminClient
+        .from("employees_core")
+        .select("nrp")
+        .eq("auth_id", caller.user.id)
+        .maybeSingle();
+      const callerNrp = callerEmp?.nrp;
+      if (!callerNrp) {
+        return new Response(JSON.stringify({ ok: false, msg: "Akses ditolak: akun tidak terhubung ke NRP" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: roleRow } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("nrp", callerNrp)
+        .maybeSingle();
+      const callerRole = roleRow?.role || "";
+      const isAdminCaller = callerRole === "admin" || callerRole.startsWith("admin_") || callerRole === "owner";
+      if (!isAdminCaller) {
+        return new Response(JSON.stringify({ ok: false, msg: "Akses ditolak: hanya admin/owner" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!(await hitRateLimit(adminClient, callerNrp, "admin_reset_sync"))) {
+        return new Response(JSON.stringify({ ok: false, msg: "Terlalu banyak percobaan. Coba lagi nanti." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: target } = await adminClient
+        .from("employees_core")
+        .select("auth_id")
+        .eq("nrp", targetNrp)
+        .maybeSingle();
+      if (!target?.auth_id) {
+        return new Response(JSON.stringify({ ok: false, msg: "Target tidak punya akun auth — reset via NRP/NIK." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { error: syncErr } = await adminClient.auth.admin.updateUserById(target.auth_id, { password: new_password });
+      if (syncErr) {
+        return new Response(JSON.stringify({ ok: false, msg: "Gagal sinkron auth: " + syncErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      await adminClient.from("audit_log").insert({
+        action: "ADMIN_RESET_AUTH_SYNC",
+        detail: `auth.users password synced for ${targetNrp} by ${callerNrp}`,
+        timestamp: new Date().toISOString(),
+      });
+      return new Response(JSON.stringify({ ok: true, msg: "auth.users tersinkron.", auth_synced: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "request") {

@@ -2933,6 +2933,17 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Sweep mill TIDAK hijau (3 run — didaftarkan sebagai OPS-13, TIDAK diklaim PASS):**
 
 - **Bukti authz (impersonasi claims via `set_config`, transaksi ROLLBACK — `.agents/scripts/ops14-repair-verify.mjs`):**
+## [2026-09-24] OPS-06b SELESAI end-to-end — admin reset sync auth.users via edge `admin_reset_sync`
+
+- **Perubahan (menunggu commit di sesi ini; edge sudah ter-deploy 2026-09-24 sore):**
+  - Edge `password-reset`: action baru `admin_reset_sync` (rate limit 10/15 mnt per NRP admin). Authz fail-closed: WAJIB JWT user di header `Authorization` (anon/apikey → 403) → `auth.getUser(jwt)` → `auth_id` → NRP (`employees_core`) → role (`user_roles`) → hanya `admin*`/`owner` boleh lanjut → `updateUserById(target.auth_id, { password })` → audit `ADMIN_RESET_AUTH_SYNC`.
+  - `src/features/platform/auth/ResetPassword.tsx`: setelah RPC `admin_reset_worker_password` sukses → `callEdgeFunctionAuth('password-reset', { action:'admin_reset_sync', ... })`. Kegagalan sinkron **hanya warning** (reset worker_passwords sudah sukses & itu source of truth). Password di-capture ke `targetPass` SEBELUM state di-reset.
+  - `supabase/lib/edge-functions.ts` **tidak diubah** — `callEdgeFunctionAuth` (JWT user) sudah ada (edge-functions.ts:65-71), jadi tidak ada mode baru.
+- **Probe 403 fail-closed (edge live):** `tanpa Authorization → HTTP 403 {"ok":false,"msg":"Akses ditolak: JWT admin required"}` · `Bearer anon key → HTTP 403 {"ok":false,"msg":"Akses ditolak: JWT tidak valid"}` · `admin_reset_sync LIVE: true`.
+- **Test end-to-end (setelah OPS-14 fixing permission) — `.agents/logs/ops14-ops06b-e2e.txt`:** login admin NRP100 → RPC `{"ok":true,...}` → edge HTTP 200 `auth_synced:true` → `signInWithPassword(NRP003, baru)` **OK 200** (fast path hidup) → cleanup RPC+edge → final `signIn(asli)` OK 200, `signIn(test)` GAGAL(400), kedua sisi sinkron, `reset_required=false`.
+- **Gate (tree final):** `check:types` EXIT 0 · `lint` EXIT 0 · `npm test` **141/141** · `npm run test:a11y` **6/6 PASS, 0 violation** · `build` EXIT 0.
+- **Dampak lintas-page: worker → admin → dashboard → owner** — worker: tidak tersentuh (OPS-06 worker path tetap seperti semula, TIDAK diubah); admin: **alur reset password kini lengkap** — reset worker_passwords (RPC, sudah bisa diakses setelah OPS-14) → sync auth.users (edge baru) → fast path login karyawan hidup tanpa perlu self-heal; dashboard: tidak ada alur reset password, tidak tersentuh; owner: tidak ada alur reset password via UI, tidak tersentuh (edge menolak owner yang auth_id-nya tak terpetakan employees_master — lihat entri OPS-14). Tidak ada perubahan kontrak RPC, signature, atau skema DB.
+
   ```
   NRP002 (worker):          employee.update=false | leave.approve=false | in_scope(NRP002)=true
   NRP100 (admin_pusat):     employee.update=TRUE  | leave.approve=true  | in_scope(NRP002)=true   ← false→true

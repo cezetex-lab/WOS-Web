@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { rpc } from '@/lib/supabase-browser';
+import { callEdgeFunctionAuth } from '@/lib/edge-functions';
 import useAdminAuth from '@/hooks/useAdminAuth';
 import {
   PageLayout, GlassCard, Button, Input, LoadingSpinner,
@@ -84,15 +85,40 @@ export default function ResetPassword() {
     }
 
     setResetting(true);
+    // OPS-06b: capture password baru SEBELUM state di-reset — dipakai lagi untuk
+    // sinkron auth.users lewat edge setelah RPC sukses.
+    const targetNrp = selectedEmp.nrp;
+    const targetPass = newPassword;
     try {
       const res = await rpc('admin_reset_worker_password', {
-        p_nrp: selectedEmp.nrp,
-        p_new_password: newPassword,
+        p_nrp: targetNrp,
+        p_new_password: targetPass,
       });
       if (res?.ok) {
         setResult({ type: 'success', text: `✅ ${res.msg || 'Password berhasil direset!'}` });
         setNewPassword('');
         setConfirmPassword('');
+        // OPS-06b: sinkronkan auth.users.password via edge admin_reset_sync.
+        // RPC di atas SUDAH menulis worker_passwords (sumber kebenaran) — jadi
+        // kegagalan sinkron hanya warning, TIDAK memblokir atau membatalkan reset.
+        try {
+          const sync = await callEdgeFunctionAuth<{ ok?: boolean; msg?: string; auth_synced?: boolean }>(
+            'password-reset',
+            { action: 'admin_reset_sync', nrp: targetNrp, new_password: targetPass },
+            { timeoutMs: 15000 },
+          );
+          if (!sync?.ok) {
+            setResult({
+              type: 'success',
+              text: `✅ ${res.msg || 'Password berhasil direset!'} (⚠️ ${sync?.msg || 'sinkron login email gagal'} — login tetap via NRP/NIK)`,
+            });
+          }
+        } catch {
+          setResult({
+            type: 'success',
+            text: `✅ ${res.msg || 'Password berhasil direset!'} (⚠️ sinkron login email gagal — login tetap via NRP/NIK)`,
+          });
+        }
       } else {
         setResult({ type: 'error', text: res?.msg || 'Gagal mereset password' });
       }
