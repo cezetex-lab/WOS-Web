@@ -2931,6 +2931,43 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
   - Edge live terverifikasi: probe action `change_password_sync` → `HTTP 400 | msg: NRP, password lama, dan password baru required` (bukan `Invalid action`) → versi terdeploy sudah punya action baru.
 - **Gate (tree final = commit):** `check:types` EXIT 0 (7,9 s); `lint` EXIT 0 (21,6 s); `npm test` = **22 files / 141 passed** (55,18 s); `build` EXIT 0 (`✓ built in 7.92s`). `npm run test:a11y` = **6/6 PASS, 0 violation** (1,2 m; login/worker/admin/dashboard/owner/owner-config).
 - **Sweep mill TIDAK hijau (3 run — didaftarkan sebagai OPS-13, TIDAK diklaim PASS):**
+
+- **Bukti authz (impersonasi claims via `set_config`, transaksi ROLLBACK — `.agents/scripts/ops14-repair-verify.mjs`):**
+  ```
+  NRP002 (worker):          employee.update=false | leave.approve=false | in_scope(NRP002)=true
+  NRP100 (admin_pusat):     employee.update=TRUE  | leave.approve=true  | in_scope(NRP002)=true   ← false→true
+  NRP101 (admin_hrd):       employee.update=TRUE  | leave.approve=true  | in_scope(NRP002)=true   ← false→true
+  NRP103 (admin_operasional):employee.update=false | leave.approve=true  | in_scope(NRP002)=true   ← set baru hidup, no escalation
+  OWNER (system_owner):     employee.update=true  | leave.approve=true  | in_scope(NRP002)=true
+  ROLLBACK selesai (read-only)
+  ```
+  Dry-run pra-apply (`.agents/scripts/ops14-dryrun.mjs`, ROLLBACK) sudah memperkirakan hal yang sama: 17 baris, pusat/hrd false→true, worker & non-admin tetap false.
+- **Bukti nyata dengan JWT admin:** `hrd@insightwos.com → admin_reset_worker_password: {"ok":true,"msg":"Password NRP003 berhasil direset. Wajib ganti password saat login berikutnya."}` (sebelumnya `{"ok":false,"msg":"Akses ditolak."}`).
+- **Test end-to-end OPS-06b di NRP003 (`.agents/scripts/ops06b-manual-test.mjs`, `.agents/logs/ops14-ops06b-e2e.txt`):**
+  ```
+  1. login admin OK | identitas: {"nrp":"NRP100","role":"admin_pusat"}
+  2. NRP003 SEBELUM: wp_match(asli) true | auth_match(asli) true | reset_required false
+  3. RPC admin_reset_worker_password → {"ok":true,...}
+  4. edge admin_reset_sync → HTTP 200 | {"ok":true,"msg":"auth.users tersinkron.","auth_synced":true}
+  5. VERIFY: wp_match(baru) true | auth_match(baru) true | signIn(baru) OK 200 | wp_match(asli) false
+  6a/6b CLEANUP RPC + edge → ok:true / HTTP 200
+  7. FINAL: wp/auth_match(asli) true | reset_required false | signIn(asli) OK 200 | signIn(test) GAGAL (400)
+  ```
+  **Cleanup dipulihkan** — NRP003 kembali identik dengan sebelum test (probe verifikasi sempat meninggalkan NRP003 di password test; diperbaiki lewat RPC+edge+reset_required, output `.agents/logs/ops14-repair-verify2.txt`).
+- **Gate (tree saat test):** `check:types` EXIT 0 · `lint` EXIT 0 · `npm test` 22 files / **141 passed** · `npm run test:a11y` **6/6 PASS, 0 violation** · `build` EXIT 0.
+- **Sisa di luar scope (lapor ke user, TIDAK didaftarkan sebagai item Work Queue sesuai instruksi):** `auth_id` owner tidak punya baris di `employees_master` (padahal `employees_master` itu **VIEW** di atas tabel `employees_core`, 70+ kolom + trigger insert/update/delete) → `authz_current_nrp()` NULL → `admin_reset_worker_password` menolak di `v_caller IS NULL` **sebelum** owner-bypass (`system_owner_identity`) sempat dicek. Bukti: `owner mapping: em_rows=0, ec_rows=0`, `OWNER001 di employees_master: []`, tapi `auth.users owner@` **match = true** dan `authz_check_admin` untuk owner = `true` di level fungsi. Perbaikannya bukan 1-liner: perlu entah menyuntikkan baris karyawan fiktif (berdampak ke semua statistik headcount + test `dummy-reconciliation-guard`) atau mengubah fungsi SECURITY DEFINER → keputusan desain user.
+- **Dampak lintas-page: worker → admin → dashboard → owner** — worker: tidak berubah perilakunya (permission & scope worker tetap sama: `in_scope(self)=true`, `employee.update=false`); admin: **dipulihkan** — `admin_pusat`/`admin_hrd` kembali bisa reset password (sebelumnya DENIED) dan 105 policy authz-v2 aktif kembali sesuai desain; dashboard: tidak ada alur reset password, RLS dashboard kini mengikuti scope yang benar; owner: bypass owner tetap bekerja di level authz function, namun RPC yang memanggil `authz_current_nrp()` masih menolak (di luar scope, lihat di atas). Tidak ada perubahan kontrak RPC/signature/skema DB — hanya data referensi (assignment + permission set) dan 1 `setval` sequence.
+
+## [2026-09-24] OPS-14 — `user_role_assignments` kosong → authz v2 mati total (P1) + OPS-06b end-to-end
+
+- **Akar masalah (bukan 1 fitur, tapi seluruh authz engine v2):** `SELECT count(*) FROM user_role_assignments` = **0**. Penyebab: migrasi `135_authz_seed_permissions.sql` PART 3 berisi `INSERT INTO user_role_assignments ... SELECT FROM user_roles`, TAPI `schema_migrations` mencatat 134 & 135 applied dengan `description = "baseline install (schema dari DB live)"` (2026-09-22T01:01:46Z) — baseline hanya mengambil **schema, bukan data** → efek seed tidak pernah hadir. (Kelas bug yang sama seperti SQL-11, dipangkas 2026-09-21; audit 2026-09-17 salah menilai 135 "ter-apply".)
+- **Dampak terverifikasi:** `authz_has_permission()` FALSE untuk semua → `admin_reset_worker_password` DENIED `Akses ditolak` untuk **semua** role admin → fitur **Reset Password Admin (`ResetPassword.tsx`) mati total di production**. Selain itu `authz_in_scope()` FALSE → **105 RLS policy authz-v2** ikut mati; pembaca tabel: `authz_has_permission`, `authz_in_scope`, `authz_has_role`, `authz_get_scope`, `admin_get_payroll`.
+- **Fix (migrasi `246_ops14_seed_user_role_assignments.sql`, idempotent):**
+  1. Seed 17 baris assignment dari `user_roles` dengan CASE scope yang sama seperti 135, **ditambah** `admin_operasional → 'ENTERPRISE'` (tidak ada di CASE 135 → jatuh ELSE `'SELF'`, padahal `role_page_access`-nya lintas karyawan).
+  2. `role_permission_sets` untuk `admin_operasional` → `worker_basic` + `supervisor_ext` (satu-satunya role tanpa set: probe 10 role, 9 punya set). **Sengaja TIDAK** diberi `employee.update`/`hrd_ops`/`admin_pusat_all` karena guard UI `ResetPassword.tsx` hanya izinkan `["admin_pusat","admin_hrd"]` → memberi hak reset password ke `admin_operasional` = privilege escalation. `timesheet.approve` TIDAK dipetakan (memerlukan keputusan terpisah).
+  3. `setval('role_permission_sets_id_seq', max(id))` — **apply pertama GAGAL**: `duplicate key value violates unique constraint "role_permission_sets_pkey"`. Penyebab (probe `.agents/scripts/ops14-seq.mjs`): baseline mengisi `id` eksplisit tanpa advance sequence → `last_value=1` padahal `max(id)=26`. Setelah setval: `last_value=28`, apply sukses.
+- **Apply:** `apply-migration.mjs --apply` → `status : DITERAPKAN + terdaftar + checksum terverifikasi (1515ms)` checksum `3bc1ec8f…`. Sequence pasca-apply: `role_permission_sets max(id)=28/seq=28`, `user_role_assignments max(id)=34/seq=34`.
+
   - run1 (sebar dengan gate A, dev server lama nyangkut): 1 failed (`/admin/mill` timeout 20 s) + 1 flaky.
   - run2 (dev server dibersihkan, cold start): 2 failed (`machines`, `/admin/mill`) + 1 flaky — 5 passed.
   - run3 (server dibersihkan total, cold start): 2 failed (`boiler`, `/admin/mill`) — 6 passed.
