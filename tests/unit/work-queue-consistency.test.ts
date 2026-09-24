@@ -60,7 +60,25 @@ export function parseWorkQueue(agentsPath: string): WqItem[] {
     if (!/^(SQL-|OPS-)/.test(id)) continue;
     items.push({ id, prio: cells[2]?.trim() ?? '', status, raw: line });
   }
-  expect(items.length, 'Work Queue §5.8 harus mengandung item').toBeGreaterThan(0);
+  if (items.length === 0) {
+    // Queue kosong SAH kalau semua item sudah dipangkas — tapi BUKAN kalau queue
+    // sengaja dikosongkan tanpa jejak. Karena itu blok "Dipangkas <tanggal>" wajib
+    // ada dan memuat ≥1 ID, sehingga R1/R2 tetap punya sumber kebenaran.
+    const dipangkas = lines.filter((l) => /Dipangkas\s+\d{4}-\d{2}-\d{2}/iu.test(l));
+    expect(
+      dipangkas.length,
+      'Work Queue §5.8 kosong tanpa blok "Dipangkas <tanggal>" di AGENTS.md — ' +
+        'queue kosong hanya sah bila ada jejak item yang sudah selesai.',
+    ).toBeGreaterThan(0);
+    const ids = new Set<string>();
+    for (const l of dipangkas) {
+      for (const m of l.matchAll(/\*\*((?:SQL|OPS)-[0-9a-z]+)\*\*/giu)) ids.add(m[1]);
+    }
+    expect(
+      [...ids],
+      'Blok "Dipangkas" ada tapi tidak memuat ID item (SQL-*/OPS-*) — queue kosong tanpa bukti.',
+    ).not.toHaveLength(0);
+  }
   return items;
 }
 
