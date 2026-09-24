@@ -1,6 +1,6 @@
 // ============================================================
 // password-reset Edge Function
-// Actions: request, verify, reset, login_otp, verify_login_otp
+// Actions: request, verify, reset, login_otp, verify_login_otp, change_password_sync
 // ============================================================
 //
 // HARDENING (hasil audit "New Text Document (2).txt"):
@@ -39,6 +39,7 @@ const LIMITS: Record<string, number> = {
   reset: 10,
   login_otp: 3,
   verify_login_otp: 5,
+  change_password_sync: 5,
 };
 
 // Rate limit ATOMIC via RPC hit_rate_limit (migration 193).
@@ -70,7 +71,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { action, email, token, new_password, nrp } = await req.json();
+    const { action, email, token, new_password, old_password, nrp } = await req.json();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -160,6 +161,54 @@ serve(async (req: Request) => {
         return new Response(JSON.stringify({ ok: false, msg: v?.msg || "Kode OTP tidak valid." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       return new Response(JSON.stringify({ ok: true, nrp: v.nrp, role: v.role, nama: v.nama, token: v.token }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── OPS-06: change_password_sync — ganti password (verifikasi old password via RPC)
+    // LALU sinkronkan auth.users.password agar fast path signInWithPassword tetap hidup.
+    if (action === "change_password_sync") {
+      const targetNrp = (nrp || "").toUpperCase().trim();
+      if (!targetNrp || !old_password || !new_password) {
+        return new Response(JSON.stringify({ ok: false, msg: "NRP, password lama, dan password baru required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (new_password.length < 8) {
+        return new Response(JSON.stringify({ ok: false, msg: "Password baru minimal 8 karakter" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!(await hitRateLimit(adminClient, targetNrp, "change_password_sync"))) {
+        return new Response(JSON.stringify({ ok: false, msg: "Terlalu banyak percobaan. Coba lagi nanti." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // Source of truth: RPC change_password (worker_passwords + session invalidation + audit).
+      // Otorisasi = old_password valid (RPC SECURITY DEFINER, tanpa cek authz internal);
+      // brute force old_password dibatasi rate limit 5/15 menit per NRP di atas.
+      const { data: ch, error: chErr } = await adminClient.rpc("change_password", {
+        p_nrp: targetNrp,
+        p_old_password: old_password,
+        p_new_password: new_password,
+      });
+      if (chErr) {
+        return new Response(JSON.stringify({ ok: false, msg: "Gagal mengubah password: " + chErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!ch?.ok) {
+        return new Response(JSON.stringify({ ok: false, msg: ch?.msg || "Gagal mengubah password" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // RPC sukses → sinkronkan auth.users (jangan sampai divergen — OPS-06).
+      const { data: emp } = await adminClient
+        .from("employees_master")
+        .select("nrp, auth_id")
+        .eq("nrp", targetNrp)
+        .maybeSingle();
+      let authSynced = false;
+      if (emp?.auth_id) {
+        const { error } = await adminClient.auth.admin.updateUserById(emp.auth_id, { password: new_password });
+        if (error) {
+          return new Response(JSON.stringify({ ok: false, msg: "Password DB berubah tapi sync auth gagal: " + error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        authSynced = true;
+      }
+      return new Response(JSON.stringify({
+        ok: true,
+        msg: "Password berhasil diubah." + (authSynced ? "" : " (akun auth tidak tersedia — login via NRP/NIK)"),
+        auth_synced: authSynced,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "request") {

@@ -78,6 +78,9 @@ export default function Home() {
   const [otpCode, setOtpCode] = useState('');
   const [resetPass, setResetPass] = useState('');
   const [resetConfirm, setResetConfirm] = useState('');
+  // OPS-06 Part 2: password baru ditampilkan via banner agar bisa dicatat ke
+  // supabase/akun/akun.txt (frontend tidak bisa menulis disk — record manual/script).
+  const [recordInfo, setRecordInfo] = useState<{ password: string; synced: boolean } | null>(null);
 
   const [loginStep, setLoginStep] = useState('credentials');
   const [mfaRequired, setMfaRequired] = useState(false);
@@ -246,6 +249,25 @@ export default function Home() {
   async function submitResetPassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
+    // OPS-06: setelah password tercatat (banner tampil), submit kedua = "Lanjut Masuk"
+    // — jangan ganti password lagi (old password sudah tidak valid), langsung finalisasi sesi.
+    if (recordInfo) {
+      setLoading(true);
+      try {
+        const d2 = await rpc('login_worker', { p_nrp: validatedNrp, p_nik: nik, p_password: recordInfo.password });
+        if (d2 && d2.ok) {
+          setError('');
+          setRecordInfo(null);
+          await finalizeWorkerSession(d2, { nik, password: recordInfo.password }, tab);
+        } else {
+          window.location.href = '/';
+        }
+      } catch (err: any) {
+        setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
+      }
+      setLoading(false);
+      return;
+    }
     if (!resetPass || resetPass.length < 8) {
       setError('Password baru minimal 8 karakter');
       return;
@@ -256,19 +278,26 @@ export default function Home() {
     }
     setLoading(true);
     try {
-      const d = await rpc('change_password', { p_nrp: validatedNrp, p_old_password: pass, p_new_password: resetPass });
+      // OPS-06: via edge change_password_sync — RPC change_password (service role di edge;
+      // RPC tidak ter-grant anon sehingga jalur langsung gagal saat sesi belum ada) LALU
+      // sinkron auth.users.password supaya fast path signInWithPassword tetap hidup.
+      const d = await callEdgeFunction('password-reset', {
+        action: 'change_password_sync',
+        nrp: validatedNrp,
+        old_password: pass,
+        new_password: resetPass,
+      });
       if (d.ok) {
-        // change_password meng-invalidate semua session token lama -> login ulang untuk token baru
-        const d2 = await rpc('login_worker', { p_nrp: validatedNrp, p_nik: nik, p_password: resetPass });
-        if (d2 && d2.ok) {
-          setError('');
-          await finalizeWorkerSession(d2, { nik, password: resetPass }, tab);
-        } else {
-          window.location.href = '/';
-        }
-      } else {
-        setError(d.msg || 'Gagal mengubah password');
+        // OPS-06 Part 2: tampilkan password via banner (tombol Copy) supaya bisa dicatat
+        // ke supabase/akun/akun.txt. Redirect DITAHAN sampai user klik submit lagi
+        // ("Lanjut Masuk") supaya banner tidak hilang saat navigasi.
+        setRecordInfo({ password: resetPass, synced: d.auth_synced === true });
+        toast.success('Password berhasil diubah — catat password baru Anda (lihat banner).');
+        setLoading(false);
+        return;
       }
+      const msg = typeof d.msg === 'string' ? d.msg : 'Gagal mengubah password';
+      setError(msg);
     } catch (err: any) {
       setError('Koneksi error: ' + (err instanceof Error ? err.message : String(err)));
     }
@@ -794,7 +823,17 @@ export default function Home() {
             <label style={S.label}>Konfirmasi Password Baru</label>
             <input type="password" value={resetConfirm} onChange={e => setResetConfirm(e.target.value)} placeholder="Ulangi password baru" style={S.inp} required />
           </div>
-          <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : 'Simpan Password Baru'}</button>
+          {recordInfo && (
+            <div style={{ ...S.otpInfo, display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }} role="status">
+              <span>Password updated. Copy &amp; record ke supabase/akun/akun.txt:</span>
+              <code style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.5px' }}>{recordInfo.password}</code>
+              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                {recordInfo.synced ? 'Auth Supabase tersinkron — fast path login aktif.' : 'Akun auth tidak tersedia — login via NRP/NIK.'}
+              </span>
+              <button type="button" style={S.btnSmall} onClick={() => { void navigator.clipboard?.writeText(recordInfo.password); }}>Copy</button>
+            </div>
+          )}
+          <button type="submit" style={S.btn} disabled={loading}>{loading ? '...' : (recordInfo ? 'Lanjut Masuk' : 'Simpan Password Baru')}</button>
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
             <button type="button" style={S.btnBack} onClick={goBack}>{'←'} Kembali</button>
           </div>
