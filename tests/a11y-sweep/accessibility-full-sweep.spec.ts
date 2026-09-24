@@ -7,7 +7,12 @@
  * Auth: storageState 1x per role (.agents/logs/auth-{worker,admin,owner,admin-mill}.json)
  * — prinsip OPS-08, tanpa OTP ulang. /admin/mill memakai state admin-mill (NRP105,
  * role admin_mill — OPS-10; akun admin lain di-redirect oleh useAdminAuth).
- * Aturan: HANYA laporkan violation. Timeout per test 20s (spesifikasi Stage C).
+ * Aturan: HANYA laporkan violation.
+ * OPS-13: budget per test 20s → 45s. Komposisi settle() (networkidle + jeda + axe)
+ * memakai hampir seluruh 20s saat jaringan lambat, sehingga test timeout padahal
+ * scan-nya OK 0 violation. Bukti 2026-09-24: 3 run sweep mill → 1 gagal
+ * (`admin /admin/mill` 24,2 s) meski load nyata hanya 2,3–8,4 s.
+ * Budget 45s hanya menaikkan batas atas; durasi kasus normal tetap 3–10 s.
  */
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -83,7 +88,7 @@ test.describe('STAGE C sweep — worker (52 route + shell)', () => {
   test.use({ storageState: AUTH.worker });
   for (const route of dedup(['/worker', ...byArea.worker])) {
     test(`worker ${route}`, async ({ page }, testInfo) => {
-      test.setTimeout(20000);
+      test.setTimeout(45000);
       await scanRoute(page, testInfo, 'worker', route);
     });
   }
@@ -93,7 +98,7 @@ test.describe('STAGE C sweep — admin (route + shell + dashboard; rute pabrik d
   test.use({ storageState: AUTH.admin });
   for (const route of dedup(['/admin', '/dashboard', ...byArea.admin]).filter((r) => r !== '/admin/mill')) {
     test(`admin ${route}`, async ({ page }, testInfo) => {
-      test.setTimeout(20000);
+      test.setTimeout(45000);
       await scanRoute(page, testInfo, 'admin', route);
     });
   }
@@ -104,7 +109,7 @@ test.describe('STAGE C sweep — admin (route + shell + dashboard; rute pabrik d
 test.describe('STAGE C sweep — admin-mill (/admin/mill, role admin_mill)', () => {
   test.use({ storageState: AUTH['admin-mill'] });
   test('admin /admin/mill', async ({ page }, testInfo) => {
-    test.setTimeout(20000);
+    test.setTimeout(45000);
     await scanRoute(page, testInfo, 'admin', '/admin/mill');
   });
 });
@@ -113,7 +118,7 @@ test.describe('STAGE C sweep — owner shell', () => {
   test.use({ storageState: AUTH.owner });
   for (const route of ['/owner/dashboard', '/owner/dashboard/config']) {
     test(`owner ${route}`, async ({ page }, testInfo) => {
-      test.setTimeout(20000);
+      test.setTimeout(45000);
       await scanRoute(page, testInfo, 'owner', route);
     });
   }

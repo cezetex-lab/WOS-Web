@@ -60,12 +60,23 @@ export function summarize(results: AxeResults): string {
 /** Settle SPA: tunggu networkidle secara toleran (websocket supabase bisa
  *  menahan networkidle selamanya), lalu jeda kecil untuk render lazy chunk. */
 export async function settle(page: Page): Promise<void> {
-  // OPS-10: 15s — churn get_branding/token refresh (lihat OPS-11) bisa menyapu
-  // jendela idle 8s; 15s memberi ruang tanpa melebihi budget test 20s.
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {
-    /* networkidle tidak tercapai (realtime/websocket) — anggap settled */
+  // OPS-13: komposisi lama (networkidle 15s + fixed 1,5s) = 16,5s dari budget test
+  // 20s → saat load lambat (token refresh / posthog flags) test TIMEOUT padahal scan
+  // OK 0 violation. Bukti 2026-09-24 (`.agents/logs/gate-ops13-netprobe2.log`):
+  // networkidle selalu tercapai dalam 2,3–8,4 s dan TIDAK ada websocket sama sekali,
+  // jadi 8s sudah lega; sisa waktu dipakai menunggu konten benar-benar render.
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {
+    /* networkidle tidak tercapai — anggap settled, heading wait di bawah yang menjaga */
   });
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(500);
+  // Anti render-gagal: tunggu heading benar-benar ada (maks 4s) sebelum axe scan.
+  await page
+    .locator('h1,h2,h3,[role="heading"]')
+    .first()
+    .waitFor({ state: 'attached', timeout: 4000 })
+    .catch(() => {
+      /* tanpa heading → scanRoute() akan melapor RENDER-GAGAL */
+    });
 }
 
 /** Lampirkan bukti (screenshot + JSON violation) ke testInfo untuk debugging. */

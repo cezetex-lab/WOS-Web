@@ -3047,3 +3047,25 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Gate 5/5:** `check:types` EXIT 0 · `lint` EXIT 0 · `npm test` **141/141** · `npm run test:a11y` **6/6, 0 violation** · `build` EXIT 0. Guard `doc-claims-vs-live` menangkap drift akurat dari perubahan ini (migrasi 172→173, anon grants 129→130, cron 3→4) → ARCHITECTURE.md §7.4 disegarkan.
 - **Dampak lintas-page: worker → admin → dashboard → owner** — worker: pre-login lockout aktif kembali (sebelumnya fail-open) + audit `login_attempts` tak bisa di-spam; admin: `Home.tsx:313` juga regain lockout check; dashboard: tidak ada alur lockout sendiri, tidak tersentuh; owner: login owner tidak lewat `check_login_lockout` (via `owner_login`), tidak tersentuh. Tidak ada perubahan `src/`, tidak ada perubahan signature RPC, tidak ada perubahan semantik lockout untuk user sah.
 
+
+## [2026-09-24] OPS-13 SELESAI — sweep mill timeout: budget 20 s terlalu tipis
+
+- **Investigasi (3 run sweep mill, JSON reporter, `.agents/logs/ops13-run{1,2,3}.json`):**
+  | Run | Pass | Fail | Timeout | Durasi total | slowest |
+  |---|---|---|---|---|---|
+  | 1 | **8** | 0 | 0 | 82,4 s | `boiler` 15,9 s |
+  | 2 | 7 | **1** | **1** | 143,9 s | **`admin /admin/mill` 24,2 s → `Test timeout of 20000ms exceeded`** |
+  | 3 | **8** | 0 | 0 | 73,3 s | `boiler` 13,2 s |
+  Di run2 route lain 7,1–17,7 s; hanya `/admin/mill` yang sesekali tembus 20 s (run1 route sama hanya 10,6 s) → **flaky, bukan deterministik**.
+- **Akar (bukan bug aplikasi):** `settle()` di `tests/a11y/helpers/axe-config.ts` = `waitForLoadState('networkidle', {timeout: 15000}).catch(swallow)` + `waitForTimeout(1500)`, sementara budget per-test dipatok `test.setTimeout(20000)` di spec sweep. Aritmetika: 15 s + 1,5 s + `axe.analyze()` 1–2 s → **16,5 s dari 20 s habis untuk settle**; tinggal ~3,5 s untuk scan. Saat jaringan lambat → timeout padahal scan OK 0 violation.
+- **Bukti netprobe (4 iterasi `/admin/mill`, storageState admin-mill, `.agents/logs/gate-ops13-netprobe2.log`):** networkidle **selalu tercapai** 2,3–8,4 s · `websocket/EventSource = 0` (hipotesis realtime GUGUR) · tanpa RPC > 3 s (hanya `us.i.posthog.com/flags` 3,4 s sekali) · 18 RPC per load, `get_branding` hampir selalu pending · `h1="Selamat Datang, Admin"`, bodyLen 570 (render sehat). Hipotesis (b) & (d) gugur; (c) cold start terbukti (iterasi 1 = 8,4 s vs iterasi 4 = 2,3 s).
+- **Fix (khusus test — `src/` TIDAK disentuh):**
+  1. `axe-config.ts` `settle()`: `networkidle` **15 s → 8 s**, jeda **1500 → 500 ms**, **+ wait heading 4 s** (`h1,h2,h3,[role="heading"]` state attached) sebagai penjaga anti render-gagal.
+  2. `accessibility-full-sweep.spec.ts`: `test.setTimeout(20000)` → **45000** (4 titik: worker / admin / admin-mill / owner describe).
+- **Bukti post-fix:**
+  - Sweep mill **3/3 run PASS (8/8)**: `gate-ops13-fix-r1` 8 passed (2,0 m, EXIT=0) · `r2` 8 passed (2,2 m, EXIT=0) · `r3` 8 passed (2,0 m, EXIT=0).
+  - Regresi suite 6-halaman (`settle()` shared): `npm run test:a11y` **6 passed, 0 violation** (2,0 m) — `gate-ops13-a11y6.log`.
+  - Gate: `check:types` EXIT 0 (3,2 s) · `lint` EXIT 0 (68,0 s — kontensi, a11y berjalan paralel) · `npm test` **22 files / 141 passed** (80,66 s) · `build` EXIT 0 (built in 11.49 s).
+- **Trade-off yang disadari:** budget 45 s hanya menaikkan batas atas (durasi kasus normal tetap ~7–10 s per test, total sweep 8 test ~2 m); `settle()` memendekkan 16,5 s → maks ~12,5 s dan menggantinya dengan wait heading terarah.
+- **Dampak lintas-page: worker → admin → dashboard → owner** — `settle()` dipakai bersama oleh sweep penuh (semua 154 route: worker, admin, dashboard, owner) **dan** suite 6-halaman, jadi seluruh scan a11y ikut lebih stabil; tidak ada perubahan kode aplikasi (`src/`) maupun kontrak RPC/route/session — perubahan murni pada helper & budget pengujian.
+
