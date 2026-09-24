@@ -2935,6 +2935,39 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Bukti authz (impersonasi claims via `set_config`, transaksi ROLLBACK — `.agents/scripts/ops14-repair-verify.mjs`):**
 ## [2026-09-24] OPS-06b SELESAI end-to-end — admin reset sync auth.users via edge `admin_reset_sync`
 
+## [2026-09-24] OPS-14b SELESAI — owner GOD bypass via `system_owner_identity`
+
+- **Konsep (kunci user):** Owner = shadow/GOD. Identitas = **email** di `system_owner_identity` — TIDAK butuh baris `employees_core`/`employees_master`/`user_roles`, TIDAK muncul di headcount/statistik, TIDAK "menyamar" jadi NRP. `authz_current_nrp()` **tidak** disentuh (sesuai aturan).
+- **Migrasi `247_ops14b_owner_god_bypass.sql`** (checksum `75eb7b98…`): helper `authz_is_owner()` — SECURITY DEFINER, `SET search_path TO 'public','extensions'`, `STABLE`, cocok `auth_id = auth.uid()` **ATAU** `lower(owner_email) = lower(auth.jwt()->>'email')` dengan `is_active = TRUE`, dibungkus `COALESCE(..., FALSE)`; `REVOKE ALL … FROM PUBLIC` + `FROM anon`, `GRANT EXECUTE … TO authenticated` (pola sama `authz_check_admin`/`check_owner_identity` yang live: `anon_exec=false, auth_exec=true`). Patch `admin_reset_worker_password`: gate owner dicek **sebelum** `v_caller IS NULL`; jalur non-owner persis gate lama (`v_caller IS NOT NULL AND NOT authz_check_admin('employee.update')`); `audit_log.actor` fallback `'owner:'||email` saat `v_caller` NULL.
+- **Kenapa OR `auth_id` + email:** `auth_id` = identitas immutable (baja utama; email bisa diubah/user dibuat ulang), email = konsep GOD yang dikunci user. Email berasal dari claim JWT bertanda tangan GoTrue; tidak ada `signUp` di `src/` dan 18/18 akun `auth.users` ber-`email_confirmed_at` (probe) → claim email tidak bisa diklaim pihak lain.
+- **Apply:** `DITERAPKAN + terdaftar + checksum terverifikasi (705ms)`. `schema_migrations` 247 = 1 baris.
+- **Bukti impersonasi (`.agents/scripts/ops14b-impersonate.mjs`, transaksi ROLLBACK — `.agents/logs/ops14b-impersonate.txt`):**
+  ```
+  OWNER (owner@insightwos.com):  authz_is_owner()=true  | authz_current_nrp()=null
+                                authz_check_admin(employee.update)=true
+                                admin_reset_worker_password → {"ok":true,"msg":"Password NRP003 berhasil direset…"}
+  WORKER (NRP002):              authz_is_owner()=false | authz_current_nrp()=NRP002
+                                authz_check_admin(employee.update)=false
+                                admin_reset_worker_password → {"ok":false,"msg":"Akses ditolak."}   ← fail-closed
+  ADMIN_PUSAT (NRP100):         authz_is_owner()=false | authz_current_nrp()=NRP100
+                                authz_check_admin(employee.update)=true
+                                admin_reset_worker_password → {"ok":true,…}                            ← tak terpengaruh
+  SETELAH ROLLBACK → NRP003 punya password test? false | schema_migrations 247 = 1 baris
+  ```
+- **Bukti end-to-end browser (`.agents/scripts/ops14b-owner-e2e.mjs`, dev server 5173):**
+  ```
+  1. LOGIN OK → URL: http://localhost:5173/owner/dashboard
+  2. /owner/dashboard → h1="Owner Dashboard" | bodyLen=310 | render=OK
+  3. /admin → URL: /admin | bodyLen=572 | ownerAllowedByDesign(RoleGuard bypass): OK
+  4. /admin/reset-password → URL: /admin/reset-password | bodyLen=221 | render: OK
+  HASIL: SEMUA OK
+  ```
+  **CATATAN DESAIN:** ekspektasi awal "owner harus redirect dari /admin" **tidak sesuai desain repo** — `RoleGuard.tsx:52-59` eksplisit *"owner bypass semua"* (`isOwner → setAuthorized(true)`), dan owner tidak masuk daftar `allowedRoles` pun tetap diizinkan. Sesuai aturan "JANGAN ubah RoleGuard", guard **tidak** disentuh; proteksi yang diuji adalah lapis DB (`authz_*` fail-closed, terbukti di atas). Run pertama gagal karena dialog Privacy Consent yang meng-intercept klik — ditangani dengan pola repo yang sama (`localStorage wos_privacy_consent`, `tests/e2e/helpers/mock-supabase.ts:409`).
+- **Gate 5/5:** `check:types` EXIT 0 (4,2 s) · `lint` EXIT 0 (17,7 s) · `npm test` **22 files / 141 passed** · `npm run test:a11y` **6/6 PASS, 0 violation** · `build` EXIT 0 (built in 7.32s). Gate pertama merah (140/141) karena guard `doc-claims-vs-live` menangkap drift angka (**Fungsi 657→658** & **Migrasi 170→171** akibat helper baru + migrasi 247) → `ARCHITECTURE.md` §7.1/§7.4 + `FuturePlans.md` §1.3 disegarkan → rerun hijau.
+- **9 fungsi `admin_*` lain TIDAK dipatch** (keputusan user): `admin_approve_pending`, `admin_approve_request`, `admin_broadcast_announcement`, `admin_bulk_approve_pending`, `admin_bulk_reject_pending`, `admin_reject_pending`, `admin_reject_request`, `admin_set_employee_role`, `admin_update_idea_status` — semuanya masih menolak owner lewat gate `v_caller IS NULL`. **Tidak** didaftarkan ke Work Queue sesuai instruksi. Fungsi worker (35 fungsi lain dengan gate serupa) sengaja tidak diberi bypass — owner bukan karyawan.
+- **Dampak lintas-page: worker → admin → dashboard → owner** — worker: **tidak berubah** (`authz_is_owner()` FALSE, reset tetap DENIED — fail-closed terbukti); admin: jalur `admin_reset_worker_password` tidak berubah untuk admin biasa (`authz_is_owner()` FALSE → tetap `authz_check_admin`); dashboard: tidak ada alur reset password, tidak tersentuh; owner: **kini fungsional untuk remote maintenance** — bisa reset password karyawan tanpa baris NRP. Tidak ada perubahan kontrak RPC (signature & return `jsonb` identik), tidak ada perubahan skema/tabel, tidak ada perubahan UI/RoleGuard.
+
+
 - **Perubahan (menunggu commit di sesi ini; edge sudah ter-deploy 2026-09-24 sore):**
   - Edge `password-reset`: action baru `admin_reset_sync` (rate limit 10/15 mnt per NRP admin). Authz fail-closed: WAJIB JWT user di header `Authorization` (anon/apikey → 403) → `auth.getUser(jwt)` → `auth_id` → NRP (`employees_core`) → role (`user_roles`) → hanya `admin*`/`owner` boleh lanjut → `updateUserById(target.auth_id, { password })` → audit `ADMIN_RESET_AUTH_SYNC`.
   - `src/features/platform/auth/ResetPassword.tsx`: setelah RPC `admin_reset_worker_password` sukses → `callEdgeFunctionAuth('password-reset', { action:'admin_reset_sync', ... })`. Kegagalan sinkron **hanya warning** (reset worker_passwords sudah sukses & itu source of truth). Password di-capture ke `targetPass` SEBELUM state di-reset.
