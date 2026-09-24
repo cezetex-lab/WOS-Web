@@ -4,7 +4,7 @@
 --
 -- Sumber     : DB live (host, project ref & password sengaja TIDAK ditulis)
 -- Generator  : supabase/scripts/generate-baseline.mjs (FULL)
--- Objek      : 208 tabel, 539 fungsi, 1 view,
+-- Objek      : 208 tabel, 540 fungsi, 1 view,
 --               94 sequence, trigger/policy sesuai tabel
 --
 -- JANGAN disunting tangan. Regenerate dengan generator di atas.
@@ -4924,7 +4924,9 @@ AS $function$
 DECLARE v_emp RECORD; v_caller TEXT;
 BEGIN
   v_caller := authz_current_nrp();
-  IF v_caller IS NULL OR NOT authz_check_admin('employee.update') THEN
+  -- OPS-14b: owner bypass diperiksa SEBELUM gate v_caller (owner tidak punya NRP).
+  IF (v_caller IS NULL AND NOT authz_is_owner())
+     OR (v_caller IS NOT NULL AND NOT authz_check_admin('employee.update')) THEN
     RETURN jsonb_build_object('ok', FALSE, 'msg', 'Akses ditolak.');
   END IF;
   IF p_nrp IS NULL OR p_nrp = '' THEN
@@ -4957,8 +4959,10 @@ BEGIN
   UPDATE session_tokens SET expires_at = NOW() WHERE nrp = p_nrp AND expires_at > NOW();
   DELETE FROM active_sessions WHERE nrp = p_nrp;
 
+  -- OPS-14b: actor fallback ke email owner bila v_caller NULL (audit tetap bisa ditelusuri).
   INSERT INTO audit_log (actor, action, detail, timestamp)
-  VALUES (v_caller, 'RESET_PASSWORD', 'Reset password for ' || p_nrp, NOW());
+  VALUES (COALESCE(v_caller, 'owner:' || lower(COALESCE(auth.jwt() ->> 'email', 'unknown'))),
+          'RESET_PASSWORD', 'Reset password for ' || p_nrp, NOW());
 
   -- JANGAN pernah mengembalikan password di response
   RETURN jsonb_build_object('ok', TRUE, 'msg', 'Password ' || p_nrp || ' berhasil direset. Wajib ganti password saat login berikutnya.');
@@ -5465,6 +5469,26 @@ BEGIN
       RETURN FALSE;
   END CASE;
 END;
+$function$;
+-- authz_is_owner()
+CREATE OR REPLACE FUNCTION public.authz_is_owner()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+  SELECT COALESCE(
+    EXISTS (
+      SELECT 1
+        FROM public.system_owner_identity
+       WHERE is_active = TRUE
+         AND (
+              auth_id = auth.uid()
+           OR lower(owner_email) = lower(COALESCE(auth.jwt() ->> 'email', ''))
+         )
+    ),
+    FALSE
+  );
 $function$;
 -- auto_coaching(p_nrp text, p_topic text, p_reason text)
 CREATE OR REPLACE FUNCTION public.auto_coaching(p_nrp text, p_topic text, p_reason text)
@@ -6189,8 +6213,8 @@ DECLARE
   v_is_locked BOOLEAN := FALSE;
   v_lockout_reason TEXT := '';
   v_remaining_seconds INT := 0;
+  v_write_allowed BOOLEAN := TRUE;
 BEGIN
-  -- Count failed attempts in last 15 minutes
   SELECT COUNT(*), MAX(created_at)
   INTO v_failed_count, v_last_attempt
   FROM login_attempts
@@ -6199,24 +6223,32 @@ BEGIN
     AND success = FALSE
     AND created_at > NOW() - INTERVAL '15 minutes';
 
-  -- Check lockout: 5 failed attempts in 15 minutes = locked for 15 minutes
   IF v_failed_count >= 5 THEN
     v_remaining_seconds := EXTRACT(EPOCH FROM (
       (v_last_attempt + INTERVAL '15 minutes') - NOW()
     ))::INT;
-    
+
     IF v_remaining_seconds > 0 THEN
       v_is_locked := TRUE;
-      v_lockout_reason := 'Terlalu banyak percobaan gagal. Coba lagi dalam ' || 
+      v_lockout_reason := 'Terlalu banyak percobaan gagal. Coba lagi dalam ' ||
                           (v_remaining_seconds / 60)::INT || ' menit.';
-      
-      -- Log the lockout
-      INSERT INTO login_attempts (identifier, attempt_type, success, ip_address)
-      VALUES (p_identifier, p_attempt_type, FALSE, 'LOCKOUT_TRIGGERED');
+
+      -- OPS-07: rate-limit HANYA penulisan audit-lockout. Pembacaan status lockout
+      -- di atas tidak pernah dibatasi → user sah selalu bisa mengecek.
+      --  - global : batas TOTAL baris per jendela (tahan rotasi identifier)
+      --  - per-ID : batas per akun (tahan spam pada satu identifier)
+      v_write_allowed :=
+        hit_rate_limit('global', 'login_lockout_record', 300, 900)
+        AND hit_rate_limit('ident:' || p_identifier, 'login_lockout_record', 30, 900);
+
+      IF v_write_allowed THEN
+        INSERT INTO login_attempts (identifier, attempt_type, success, ip_address)
+        VALUES (p_identifier, p_attempt_type, FALSE, 'LOCKOUT_TRIGGERED');
+      END IF;
     END IF;
   END IF;
 
-  -- Also check: 10 failed attempts in 24 hours = locked for 1 hour
+
   SELECT COUNT(*), MAX(created_at)
   INTO v_failed_count, v_last_attempt
   FROM login_attempts
@@ -6229,7 +6261,7 @@ BEGIN
     v_remaining_seconds := EXTRACT(EPOCH FROM (
       (v_last_attempt + INTERVAL '1 hour') - NOW()
     ))::INT;
-    
+
     IF v_remaining_seconds > 0 THEN
       v_is_locked := TRUE;
       v_lockout_reason := 'Akun dikunci karena terlalu banyak percobaan gagal. Coba lagi dalam ' ||
@@ -6241,7 +6273,8 @@ BEGIN
     'locked', v_is_locked,
     'reason', v_lockout_reason,
     'remaining_seconds', GREATEST(v_remaining_seconds, 0),
-    'failed_attempts', v_failed_count
+    'failed_attempts', v_failed_count,
+    'audit_logged', v_write_allowed
   );
 END;
 $function$;
@@ -16623,6 +16656,7 @@ REVOKE ALL ON FUNCTION public.authz_get_scope() FROM PUBLIC, anon, authenticated
 REVOKE ALL ON FUNCTION public.authz_has_permission(p_permission_code text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.authz_has_role(p_role_code text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.authz_in_scope(p_target_nrp text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.authz_is_owner() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.auto_coaching(p_nrp text, p_topic text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.auto_deactivate_expired_pkwt() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.auto_learn(p_nrp text, p_skill_code text) FROM PUBLIC, anon, authenticated, service_role;
@@ -18392,6 +18426,8 @@ GRANT EXECUTE ON FUNCTION public.authz_has_role(p_role_code text) TO service_rol
 GRANT EXECUTE ON FUNCTION public.authz_in_scope(p_target_nrp text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.authz_in_scope(p_target_nrp text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.authz_in_scope(p_target_nrp text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.authz_is_owner() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.authz_is_owner() TO postgres;
 GRANT EXECUTE ON FUNCTION public.auto_coaching(p_nrp text, p_topic text, p_reason text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.auto_coaching(p_nrp text, p_topic text, p_reason text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.auto_deactivate_expired_pkwt() TO postgres;
@@ -18440,6 +18476,7 @@ GRANT EXECUTE ON FUNCTION public.check_api_rate_limit(p_key_hash text) TO postgr
 GRANT EXECUTE ON FUNCTION public.check_api_rate_limit(p_key_hash text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.check_contract_expiry() TO postgres;
 GRANT EXECUTE ON FUNCTION public.check_contract_expiry() TO service_role;
+GRANT EXECUTE ON FUNCTION public.check_login_lockout(p_identifier text, p_attempt_type text) TO anon;
 GRANT EXECUTE ON FUNCTION public.check_login_lockout(p_identifier text, p_attempt_type text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.check_login_lockout(p_identifier text, p_attempt_type text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.check_login_lockout(p_identifier text, p_attempt_type text) TO service_role;
@@ -19462,18 +19499,6 @@ GRANT EXECUTE ON FUNCTION public.worker_update_profile(p_nrp text, p_no_hp text,
 -- Supabase memperketat bawaannya, baseline ini justru MELEMAHKAN project baru.
 -- Membiarkannya = project baru berperilaku persis seperti DB live.
 -- Baris di bawah hanya DOKUMENTASI keadaan live (AGENTS.md §5.8 SQL-07 masih OPEN):
---   (live) DEFAULT PRIVILEGES ... EXECUTE ON FUNCTIONS TO anon;
---   (live) DEFAULT PRIVILEGES ... EXECUTE, EXECUTE ON FUNCTIONS TO authenticated;
---   (live) DEFAULT PRIVILEGES ... EXECUTE, EXECUTE ON FUNCTIONS TO postgres;
---   (live) DEFAULT PRIVILEGES ... EXECUTE, EXECUTE ON FUNCTIONS TO service_role;
---   (live) DEFAULT PRIVILEGES ... DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLES TO anon;
---   (live) DEFAULT PRIVILEGES ... DELETE, DELETE, INSERT, INSERT, MAINTAIN, MAINTAIN, REFERENCES, REFERENCES, SELECT, SELECT, TRIGGER, TRIGGER, TRUNCATE, TRUNCATE, UPDATE, UPDATE ON TABLES TO authenticated;
---   (live) DEFAULT PRIVILEGES ... DELETE, DELETE, INSERT, INSERT, MAINTAIN, MAINTAIN, REFERENCES, REFERENCES, SELECT, SELECT, TRIGGER, TRIGGER, TRUNCATE, TRUNCATE, UPDATE, UPDATE ON TABLES TO postgres;
---   (live) DEFAULT PRIVILEGES ... DELETE, DELETE, INSERT, INSERT, MAINTAIN, MAINTAIN, REFERENCES, REFERENCES, SELECT, SELECT, TRIGGER, TRIGGER, TRUNCATE, TRUNCATE, UPDATE, UPDATE ON TABLES TO service_role;
---   (live) DEFAULT PRIVILEGES ... SELECT, UPDATE, USAGE ON SEQUENCES TO anon;
---   (live) DEFAULT PRIVILEGES ... SELECT, SELECT, UPDATE, UPDATE, USAGE, USAGE ON SEQUENCES TO authenticated;
---   (live) DEFAULT PRIVILEGES ... SELECT, SELECT, UPDATE, UPDATE, USAGE, USAGE ON SEQUENCES TO postgres;
---   (live) DEFAULT PRIVILEGES ... SELECT, SELECT, UPDATE, UPDATE, USAGE, USAGE ON SEQUENCES TO service_role;
 
 -- ── CRON JOBS ───────────────────────────────────────────────────
 DO $$ BEGIN
@@ -19502,6 +19527,15 @@ DO $$ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'cleanup-otp') THEN PERFORM cron.unschedule('cleanup-otp'); END IF;
   PERFORM cron.schedule('cleanup-otp', '*/15 * * * *', 'DELETE FROM otp_store WHERE expiry < NOW() - INTERVAL ''1 hour''');
+END $$;
+DO $$ BEGIN
+  -- Guard memakai keberadaan fungsi, bukan baris pg_extension: lebih tahan banting
+  -- dan tetap benar bila pg_cron dipasang dengan cara lain.
+  IF to_regprocedure('cron.schedule(text,text,text)') IS NULL THEN
+    RAISE NOTICE 'cron.schedule tidak tersedia — job cleanup-login-attempts dilewati'; RETURN;
+  END IF;
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'cleanup-login-attempts') THEN PERFORM cron.unschedule('cleanup-login-attempts'); END IF;
+  PERFORM cron.schedule('cleanup-login-attempts', '30 3 * * *', 'SELECT cleanup_login_attempts()');
 END $$;
 
 -- Catatan: sejak SQL-08 hr_attendance tabel biasa — tidak ada partisi dinamis

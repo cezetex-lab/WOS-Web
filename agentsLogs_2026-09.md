@@ -3021,3 +3021,29 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **OPS-06 CLOSED** — dihapus dari tabel §5.8 AGENTS.md, masuk blok "Dipangkas 2026-09-24". Sisa OPEN di §5.8: OPS-07 (P3), OPS-13 (P3, usul — sweep mill timeout flake).
 - **Dampak lintas-page: worker → admin → dashboard → owner** — worker: **TERDAMPAK & diperbaiki** (ganti password sendiri kini sinkron auth.users, fast path `signInWithPassword` terbukti hidup setelah round-trip manual; `Home.tsx` = halaman login worker). admin: **TERDAMPAK sebagian** — `ResetPassword.tsx` masih memanggil `admin_reset_worker_password` langsung (tidak diubah; andal self-heal B1a′, belum diuji manual); tidak ada perubahan authz/role. dashboard: **tidak terdampak** — tidak ada alur ganti password; a11y `/dashboard` 0 violation. owner: **tidak terdampak** — tidak ada alur ganti password; a11y `/owner/dashboard` + `/owner/dashboard/config` 0 violation. Tidak ada perubahan kontrak RPC return, signature, `session`, atau skema DB.
 
+
+## [2026-09-24] OPS-07 SELESAI + restamp 245 — rate-limit `login_attempts` + restore grant anon + baseline regen
+
+- **Premis berubah saat investigasi (FASE 1):** grant `anon` untuk `check_login_lockout` (diberikan OPS-05 via migrasi 245, 2026-09-21) **hilang di live** — `proacl` tanpa `anon`, anon call `42501`. Dampak: `Home.tsx:206` (worker) & `:313` (admin) memanggil fungsi ini pra-sesi lalu mengecek `lockCheck?.locked` → saat error hasilnya `undefined` → **fail-open: kontrol lockout pra-login mati lagi**. Penyebabnya: baris `245_ops05_grant_anon_lockout.sql` **tidak terdaftar** di `schema_migrations` (reset DB 2026-09-22 "baseline install" memuat registry dari snapshot yang tidak memuat 245) — kelas bug yang sama seperti SQL-11.
+- **Fix — migrasi `248_ops07_login_attempts_abuse_guard.sql`** (checksum `221422dd…`, DITERAPKAN 664ms):
+  - **Rate-limit di cabang INSERT saja** (bukan setiap panggilan) sehingga user sah tetap selalu bisa mengecek status lockout: `hit_rate_limit('global','login_lockout_record',300,900) AND hit_rate_limit('ident:'||p_identifier,'login_lockout_record',30,900)`; bila salah satu menolak → tidak INSERT, response携 `audit_logged:false` (key baru, backward-compatible).
+  - **Cron `cleanup-login-attempts`** (`30 3 * * *`, leverage `cleanup_login_attempts()` retensi 7 hari yang sudah ada tapi belum pernah dijadwalkan).
+  - **Restore grant anon** `check_login_lockout(text,text)`.
+  - **Restamp/daftar 245** via `apply-migration.mjs` (SQL-nya idempotent `GRANT`) → registry 173 = jumlah file repo.
+- **Bukti rate-limit (`.agents/logs/ops07-verify.txt`):**
+  ```
+  2a. proacl: {postgres=X,authenticated=X,service_role=X,anon=X}   anon_exec=true
+  2b. anon call → {"locked":false,"reason":"","audit_logged":true,"failed_attempts":0,"remaining_seconds":0}
+  2c. 50 panggilan pada identifier terkunci (12.0s) → HTTP200=50 error=0 | locked=50
+      audit_logged=true: 30 | audit_logged=false: 20
+      baris login_attempts: 6 → 36 (delta 30)  ← cap per-identifier bekerja
+      rate_limits: global=50, ident:…=30
+  2d. identifier normal → {"locked":false,…,"audit_logged":true}   (user sah tak terpengaruh)
+      cleanup fixture → 0 baris tersisa
+  ```
+- **Regresi login:** worker **OK 200** · admin **OK 200** · pre-login lockout check `locked=false`.
+- **Baseline (§3.15):** `npm run db:baseline` EXIT 0 (228s) — `000_baseline_schema.sql:18479` berisi `GRANT EXECUTE ON FUNCTION public.check_login_lockout(...) TO anon` (setelah blok REVOKE-whitelist), body patched + `hit_rate_limit('global','login_lockout_record',300,900)`, dan cron job `cleanup-login-attempts`. Fix akar: instalasi berikutnya tidak lagi kehilangan grant.
+- **verify-install:** run pertama 8/9 (`migration_cap live=172 install=173` —lacak unregistered 245); setelah restamp → **9/9 PASS** (`=== HASIL: PASS — installer siap dipakai ===`, 9 metrik SAMA termasuk `migration_cap 173=173`).
+- **Gate 5/5:** `check:types` EXIT 0 · `lint` EXIT 0 · `npm test` **141/141** · `npm run test:a11y` **6/6, 0 violation** · `build` EXIT 0. Guard `doc-claims-vs-live` menangkap drift akurat dari perubahan ini (migrasi 172→173, anon grants 129→130, cron 3→4) → ARCHITECTURE.md §7.4 disegarkan.
+- **Dampak lintas-page: worker → admin → dashboard → owner** — worker: pre-login lockout aktif kembali (sebelumnya fail-open) + audit `login_attempts` tak bisa di-spam; admin: `Home.tsx:313` juga regain lockout check; dashboard: tidak ada alur lockout sendiri, tidak tersentuh; owner: login owner tidak lewat `check_login_lockout` (via `owner_login`), tidak tersentuh. Tidak ada perubahan `src/`, tidak ada perubahan signature RPC, tidak ada perubahan semantik lockout untuk user sah.
+

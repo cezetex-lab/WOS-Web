@@ -11,19 +11,19 @@ prereq platform disiapkan (schema auth/extensions, auth.*(), stub cron, default 
   role   : postgres
   postgres: 17.6
   tabel di public: 0
---- APPLY 000_baseline_schema.sql ... ok (3068ms)
---- APPLY 010_baseline_config_data.sql ... ok (619ms)
+--- APPLY 000_baseline_schema.sql ... ok (3018ms)
+--- APPLY 010_baseline_config_data.sql ... ok (669ms)
 --- IDENTITAS PERUSAHAAN ---
   branding.company_name → "PT Uji Instalasi Otomatis" (1 baris)
   company_config.owner_email → owner@uji-instalasi.test (baris baru dibuat, 1)
 --- VERIFIKASI ---
   tabel non-partisi         : 208
-  fungsi project            : 539
+  fungsi project            : 540
   policy RLS                : 225
   trigger                   : 29
   partisi absensi           : 0
   menu (module_definitions) : 155
-  cap schema_migrations     : 169
+  cap schema_migrations     : 173
   branding (nama perusahaan): PT Uji Instalasi Otomatis
   owner_email               : owner@uji-instalasi.test
   check_migrations()        : bersih (0 issue)
@@ -38,12 +38,12 @@ prereq platform disiapkan (schema auth/extensions, auth.*(), stub cron, default 
   SAMA  tabel_non_partisi  live=  208  install=  208
   SAMA  partisi            live=    0  install=    0
   SAMA  view               live=    1  install=    1
-  SAMA  fungsi_project     live=  539  install=  539
+  SAMA  fungsi_project     live=  540  install=  540
   SAMA  policy             live=  225  install=  225
   SAMA  trigger            live=   29  install=   29
   SAMA  sequence           live=   95  install=   95
-  SAMA  cron_job           live=    3  install=    3
-  SAMA  migration_cap      live=  169  install=  169
+  SAMA  cron_job           live=    4  install=    4
+  SAMA  migration_cap      live=  173  install=  173
 
 --- 4) identitas perusahaan hasil instalasi ---
   branding.company_name   : "PT Uji Instalasi Otomatis"  (dari --company-name)
@@ -54,10 +54,10 @@ prereq platform disiapkan (schema auth/extensions, auth.*(), stub cron, default 
   merek DB sumber (tidak boleh muncul) : "Perusahaan Anda"
 
 --- 5) jalankan ulang dengan --force (uji idempoten) → exit 0
-    --- APPLY 000_baseline_schema.sql ... ok (2470ms)
-    --- APPLY 010_baseline_config_data.sql ... ok (422ms)
+    --- APPLY 000_baseline_schema.sql ... ok (2648ms)
+    --- APPLY 010_baseline_config_data.sql ... ok (471ms)
   tabel non-partisi : sebelum=208 sesudah=208 (harus sama)
-  cap migrasi       : sebelum=169 sesudah=169 (harus sama)
+  cap migrasi       : sebelum=173 sesudah=173 (harus sama)
 
 database scratch wos_replay_install_e2e di-drop (pakai --keep untuk menyimpannya)
 

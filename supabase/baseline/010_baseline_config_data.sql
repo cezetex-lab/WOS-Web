@@ -223,7 +223,7 @@ DO $$ BEGIN
   INSERT INTO public.config_categories (id, name, description, icon, sort_order) VALUES ('currency', 'Mata Uang & Rate', 'Exchange rate, format', '💱', '10');
 END $$;
 
--- company_config: 2 baris identitas perusahaan TIDAK didump (owner_email, ceo_email)
+-- company_config: 1 baris identitas perusahaan TIDAK didump (owner_email)
 --   → diisi oleh installer (--owner-email=...) atau OwnerDashboard.
 
 -- ── company_config (82 baris) ──
@@ -545,7 +545,7 @@ DO $$ BEGIN
   INSERT INTO public.role_page_access (id, role_code, page_pattern, can_access, can_action, created_at) VALUES ('48', 'admin_estate', '/admin/*', 'false', 'false', '2026-09-03 14:49:48.795518+00'::timestamptz);
 END $$;
 
--- ── role_permission_sets (26 baris) ──
+-- ── role_permission_sets (28 baris) ──
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM public.role_permission_sets LIMIT 1) THEN
     RAISE NOTICE 'role_permission_sets sudah berisi data — dilewati';
@@ -577,6 +577,8 @@ DO $$ BEGIN
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('24', 'admin_pusat', 'supervisor_ext', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('25', 'admin_pusat', 'manager_ext', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('26', 'admin_pusat', 'admin_pusat_all', '2026-09-04 10:00:41.03652+00'::timestamptz);
+  INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('27', 'admin_operasional', 'worker_basic', '2026-09-24 10:31:16.422916+00'::timestamptz);
+  INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('28', 'admin_operasional', 'supervisor_ext', '2026-09-24 10:31:16.422916+00'::timestamptz);
 END $$;
 
 -- ── permission_set_items (93 baris) ──
@@ -1672,6 +1674,26 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '244_sql12_fix_coalesce.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
     VALUES ('244', '244_sql12_fix_coalesce.sql', 'b421600b1bb5e8c7ec60ffa2922493a9069bedc2f9f8bb096205ebbaf2adb10f', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '245_ops05_grant_anon_lockout.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('245', '245_ops05_grant_anon_lockout.sql', 'bbd9ccdf42c090bcbe614c696034572cd4705caea395ee865a109d20b909ed0c', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '246_ops14_seed_user_role_assignments.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('246', '246_ops14_seed_user_role_assignments.sql', '3bc1ec8f43a81e40cc5b8e36015ceffe4fe8f937c1ed4b04d03995b93d104071', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '247_ops14b_owner_god_bypass.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('247', '247_ops14b_owner_god_bypass.sql', '75eb7b983f524ae17794a75a3dfa85139275aea24000c9b5a9864e47e2c5343c', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '248_ops07_login_attempts_abuse_guard.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('248', '248_ops07_login_attempts_abuse_guard.sql', '221422dd55be11fa8c728e7347ec60ccbf2af3e2ff8bdef2650c28e1a3686341', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
