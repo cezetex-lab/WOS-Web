@@ -2893,3 +2893,25 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Chain §0.3:** COMMIT `5db8a85` → PUSH `49ad4bc..5db8a85 migrasi-vite -> migrasi-vite` (exit 0) → deploy via **Vercel auto-deploy push-triggered** (keputusan dari sesi sebelumnya; hasil cek `npx vercel ls` di eksekusi ini).
 - **OPS-12 CLOSED** — dihapus dari tabel §5.8 AGENTS.md, masuk blok "Dipangkas 2026-09-24". Sisa OPEN di §5.8: OPS-06 (P2, keputusan user: jangan fix), OPS-07 (P3), OPS-11 (P3).
 - **Dampak lintas-page: worker → admin → dashboard → owner** — hook dipakai **50 file** lintas 4 page; perubahan murni mencegah bounce dini, tidak mengubah authz hasil akhir (role tetap dievaluasi setelah settle) → semua page HANYA membaik. Bukti per page: worker (smoke 4/4 + a11y /worker 0 violation), admin (smoke /admin + a11y 0 violation + sweep mill 8/8), dashboard (smoke /dashboard + a11y 0 violation), owner (smoke /owner/dashboard + a11y owner & owner-config 0 violation). Tidak ada perubahan RPC/session/kontrak.
+## [2026-09-24] OPS-11 SELESAI — get_branding dedupe: in-flight + cache 5 menit di layer RPC
+
+- **Keputusan user: Opsi B (bukan C)** — cache layer RPC menutup semua double-fire (termasuk remount + duplikasi StrictMode di dev); refactor caller (Opsi A) tidak menambah solusi baru, dicatat sebagai cleanup opsional PR terpisah. Caller (AppDrawer/Home) TIDAK diubah — tetap pakai `rpc()`.
+- **Fix (commit `624ddf7`, 2 file, +40/−2):**
+  - `src/lib/supabase-browser.ts`: `BRANDING_CACHE_TTL_MS = 5*60*1000`, `brandingCache` + `brandingInFlight` module-level, jalur khusus di `rpc()` untuk `fn==='get_branding' && params kosong` → cache hit balik segera; in-flight dibagi ke semua pemanggil paralel; error TIDAK di-cache; export `invalidateBrandingCache()`.
+  - `src/components/LogoUploader.tsx`: panggil `invalidateBrandingCache()` setelah `update_branding` sukses (satu-satunya caller update_branding di src/ — data branding berubah → cache dibuang).
+- **Bukti dedupe — probe CDP fetch-instrumented (`.agents/scripts/ops11-branding-probe.cjs`, bukti mentah `.agents/logs/ops11-branding-probe.json`):**
+
+  | Halaman | SEBELUM (call logis) | SESUDAH (call logis) |
+  |---|---|---|
+  | / | 4 (2 mount + 2 remount t+1137ms) | **1** |
+  | /worker | 2 (pasangan StrictMode t+0) | **1** |
+  | /admin | 2 | **1** |
+  | /dashboard | 2 | **1** |
+  | /owner/dashboard | 0 (LogoUploader hanya tab branding) | 0 |
+
+  Atribusi SEBELUM (stack vite dev): semua call via `async rpc (src/lib/supabase-browser.ts:38)`; pasangan t+0 = duplikasi effect oleh `<React.StrictMode>` (dev-only) + remount guard/Suspense. Entri jaringan mentah = 2× call logis (POST + OPTIONS preflight).
+- **Insiden L4 + resolusi (bukan regresi fix):** rerun `test:a11y` pertama = 4/6, 2 failed (Owner + Owner Config) — axe menemukan `input[type="email"]` tanpa label = **halaman OwnerLogin**, artinya scan dijalankan setelah bounce. Probe A/B (fix vs stash=HEAD): bounce SAMA di kedua kode → bukan penyebab fix. Akar: sesi supabase di `auth-owner.json` (dibuat 2026-09-23 15:37) kedaluwarsa/ditolak `OwnerGuard` (`supabase.auth.getSession()` + `check_owner_identity`), kemungkinan karena refresh token ter-rotasi saat run 07:19 pagi. Resolusi (approval user, Opsi A): regen owner-only via `.agents/scripts/ops11-regen-owner.cjs` (pola blok owner `setup-auth-state.cjs`, login UI `/owner`, **0 OTP**) → verify `/owner/dashboard` bertahan (h1 "Owner Dashboard") → rerun 6/6.
+- **Gate + regresi (working tree = commit):** `check:types` EXIT 0; `lint` EXIT 0; `npm test` = **22 files / 141 passed** (89,29s); `test:a11y` = **6/6 PASS, 0 violation** (1.4m); sweep `-g "mill"` = **8/8 PASS** (1.6m, `/admin/mill` admin_mill 16.1s — OPS-10 tetap sehat).
+- **Chain §0.3:** COMMIT `624ddf7` → PUSH `b6b2247..624ddf7 migrasi-vite -> migrasi-vite` (exit 0) → Vercel auto-deploy push-triggered (status dicek di eksekusi ini).
+- **OPS-11 CLOSED** — dihapus dari tabel §5.8 AGENTS.md, masuk blok "Dipangkas 2026-09-24". Sisa OPEN di §5.8: OPS-06 (P2, keputusan user: jangan fix), OPS-07 (P3).
+- **Dampak lintas-page: worker → admin → dashboard → owner** — `get_branding` dipanggil AppDrawer (global, semua page) + Home (login) + LogoUploader (owner): semua kini berbagi 1 request per 5 menit per tab; perilaku data tidak berubah (payload sama, hanya dedupe transport); bukti per page: a11y 6/6 (login/worker/admin/dashboard/owner/owner-config 0 violation) + sweep mill 8/8. Tidak ada perubahan kontrak return (`T | RpcError` tetap), tidak ada perubahan RPC/session DB.
