@@ -8,7 +8,7 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 > index ini) / test yang menulis state. Temuan P0 TIDAK menghentikan audit.
 
 ## Batch Raw (.agents/reports/forensic/)
-- [ ] Batch 01 — Audit 01-10 → FORENSIC-RAW-batch-01.md
+- [x] Batch 01 — Audit 01-10 → FORENSIC-RAW-batch-01.md ✅ **selesai**
 - [ ] Batch 02 — Audit 11-20 → FORENSIC-RAW-batch-02.md
 - [ ] Batch 03 — Audit 21-30 → FORENSIC-RAW-batch-03.md
 - [ ] Batch 04 — Audit 31-40 → FORENSIC-RAW-batch-04.md
@@ -22,13 +22,19 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [ ] FORENSIC-GLOBAL.md — analisis relasi (setelah 88)
 - [ ] FORENSIC-FIXPLAN.md — fix plan batched (setelah global)
 
-## Temuan Summary
-| Severity | Jumlah |
-|---|---|
-| P0 | TBD |
-| P1 | TBD |
-| P2 | TBD |
-| P3 | TBD |
+## Temuan Summary (setelah Batch 01)
+| Severity | Jumlah | Catatan |
+|---|---|---|
+| P0 | **1** | P0-01-01 — `employees_master` bocor PII ke anon (TERBUKTI LIVE) |
+| P1 | 5 | lihat FORENSIC-RAW-batch-01.md |
+| P2 | 2 | |
+| P3 | 2 | |
+| **Total (batch 01 dari 9)** | **10** | 8 batch lagi berjalan |
+
+## Kemajuan
+- ✅ Batch 01 (Audit 01-10) — **P0: 1, P1: 5, P2: 2, P3: 2**
+- ⏳ Batch 02-09 (Audit 11-88) — menunggu
+
 
 ## Konteks Repo (penting untuk reading hasil audit)
 - Branch audit: `migrasi-vite` @ `c70df84`
