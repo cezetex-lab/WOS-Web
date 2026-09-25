@@ -106,7 +106,10 @@ async function sweepRoutes(page: Page, routes: string[], role: string, errors: S
       errors.push({ role, route: r, type: 'navigate', msg: String(e).slice(0, 300) });
       continue;
     }
-    await page.waitForTimeout(1200);
+    // Ganti tidur buta 1,2 s dengan sinyal nyata: body ter-render + document selesai
+    // load. Trace 2026-09-25: 12 × 1,2 s = 14,4 s budget terbuang tanpa gunanya.
+    await page.locator('body').waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
+    await page.waitForFunction(() => document.readyState !== 'loading', null, { timeout: 3_000 }).catch(() => {});
     const body = (await page.textContent('body').catch(() => '')) || '';
     if (body.trim().length > 0) rendered += 1;
     const errMatch = body.match(/(Error|error message|gagal|failed|exception|crash|tidak ditemukan|not found|undefined is not|Cannot read)/i);
@@ -131,6 +134,10 @@ test.describe('Full Production Sweep', () => {
   });
 
   test('Worker: login + route sweep', async ({ page }) => {
+    // Safety net: 12 navigasi + login live. 90 s tidak realistis — test ini dari 8 run
+    // historis selalu duduk di 62–91 s (trace 2026-09-25). Budget aslinya sudah dipangkas
+    // ~26 s oleh fix dead-wait, angka ini hanya pengaman saat box sedang sibuk.
+    test.setTimeout(180_000);
     const errors: SweepError[] = [];
     const rpc: string[] = [];
     page.on('response', (r) => { if (r.url().includes('/rpc/login_worker')) rpc.push(String(r.status())); });

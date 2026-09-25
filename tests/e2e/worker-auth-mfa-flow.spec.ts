@@ -22,6 +22,7 @@ import {
   MOCK_USERS,
   mockJwt,
 } from './helpers/mock-supabase';
+import { clickStable } from './helpers/live-login';
 
 const SUPA = process.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 const AUTH_SYNC_URL = `${SUPA}/functions/v1/worker-auth-sync`;
@@ -143,26 +144,26 @@ test.describe('L7: Worker login with MFA enabled', () => {
     // Navigate + login manually via NRP mode (loginAsWorker would wait for /worker).
     await page.goto('/');
     await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
-    await page.locator('text=Masuk dengan NRP').click();
+    await clickStable(page.locator('text=Masuk dengan NRP'));
     await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
     await page.locator('input[placeholder*="NRP"]').fill(WORKER_LOGIN.nrp);
     await page.locator('input[placeholder*="NIK"]').fill(WORKER_LOGIN.nik);
     await page.locator('input[placeholder*="password"]').fill(WORKER_LOGIN.password);
-    await page.locator('button[type="submit"]').click();
+    await clickStable(page.locator('button[type="submit"]'));
 
     // MFA step appears (session stored, login paused).
     await expect(page.getByText(/Verifikasi MFA/i)).toBeVisible({ timeout: 15000 });
 
     // Wrong code → stays on MFA step with error.
     await page.locator('input[placeholder="000000"]').fill('000000');
-    await page.getByRole('button', { name: /Verifikasi/i }).click();
+    await clickStable(page.getByRole('button', { name: /Verifikasi/i }));
     // Error renders in both the global error div and inline form error.
     await expect(page.getByText(/Kode TOTP salah/i).first()).toBeVisible({ timeout: 10000 });
     await expect(page).not.toHaveURL(/\/worker$/);
 
     // Correct code → proceeds to /worker.
     await page.locator('input[placeholder="000000"]').fill('123456');
-    await page.getByRole('button', { name: /Verifikasi/i }).click();
+    await clickStable(page.getByRole('button', { name: /Verifikasi/i }));
     await page.waitForURL('**/worker', { timeout: 15000 });
     await expect(page.getByRole('heading', { name: /Ringkasan Hari Ini/i })).toBeVisible();
 

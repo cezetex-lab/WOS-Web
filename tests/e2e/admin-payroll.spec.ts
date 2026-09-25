@@ -15,7 +15,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { mockSupabase, loginAsAdmin } from './helpers/mock-supabase';
-import { loginLiveAdmin } from './helpers/live-login';
+import { loginLiveAdmin, openHome, clickStable } from './helpers/live-login';
 import { ADMIN_ACCOUNTS, assertAccount, assertOtpBudget } from './helpers/live-accounts';
 
 const LIVE_ADMIN = ADMIN_ACCOUNTS.pusat;
@@ -27,17 +27,17 @@ test.describe('L7: Admin Login Form UI', () => {
   });
 
   test('admin tab shows email and password inputs', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('button', { hasText: 'Admin' }).click();
+    await openHome(page);
+    await clickStable(page.locator('button', { hasText: 'Admin' }));
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[placeholder*="password"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();
   });
 
   test('admin login with empty fields stays on login page', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('button', { hasText: 'Admin' }).click();
-    await page.locator('button[type="submit"]').click();
+    await openHome(page);
+    await clickStable(page.locator('button', { hasText: 'Admin' }));
+    await clickStable(page.locator('button[type="submit"]'));
     expect(page.url()).toContain('/');
     await expect(page.locator('input[type="email"]')).toBeVisible();
   });

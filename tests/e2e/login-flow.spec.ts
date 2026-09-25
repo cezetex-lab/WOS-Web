@@ -47,25 +47,25 @@ test.describe('L7: Login Flow UI', () => {
   });
 
   test('admin tab shows admin login form', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('button', { hasText: 'Admin' }).click();
+    await openHome(page);
+    await clickStable(page.locator('button', { hasText: 'Admin' }));
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[placeholder*="password"]')).toBeVisible();
   });
 
   test('dashboard tab shows dashboard login form (email mode)', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('button', { hasText: 'Dashboard' }).click();
+    await openHome(page);
+    await clickStable(page.locator('button', { hasText: 'Dashboard' }));
     await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
   });
 
   test('tab switching clears form state', async ({ page }) => {
-    await page.goto('/');
+    await openHome(page);
     await page.locator('input[placeholder*="email"]').fill('test@example.com');
     await page.locator('input[placeholder*="password"]').fill('secret123');
-    await page.locator('button', { hasText: 'Admin' }).click();
+    await clickStable(page.locator('button', { hasText: 'Admin' }));
     await expect(page.locator('input[type="email"]')).toBeVisible();
-    await page.locator('button', { hasText: 'Pekerja' }).click();
+    await clickStable(page.locator('button', { hasText: 'Pekerja' }));
     await expect(page.locator('input[placeholder*="email"]')).toHaveValue('');
   });
 });

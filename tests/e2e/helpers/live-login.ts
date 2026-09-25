@@ -43,16 +43,28 @@ function logOtpWait(message: string): void {
 
 /** Buka halaman login: tunggu branding settle + tangani dialog consent. */
 export async function openHome(page: Page, timeout = 30_000): Promise<void> {
+  // OPS-06b follow-up: pre-seed consent SEBELUM app mount (pola yang sama dipakai
+  // mock-supabase.ts:409 dan `addInitScript` di helper a11y). Dialog PrivacyConsent
+  // (z-[9999]) render ASYNC — menunggu dengan jendela tetap kalah saat dev server
+  // lambat, lalu modal memblokir SETIAP klik (trace 2026-09-25:
+  // "…aria-label='Persetujuan Privasi'… intercepts pointer events").
+  await page.addInitScript(() => {
+    try { localStorage.setItem('wos_privacy_consent', 'true'); } catch { /* ignore */ }
+  });
+  // Listener HARUS dipasang SEBELUM goto: kalau after, respons get_branding yang
+  // sudah datang saat navigasi terlewat dan kita menunggu sia-sia (race).
+  // Bukti trace 2026-09-25: 7,0 s terbuang hanya untuk waitForResponse ini.
+  const branding = page.waitForResponse((r) => r.url().includes('/rpc/get_branding'), { timeout: 8_000 }).catch(() => null);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  // get_branding memicu re-render; menunggu responsnya mencegah klik submit hilang.
-  await page.waitForResponse((r) => r.url().includes('/rpc/get_branding'), { timeout }).catch(() => {});
+  await branding;
   const consent = page.locator('div[role="dialog"] button:has-text("Saya Setuju")').first();
   try {
-    await consent.waitFor({ state: 'visible', timeout: 8_000 });
+    // Pre-seed consent kini andal → hanya tutup bila SUDAH terlihat (bukan tunggu 5 s
+    // sia-sia; trace 2026-09-25: 5,0 s terbuang karena dialog tidak pernah muncul).
+    await consent.waitFor({ state: 'visible', timeout: 1_000 });
     await consent.click();
-    await page.waitForTimeout(300);
   } catch {
-    /* tidak ada dialog consent — lanjut */
+    /* pre-seed sudah menutupnya — jaring pengaman saja */
   }
   // Sisa request (check_login_lockout, modul, dsb.) juga memicu re-render yang bisa
   // MENYAPU nilai form setelah diisi → server menerima password kosong dan membalas
@@ -77,7 +89,14 @@ export async function clickStable(locator: Locator, timeout = 30_000): Promise<v
       return;
     } catch (e) {
       lastErr = e;
-      await locator.page().waitForTimeout(400).catch(() => {});
+      // Self-heal: consent modal (z-[9999]) memblokir klik — tutup dulu sebelum retry.
+      const page = locator.page();
+      if (page.isClosed()) throw lastErr; // context mati: retry buta tidak berguna
+      const consent = page.locator('div[role="dialog"] button:has-text("Saya Setuju")').first();
+      if (await consent.isVisible().catch(() => false)) {
+        await consent.click({ timeout: 3_000 }).catch(() => {});
+      }
+      await page.waitForTimeout(400).catch(() => {});
     }
   }
   throw lastErr;

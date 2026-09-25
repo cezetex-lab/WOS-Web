@@ -10,6 +10,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { mockSupabase, loginAsWorker } from './helpers/mock-supabase';
+import { clickStable } from './helpers/live-login';
 
 test.describe('L7: Session Guard Behavior', () => {
   test('fresh visit has no stored auth session', async ({ page }) => {
@@ -106,12 +107,12 @@ test.describe('L7: Concurrent Session Limit', () => {
     });
     await page2.goto('/');
     // NRP mode lives behind the toggle (worker tab defaults to email mode).
-    await page2.locator('text=Masuk dengan NRP').click();
+    await clickStable(page2.locator('text=Masuk dengan NRP'));
     await expect(page2.locator('input[placeholder*="NRP"]')).toBeVisible();
     await page2.locator('input[placeholder*="NRP"]').fill('NRP001');
     await page2.locator('input[placeholder*="NIK"]').fill('1234567890');
     await page2.locator('input[placeholder*="password"]').fill('Test123!');
-    await page2.locator('button[type="submit"]').click();
+    await clickStable(page2.locator('button[type="submit"]'));
 
     await expect(page2.locator('body')).toContainText('melebihi batas');
     expect(page2.url()).toContain('/');

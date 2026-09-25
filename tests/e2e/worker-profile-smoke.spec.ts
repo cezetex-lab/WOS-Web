@@ -14,7 +14,8 @@
  *
  * Jalankan lewat `npm run smoke:ops01` (headed, hasil terekam ke agentsLogs).
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { openHome, clickStable, fillStable } from './helpers/live-login';
 import fs from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
@@ -26,6 +27,26 @@ const NRP = process.env.OPS01_NRP; // nrp worker uji (untuk bukti DB di test SQL
 const NILAI_UJI = process.env.OPS01_TEST_VALUE ?? 'Islam';
 const TANDA = `smoke-${Date.now()}`;
 
+/**
+ * Login worker (email + password) memakai helper bersama.
+ *
+ * SEBELUMNYA kedua test menulis blok login sendiri: `page.goto('/')` + tunggu
+ * dialog consent 8 s + `button[type="submit"]').click()` MENTAH. Blok itu tidak
+ * memakai `openHome` (pre-seed consent) maupun `clickStable` (retry + self-heal
+ * overlay), jadi punya jalur berbeda dari spec lain — dan itulah sumber flaky-nya:
+ * Run 1/3 2026-09-25 `worker-profile-smoke` gagal dengan
+ * `locator.click: Timeout 15000ms exceeded` pada `button[type="submit"]`
+ * (tombol ter-resolve tapi klik tidak sampai), lalu lulus di attempt kedua.
+ */
+async function loginWorker(page: Page): Promise<void> {
+  await openHome(page);
+  await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 20_000 });
+  await fillStable(page.locator('input[type="email"]'), EMAIL!);
+  await fillStable(page.locator('input[type="password"]').first(), PASSWORD!);
+  await clickStable(page.locator('button[type="submit"]').first());
+  await page.waitForURL(/\/worker/, { timeout: 30_000 });
+}
+
 test.describe('OPS-01 smoke WorkerProfile', () => {
   test.skip(
     !EMAIL || !PASSWORD,
@@ -34,22 +55,7 @@ test.describe('OPS-01 smoke WorkerProfile', () => {
 
   test('login worker → edit Agama → Simpan → reload → persist → pulihkan', async ({ page }) => {
     // ── 1. LOGIN WORKER (email + password, Home.tsx) ──────────────────────────
-    await page.goto('/');
-
-    // Modal consent privasi (z-[9999]) muncul async dan menghalangi klik submit.
-    const consent = page.locator('div[role="dialog"] button:has-text("Saya Setuju")');
-    try {
-      await consent.first().waitFor({ state: 'visible', timeout: 8_000 });
-      await consent.first().click();
-    } catch {
-      /* tidak ada dialog consent — lanjut */
-    }
-
-    await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 20_000 });
-    await page.locator('input[type="email"]').fill(EMAIL!);
-    await page.locator('input[type="password"]').first().fill(PASSWORD!);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL(/\/worker/, { timeout: 30_000 });
+    await loginWorker(page);
     console.log(`[OPS-01] login berhasil sebagai ${EMAIL}`);
 
     // ── 2. BUKA /worker/profile dan masuk mode Edit ───────────────────────────
@@ -125,21 +131,7 @@ test.describe('OPS-01 smoke WorkerProfile', () => {
 
   test('SQL-12: kosongkan Agama ("") → simpan → reload → tetap kosong + DB NULL → pulihkan', async ({ page }) => {
     // ── 1. LOGIN WORKER (sama seperti test pertama) ───────────────────────────
-    await page.goto('/');
-
-    const consent = page.locator('div[role="dialog"] button:has-text("Saya Setuju")');
-    try {
-      await consent.first().waitFor({ state: 'visible', timeout: 8_000 });
-      await consent.first().click();
-    } catch {
-      /* tidak ada dialog consent — lanjut */
-    }
-
-    await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 20_000 });
-    await page.locator('input[type="email"]').fill(EMAIL!);
-    await page.locator('input[type="password"]').first().fill(PASSWORD!);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL(/\/worker/, { timeout: 30_000 });
+    await loginWorker(page);
 
     // ── 2. BUKA /worker/profile, mode Edit, catat nilai asli ──────────────────
     await page.goto('/worker/profile');
