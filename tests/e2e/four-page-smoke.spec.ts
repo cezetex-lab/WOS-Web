@@ -7,7 +7,7 @@
  * tetap hijau tanpa rahasia.
  *
  * Env yang dipakai:
- *   E2E_WORKER_EMAIL / E2E_WORKER_NRP / E2E_WORKER_NIK + E2E_WORKER_PASS
+ *   E2E_WORKER_FOURPAGE_EMAIL / _NRP / _NIK + _PASS
  *   E2E_ADMIN_EMAIL + E2E_ADMIN_PASS
  *   E2E_DASHBOARD_EMAIL + E2E_DASHBOARD_PASS (fallback: kredensial admin)
  *   E2E_OWNER_EMAIL + E2E_OWNER_PASS
@@ -15,8 +15,11 @@
  */
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { clickStable, fillAdminOtp, fillStable, openHome } from './helpers/live-login';
+import { ADMIN_ACCOUNTS, DASHBOARD_ACCOUNT, assertOtpBudget } from './helpers/live-accounts';
 
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:5173';
+const LIVE = Boolean(process.env.E2E_LIVE);
 
 function envFirst(...keys: string[]): string {
   for (const key of keys) {
@@ -26,24 +29,26 @@ function envFirst(...keys: string[]): string {
   return '';
 }
 
-const WORKER_NRP = envFirst('E2E_WORKER_NRP', 'TEST_WORKER_NRP');
-const WORKER_NIK = envFirst('E2E_WORKER_NIK', 'TEST_WORKER_NIK');
-const WORKER_PASS = envFirst('E2E_WORKER_PASS', 'TEST_WORKER_PASS');
-const WORKER_EMAIL =
-  envFirst('E2E_WORKER_EMAIL', 'TEST_WORKER_EMAIL') ||
-  (WORKER_NRP && WORKER_NRP !== 'NRP001' ? `${WORKER_NRP.toLowerCase()}@insightwos.internal` : '');
+// Identitas worker KHUSUS four-page (E2E_WORKER_FOURPAGE_*) — bukan E2E_WORKER_*
+// (NRP008) yang dipakai 5 konsumen sehingga login paralel beradu (temuan RUN 2).
+const WORKER_NRP = envFirst('E2E_WORKER_FOURPAGE_NRP');
+const WORKER_NIK = envFirst('E2E_WORKER_FOURPAGE_NIK');
+const WORKER_PASS = envFirst('E2E_WORKER_FOURPAGE_PASS');
+const WORKER_EMAIL = envFirst('E2E_WORKER_FOURPAGE_EMAIL');
 
-const ADMIN_EMAIL = envFirst('E2E_ADMIN_EMAIL', 'TEST_ADMIN_EMAIL');
-const ADMIN_PASS = envFirst('E2E_ADMIN_PASS', 'TEST_ADMIN_PASS');
-const DASHBOARD_EMAIL = envFirst('E2E_DASHBOARD_EMAIL', 'TEST_DASHBOARD_EMAIL') || ADMIN_EMAIL;
-const DASHBOARD_PASS = envFirst('E2E_DASHBOARD_PASS', 'TEST_DASHBOARD_PASS') || ADMIN_PASS;
+// Identitas dari kontrak bersama (env-only, tanpa literal password) — sebaran OTP:
+// Admin = hrd, Dashboard = hrd ⇒ 2 OTP / identitas / run (limit aplikasi 3 per 15 menit).
+const ADMIN = ADMIN_ACCOUNTS.hrd;
+const DASHBOARD = DASHBOARD_ACCOUNT;
 const OWNER_EMAIL = envFirst('E2E_OWNER_EMAIL', 'TEST_OWNER_EMAIL');
 const OWNER_PASS = envFirst('E2E_OWNER_PASS', 'TEST_OWNER_PASS');
 
-const HAS_WORKER = Boolean(WORKER_PASS && (WORKER_EMAIL || (WORKER_NRP && WORKER_NIK)));
-const HAS_ADMIN = Boolean(ADMIN_EMAIL && ADMIN_PASS);
-const HAS_DASHBOARD = Boolean(DASHBOARD_EMAIL && DASHBOARD_PASS);
-const HAS_OWNER = Boolean(OWNER_EMAIL && OWNER_PASS);
+// Saat E2E_LIVE=1 jangan pernah skip: kredensial yang hilang harus terlihat GAGAL,
+// supaya klaim "0 skip" pada run LIVE benar-benar terukur.
+const HAS_WORKER = LIVE || Boolean(WORKER_PASS && (WORKER_EMAIL || (WORKER_NRP && WORKER_NIK)));
+const HAS_ADMIN = LIVE || Boolean(ADMIN.email && ADMIN.pass);
+const HAS_DASHBOARD = LIVE || Boolean(DASHBOARD.email && DASHBOARD.pass);
+const HAS_OWNER = LIVE || Boolean(OWNER_EMAIL && OWNER_PASS);
 
 async function acceptConsent(page: Page): Promise<void> {
   const consent = page.locator('div[role="dialog"] button:has-text("Saya Setuju")').first();
@@ -56,16 +61,18 @@ async function acceptConsent(page: Page): Promise<void> {
   }
 }
 
+// fillStable: re-render (branding/consent/sisa request) bisa MENYAPU nilai form setelah
+// `fill()` sehingga server menilai kredensial salah → FLAKY (temuan RUN 2).
 async function fillEmail(page: Page, email: string): Promise<void> {
-  await page.locator('form input[type="email"]').first().fill(email);
+  await fillStable(page.locator('form input[type="email"]').first(), email);
 }
 
 async function fillSecret(page: Page, secret: string, index = 1): Promise<void> {
-  await page.locator('form input').nth(index).fill(secret);
+  await fillStable(page.locator('form input').nth(index), secret);
 }
 
 async function waitForPath(page: Page, path: string): Promise<void> {
-  await page.waitForURL((url) => url.pathname === path, { timeout: 30000 });
+  await page.waitForURL((url) => url.pathname === path, { timeout: 45000 });
 }
 
 async function loginWorker(page: Page): Promise<void> {
@@ -73,44 +80,46 @@ async function loginWorker(page: Page): Promise<void> {
     await fillEmail(page, WORKER_EMAIL);
     await fillSecret(page, WORKER_PASS);
   } else {
-    await page.getByText('Masuk dengan NRP').click();
-    await page.locator('input[placeholder*="NRP"]').fill(WORKER_NRP);
-    await page.locator('input[placeholder*="NIK"]').fill(WORKER_NIK);
+    await clickStable(page.getByText('Masuk dengan NRP').first());
+    await fillStable(page.locator('input[placeholder*="NRP"]'), WORKER_NRP);
+    await fillStable(page.locator('input[placeholder*="NIK"]'), WORKER_NIK);
     await fillSecret(page, WORKER_PASS, 2);
   }
-  await page.locator('form button[type="submit"]').first().click();
+  await clickStable(page.locator('form button[type="submit"]').first());
 }
 
-async function readDisplayedOtp(page: Page): Promise<string> {
-  const body = await page.locator('body').innerText();
-  const match = /(?:Kode OTP[^0-9]{0,160})(\d{6})/i.exec(body);
-  if (!match) throw new Error('Kode OTP dev-mode tidak ditemukan di UI — edge password-reset tidak mengirim dev_code');
-  return match[1];
-}
-
-async function completeOtp(page: Page): Promise<void> {
-  const otpInput = page.locator('input[placeholder="000000"]').first();
-  await expect(otpInput).toBeVisible({ timeout: 30000 });
-  await otpInput.fill(await readDisplayedOtp(page));
-  await page.locator('form button[type="submit"]').first().click();
+/**
+ * Langkah OTP memakai helper bersama: menunggu input OTP ATAU pesan rate-limit,
+ * dan TIDAK mengirim ulang submit berulang (setiap klik memesan OTP baru sehingga
+ * justru menghabiskan kuota 3/15 menit — temuan RUN 1 2026-09-25).
+ * Mengembalikan jumlah tunggu rate-limit untuk pelaporan.
+ */
+async function completeOtp(page: Page): Promise<number> {
+  return fillAdminOtp(page, 45000);
 }
 
 async function logout(page: Page, owner = false): Promise<void> {
+  // timeout eksplisit pada click(): tanpa itu, tombol yang belum bisa diklik menunggu
+  // sampai test timeout (temuan RUN 4: 605,9 s hanya untuk langkah logout).
   if (owner) {
-    await page.getByRole('button', { name: /^Logout$/i }).click();
+    await clickStable(page.getByRole('button', { name: /^Logout$/i }).first(), 20000);
     await page.waitForURL((url) => url.pathname === '/owner', { timeout: 20000 });
   } else {
-    await page.locator('button[title="Logout"]').first().click();
+    await clickStable(page.locator('button[title="Logout"]').first(), 20000);
     await page.waitForURL((url) => url.pathname === '/', { timeout: 20000 });
   }
 }
 
 test.describe('four-page live smoke (opt-in via env kredensial)', () => {
+  test.beforeAll(() => {
+    assertOtpBudget(); // gagal cepat bila sebaran identitas OTP menyimpang
+  });
+
   test('Worker: login -> /worker -> logout', async ({ page }) => {
     test.skip(!HAS_WORKER, 'Kredensial worker belum diisi di environment');
-    await page.goto(BASE + '/');
-    await acceptConsent(page);
-    await page.getByRole('button', { name: /Pekerja/ }).click();
+    // openHome menunggu get_branding selesai (klik submit saat re-render hilang).
+    await openHome(page, 30000);
+    await clickStable(page.getByRole('button', { name: /Pekerja/ }).first());
     await loginWorker(page);
     await waitForPath(page, '/worker');
     await expect(page.getByRole('heading', { name: /Ringkasan Hari Ini/i })).toBeVisible();
@@ -119,13 +128,13 @@ test.describe('four-page live smoke (opt-in via env kredensial)', () => {
 
   test('Admin: login -> /admin -> logout', async ({ page }) => {
     test.skip(!HAS_ADMIN, 'Kredensial admin belum diisi di environment');
-    await page.goto(BASE + '/');
-    await acceptConsent(page);
-    await page.getByRole('button', { name: /Admin/ }).click();
-    await fillEmail(page, ADMIN_EMAIL);
-    await fillSecret(page, ADMIN_PASS);
-    await page.locator('form button[type="submit"]').first().click();
-    await completeOtp(page);
+    test.setTimeout(10 * 60_000); // satu tunggu jendela OTP (6 menit) + alur login
+    await openHome(page, 30000);
+    await clickStable(page.getByRole('button', { name: /Admin/ }).first());
+    await fillEmail(page, ADMIN.email);
+    await fillSecret(page, ADMIN.pass);
+    await clickStable(page.locator('form button[type="submit"]').first());
+    console.log('[four-page] Admin otpWaits=' + (await completeOtp(page)));
     await waitForPath(page, '/admin');
     await expect(page.getByRole('heading', { name: /Selamat Datang, Admin/i })).toBeVisible();
     await logout(page);
@@ -133,13 +142,13 @@ test.describe('four-page live smoke (opt-in via env kredensial)', () => {
 
   test('Dashboard: login via tab Dashboard -> /dashboard -> logout', async ({ page }) => {
     test.skip(!HAS_DASHBOARD, 'Kredensial dashboard belum diisi di environment');
-    await page.goto(BASE + '/');
-    await acceptConsent(page);
-    await page.getByRole('button', { name: /Dashboard/ }).click();
-    await fillEmail(page, DASHBOARD_EMAIL);
-    await fillSecret(page, DASHBOARD_PASS);
-    await page.locator('form button[type="submit"]').first().click();
-    await completeOtp(page);
+    test.setTimeout(10 * 60_000); // satu tunggu jendela OTP (6 menit) + alur login
+    await openHome(page, 30000);
+    await clickStable(page.getByRole('button', { name: /Dashboard/ }).first());
+    await fillEmail(page, DASHBOARD.email);
+    await fillSecret(page, DASHBOARD.pass);
+    await clickStable(page.locator('form button[type="submit"]').first());
+    console.log('[four-page] Dashboard otpWaits=' + (await completeOtp(page)));
     await waitForPath(page, '/dashboard');
     await expect(page.getByRole('button', { name: /Beranda/ })).toBeVisible();
     await logout(page);
@@ -151,7 +160,7 @@ test.describe('four-page live smoke (opt-in via env kredensial)', () => {
     await acceptConsent(page);
     await fillEmail(page, OWNER_EMAIL);
     await fillSecret(page, OWNER_PASS);
-    await page.locator('form button[type="submit"]').first().click();
+    await clickStable(page.locator('form button[type="submit"]').first());
     await waitForPath(page, '/owner/dashboard');
     await expect(page.getByRole('heading', { name: /Owner Dashboard/i })).toBeVisible();
     await logout(page, true);

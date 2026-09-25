@@ -6,16 +6,21 @@
  *  2. Full worker login -> dashboard -> logout with a mocked Supabase backend
  *     (runs by default, no credentials needed, deterministic in CI).
  *
- * Optional live tests against a real backend: set TEST_WORKER_NRP,
- * TEST_WORKER_NIK, TEST_WORKER_PASS and run with `--grep live`.
+ * Optional live tests against a real backend: isi E2E_WORKER_LOGINFLOW_NRP,
+ * E2E_WORKER_LOGINFLOW_NIK, E2E_WORKER_LOGINFLOW_PASS (di-seed dari akun.txt)
+ * lalu jalankan dengan `--grep live`.
  */
 import { test, expect } from '@playwright/test';
 import { mockSupabase, loginAsWorker } from './helpers/mock-supabase';
+import { clickStable, fillStable, openHome } from './helpers/live-login';
 
-const WORKER_NRP = process.env.TEST_WORKER_NRP;
-const WORKER_NIK = process.env.TEST_WORKER_NIK;
-const WORKER_PASS = process.env.TEST_WORKER_PASS;
-const hasCredentials = WORKER_NRP && WORKER_NIK && WORKER_PASS;
+// Identitas worker KHUSUS login-flow (E2E_WORKER_LOGINFLOW_*) — bukan TEST_WORKER_*
+// (NRP008) yang dipakai 5 konsumen sehingga login paralel beradu (temuan RUN 2).
+const WORKER_NRP = process.env.E2E_WORKER_LOGINFLOW_NRP;
+const WORKER_NIK = process.env.E2E_WORKER_LOGINFLOW_NIK;
+const WORKER_PASS = process.env.E2E_WORKER_LOGINFLOW_PASS;
+// Saat E2E_LIVE=1 jangan skip: kredensial hilang harus terlihat GAGAL (0 skip terukur).
+const hasCredentials = Boolean(process.env.E2E_LIVE) || Boolean(WORKER_NRP && WORKER_NIK && WORKER_PASS);
 
 test.describe('L7: Login Flow UI', () => {
   test.beforeEach(async ({ page }) => {
@@ -36,7 +41,7 @@ test.describe('L7: Login Flow UI', () => {
 
   test('worker login with empty fields stays on login page', async ({ page }) => {
     await page.goto('/');
-    await page.locator('button[type="submit"]').click();
+    await clickStable(page.locator('button[type="submit"]').first());
     await expect(page.locator('input[placeholder*="email"]')).toBeVisible();
     expect(page.url()).toContain('/');
   });
@@ -96,7 +101,7 @@ test.describe('L7: Worker Login -> Dashboard -> Logout (mocked backend)', () => 
     await page.goto('/');
     await page.locator('input[placeholder*="email"]').fill('wrong@test.com');
     await page.locator('input[placeholder*="password"]').fill('wrongpass');
-    await page.locator('button[type="submit"]').click();
+    await clickStable(page.locator('button[type="submit"]').first());
 
     await expect(page.locator('body')).toContainText('Email atau password salah');
     expect(page.url()).toContain('/');
@@ -104,19 +109,23 @@ test.describe('L7: Worker Login -> Dashboard -> Logout (mocked backend)', () => 
 });
 
 test.describe('L7: Live Worker Login (opt-in, needs real backend)', () => {
-  test.skip(!hasCredentials, 'Skipping live login - set TEST_WORKER_NRP, TEST_WORKER_NIK, TEST_WORKER_PASS');
+  test.skip(!hasCredentials, 'Skipping live login - set E2E_WORKER_LOGINFLOW_NRP, E2E_WORKER_LOGINFLOW_NIK, E2E_WORKER_LOGINFLOW_PASS');
 
   test('complete worker login flow (NRP mode)', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    // openHome menunggu `get_branding` selesai + menutup dialog consent sebelum form
+    // disentuh. Sebelumnya `goto` + klik `text=Masuk dengan NRP` balapan dengan
+    // re-render branding sehingga klik tidak stabil (RUN 1: 2x timedOut 90 s).
+    await openHome(page, 30000);
+    // Tab Pekerja default = mode EMAIL; tunggu form benar-benar ter-render dulu.
+    await expect(page.locator('input[placeholder*="email"]')).toBeVisible({ timeout: 20000 });
     // Switch to NRP mode for NRP+NIK login
-    await page.locator('text=Masuk dengan NRP').click();
-    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible();
-    await page.locator('input[placeholder*="NRP"]').fill(WORKER_NRP!);
-    await page.locator('input[placeholder*="NIK"]').fill(WORKER_NIK!);
-    await page.locator('input[type="password"]').fill(WORKER_PASS!);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL('**/worker', { timeout: 15000 });
+    await clickStable(page.getByText('Masuk dengan NRP').first());
+    await expect(page.locator('input[placeholder*="NRP"]')).toBeVisible({ timeout: 20000 });
+    await fillStable(page.locator('input[placeholder*="NRP"]'), WORKER_NRP!);
+    await fillStable(page.locator('input[placeholder*="NIK"]'), WORKER_NIK!);
+    await fillStable(page.locator('input[type="password"]'), WORKER_PASS!);
+    await clickStable(page.locator('button[type="submit"]').first());
+    await page.waitForURL('**/worker', { timeout: 30000 });
     expect(page.url()).toContain('/worker');
     await page.waitForLoadState('networkidle');
     const body = await page.locator('body').textContent();

@@ -6,15 +6,20 @@
  *    (runs by default): tab filters (Semua/Diproses/Pending/PKWT/PKWTT) and
  *    the table search box.
  *
- * Optional live admin tests: set TEST_ADMIN_EMAIL / TEST_ADMIN_PASS and run
- * with `--grep live`.
+ * Optional live admin tests: isi kredensial identitas `pusat` di env
+ * (E2E_ADMIN_PUSAT_EMAIL / E2E_ADMIN_PUSAT_PASS) lalu jalankan dengan `--grep live`.
+ *
+ * Identitas: `pusat` (admin_pusat) — bukan `hrd`, karena `hrd` sudah dipakai
+ * two-page smoke (Admin + Dashboard) dan kuota OTP aplikasi 3/15 menit per NRP.
+ * Kontrak sebaran: tests/e2e/helpers/live-accounts.ts (OTP_ASSIGNMENT).
  */
 import { test, expect } from '@playwright/test';
 import { mockSupabase, loginAsAdmin } from './helpers/mock-supabase';
+import { loginLiveAdmin } from './helpers/live-login';
+import { ADMIN_ACCOUNTS, assertAccount, assertOtpBudget } from './helpers/live-accounts';
 
-const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL;
-const ADMIN_PASS = process.env.TEST_ADMIN_PASS;
-const hasCredentials = ADMIN_EMAIL && ADMIN_PASS;
+const LIVE_ADMIN = ADMIN_ACCOUNTS.pusat;
+const hasCredentials = Boolean(LIVE_ADMIN.email && LIVE_ADMIN.pass);
 
 test.describe('L7: Admin Login Form UI', () => {
   test.beforeEach(async ({ page }) => {
@@ -106,18 +111,24 @@ test.describe('L7: Admin Login -> Payroll -> Filter (mocked backend)', () => {
 });
 
 test.describe('L7: Live Admin Login (opt-in, needs real backend)', () => {
-  test.skip(!hasCredentials, 'Skipping live admin login - set TEST_ADMIN_EMAIL, TEST_ADMIN_PASS');
+  test.skip(!hasCredentials, 'Skipping live admin login - set E2E_ADMIN_PUSAT_EMAIL, E2E_ADMIN_PUSAT_PASS');
 
   test('admin can login and access payroll', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.locator('button', { hasText: 'Admin' }).click();
-    await page.locator('input[type="email"]').fill(ADMIN_EMAIL!);
-    await page.locator('input[type="password"]').fill(ADMIN_PASS!);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL('**/admin', { timeout: 15000 });
+    // Satu tunggu jendela rate-limit (6 menit) + alur login masih < 15 menit.
+    test.setTimeout(10 * 60_000);
+    assertOtpBudget();
+    assertAccount(LIVE_ADMIN, 'pusat');
+    // Admin = 2 langkah (password → OTP dev-mode). Helper menangani langkah OTP;
+    // tanpa itu test ini selalu gagal di waitForURL('**/admin') (temuan 2026-09-24).
+    const otpWaits = await loginLiveAdmin(page, LIVE_ADMIN);
+    console.log('[live-admin] otpWaits=' + otpWaits);
     expect(page.url()).toContain('/admin');
     const body = await page.locator('body').textContent();
     expect(body?.length ?? 0).toBeGreaterThan(100);
+
+    // Bukti modul Payroll benar-benar dapat dibuka admin (data live).
+    await page.goto('/admin/payroll');
+    await expect(page.locator('body')).not.toBeEmpty();
+    await expect(page.locator('h1, h2, h3').first()).toBeVisible({ timeout: 20000 });
   });
 });

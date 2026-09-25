@@ -8,9 +8,12 @@ test.describe('L7: Home Page E2E', () => {
 
   test('home page shows login form', async ({ page }) => {
     await page.goto('/');
-    // Should have some input fields for login
-    const inputs = await page.locator('input').count();
-    expect(inputs).toBeGreaterThan(0);
+    // Should have some input fields for login.
+    // Render pertama bersifat asinkron (branding/consent) — pakai poll supaya tidak
+    // balapan dengan React (RUN 1: `count()` sesaat = 0 → FLAKY, retry baru lolos).
+    await expect
+      .poll(() => page.locator('input').count(), { timeout: 20000 })
+      .toBeGreaterThan(0);
   });
 
   test('navigation to owner login', async ({ page }) => {

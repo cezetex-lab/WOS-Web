@@ -4,13 +4,16 @@
  */
 import { test, expect } from '@playwright/test';
 import type { Page, ConsoleMessage } from '@playwright/test';
+import { clickStable, fillAdminOtp, openHome } from './helpers/live-login';
+import { ADMIN_ACCOUNTS, assertAccount, assertOtpBudget } from './helpers/live-accounts';
 
 // Live-backend diagnostic: uses real credentials against a running deployment.
 // Opt in with E2E_LIVE=1 so the default suite stays hermetic (mocked) and green.
 test.skip(!process.env.E2E_LIVE, 'Live diagnostic — set E2E_LIVE=1 and TEST_BASE_URL to run');
 
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:5173';
-const ADMIN = { email: 'pusat@insightwos.com', pass: 'Admin123!' };
+// Identitas admin disebar (≤2 OTP per NRP per run; limit aplikasi 3/15 menit).
+const ADMIN = ADMIN_ACCOUNTS.ceo;
 
 /** One finding collected while sweeping admin tabs. */
 type TabFinding = {
@@ -48,24 +51,30 @@ const ADMIN_ROUTES = [
 ];
 
 async function loginAdmin(page: Page) {
-  await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 15000 });
-  await page.waitForTimeout(1000);
-  const consent = page.locator('button:has-text("Saya Setuju")');
-  if (await consent.count()) {
-    try { await consent.first().click({ timeout: 3000 }); } catch { /* overlay may block, continue */ }
-  }
-  await page.waitForTimeout(300);
-  await page.locator('button', { hasText: 'Admin' }).click({ timeout: 8000 });
-  await page.waitForTimeout(300);
+  assertOtpBudget();
+  assertAccount(ADMIN, 'ceo');
+  await openHome(page, 30000);
+  await clickStable(page.locator('button', { hasText: 'Admin' }).first());
+
+  // ── ASERSI: form login admin benar-benar ter-render ────────────────────────
+  await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 20000 });
   await page.fill('input[type="email"]', ADMIN.email);
   await page.fill('input[placeholder*="password"]', ADMIN.pass);
-  await page.click('button[type="submit"]');
-  await page.waitForTimeout(5000);
+  await clickStable(page.locator('button[type="submit"]').first());
+
+  // Admin = 2 langkah (password → OTP dev-mode); tanpa ini sweep selalu gagal.
+  await fillAdminOtp(page);
+  await page.waitForURL((u) => u.pathname.startsWith('/admin'), { timeout: 45000 }).catch(() => {});
   return page.url().includes('/admin');
 }
 
+/** Panjang teks body — penanda halaman ter-render (bukan blank). */
+async function bodyLen(page: Page) {
+  return ((await page.textContent('body').catch(() => '')) ?? '').length;
+}
+
 test('Admin: login + click every tab + check errors', async ({ page }) => {
-  test.setTimeout(600000); // 10 min for 60 routes
+  test.setTimeout(1_200_000); // 20 min: 60 rute + kemungkinan tunggu jendela OTP
   const errors: TabFinding[] = [];
   const passed: string[] = [];
   const redirected: Array<{ route: string; actual: string }> = [];
@@ -75,6 +84,8 @@ test('Admin: login + click every tab + check errors', async ({ page }) => {
   if (!ok) {
     errors.push({ route: '/', type: 'login-failed' });
     console.log(JSON.stringify(errors, null, 2));
+    // ASERSI: login yang gagal pun harus menyisakan halaman yang ter-render.
+    expect(await bodyLen(page), 'halaman login admin tidak boleh blank').toBeGreaterThan(80);
     return;
   }
 
@@ -132,6 +143,14 @@ test('Admin: login + click every tab + check errors', async ({ page }) => {
       passed.push(route);
     }
   }
+
+  // ── ASERSI: (a) hasil sweep menutup SEMUA rute (tidak ada yang hilang), dan
+  //           (b) minimal satu rute benar-benar ter-render (bukan blank semua).
+  expect(
+    passed.length + redirected.length + errors.length,
+    'setiap rute harus menghasilkan tepat satu temuan (passed/redirected/error)',
+  ).toBe(ADMIN_ROUTES.length);
+  expect(passed.length + redirected.length, 'minimal satu rute admin harus ter-render').toBeGreaterThan(0);
 
   console.log('\n=== TAB CLICK TEST RESULTS ===');
   console.log('Passed: ' + passed.length + ' | Redirected: ' + redirected.length + ' | Errors: ' + errors.length);
