@@ -1,0 +1,46 @@
+-- =============================================================================
+-- 249 — P0-01-01 EMERGACY MITIGATION: tutup SELURUH akses anon ke employees_master
+-- =============================================================================
+-- TEMUAN (forensik 2026-09-25, BUKTI LIVE):
+--   `employees_master` adalah VIEW (pg_class.relkind='v', relrowsecurity=false).
+--   Postgres tidak menerapkan RLS pada view — view dieksekusi dengan hak
+--   pemiliknya (`postgres`), yang BYPASS RLS `employees_core` di bawahnya.
+--
+--   (a) BACA — PostgRest melayani permintaan dengan anon key publik:
+--         GET /rest/v1/employees_master?select=*
+--           -> HTTP 200 | 17 baris | 75 kolom
+--           -> 30 kolom PII terekspos: nrp, nik, nama, email, tanggal_lahir,
+--              alamat, no_hp, npwp, kk, kolom *_encrypted, kontak darurat, dll.
+--       Artinya siapa saja tanpa login bisa mengunduh data pribadi 17 karyawan.
+--
+--   (b) TULIS/HAPUS — kebocoran ini bukan hanya baca. View ini punya 3 trigger
+--       INSTEAD OF (dibuktikan pg_trigger, bukan asumsi):
+--         trg_employees_master_insert INSTEAD OF INSERT -> employees_master_insert_trigger()
+--         trg_employees_master_update INSTEAD OF UPDATE -> employees_master_update_trigger()
+--         trg_employees_master_delete INSTEAD OF DELETE -> employees_master_delete_trigger()
+--       Dikombinasikan dengan grant INSERT/UPDATE/DELETE milik `anon`, ini
+--       memungkinkan pihak tanpa autentikasi MENGUBAH dan MENGHAPUS data
+--       karyawan lewat view yang sama.
+--
+-- MITIGASI (darurat, satu putaran): REVOKE ALL — cabut 7 privilege sekaligus,
+-- bukan hanya SELECT. Meninggalkan grant DML akan membiarkan jalur tulis tetap
+-- terbuka karena trigger INSTEAD OF di atas tetap dieksekusi.
+--
+-- Yang TIDAK tersentuh (konsumennya sudah diverifikasi, jadi revisi aman):
+--   * `service_role`  -> supabase/functions/mfa-service:132,
+--                        password-reset:78 (adminClient), ai-copilot (adminClient)
+--   * `authenticated` -> src/components/shared/DetailPageFactory.tsx
+--                        (fallbackTable 'employees_master') + seluruh UI
+--   * `postgres`      -> definisi view + RPC SECURITY DEFINER
+--
+-- CATATAN PERMANEN (tidak dikerjakan di migrasi ini — lihat FORENSIC-FIXPLAN):
+--   1. Akar sebenarnya adalah DEFAULT ACL `anon=arwdDxtm/postgres` yang memberi
+--      akses penuh ke setiap tabel/view BARU secara otomatis. Tanpa
+--      memperbaikinya, objek berikutnya akan bocor dengan cara yang sama.
+--   2. Fix struktural: `ALTER VIEW ... SET (security_invoker = on)` agar RLS
+--      tabel dasar ikut diterapkan, atau alihkan semua pemakai ke RPC ber-authz.
+--   3. Perlu ditinjau juga apakah 3 trigger INSTEAD OF itu masih dibutuhkan.
+-- =============================================================================
+
+REVOKE ALL ON public.employees_master FROM anon;
+REVOKE ALL ON public.employees_master FROM PUBLIC;
