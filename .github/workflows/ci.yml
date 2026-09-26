@@ -17,14 +17,15 @@
 #   `import.meta.env.VITE_*` yang nilainya disisipkan Vite saat bundling dan
 #   hanya dipakai saat RUNTIME di browser (createClient tidak dieksekusi saat
 #   `vite build`), sehingga `npm run build` VERIFIED berjalan tanpa env.
-#   Kalau nanti CI perlu menjalankan test yang menyentuh DB live, tambahkan
-#   lewat `${{ secrets.* }}` — jangan pernah menulis nilai literal di YAML.
+#   Step `Verify derived artifacts` (Batch Fix #2) memakai
+#   `${{ secrets.SUPABASE_DB_URL }}` — nilainya TIDAK pernah ditulis literal
+#   di YAML, hanya SELECT read-only lewat `pg`.
 #
-# RESIDUAL (lihat FORENSIC-FIXPLAN.md Batch #1):
-#   - `test` memakai `continue-on-error` HANYA sampai Batch Fix #2 menutup
-#     P1-56-01 (ARCHITECTURE.md §7.3/§7.4 belum sinkron dengan live).
-#   - Branch protection `migrasi-vite` masih perlu diset manual di GitHub
-#     Settings (butuh `gh` CLI / akses admin — TOOL NOT AVAILABLE).
+# RESIDUAL:
+#   - [SELESAI Batch #2] `test` tidak lagi memakai `continue-on-error`;
+#     P1-56-01 ditutup dan step `Verify derived artifacts` ditambahkan.
+#   - Branch protection `migrasi-vite` — ruleset "protect-migrasi-vite"
+#     AKTIF per 2026-09-26 (push ditolak bila CI merah; force push diblokir).
 # =============================================================================
 name: CI
 
@@ -69,14 +70,21 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Batch Fix #2 (P1-71-01 Akar A, P1-56-01, P1-31-01): angka di
+      # ARCHITECTURE.md §7.3/§7.4 meluruh tiap ada migrasi. Guard ini
+      # membandingkan dokumen vs DB live vs isi repo. Dijalankan SEBELUM test
+      # supaya drift ketahuan di sumbernya, bukan lewat test yang gagal.
+      #
+      # `pg` hanya menjalankan SELECT — tidak menulis ke live.
+      - name: Verify derived artifacts
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run verify:artifacts
+
       - name: Unit test
-        # TODO: Fix #2 akan menutup P1-56-01 — hapus continue-on-error
-        # P1-56-01: `doc-claims-vs-live.test.ts` gagal 2 test karena
-        # ARCHITECTURE.md §7.3/§7.4 belum sinkron dengan live (migrasi 173→175,
-        # file TS 207→209, tests 42→44). Fix-nya ada di Batch Fix #2
-        # (sinkronisasi artefak turunan) dan TIDAK sengaja dikerjakan di sini.
-        # Test yang gagal TIDAK dihapus — hanya step ini yang tidak memblokir.
-        continue-on-error: true
+        # `continue-on-error` DIHAPUS (Batch Fix #2): P1-56-01 sudah tertutup —
+        # ARCHITECTURE.md §7.3/§7.4 sinkron dengan live. Kegagalan unit test
+        # sekarang memblokir, dan tidak ada test yang dihapus.
         run: npm run test
 
       - name: Build

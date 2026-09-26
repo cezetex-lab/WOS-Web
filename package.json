@@ -20,6 +20,7 @@
     "deploy": "vercel --prod",
     "build:analyze": "vite build --mode analysis",
     "check:types": "tsc --noEmit",
+    "verify:artifacts": "node scripts/verify-derived-artifacts.mjs",
     "db:migrate": "node supabase/scripts/apply-migration.mjs",
     "db:replay": "node supabase/scripts/replay-fresh-install.mjs",
     "db:baseline": "node supabase/scripts/generate-baseline.mjs && node supabase/scripts/generate-baseline-data.mjs",
