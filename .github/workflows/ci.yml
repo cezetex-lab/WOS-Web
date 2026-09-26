@@ -1,0 +1,83 @@
+# =============================================================================
+# CI — Batch Fix #1 (P1-18-01: tidak ada CI untuk gate kode)
+# =============================================================================
+# KENAPA workflow ini ada
+#   .github/workflows/ hanya berisi `supabase-backup.yml`. Tidak ada workflow
+#   yang menjalankan `check:types` / `lint` / `test` / `build`. Semua gate
+#   dijalankan manual oleh agen lokal — dan itulah penyebab guard
+#   `doc-claims-vs-live` menangkap drift tanpa ada yang menjalankan
+#   (P1-56-01: unit suite diam-diam merah).
+#
+#   Workflow ini adalah PRASARAT untuk Batch Fix #2 (sinkronisasi artefak),
+#   #3 (test keamanan nyata), dan #10 (dokumentasi) — semuanya menghasilkan
+#   guard yang hanya berguna kalau guard itu jalan OTOMATIS.
+#
+# CATATAN TENTANG SECRETS
+#   TIDAK ADA secret Supabase yang di-hardcode di file ini. Build memakai
+#   `import.meta.env.VITE_*` yang nilainya disisipkan Vite saat bundling dan
+#   hanya dipakai saat RUNTIME di browser (createClient tidak dieksekusi saat
+#   `vite build`), sehingga `npm run build` VERIFIED berjalan tanpa env.
+#   Kalau nanti CI perlu menjalankan test yang menyentuh DB live, tambahkan
+#   lewat `${{ secrets.* }}` — jangan pernah menulis nilai literal di YAML.
+#
+# RESIDUAL (lihat FORENSIC-FIXPLAN.md Batch #1):
+#   - `test` memakai `continue-on-error` HANYA sampai Batch Fix #2 menutup
+#     P1-56-01 (ARCHITECTURE.md §7.3/§7.4 belum sinkron dengan live).
+#   - Branch protection `migrasi-vite` masih perlu diset manual di GitHub
+#     Settings (butuh `gh` CLI / akses admin — TOOL NOT AVAILABLE).
+# =============================================================================
+name: CI
+
+on:
+  push:
+    branches: [migrasi-vite]
+  pull_request:
+    branches: [migrasi-vite]
+
+# Batalkan run sebelumnya untuk branch yang sama — hemat kuota runner.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: types / lint / test / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # CATATAN: repo tidak mendeklarasikan versi Node (tidak ada .nvmrc /
+          # .node-version / engines / packageManager). Dipakai Node 22 LTS karena
+          # Vite 8 mensyaratkan >= 22.12 dan TypeScript 7 + Vitest 4 butuh >= 20.
+          # Dev lokal berjalan di v24.19.0 — jika CI menunjukkan perbedaan
+          # perilaku, tambahkan `engines.node` ke package.json (di luar scope #1).
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run check:types
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit test
+        # TODO: Fix #2 akan menutup P1-56-01 — hapus continue-on-error
+        # P1-56-01: `doc-claims-vs-live.test.ts` gagal 2 test karena
+        # ARCHITECTURE.md §7.3/§7.4 belum sinkron dengan live (migrasi 173→175,
+        # file TS 207→209, tests 42→44). Fix-nya ada di Batch Fix #2
+        # (sinkronisasi artefak turunan) dan TIDAK sengaja dikerjakan di sini.
+        # Test yang gagal TIDAK dihapus — hanya step ini yang tidak memblokir.
+        continue-on-error: true
+        run: npm run test
+
+      - name: Build
+        run: npm run build
