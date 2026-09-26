@@ -14,7 +14,7 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [x] Batch 04 — Audit 31-40 → FORENSIC-RAW-batch-04.md ✅ **selesai** (baseline `4609c80`)
 - [x] Batch 05 — Audit 41-50 → FORENSIC-RAW-batch-05.md ✅ **selesai** (baseline `3229a02`)
 - [x] Batch 06 — Audit 51-60 → FORENSIC-RAW-batch-06.md ✅ **selesai** (baseline `0528bb0`)
-- [ ] Batch 07 — Audit 61-70 → FORENSIC-RAW-batch-07.md
+- [x] Batch 07 — Audit 61-70 → FORENSIC-RAW-batch-07.md ✅ **selesai** (baseline `86d47da`)
 - [ ] Batch 08 — Audit 71-80 → FORENSIC-RAW-batch-08.md
 - [ ] Batch 09 — Audit 81-88 → FORENSIC-RAW-batch-09.md
 
@@ -22,14 +22,14 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [ ] FORENSIC-GLOBAL.md — analisis relasi (setelah 88)
 - [ ] FORENSIC-FIXPLAN.md — fix plan batched (setelah global)
 
-## Temuan Summary (setelah Batch 06)
+## Temuan Summary (setelah Batch 07)
 | Severity | Jumlah | Catatan |
 |---|---|---|
-| **P0** | **2** | ✅ keduanya mitigated (migrasi 249 + 250) |
-| P1 | **29** | 24 (b1-5) + 5 (batch 06) |
-| P2 | **40** | 30 (b1-5) + 10 (batch 06) |
-| P3 | **34** | 31 (b1-5) + 3 (batch 06) |
-| **Total (6 batch dari 9)** | **105** | 3 batch lagi berjalan |
+| **P0** | **2** | ✅ keduanya mitigated di live (migrasi 249 + 250) — **TAPI belum permanen**, lihat P1-68-01 |
+| P1 | **33** | 29 (b1-6) + 4 (batch 07) |
+| P2 | **41** | 40 (b1-6) + 1 (batch 07) |
+| P3 | **34** | (b1-6, tidak ada P3 baru di batch 07) |
+| **Total (7 batch dari 9)** | **110** | 2 batch lagi berjalan |
 
 ## 🚨 KNOWN-ISSUE PRIORITAS #1
 
@@ -57,6 +57,27 @@ yang benar-benar kehilangan password, dan **tidak ada test** yang memanggil alur
   `apply_migration()` + `verify_migration_checksum()` **tanpa mengulang SQL**;
   dry-run wrapper sesudahnya `status: SUDAH terdaftar (checksum cocok)`.
   **Residu jujur**: `applied_at` = waktu registrasi, bukan waktu eksekusi SQL.
+
+## 🚨 PRIORITAS FIX #1 — P1-68-01 (P0 latent di installer)
+
+**Baseline resmi membatalkan kembali kedua mitigasi P0.**
+`supabase/baseline/000_baseline_schema.sql` meng-`REVOKE` di **L16458**, lalu meng-`GRANT` semuanya
+kembali di **L17327-17328** (`TO anon` + `TO authenticated`) — jadi **GRANT menang** dan hasilnya
+persis kondisi bocor. PT baru berikutnya akan **mewarisi P0-01-01 + P0-03-01** secara penuh.
+→ Fix: (1) regenerate baseline, (2) guard di `db:verify-install` yang menolak grant berbahaya.
+
+## 🚨 PRIORITAS FIX #2 — P1-56-01 (utang kita sendiri)
+
+`ARCHITECTURE.md` §7.3/§7.4 belum sinkron (migrasi 173→175, file TS 207→209, tests 42→44) →
+`doc-claims-vs-live.test.ts` **MERAH** dan membuat tabel coverage tak tercetak.
+→ Fix: perbarui ARCHITECTURE.md, lalu jalankan ulang `npx vitest run --coverage`.
+
+## 🚨 PRIORITAS FIX #3 — P1-58-02 (kenapa 2 P0 lolos test)
+
+Root cause kenapa P0-01-01 & P0-03-01 lolos: `rpc-security.test.sql` hanya cek
+**"tabel punya RLS aktif"**, bukan **"anon/authenticated tak bisa baca/tulis"**.
+→ Fix: tambah test nyata `GET /rest/v1/<tabel>?select=*` dgn anon key + JWT authenticated,
+dan cek status 401/403. Lihat juga P1-58-01 (nol test CHECK/UNIQUE constraint).
 
 ## Kemajuan
 - ✅ Batch 01 (Audit 01-10) — P0: 1 (mitigated), P1: 5, P2: 2, P3: 2
