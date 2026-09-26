@@ -15,21 +15,48 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [x] Batch 05 — Audit 41-50 → FORENSIC-RAW-batch-05.md ✅ **selesai** (baseline `3229a02`)
 - [x] Batch 06 — Audit 51-60 → FORENSIC-RAW-batch-06.md ✅ **selesai** (baseline `0528bb0`)
 - [x] Batch 07 — Audit 61-70 → FORENSIC-RAW-batch-07.md ✅ **selesai** (baseline `86d47da`)
-- [ ] Batch 08 — Audit 71-80 → FORENSIC-RAW-batch-08.md
+- [x] Batch 08 — Audit 71-80 → FORENSIC-RAW-batch-08.md ✅ **selesai** (baseline `fe8b153`)
 - [ ] Batch 09 — Audit 81-88 → FORENSIC-RAW-batch-09.md
 
 ## Global Analysis (docs/forensic/)
 - [ ] FORENSIC-GLOBAL.md — analisis relasi (setelah 88)
 - [ ] FORENSIC-FIXPLAN.md — fix plan batched (setelah global)
 
-## Temuan Summary (setelah Batch 07)
+## ❄️ FREEZE CONDITION — INSTALLER (P1-68-01)
+
+**JANGAN jalankan `install-baseline.mjs` / `rehearse-new-company.mjs` untuk PT baru sampai baseline diperbaiki.**
+Baseline `supabase/baseline/000_baseline_schema.sql` (regenerate 2026-09-24 19:14) meng-`GRANT`
+`anon` + DML `authenticated` kembali ke `employees_master` di **L17327-17328** — **setelah** `REVOKE`
+di L16458, jadi grant menang. PT baru berikutnya akan **mewarisi P0-01-01 + P0-03-01**.
+Live DB **aman** (migrasi 249/250) — yang belum aman adalah **installer**.
+
+## 🔁 POLA AKAR YANG MUNCUL 3× (P1-71-01)
+
+Live DB berubah → artefak turunan **tidak** ikut tersinkron:
+
+| Artefak | Temuan |
+|---|---|
+| `schema_migrations` | P1-31-01 (migrasi 250 apply di luar wrapper) |
+| `ARCHITECTURE.md` §7.3/§7.4 | P1-56-01 (migrasi 249+250) |
+| `supabase/baseline/000_*.sql` | P1-68-01 (migrasi 249+250) |
+
+Satu root cause: **tidak ada langkah sinkronisasi artefak turunan** setelah perubahan DB.
+→ Fix plan: guard otomatis (bukan manual) + checklist di §0.3.
+
+## 🎭 LAPISAN TEST KEAMANAN FIKTIF (P1-58-02 + P1-63-01)
+
+"Hijau ≠ aman". `rpc-security.test.sql` hanya cek **"tabel punya RLS aktif"**, bukan
+**"anon/authenticated tak bisa baca/tulis"** — tepat celah yang membiarkan 2 P0 lolos.
+Ditambah nol test untuk CHECK/UNIQUE constraint (P1-58-01) dan nol `to_regclass` fail-fast (P1-72-01).
+
+## Temuan Summary (setelah Batch 08)
 | Severity | Jumlah | Catatan |
 |---|---|---|
-| **P0** | **2** | ✅ keduanya mitigated di live (migrasi 249 + 250) — **TAPI belum permanen**, lihat P1-68-01 |
-| P1 | **33** | 29 (b1-6) + 4 (batch 07) |
-| P2 | **41** | 40 (b1-6) + 1 (batch 07) |
-| P3 | **34** | (b1-6, tidak ada P3 baru di batch 07) |
-| **Total (7 batch dari 9)** | **110** | 2 batch lagi berjalan |
+| **P0** | **2** | ✅ mitigated di live (249+250) — **installer belum**, lihat FREEZE |
+| P1 | **36** | 33 (b1-7) + 3 (batch 08) |
+| P2 | **43** | 41 (b1-7) + 2 (batch 08) |
+| P3 | **36** | 34 (b1-7) + 2 (batch 08) |
+| **Total (8 batch dari 9)** | **117** | 1 batch lagi (batch 09 = audit 81-88) |
 
 ## 🚨 KNOWN-ISSUE PRIORITAS #1
 
@@ -86,7 +113,8 @@ dan cek status 401/403. Lihat juga P1-58-01 (nol test CHECK/UNIQUE constraint).
 - ✅ Batch 04 (Audit 31-40) — P0: 0, P1: 6, P2: 11, P3: 7
 - ✅ Batch 05 (Audit 41-50) — P0: 0, P1: 5, P2: 8, P3: 7
 - ✅ Batch 06 (Audit 51-60) — P0: 0, P1: 5, P2: 10, P3: 3
-- ⏳ Batch 07-09 (Audit 61-88) — menunggu
+- ✅ Batch 08 (Audit 71-80) — P0: 0, P1: 3, P2: 2, P3: 2
+- ⏳ Batch 09 (Audit 81-88) — menunggu
 
 ## Catatan lintas-batch
 - **P1-31-02 + P1-32-01 saling mengunci** (UU PDP): NRP dikirim ke PostHog, tapi
