@@ -26,8 +26,14 @@ Sisa: tidak ada.
 
 ## Global Analysis (docs/forensic/)
 - [x] **FORENSIC-GLOBAL.md** — analisis relasi, root cause map, cakupan audit, prioritas risiko
-- [x] **FORENSIC-FIXPLAN.md** — 12 batch fix berurutan dari akar (RENCANA, belum dieksekusi)
+- [x] **FORENSIC-FIXPLAN.md** — 12 batch fix berurutan dari akar (**#1 SELESAI** `5cd9ab3`; #2-#12 RENCANA)
 - Laporan mentah per batch: `.agents/reports/forensic/FORENSIC-RAW-batch-01..09.md`
+
+### Progres eksekusi FIXPLAN
+| Batch | Status | Commit / Bukti |
+|---|---|---|
+| #1 CI DULU | ✅ **SELESAI** (2026-09-26) | `5cd9ab3` — run #1 `success`, 11/11 step hijau |
+| #2 Sinkronisasi artefak | ⏳ RENCANA | menutup P1-31-01/56-01/68-01 + `continue-on-error` residual #1 |
 
 > **Dokumen diringkas**: 122 temuan → **4 akar masalah** (sinkronisasi artefak, test keamanan vakuit,
 > audit trail kosong, keputusan lama tak dire-evaluasi). Fix plan diurutkan dari akar, bukan gejala.
