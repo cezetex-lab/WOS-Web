@@ -16,7 +16,13 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [x] Batch 06 — Audit 51-60 → FORENSIC-RAW-batch-06.md ✅ **selesai** (baseline `0528bb0`)
 - [x] Batch 07 — Audit 61-70 → FORENSIC-RAW-batch-07.md ✅ **selesai** (baseline `86d47da`)
 - [x] Batch 08 — Audit 71-80 → FORENSIC-RAW-batch-08.md ✅ **selesai** (baseline `fe8b153`)
-- [ ] Batch 09 — Audit 81-88 → FORENSIC-RAW-batch-09.md
+- [x] Batch 09 — Audit 81-88 → FORENSIC-RAW-batch-09.md ✅ **selesai** (baseline `c98875d`)
+
+## ✅ SELESAI — 9 BATCH AUDIT SELESAI (88 audit, 2026-09-25/26)
+
+Semua 88 audit telah dijalankan dalam mode **read-only**. Siap untuk `FORENSIC-GLOBAL` +
+`FORENSIC-FIXPLAN` (menunggu instruksi terpisah — **belum** dibuat).
+Sisa: tidak ada.
 
 ## Global Analysis (docs/forensic/)
 - [ ] FORENSIC-GLOBAL.md — analisis relasi (setelah 88)
@@ -49,14 +55,35 @@ Satu root cause: **tidak ada langkah sinkronisasi artefak turunan** setelah peru
 **"anon/authenticated tak bisa baca/tulis"** — tepat celah yang membiarkan 2 P0 lolos.
 Ditambah nol test untuk CHECK/UNIQUE constraint (P1-58-01) dan nol `to_regclass` fail-fast (P1-72-01).
 
-## Temuan Summary (setelah Batch 08)
+## Temuan Summary (FINAL — 9 batch selesai)
 | Severity | Jumlah | Catatan |
 |---|---|---|
-| **P0** | **2** | ✅ mitigated di live (249+250) — **installer belum**, lihat FREEZE |
-| P1 | **36** | 33 (b1-7) + 3 (batch 08) |
-| P2 | **43** | 41 (b1-7) + 2 (batch 08) |
-| P3 | **36** | 34 (b1-7) + 2 (batch 08) |
-| **Total (8 batch dari 9)** | **117** | 1 batch lagi (batch 09 = audit 81-88) |
+| **P0** | **2** | ✅ mitigated di live (migrasi 249 + 250) — **installer belum**, lihat ❄️ FREEZE |
+| P1 | **38** | 36 (b1-8) + 2 (batch 09) |
+| P2 | **44** | 43 (b1-8) + 1 (batch 09) |
+| P3 | **38** | 36 (b1-8) + 2 (batch 09) |
+| **TOTAL 88 AUDIT** | **122** | 9/9 batch selesai |
+
+### Ringkasan batch
+| Batch | Audit | P0 | P1 | P2 | P3 |
+|---|---|---|---|---|---|
+| 01 | 01-10 | 1* | 5 | 2 | 2 |
+| 02 | 11-20 | 0 | 5 | 6 | 7 |
+| 03 | 21-30 | 1* | 3 | 3 | 8 |
+| 04 | 31-40 | 0 | 6 | 11 | 7 |
+| 05 | 41-50 | 0 | 5 | 8 | 7 |
+| 06 | 51-60 | 0 | 5 | 10 | 3 |
+| 07 | 61-70 | 0 | 4 | 1 | 0 |
+| 08 | 71-80 | 0 | 3 | 2 | 2 |
+| 09 | 81-88 | 0 | 2 | 1 | 2 |
+| **TOTAL** | **88** | **2*** | **38** | **44** | **38** |
+
+`*` = keduanya sudah dimitigasi di live (migrasi 249 + 250).
+
+### 🔴 Batas yang harus diakui (P1-88-01)
+88 audit ini memverifikasi **struktur** (ACL, skema, kode, dokumen) — **tidak pernah memverifikasi
+hasil**. Dengan `hr_attendance`/`hr_payroll`/`hr_leave` = **0 baris**, logika bisnis inti sistem HR
+tempat kesalahan gaji berdampak uang asli **belum pernah diuji sama sekali**.
 
 ## 🚨 KNOWN-ISSUE PRIORITAS #1
 
