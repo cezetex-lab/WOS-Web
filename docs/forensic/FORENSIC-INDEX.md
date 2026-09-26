@@ -11,7 +11,7 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [x] Batch 01 — Audit 01-10 → FORENSIC-RAW-batch-01.md ✅ **selesai**
 - [x] Batch 02 — Audit 11-20 → FORENSIC-RAW-batch-02.md ✅ **selesai**
 - [x] Batch 03 — Audit 21-30 → FORENSIC-RAW-batch-03.md ✅ **selesai** (baseline `9715fe8`)
-- [ ] Batch 04 — Audit 31-40 → FORENSIC-RAW-batch-04.md
+- [x] Batch 04 — Audit 31-40 → FORENSIC-RAW-batch-04.md ✅ **selesai** (baseline `4609c80`)
 - [ ] Batch 05 — Audit 41-50 → FORENSIC-RAW-batch-05.md
 - [ ] Batch 06 — Audit 51-60 → FORENSIC-RAW-batch-06.md
 - [ ] Batch 07 — Audit 61-70 → FORENSIC-RAW-batch-07.md
@@ -22,14 +22,21 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [ ] FORENSIC-GLOBAL.md — analisis relasi (setelah 88)
 - [ ] FORENSIC-FIXPLAN.md — fix plan batched (setelah global)
 
-## Temuan Summary (setelah Batch 03)
+## Temuan Summary (setelah Batch 04)
 | Severity | Jumlah | Catatan |
 |---|---|---|
-| **P0** | **2** | P0-01-01 ✅ mitigated (migrasi 249) + **P0-03-01 ✅ mitigated** (migrasi 250) |
-| P1 | **13** | 10 (b1+b2) + 3 (batch 03) |
-| P2 | **11** | 8 (b1+b2) + 3 (batch 03) |
-| P3 | **17** | 9 + 8 |
-| **Total (3 batch dari 9)** | **43** | 6 batch lagi berjalan |
+| **P0** | **2** | ✅ keduanya mitigated (migrasi 249 + 250) |
+| P1 | **19** | 13 (b1-3) + 6 (batch 04) |
+| P2 | **22** | 11 (b1-3) + 11 (batch 04) |
+| P3 | **24** | 17 (b1-3) + 7 (batch 04) |
+| **Total (4 batch dari 9)** | **67** | 5 batch lagi berjalan |
+
+## Kemajuan
+- ✅ Batch 01 (Audit 01-10) — P0: 1 (mitigated), P1: 5, P2: 2, P3: 2
+- ✅ Batch 02 (Audit 11-20) — P0: 0, P1: 5, P2: 6, P3: 7
+- ✅ Batch 03 (Audit 21-30) — P0: 1 (**mitigated 4609c80**), P1: 3, P2: 3, P3: 8
+- ✅ Batch 04 (Audit 31-40) — P0: 0, P1: 6, P2: 11, P3: 7
+- ⏳ Batch 05-09 (Audit 41-88) — menunggu
 
 > ✅ **P0-03-01 MITIGATED** (2026-09-26) — `REVOKE INSERT, UPDATE, DELETE ON public.employees_master FROM authenticated`
 > via migrasi **250** (`90e1cbc7cf8d5ed82…`). Grants `authenticated` kini hanya
