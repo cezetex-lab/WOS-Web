@@ -25,8 +25,12 @@ Semua 88 audit telah dijalankan dalam mode **read-only**. Siap untuk `FORENSIC-G
 Sisa: tidak ada.
 
 ## Global Analysis (docs/forensic/)
-- [ ] FORENSIC-GLOBAL.md — analisis relasi (setelah 88)
-- [ ] FORENSIC-FIXPLAN.md — fix plan batched (setelah global)
+- [x] **FORENSIC-GLOBAL.md** — analisis relasi, root cause map, cakupan audit, prioritas risiko
+- [x] **FORENSIC-FIXPLAN.md** — 12 batch fix berurutan dari akar (RENCANA, belum dieksekusi)
+- Laporan mentah per batch: `.agents/reports/forensic/FORENSIC-RAW-batch-01..09.md`
+
+> **Dokumen diringkas**: 122 temuan → **4 akar masalah** (sinkronisasi artefak, test keamanan vakuit,
+> audit trail kosong, keputusan lama tak dire-evaluasi). Fix plan diurutkan dari akar, bukan gejala.
 
 ## ❄️ FREEZE CONDITION — INSTALLER (P1-68-01)
 
