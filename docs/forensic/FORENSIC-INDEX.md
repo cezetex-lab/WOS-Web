@@ -9,7 +9,7 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 
 ## Batch Raw (.agents/reports/forensic/)
 - [x] Batch 01 — Audit 01-10 → FORENSIC-RAW-batch-01.md ✅ **selesai**
-- [ ] Batch 02 — Audit 11-20 → FORENSIC-RAW-batch-02.md
+- [x] Batch 02 — Audit 11-20 → FORENSIC-RAW-batch-02.md ✅ **selesai**
 - [ ] Batch 03 — Audit 21-30 → FORENSIC-RAW-batch-03.md
 - [ ] Batch 04 — Audit 31-40 → FORENSIC-RAW-batch-04.md
 - [ ] Batch 05 — Audit 41-50 → FORENSIC-RAW-batch-05.md
@@ -22,18 +22,19 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [ ] FORENSIC-GLOBAL.md — analisis relasi (setelah 88)
 - [ ] FORENSIC-FIXPLAN.md — fix plan batched (setelah global)
 
-## Temuan Summary (setelah Batch 01)
+## Temuan Summary (setelah Batch 02)
 | Severity | Jumlah | Catatan |
 |---|---|---|
-| P0 | **1** | P0-01-01 — `employees_master` bocor PII ke anon (TERBUKTI LIVE) |
-| P1 | 5 | lihat FORENSIC-RAW-batch-01.md |
-| P2 | 2 | |
-| P3 | 2 | |
-| **Total (batch 01 dari 9)** | **10** | 8 batch lagi berjalan |
+| P0 | **1** | P0-01-01 — **MITIGATED** (migrasi 249, `REVOKE ALL` anon). Fix permanen di fix plan |
+| P1 | **10** | 5 dari batch 01 + 5 dari batch 02 |
+| P2 | **8** | 2 batch 01 + 6 batch 02 |
+| P3 | **9** | 2 batch 01 + 7 batch 02 |
+| **Total (2 batch dari 9)** | **28** | 7 batch lagi berjalan |
 
 ## Kemajuan
-- ✅ Batch 01 (Audit 01-10) — **P0: 1, P1: 5, P2: 2, P3: 2**
-- ⏳ Batch 02-09 (Audit 11-88) — menunggu
+- ✅ Batch 01 (Audit 01-10) — P0: 1 (mitigated), P1: 5, P2: 2, P3: 2
+- ✅ Batch 02 (Audit 11-20) — P0: 0, P1: 5, P2: 6, P3: 7
+- ⏳ Batch 03-09 (Audit 21-88) — menunggu
 
 
 ## Konteks Repo (penting untuk reading hasil audit)
