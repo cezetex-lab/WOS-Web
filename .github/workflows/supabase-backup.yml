@@ -18,6 +18,9 @@ jobs:
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /etc/apt/trusted.gpg.d/pgdg.asc > /dev/null
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
+          sudo update-alternatives --install /usr/bin/pg_dump pg_dump /usr/lib/postgresql/17/bin/pg_dump 170
+          sudo update-alternatives --set pg_dump /usr/lib/postgresql/17/bin/pg_dump
+          pg_dump --version
 
       - name: Create backup directory
         run: mkdir -p backups
