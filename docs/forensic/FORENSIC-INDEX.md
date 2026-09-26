@@ -12,7 +12,7 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [x] Batch 02 — Audit 11-20 → FORENSIC-RAW-batch-02.md ✅ **selesai**
 - [x] Batch 03 — Audit 21-30 → FORENSIC-RAW-batch-03.md ✅ **selesai** (baseline `9715fe8`)
 - [x] Batch 04 — Audit 31-40 → FORENSIC-RAW-batch-04.md ✅ **selesai** (baseline `4609c80`)
-- [ ] Batch 05 — Audit 41-50 → FORENSIC-RAW-batch-05.md
+- [x] Batch 05 — Audit 41-50 → FORENSIC-RAW-batch-05.md ✅ **selesai** (baseline `3229a02`)
 - [ ] Batch 06 — Audit 51-60 → FORENSIC-RAW-batch-06.md
 - [ ] Batch 07 — Audit 61-70 → FORENSIC-RAW-batch-07.md
 - [ ] Batch 08 — Audit 71-80 → FORENSIC-RAW-batch-08.md
@@ -22,14 +22,22 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 - [ ] FORENSIC-GLOBAL.md — analisis relasi (setelah 88)
 - [ ] FORENSIC-FIXPLAN.md — fix plan batched (setelah global)
 
-## Temuan Summary (setelah Batch 04)
+## Temuan Summary (setelah Batch 05)
 | Severity | Jumlah | Catatan |
 |---|---|---|
 | **P0** | **2** | ✅ keduanya mitigated (migrasi 249 + 250) |
-| P1 | **19** | 13 (b1-3) + 6 (batch 04) |
-| P2 | **22** | 11 (b1-3) + 11 (batch 04) |
-| P3 | **24** | 17 (b1-3) + 7 (batch 04) |
-| **Total (4 batch dari 9)** | **67** | 5 batch lagi berjalan |
+| P1 | **24** | 19 (b1-4) + 5 (batch 05) |
+| P2 | **30** | 22 (b1-4) + 8 (batch 05) |
+| P3 | **31** | 24 (b1-4) + 7 (batch 05) |
+| **Total (5 batch dari 9)** | **87** | 4 batch lagi berjalan |
+
+## Kemajuan
+- ✅ Batch 01 (Audit 01-10) — P0: 1 (mitigated), P1: 5, P2: 2, P3: 2
+- ✅ Batch 02 (Audit 11-20) — P0: 0, P1: 5, P2: 6, P3: 7
+- ✅ Batch 03 (Audit 21-30) — P0: 1 (mitigated 4609c80), P1: 3, P2: 3, P3: 8
+- ✅ Batch 04 (Audit 31-40) — P0: 0, P1: 6, P2: 11, P3: 7
+- ✅ Batch 05 (Audit 41-50) — P0: 0, P1: 5, P2: 8, P3: 7
+- ⏳ Batch 06-09 (Audit 51-88) — menunggu
 
 ## Kemajuan
 - ✅ Batch 01 (Audit 01-10) — P0: 1 (mitigated), P1: 5, P2: 2, P3: 2
