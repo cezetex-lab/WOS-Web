@@ -76,47 +76,7 @@ yang benar-benar kehilangan password, dan **tidak ada test** yang memanggil alur
 - **P1-18-01 (tanpa CI) menjelaskan P1-56-01**: guard `doc-claims-vs-live` menangkap drift, tapi
   tidak ada yang menjalankannya → unit suite diam-diam merah.
 
-## Kemajuan
-- ✅ Batch 01 (Audit 01-10) — P0: 1 (mitigated), P1: 5, P2: 2, P3: 2
-- ✅ Batch 02 (Audit 11-20) — P0: 0, P1: 5, P2: 6, P3: 7
-- ✅ Batch 03 (Audit 21-30) — P0: 1 (mitigated 4609c80), P1: 3, P2: 3, P3: 8
-- ✅ Batch 04 (Audit 31-40) — P0: 0, P1: 6, P2: 11, P3: 7
-- ✅ Batch 05 (Audit 41-50) — P0: 0, P1: 5, P2: 8, P3: 7
-- ⏳ Batch 06-09 (Audit 51-88) — menunggu
-
-## Kemajuan
-- ✅ Batch 01 (Audit 01-10) — P0: 1 (mitigated), P1: 5, P2: 2, P3: 2
-- ✅ Batch 02 (Audit 11-20) — P0: 0, P1: 5, P2: 6, P3: 7
-- ✅ Batch 03 (Audit 21-30) — P0: 1 (**mitigated 4609c80**), P1: 3, P2: 3, P3: 8
-- ✅ Batch 04 (Audit 31-40) — P0: 0, P1: 6, P2: 11, P3: 7
-- ⏳ Batch 05-09 (Audit 41-88) — menunggu
-
-> ✅ **P0-03-01 MITIGATED** (2026-09-26) — `REVOKE INSERT, UPDATE, DELETE ON public.employees_master FROM authenticated`
-> via migrasi **250** (`90e1cbc7cf8d5ed82…`). Grants `authenticated` kini hanya
-> `REFERENCES, SELECT, TRIGGER, TRUNCATE` (DML tidak ada). 3 trigger tetap
-> `tgenabled='O'`, `employees_core`/`employees_master` = 17/17, worker update
-> profil + login ulang sukses.
->
-> ⚠️ **Registry drift yang ditemukan & ditutup**: saat mitigasi diterapkan, SQL
-> **sudah jalan di live DB tetapi TIDAK terdaftar** di `schema_migrations`
-> (`max(version)` masih 249). Drif ini persis kelas bug 221/222/223 yang
-> diperingatkan AGENTS.md §0.6. Registrasi belatedan dilakukan lewat fungsi yang
-> **sama persis** dengan konvensi `apply-migration.mjs` — `apply_migration()` lalu
-> `verify_migration_checksum()`, checksum dari modul bersama `migration-checksum.mjs`
-> — **tanpa menjalankan ulang SQL** (`REVOKE` sengaja tidak diulang).
-> Bukti dry-run wrapper sesudah registrasi: `status: SUDAH terdaftar (checksum cocok)`.
-> `max(version)` = 250, total 175 baris registry.
-> **Catatan jujur**: kolom `applied_at` berisi waktu *registrasi belatedan*, bukan
-> waktu SQL benar-benar dieksekusi — jejak auditnya tidak presisi, dan ini
-> dicatat apa adanya di kolom `description`.
-
-## Kemajuan
-- ✅ Batch 01 (Audit 01-10) — P0: 1 (mitigated), P1: 5, P2: 2, P3: 2
-- ✅ Batch 02 (Audit 11-20) — P0: 0, P1: 5, P2: 6, P3: 7
-- ✅ Batch 03 (Audit 21-30) — P0: 1 (**baru`), P1: 3, P2: 3, P3: 8
-- ⏳ Batch 04-09 (Audit 31-88) — menunggu
-
-
 ## Konteks Repo (penting untuk reading hasil audit)
-- Branch audit: `migrasi-vite` @ `c70df84`
-- WIP E2E fix #3 diparkir di branch `wip/e2e-fix3` (`2d28de7`) — **tidak** ikut di-audit
+- Branch audit: `migrasi-vite` @ HEAD saat audit
+- WIP E2E fix #3 diparkir di branch `wip/e2e-fix3` (`2d28de7`)
+- ⚠️ P1-56-01: `ARCHITECTURE.md` §7.3/§7.4 belum sinkron dengan live — `doc-claims-vs-live.test.ts` merah
