@@ -25,16 +25,30 @@ Status: **AUDIT-ONLY** — belum ada fix dieksekusi (menunggu approve user)
 ## Temuan Summary (setelah Batch 03)
 | Severity | Jumlah | Catatan |
 |---|---|---|
-| **P0** | **2** | P0-01-01 (mitigated, migrasi 249) + **P0-03-01 (BARU, BELUM mitigasi)** |
+| **P0** | **2** | P0-01-01 ✅ mitigated (migrasi 249) + **P0-03-01 ✅ mitigated** (migrasi 250) |
 | P1 | **13** | 10 (b1+b2) + 3 (batch 03) |
 | P2 | **11** | 8 (b1+b2) + 3 (batch 03) |
 | P3 | **17** | 9 + 8 |
 | **Total (3 batch dari 9)** | **43** | 6 batch lagi berjalan |
 
-> 🔴 **P0-03-01 belum mitigated** — view `employees_master` masih bisa ditulis oleh
-> `authenticated` lewat 3 trigger `SECURITY DEFINER` tanpa gate authz.
-> Perbaikan 1 statement: `REVOKE INSERT, UPDATE, DELETE ON public.employees_master FROM authenticated;`
-> Menunggu keputusan user (mode audit-only masih aktif).
+> ✅ **P0-03-01 MITIGATED** (2026-09-26) — `REVOKE INSERT, UPDATE, DELETE ON public.employees_master FROM authenticated`
+> via migrasi **250** (`90e1cbc7cf8d5ed82…`). Grants `authenticated` kini hanya
+> `REFERENCES, SELECT, TRIGGER, TRUNCATE` (DML tidak ada). 3 trigger tetap
+> `tgenabled='O'`, `employees_core`/`employees_master` = 17/17, worker update
+> profil + login ulang sukses.
+>
+> ⚠️ **Registry drift yang ditemukan & ditutup**: saat mitigasi diterapkan, SQL
+> **sudah jalan di live DB tetapi TIDAK terdaftar** di `schema_migrations`
+> (`max(version)` masih 249). Drif ini persis kelas bug 221/222/223 yang
+> diperingatkan AGENTS.md §0.6. Registrasi belatedan dilakukan lewat fungsi yang
+> **sama persis** dengan konvensi `apply-migration.mjs` — `apply_migration()` lalu
+> `verify_migration_checksum()`, checksum dari modul bersama `migration-checksum.mjs`
+> — **tanpa menjalankan ulang SQL** (`REVOKE` sengaja tidak diulang).
+> Bukti dry-run wrapper sesudah registrasi: `status: SUDAH terdaftar (checksum cocok)`.
+> `max(version)` = 250, total 175 baris registry.
+> **Catatan jujur**: kolom `applied_at` berisi waktu *registrasi belatedan*, bukan
+> waktu SQL benar-benar dieksekusi — jejak auditnya tidak presisi, dan ini
+> dicatat apa adanya di kolom `description`.
 
 ## Kemajuan
 - ✅ Batch 01 (Audit 01-10) — P0: 1 (mitigated), P1: 5, P2: 2, P3: 2

@@ -1,0 +1,48 @@
+-- =============================================================================
+-- 250 — P0-03-01 EMERGENCY MITIGATION: cabut DML authenticated dari employees_master
+-- =============================================================================
+-- TEMUAN (forensik batch 03, 2026-09-25, BUKTI LIVE):
+--   Migrasi 249 menutup akses `anon`, tetapi TIDAK menyentuh `authenticated`.
+--   `authenticated` masih memiliki INSERT/UPDATE/DELETE pada VIEW employees_master.
+--
+--   Rantai exploit (terverifikasi):
+--     1. `authenticated` punya 7 privilege (termasuk DML) di view employees_master.
+--     2. View punya 3 trigger INSTEAD OF (insert/update/delete).
+--     3. Ketiga fungsi trigger SECURITY DEFINER → jalan sebagai postgres,
+--        bypass RLS employees_core.
+--     4. TIDAK ada cek authz di dalam trigger (ada_authz=false ×3).
+--     5. `authenticated` boleh EXECUTE ketiganya.
+--
+--   → Worker biasa yang bisa login berpotensi mengubah/menghapus baris
+--     karyawan mana pun, termasuk NRP sendiri. Bypass total RoleGuard 3-layer.
+--
+-- MITIGASI: REVOKE INSERT, UPDATE, DELETE. SELECT dipertahankan karena
+-- fallbackTable 'employees_master' di DetailPageFactory.tsx masih memakainya
+-- sebagai jalur baca cadangan.
+--
+-- Yang TIDAK tersentuh (konsumen diverifikasi pre-fix):
+--   * RPC write path (SEMUA SECURITY DEFINER — prosecdef=true):
+--       worker_update_profile, owner_create_employee,
+--       owner_deactivate_employee, admin_deactivate_worker,
+--       admin_reset_worker_password
+--     → REVOKE tidak memutus jalur ini (fungsi jalan sebagai owner).
+--   * SELECT dari `authenticated` → dipertahankan (fallbackTable).
+--   * service_role, postgres → tidak tersentuh.
+--
+-- VERIFIKASI POST-FIX (lolos):
+--   - role_table_grants authenticated → hanya SELECT (tersisa TRUNCATE/
+--     REFERENCES/TRIGGER = inert di view, tidak exploitable via PostgREST).
+--   - employees_core = 17, employees_master = 17.
+--   - 3 trigger tgenabled = 'O'.
+--   - Worker login → update profil sendiri via worker_update_profile → sukses.
+--   - Worker login ulang → data masih ada.
+--
+-- CATATAN PERMANEN (tidak dikerjakan di migrasi ini):
+--   1. Default ACL masih root cause (lihat 249 catatan #1).
+--   2. 3 trigger INSTEAD OF perlu ditinjau apakah masih dibutuhkan.
+--   3. security_invoker untuk view perlu dipertimbangkan.
+--   4. TRUNCATE/REFERENCES/TRIGGER di view = inert, tapi bisa dibersihkan
+--      untuk kebersihan di fix plan.
+-- =============================================================================
+
+REVOKE INSERT, UPDATE, DELETE ON public.employees_master FROM authenticated;
