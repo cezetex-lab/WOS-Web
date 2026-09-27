@@ -1,0 +1,89 @@
+# =============================================================================
+# RESTORE TEST — mingguan (P1-14-02)
+# =============================================================================
+# KENAPA workflow ini ada
+#   P1-14-01 menyingkirkan "sinkronisasi ke Neon" sebagai target restore
+#   (commit `727b835`): Neon free TIDAK setara Supabase — `pg_cron` dan
+#   `pg_stat_statements` tidak ada, schema `public` bukan milik aplikasi,
+#   extension harus di-provision manual. 5 run berturut (#28-#32) gagal
+#   karena premis itu, bukan karena bug per langkah.
+#
+#   "Backup tanpa bukti restore = asumsi" (P1-14-02). Workflow ini supaya
+#   ada BUKTI, otomatis, mingguan.
+#
+# YANG DIJALANKAN
+#   `npm run db:replay` → `supabase/scripts/replay-fresh-install.mjs`
+#   Membuat database sekali pakai di cluster Supabase yang sama, menyiapkan
+#   prasyarat platform (schema `extensions`, stub `auth`, stub `cron`), lalu
+#   mereplay seluruh `supabase/baseline/*.sql` dan MEMBANDINGKAN metrik + ACL
+#   hasilnya dengan DB live. Exit 1 bila ada yang gagal.
+#
+#   Inilah jalur yang benar: target restore = Supabase, sama seperti
+#   sumbernya. Tidak ada extension yang perlu di-provision manual.
+#
+# CATATAN PENTING
+#   * Skrip membaca `DATABASE_URL` dari `.env.local`. File itu gitignored,
+#     jadi workflow harus membuatnya dari secret. File TIDAK pernah di-commit.
+#   * Skrip menolak nama database yang tidak diawali `wos_replay_` (pengaman
+#     anti-salah-target) dan TIDAK menulis ke database `postgres`/live —
+#     ia membuat database baru lalu menjatuhkannya.
+#   * Butuh hak CREATE DATABASE di cluster → pakai user admin/pooler.
+#   * TIDAK ada auto-fix. Kalau gagal, workflow merah dan lapor ke manusia.
+# =============================================================================
+name: Restore Test
+
+on:
+  schedule:
+    # Kamis 03:00 UTC — jauh dari backup harian (Senin-Sabtu 02:00 UTC) supaya
+    # tidak berebut runner dan tidak bertepatan dengan backup yang sama.
+    - cron: "0 3 * * 4"
+  workflow_dispatch:
+
+# Detach dari job lain: restore test butuh CREATE DATABASE, tidak boleh
+# dibatalkan diam-diam oleh push baru.
+concurrency:
+  group: restore-test
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: replay baseline & bandingkan vs live
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build .env.local from secret
+        # Dibuat di runner saja, dihapus di akhir job. Tidak pernah commit.
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          umask 077
+          printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env.local
+          echo "::add-mask::$(cat .env.local)"
+
+      - name: Replay + compare
+        run: npm run db:replay
+
+      - name: Upload replay report
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-test-report-${{ github.run_number }}
+          path: supabase/baseline/replay-*.md
+          retention-days: 30
+        if: always()
+
+      - name: Remove .env.local
+        if: always()
+        run: rm -f .env.local

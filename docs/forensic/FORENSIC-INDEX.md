@@ -26,8 +26,24 @@ Sisa: tidak ada.
 
 ## Global Analysis (docs/forensic/)
 - [x] **FORENSIC-GLOBAL.md** — analisis relasi, root cause map, cakupan audit, prioritas risiko
-- [x] **FORENSIC-FIXPLAN.md** — 12 batch fix berurutan dari akar (**#1 SELESAI** `5cd9ab3`; #2-#12 RENCANA)
+- [x] **FORENSIC-FIXPLAN.md** — 13 batch fix berurutan dari akar (**#1 SELESAI** `5cd9ab3`; #13 SEBAGIAN `727b835`+`347ba01`; sisanya RENCANA)
 - Laporan mentah per batch: `.agents/reports/forensic/FORENSIC-RAW-batch-01..09.md`
+
+## Status Temuan Backup & DR (P1-14 / P1-45) — diperbarui 2026-09-27
+
+| Temuan | Status | Bukti |
+|---|---|---|
+| **P1-14-01** (`pg_restore` untuk plain SQL) | ✅ **TUTUP** | step "Sync to Neon" dihapus — commit `727b835`. Ditutup lewat **perubahan desain**, bukan patch: target restore (Neon free) tidak pernah setara Supabase. |
+| **P1-14-02** (tidak ada restore test / DR drill) | 🔶 **DALAM PROSES** | workflow `.github/workflows/restore-test.yml` (mingguan, `npm run db:replay` → bandingkan metrik+ACL vs live) + `scripts/verify-backup-artifact.mjs` (commit `347ba01`). **Belum ada bukti run hijau** — `gh` CLI tidak tersedia di mesin agen. Belum boleh DONE (§0.16). |
+| **P1-45-01** (`DISASTER_RECOVERY.md`Claim palsu) | ✅ **TUTUP** | `DISASTER_RECOVERY.md` ditulis ulang 2026-09-27: hot standby dinyatakan **TIDAK ADA**, RPO 24 jam, RTO 1–2 jam manual, §9.6 mencantumkan tiap klaim lama yang dihapus + alasannya. |
+
+**Kronologi kegagalan run #28–#32**: 5 run berturut gagal karena **premis** (dump Supabase →
+restore ke Neon free), bukan karena bug per langkah. #26 dan #28 adalah bug NYATA (versi client,
+tool restore); #29–#32 adalah gejala premis salah. Detail + pelajaran di `FORENSIC-FIXPLAN.md`
+§13.7.
+
+**Dampak lintas-page**: worker → admin → dashboard → owner **tidak terdampak** — perubahan hanya
+di `.github/workflows/`, `scripts/`, dan dokumen. Tidak menyentuh `src/` maupun `supabase/`.
 
 ### Progres eksekusi FIXPLAN
 | Batch | Status | Commit / Bukti |
