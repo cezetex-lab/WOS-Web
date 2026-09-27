@@ -142,7 +142,7 @@ Layer 3: DB-level (authz functions)
 | Component | Status | Notes |
 |---|---|---|
 | TypeScript | ✅ 157 .ts/.tsx files (132 `.tsx` + 25 `.ts`) | 0 tsc errors (re-verifikasi 2026-09-17), strict mode, `allowJs: false` |
-| | Unit tests | ✅ 141 test total — 136 auto + 5 butuh DATABASE_URL (skip otomatis tanpa DB) | vitest (22 berkas: 20 `tests/unit` + 2 `tests/component`; 2 project: `node` + `jsdom`) — termasuk penjaga rekonsiliasi data dummy live (`dummy-reconciliation-guard.test.ts`). Angka total diverifikasi 2026-09-27 dari `vitest run --reporter=json` dan dijaga guard `verify:test-count`. CATATAN: `passed` berbeda antar environment — lokal 141 (ada `.env.local`), CI 136 (5 test DB-live di-skip karena `describe.skipIf(!DB_URL)`). Guard menjaga TOTAL, bukan `passed` |
+| | | Unit tests | ✅ 155 test total — 151 auto + 4 `it.todo` (menunggu Fix #6) | vitest (24 berkas: 22 `tests/unit` + 2 `tests/component`; 2 project: `node` + `jsdom`) — termasuk penjaga rekonsilikasi data dummy live (`dummy-reconciliation-guard.test.ts`). Fix #3 menambah test keamanan NYATA: `db-security-anon-access` (HTTP + anon key ke PostgREST, P1-58-02), `db-constraint-guard` (pg_constraint, P1-58-01), dan fail-fast `to_regclass` di `db-security-and-partition-guard` (P1-72-01). CATATAN: 151/141 `passed` berbeda antar environment — 5 test DB-live di-skip tanpa `DATABASE_URL`, dan 9 test anon-access butuh secret; guard menjaga TOTAL, bukan `passed` |
 | E2E tests | ✅ 4/4 passed (four-page live smoke) | `tests/e2e/four-page-smoke.spec.ts` (Worker/Admin/Dashboard/Owner, kredensial live via env); 13 live-backend lain tetap opt-in |
 | Lint | ✅ 0 errors | eslint |
 | Build | ✅ EXIT 0 | vite |

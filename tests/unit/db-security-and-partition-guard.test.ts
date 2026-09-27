@@ -24,9 +24,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { Client } from 'pg';
+import { hasDb, readDatabaseUrl, assertObjectExists } from '../helpers/db';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Client } from 'pg';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 
@@ -49,19 +50,15 @@ const PRE_AUTH_WHITELIST = [
 /** Pola isi badan fungsi yang menandakan RPC tersebut menulis data. */
 const WRITE_PATTERN = '(^|[^a-z_])(insert\\s+into|update\\s+[a-z_"]|delete\\s+from|truncate\\s|alter\\s+table|drop\\s+table)';
 
-function readDatabaseUrl(): string | undefined {
-  const envPath = path.join(ROOT, '.env.local');
-  if (!fs.existsSync(envPath)) return undefined;
-  const line = fs
-    .readFileSync(envPath, 'utf8')
-    .split(/\r?\n/)
-    .find((l) => /^\s*DATABASE_URL\s*=/.test(l));
-  if (!line) return undefined;
-  const value = line.slice(line.indexOf('=') + 1).trim().replace(/^["']|["']$/g, '');
-  return value.length > 0 ? value : undefined;
-}
-
+// `readDatabaseUrl()` + `hasDb()` sekarang datang dari `tests/helpers/db` (Fix #3).
+// Helper itu membaca `process.env` DULU lalu fallback ke `.env.local`, sehingga
+// test ini bisa juga jalan di CI kalau secret-nya diset.
 const DATABASE_URL = readDatabaseUrl();
+
+/**
+ * P1-72-01: `assertObjectExists` (fail-fast via `to_regclass`) sekarang hidup di
+ * `tests/helpers/db` supaya bisa dipakai bersama guard lain.
+ */
 
 async function withDb<T>(fn: (client: Client) => Promise<T>): Promise<T> {
   const client = new Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
@@ -73,10 +70,15 @@ async function withDb<T>(fn: (client: Client) => Promise<T>): Promise<T> {
   }
 }
 
-describe.skipIf(!DATABASE_URL)('penjaga DB live', () => {
+describe.skipIf(!hasDb())('penjaga DB live', () => {
   it('tidak ada RPC penulis yang terjangkau anon/PUBLIC (kecuali alur login)', async () => {
-    const rows = await withDb((client) =>
-      client
+    const rows = await withDb(async (client) => {
+      // P1-72-01: fail-fast kalau tabel yang dijaga hilang — tanpa ini guard
+      // melaporkan "aman" padahal tidak memeriksa apa pun. (Catatan: katalog
+      // `pg_proc` TIDAK bisa dipakai di sini — ia ada di `pg_catalog`, bukan
+      // `public`, jadi `to_regclass('public.pg_proc')` selalu NULL.)
+      await assertObjectExists(client, 'public.employees_master');
+      return client
         .query<{ name: string; args: string }>(
           `select p.proname as name, pg_get_function_identity_arguments(p.oid) as args
              from pg_proc p
@@ -92,8 +94,8 @@ describe.skipIf(!DATABASE_URL)('penjaga DB live', () => {
             order by p.proname`,
           [PRE_AUTH_WHITELIST],
         )
-        .then((r) => r.rows),
-    );
+        .then((r) => r.rows);
+    });
 
     expect(
       rows.map((r) => `${r.name}(${r.args})`),
@@ -104,6 +106,9 @@ describe.skipIf(!DATABASE_URL)('penjaga DB live', () => {
 
   it('partisi absensi selalu menutup hari ini dan >= 12 bulan ke depan', async () => {
     const info = await withDb(async (client) => {
+      // P1-72-01: fail-fast kalau tabel absensi hilang — tanpa ini test ini
+      // akan melaporkan "beres" padahal tidak memeriksa apa pun.
+      await assertObjectExists(client, 'public.hr_attendance');
       const parent = await client.query<{ is_partitioned: boolean }>(
         `select c.relkind = 'p' as is_partitioned
            from pg_class c join pg_namespace n on n.oid = c.relnamespace

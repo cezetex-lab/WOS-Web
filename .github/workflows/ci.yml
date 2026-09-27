@@ -89,6 +89,19 @@ jobs:
         # `--reporter=json --outputFile.json` ditambahkan supaya step
         # `Verify test count` di bawah memakai hasil run yang SAMA (residual
         # Fix #2). Guard TIDAK menjalankan vitest kedua kali — biayanya ~0 detik.
+        #
+        # Fix #3 (P1-58-02): dua secret ini membuat `db-security-anon-access`
+        # benar-benar menguji apa yang boleh dan tidak boleh dilakukan `anon`
+        # lewat HTTP. TANPA KEDUANYA test itu di-skip — sengaja, supaya yang
+        # tidak diuji terlihat jelas, bukan hijau palsu.
+        #
+        # TIDAK ada DATABASE_URL di sini: test katalog DB (constraint, RLS,
+        # partisi) sengaja hanya jalan di mesin yang punya `.env.local`.
+        # Memberi akses DB penuh ke setiap push adalah privilege yang tidak
+        # diperlukan untuk membuktikan proteksi anon.
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npx vitest run --reporter=default --reporter=json --outputFile.json=.vitest/test-result.json
 
       - name: Verify test count

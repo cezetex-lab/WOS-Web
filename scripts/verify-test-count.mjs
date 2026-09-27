@@ -92,6 +92,10 @@ if (!OFFLINE && fs.existsSync(jsonPath)) {
     passed: String(j.numPassedTests),
     failed: String(j.numFailedTests),
     pending: String(j.numPendingTests),
+    // `it.todo` TIDAK ikut terhitung di passed/pending/failed — ia punya field
+    // sendiri. Tanpa ini sanity check akan melaporkan drift palsu begitu ada
+    // satu `it.todo` saja di repo.
+    todo: String(j.numTodoTests ?? 0),
     files: String(j.testResults?.length ?? '?'),
     success: j.success,
   };
@@ -110,9 +114,11 @@ if (suite) {
   check('total tests', doc.total, suite.total);
   check('test files', doc.files, suite.files);
 
-  // Sanity: tidak boleh ada test yang hilang dari accounting.
-  const accounted = Number(suite.passed) + Number(suite.pending) + Number(suite.failed);
-  check('passed+pending+failed', suite.total, String(accounted));
+  // Sanity: tidak boleh ada test yang hilang dari accounting. `todo` ikut
+  // dihitung karena vitest punya field terpisah untuknya.
+  const accounted =
+    Number(suite.passed) + Number(suite.pending) + Number(suite.failed) + Number(suite.todo);
+  check('passed+pending+failed+todo', suite.total, String(accounted));
 
   // Gagal = FAIL keras. Ini bukan soal angka dokumen, ini test sungguhan merah.
   if (Number(suite.failed) > 0) {

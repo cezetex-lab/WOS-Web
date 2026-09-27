@@ -1,4 +1,22 @@
 // @vitest-environment node
+/**
+ * ⚠️ SIMULATION ONLY — berkas ini menguji ulang logika DI DALAM DIRI SENDIRI,
+ * BUKAN perilaku database.
+ *
+ * Menghapus seluruh 549 RPC, mematikan RLS, atau mencuri data lewat anon TIDAK AKAN
+ * membuat satu pun test di sini merah. Semua "assertion" di bawah hanya
+ * mengevaluasi ulang ekspresi boolean yang ditulis di dalam file test ini.
+ *
+ * Test keamanan yang benar-benar membaca efek ada di:
+ *   - tests/unit/db-security-anon-access.test.ts      → P1-58-02 (HTTP nyata, anon key)
+ *   - tests/unit/db-constraint-guard.test.ts          → P1-58-01 (pg_constraint)
+ *   - tests/unit/db-security-and-partition-guard.test.ts → P1-72-01 (fail-fast to_regclass)
+ *
+ * Berkas ini sengaja TIDAK dihapus: ia masih berguna sebagai dokumentasi aturan
+ * bisnis (siapa boleh akses apa) dan sebagai regression test kalau aturan itu
+ * nanti dipindah ke kode. Tapi ia BUKAN bukti keamanan — jangan pernah dipakai
+ * untuk alasan itu.
+ */
 import { describe, it, expect } from 'vitest';
 
 // ============================================================
