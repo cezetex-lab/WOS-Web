@@ -51,16 +51,20 @@ function check(label, doc, live) {
 
 // --- angka dokumen ---
 const arch = fs.readFileSync('ARCHITECTURE.md', 'utf8');
-// "| Unit tests | ✅ 141/141 | vitest (22 berkas: ...)"
-const m = /\|\s*Unit tests\s*\|\s*✅?\s*(\d+)\/(\d+)\s*\|[^|]*?\((\d+) berkas/.exec(arch);
+// "| Unit tests | ✅ 141 test total — 136 auto + 5 butuh DATABASE_URL | vitest (22 berkas: ...)"
+// Angka yang dijaga = TOTAL, bukan `passed`. Lihat catatan di `check()` bawah:
+// suite yang sama menghasilkan passed BERBEDA antar environment karena 5 test
+// DB-live di-skip otomatis saat `.env.local` tidak ada (lokal 141, CI 136).
+const m = /\|\s*Unit tests\s*\|[^|]*?(\d+)\s+test total[^|]*?\|\s*vitest\s*\((\d+) berkas/.exec(arch);
 if (!m) {
   console.error(
     `${W.fail}FATAL${W.off} tidak bisa parsing baris "Unit tests" di ARCHITECTURE.md.\n` +
-      `  Pola yang diharapkan: | Unit tests | ✅ <pass>/<total> | vitest (<N> berkas: ...`,
+      `  Pola yang diharapkan:\n` +
+      `    | Unit tests | ✅ <N> test total — … | vitest (<M> berkas: …`,
   );
   process.exit(1);
 }
-const doc = { passed: m[1], total: m[2], files: m[3] };
+const doc = { total: m[1], files: m[2] };
 
 // --- angka repo (berkas test) ---
 function walk(dir, out = []) {
@@ -98,12 +102,35 @@ check('test files', doc.files, String(repoFiles));
 
 if (suite) {
   console.log('\n  -- hasil suite (dari vitest JSON) --');
+  // TOTAL adalah angka yang stabil lintas environment. `passed` TIDAK: 5 test
+  // DB-live memakai `describe.skipIf(!DB_URL)` dan membaca `.env.local` dari
+  // FILE (bukan process.env), jadi di runner CI tanpa file itu mereka di-skip
+  // → passed = 136 di CI vs 141 di lokal. Menjaga `passed` akan membuat guard
+  // merah di CI hanya karena tidak punya kredensial — drift palsu.
   check('total tests', doc.total, suite.total);
-  check('passed tests', doc.passed, suite.passed);
   check('test files', doc.files, suite.files);
-  if (suite.failed !== '0' || suite.pending !== '0') {
+
+  // Sanity: tidak boleh ada test yang hilang dari accounting.
+  const accounted = Number(suite.passed) + Number(suite.pending) + Number(suite.failed);
+  check('passed+pending+failed', suite.total, String(accounted));
+
+  // Gagal = FAIL keras. Ini bukan soal angka dokumen, ini test sungguhan merah.
+  if (Number(suite.failed) > 0) {
+    failures++;
+    console.log(`  ${W.fail}DRIFT${W.off} ${'failed tests'.padEnd(18)} ${suite.failed} — test benar-benar gagal`);
+  } else {
+    console.log(`  ${W.pass}OK${W.off}    ${'failed tests'.padEnd(18)} 0`);
+  }
+
+  // Skipped = WARN. Reach ke DB live bukan untuk setiap push; di CI 5 test ini
+  // sengaja di-skip. Melaporkannya sebagai drift akan menyuruh orang mengejar
+  // masalah yang memang bukan masalah.
+  if (Number(suite.pending) > 0) {
     warnings++;
-    console.log(`  ${W.warn}WARN${W.off}  ada ${suite.failed} gagal / ${suite.pending} pending`);
+    console.log(
+      `  ${W.warn}WARN${W.off}  ${suite.pending} test di-skip ` +
+        `(butuh DATABASE_URL / .env.local — normal di CI)`,
+    );
   }
 } else {
   warnings++;
