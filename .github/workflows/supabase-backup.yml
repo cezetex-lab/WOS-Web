@@ -57,4 +57,5 @@ jobs:
             exit 1
           fi
           gunzip "backups/${{ steps.filename.outputs.filename }}.sql.gz"
+          sed -i '/^CREATE SCHEMA public;$/a CREATE EXTENSION IF NOT EXISTS vector;' "backups/${{ steps.filename.outputs.filename }}.sql"
           psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -f "backups/${{ steps.filename.outputs.filename }}.sql"
