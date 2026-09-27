@@ -47,18 +47,3 @@ jobs:
           name: db-backup-${{ steps.filename.outputs.filename }}
           path: backups/*.sql.gz
           retention-days: 30
-
-      - name: Sync to Neon
-        env:
-          NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
-        run: |
-          if [ -z "$NEON_DB_URL" ]; then
-            echo "::error::NEON_DB_URL tidak di-set — restore test tidak jalan"
-            exit 1
-          fi
-          gunzip "backups/${{ steps.filename.outputs.filename }}.sql.gz"
-          sed -i '/^CREATE SCHEMA public;$/d' "backups/${{ steps.filename.outputs.filename }}.sql"
-          psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS public CASCADE;"
-          psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -c "CREATE SCHEMA public;"
-          psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
-          psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -f "backups/${{ steps.filename.outputs.filename }}.sql"
