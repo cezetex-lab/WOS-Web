@@ -47,3 +47,19 @@ jobs:
           name: db-backup-${{ steps.filename.outputs.filename }}
           path: backups/*.sql.gz
           retention-days: 30
+
+      # Verifikasi artifact tepat di sini, bukan sebagai job terpisah di ci.yml
+      # (hapus 2026-09-27). Alasannya:
+      #   * Artifact antar-workflow-run tidak bisa dibaca tanpa API token, jadi
+      #     job CIgdulu harus membuat dump sendiri — duplikasi kerja.
+      #   * Job itu masih memakai pg_dump 16 (PGDG terpasang tapi /usr/bin/pg_dump
+      #     tidak diarahkan ke v17) → "server version mismatch" di CI.
+      # Di sini dump-nya sudah jadi, jadi tidak ada pg_dump kedua dan tidak ada
+      # mismatch. Script ini zero-dependency (hanya node:fs + node:zlib), jadi
+      # tidak perlu `npm ci` maupun `actions/setup-node` — Node 20+ sudah ada
+      # di ubuntu-24.04.
+      #
+      # Memeriksa file yang BARU dibuat di run ini, bukan artifact lama — jadi
+      # damage baru ketahuki di run yang sama, bukan 24 jam kemudian.
+      - name: Verify artifact
+        run: node scripts/verify-backup-artifact.mjs "backups/${{ steps.filename.outputs.filename }}.sql.gz"
