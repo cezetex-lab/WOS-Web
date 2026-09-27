@@ -36,7 +36,27 @@ function check(label, doc, live, { soft = false } = {}) {
 }
 
 async function main() {
-  const sh = (cmd) => { try { return execSync(cmd, { encoding: 'utf8', shell: 'cmd.exe', maxBuffer: 16e6 }).trim(); } catch { return ''; } };
+  // Shell lintas-platform. SEBELUMNYA di-hardcode `cmd.exe`, yang hanya ada di
+  // Windows. Di runner Linux `execSync` throw, `catch` menelan errornya dan
+  // mengembalikan '' — sehingga `git ls-files` menghasilkan array kosong dan
+  // SEMUA angka file TS dilaporkan 0 (CI merah dengan drift palsu, 2026-09-27).
+  //
+  // `catch` sekarang TIDAK lagi menelan error: guard lebih baik mati keras
+  // daripada melaporkan angka yang tidak dihitungnya. Prinsip §0.16.
+  const SHELL = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
+  const sh = (cmd) => {
+    try {
+      return execSync(cmd, { encoding: 'utf8', shell: SHELL, maxBuffer: 16e6 }).trim();
+    } catch (e) {
+      const detail = (e.stderr || '').toString().trim() || e.message;
+      console.error(`${W.fail}FATAL${W.off} perintah shell gagal: \`${cmd}\``);
+      console.error(`  shell : ${SHELL} (${process.platform})`);
+      console.error(`  stderr: ${detail}`);
+      console.error('  Guard tidak bisa menghitung angka repo dengan benar — berhenti.');
+      console.error('  Jangan laporkan drift yang mungkin palsu.');
+      process.exit(1);
+    }
+  };
 
   const url = process.env.DATABASE_URL;
   if (!url) { console.error(`${W.fail}FATAL${W.off} DATABASE_URL tidak ada (.env.local). Cannot verify live.`); process.exit(1); }
