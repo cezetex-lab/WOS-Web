@@ -26,16 +26,24 @@ Sisa: tidak ada.
 
 ## Global Analysis (docs/forensic/)
 - [x] **FORENSIC-GLOBAL.md** — analisis relasi, root cause map, cakupan audit, prioritas risiko
-- [x] **FORENSIC-FIXPLAN.md** — 13 batch fix berurutan dari akar (**#1 SELESAI** `5cd9ab3`; #13 SEBAGIAN `727b835`+`347ba01`; sisanya RENCANA)
+- [x] **FORENSIC-FIXPLAN.md** — 13 batch fix berurutan dari akar (**#1** `5cd9ab3` · **#13 SELESAI** `727b835`+`347ba01`+`6594cb0`; sisanya RENCANA)
 - Laporan mentah per batch: `.agents/reports/forensic/FORENSIC-RAW-batch-01..09.md`
 
-## Status Temuan Backup & DR (P1-14 / P1-45) — diperbarui 2026-09-27
+## Status Temuan Backup & DR (P1-14 / P1-45) — ✅ SEMUA CLOSED (2026-09-27)
 
 | Temuan | Status | Bukti |
 |---|---|---|
-| **P1-14-01** (`pg_restore` untuk plain SQL) | ✅ **TUTUP** | step "Sync to Neon" dihapus — commit `727b835`. Ditutup lewat **perubahan desain**, bukan patch: target restore (Neon free) tidak pernah setara Supabase. |
-| **P1-14-02** (tidak ada restore test / DR drill) | 🔶 **DALAM PROSES** | workflow `.github/workflows/restore-test.yml` (mingguan, `npm run db:replay` → bandingkan metrik+ACL vs live) + `scripts/verify-backup-artifact.mjs` (commit `347ba01`). **Belum ada bukti run hijau** — `gh` CLI tidak tersedia di mesin agen. Belum boleh DONE (§0.16). |
-| **P1-45-01** (`DISASTER_RECOVERY.md`Claim palsu) | ✅ **TUTUP** | `DISASTER_RECOVERY.md` ditulis ulang 2026-09-27: hot standby dinyatakan **TIDAK ADA**, RPO 24 jam, RTO 1–2 jam manual, §9.6 mencantumkan tiap klaim lama yang dihapus + alasannya. |
+| **P1-14-01** (`pg_restore` untuk plain SQL) | ✅ **CLOSED** | step "Sync to Neon" dihapus — commit `727b835`. Ditutup lewat **perubahan desain**, bukan patch: target restore (Neon free) tidak pernah setara Supabase. |
+| **P1-14-02** (tidak ada restore test / DR drill) | ✅ **CLOSED** | (a) `scripts/verify-backup-artifact.mjs` + job `backup-artifact` di `ci.yml` — commit `347ba01`; (b) workflow `.github/workflows/restore-test.yml` mingguan (`npm run db:replay` → replay baseline + bandingkan metrik & ACL vs DB live) — commit `6594cb0`. **Run `Restore Test` hijau** (dilaporkan user 2026-09-27). |
+| **P1-45-01** (`DISASTER_RECOVERY.md` klaim palsu) | ✅ **CLOSED** | `DISASTER_RECOVERY.md` ditulis ulang 2026-09-27: hot standby dinyatakan **TIDAK ADA**, RPO 24 jam, RTO 1–2 jam manual, §9.6 mencantumkan tiap klaim lama yang dihapus + alasannya — commit `6594cb0`. |
+
+**Riwayat commit Batch #13** (branch `migrasi-vite`):
+
+| Commit | Isi |
+|---|---|
+| `727b835` | hapus step "Sync to Neon" (−15 baris) — P1-14-01 tertutup |
+| `347ba01` | `verify-backup-artifact.mjs` (5/5 exit code teruji lokal) + job `backup-artifact` + `npm run verify:backup` |
+| `6594cb0` | `restore-test.yml` (mingguan) + rewrite `DISASTER_RECOVERY.md` — P1-14-02 & P1-45-01 tertutup |
 
 **Kronologi kegagalan run #28–#32**: 5 run berturut gagal karena **premis** (dump Supabase →
 restore ke Neon free), bukan karena bug per langkah. #26 dan #28 adalah bug NYATA (versi client,
@@ -50,6 +58,7 @@ di `.github/workflows/`, `scripts/`, dan dokumen. Tidak menyentuh `src/` maupun 
 |---|---|---|
 | #1 CI DULU | ✅ **SELESAI** (2026-09-26) | `5cd9ab3` — run #1 `success`, 11/11 step hijau |
 | #2 Sinkronisasi artefak | ⏳ RENCANA | menutup P1-31-01/56-01/68-01 + `continue-on-error` residual #1 |
+| #13 Backup & DR | ✅ **SELESAI** (2026-09-27) | `727b835`+`347ba01`+`6594cb0` — P1-14-01/02 + P1-45-01 CLOSED; run `Restore Test` hijau (2/2 replay, metrik SAMA) |
 
 > **Dokumen diringkas**: 122 temuan → **4 akar masalah** (sinkronisasi artefak, test keamanan vakuit,
 > audit trail kosong, keputusan lama tak dire-evaluasi). Fix plan diurutkan dari akar, bukan gejala.
