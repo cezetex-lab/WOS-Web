@@ -197,3 +197,54 @@ dan cek status 401/403. Lihat juga P1-58-01 (nol test CHECK/UNIQUE constraint).
 - Branch audit: `migrasi-vite` @ HEAD saat audit
 - WIP E2E fix #3 diparkir di branch `wip/e2e-fix3` (`2d28de7`)
 - ⚠️ P1-56-01: `ARCHITECTURE.md` §7.3/§7.4 belum sinkron dengan live — `doc-claims-vs-live.test.ts` merah
+
+---
+
+## Utang di Luar 13 Batch (catatan, 2026-09-27)
+
+> **Ini CATATAN, bukan fix plan.** Sesuai §0.9 setiap temuan harus punya Item + DoD; yang di
+> bawah sengaja **tidak** diberi nomor batch, prioritas, atau DoD karena itu akan mengubah
+> Batch Fix #1–#13 yang sudah ditutup. Tujuannya satu: supaya tidak hilang diam-diam.
+> **Tidak ada pekerjaan di halaman ini yang sudah dikerjakan.**
+
+### KATEGORI 1 — Bisa masuk batch kecil (terbatas, mandiri, low-risk)
+| Utang | Rujukan |
+|---|---|
+| `esm.sh` pinning — 7 edge import `esm.sh@2` tanpa lock | P2-41-01 |
+| Coverage threshold tidak di-enforce | P2-57-01 |
+| gitleaks tidak jalan di CI | P3-15-01 |
+| `npm audit signatures` belum dijalankan | — |
+
+### KATEGORI 2 — Butuh batch baru (cakupan >> Fix #1–#13)
+| Utang | Rujukan |
+|---|---|
+| Mutation testing nyata | audit 78 — dibatasi protokol read-only |
+| Chaos / failure injection | audit 79 — tidak dijalankan penuh |
+| Frontend analysis (`src/` substantive, bukan struktur) | 88 audit fokus DB, `src/` hanya dipindai struktur |
+| Multi-tenancy verification | terblokir freeze P1-68-01 (installer) |
+| Runtime edge behavior (`password-reset`, `mfa`) | 0 request nyata selama ini |
+| Failover drill end-to-end | di luar Fix #13 — belum pernah dijalankan |
+
+### KATEGORI 3 — Butuh akses non-kode (bukan batas kapasitas)
+| Utang | Catatan |
+|---|---|
+| Branch protection | pernah `TOOL NOT AVAILABLE`; ruleset aktif per 2026-09-26 |
+| Rotasi credential | butuh akses Dashboard |
+| DPA cross-border | butuh keputusan legal, bukan kode |
+| Config drift Vercel | butuh akses project Vercel |
+| React render profile | butuh profiler/runtime nyata |
+| Metrik edge (cold start, p95, error rate) | tidak ada telemetry terpasang |
+
+### KATEGORI 4 — Manual test (di luar otomasi)
+| Utang | Catatan |
+|---|---|
+| Stored XSS end-to-end | belum ada uji manualnya |
+| Concurrent login & double-submit | belum ada uji manualnya |
+| Fuzz form submit | belum ada uji manualnya |
+| Tab order / focus trap / zoom 200% | belum ada uji manualnya |
+| Mobile 375×667 | belum ada uji manualnya |
+| Safari & Firefox | belum ada uji manualnya |
+
+**Status**: semua item di atas **OPEN** dan belum dijadwalkan. Kalau salah satu dieksekusi,
+tambahkan di `agentsLogs_2026-09.md` lalu pindahkan ke sini sebagai CLOSED — jangan biarkan
+kategori "catatan" diisi item yang sebenarnya sudah dikerjakan.
