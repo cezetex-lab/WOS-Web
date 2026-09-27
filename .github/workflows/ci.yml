@@ -89,3 +89,53 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  backup-artifact:
+    name: verifikasi artifact backup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    # Backup harian berjalan di workflow terpisah (`supabase-backup.yml`).
+    # Job ini tidak bisa membaca artifact workflow lain, jadi ia membuat
+    # dump-nya sendiri dari live dan memeriksa apakah hasilnya Restoration-
+    # ready. Yang diuji: "dump bisa dibuka & isinya masuk akal" — BUKAN
+    # restore ke DB (itu `restore-test.yml`, mingguan).
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client 17 (PGDG)
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /etc/apt/trusted.gpg.d/pgdg.asc > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Take dump
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p backups
+          pg_dump "$DATABASE_URL" --schema=public --no-owner --no-privileges -f backups/verify.sql
+          gzip backups/verify.sql
+          ls -lh backups/
+
+      - name: Verify artifact
+        run: node scripts/verify-backup-artifact.mjs backups/verify.sql.gz
+
+      - name: Upload dump for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-verify-${{ github.run_number }}
+          path: backups/verify.sql.gz
+          retention-days: 7
+        if: always()
