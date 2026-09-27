@@ -34,10 +34,16 @@ Sisa: tidak ada.
 | Temuan | Status | Bukti |
 |---|---|---|
 | **P1-14-01** (`pg_restore` untuk plain SQL) | ✅ **CLOSED** | step "Sync to Neon" dihapus — commit `727b835`. Ditutup lewat **perubahan desain**, bukan patch: target restore (Neon free) tidak pernah setara Supabase. |
-| **P1-14-02** (tidak ada restore test / DR drill) | ✅ **CLOSED** | (a) `scripts/verify-backup-artifact.mjs` + job `backup-artifact` di `ci.yml` — commit `347ba01`; (b) workflow `.github/workflows/restore-test.yml` mingguan (`npm run db:replay` → replay baseline + bandingkan metrik & ACL vs DB live) — commit `6594cb0`. **Run `Restore Test` hijau** (dilaporkan user 2026-09-27). |
+| **P1-14-02** (tidak ada restore test / DR drill) | ✅ **CLOSED** | (a) `scripts/verify-backup-artifact.mjs` + job `backup-artifact` di `ci.yml` — commit `347ba01`; (b) workflow `.github/workflows/restore-test.yml` mingguan (`npm run db:replay` → replay baseline + bandingkan metrik & ACL vs DB live) — commit `6594cb0`. **Bukti eksekusi:** run hijau 2026-09-27 → <https://github.com/cezetex-lab/WOS-Web/actions/runs/36302850533> |
 | **P1-45-01** (`DISASTER_RECOVERY.md` klaim palsu) | ✅ **CLOSED** | `DISASTER_RECOVERY.md` ditulis ulang 2026-09-27: hot standby dinyatakan **TIDAK ADA**, RPO 24 jam, RTO 1–2 jam manual, §9.6 mencantumkan tiap klaim lama yang dihapus + alasannya — commit `6594cb0`. |
 
 **Riwayat commit Batch #13** (branch `migrasi-vite`):
+
+> **Catatan akurasi bukti.** Angka `2/2 berkas sukses · 0 GAGAL · 12 metrik SAMA` berasal dari
+> `supabase/baseline/replay-baseline.md` yang **bertimestamp 2026-09-18** — itu implementasi
+> **manual**, satu hari sebelum workflow `restore-test.yml` dibuat. **Bukti eksekusi workflow**
+> adalah link run di atas. Run CI berikutnya (Kamis 03:00 UTC) akan menimpa file itu dengan
+> timestamp baru, dan angka saat itu **benar-benar** berasal dari workflow.
 
 | Commit | Isi |
 |---|---|
@@ -58,7 +64,7 @@ di `.github/workflows/`, `scripts/`, dan dokumen. Tidak menyentuh `src/` maupun 
 |---|---|---|
 | #1 CI DULU | ✅ **SELESAI** (2026-09-26) | `5cd9ab3` — run #1 `success`, 11/11 step hijau |
 | #2 Sinkronisasi artefak | ⏳ RENCANA | menutup P1-31-01/56-01/68-01 + `continue-on-error` residual #1 |
-| #13 Backup & DR | ✅ **SELESAI** (2026-09-27) | `727b835`+`347ba01`+`6594cb0` — P1-14-01/02 + P1-45-01 CLOSED; run `Restore Test` hijau (2/2 replay, metrik SAMA) |
+| #13 Backup & DR | ✅ **SELESAI** (2026-09-27) | `727b835`+`347ba01`+`6594cb0` — P1-14-01/02 + P1-45-01 CLOSED; [run restore-test hijau](https://github.com/cezetex-lab/WOS-Web/actions/runs/36302850533) (2/2 replay, 12 metrik SAMA) |
 
 > **Dokumen diringkas**: 122 temuan → **4 akar masalah** (sinkronisasi artefak, test keamanan vakuit,
 > audit trail kosong, keputusan lama tak dire-evaluasi). Fix plan diurutkan dari akar, bukan gejala.
