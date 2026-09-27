@@ -85,7 +85,18 @@ jobs:
         # `continue-on-error` DIHAPUS (Batch Fix #2): P1-56-01 sudah tertutup —
         # ARCHITECTURE.md §7.3/§7.4 sinkron dengan live. Kegagalan unit test
         # sekarang memblokir, dan tidak ada test yang dihapus.
-        run: npm run test
+        #
+        # `--reporter=json --outputFile.json` ditambahkan supaya step
+        # `Verify test count` di bawah memakai hasil run yang SAMA (residual
+        # Fix #2). Guard TIDAK menjalankan vitest kedua kali — biayanya ~0 detik.
+        run: npx vitest run --reporter=default --reporter=json --outputFile.json=.vitest/test-result.json
+
+      - name: Verify test count
+        # Residual Batch Fix #2: ARCHITECTURE.md §7.5 menulis "141/141 · 22
+        # berkas". Angka itu pernah meluruh ke 132/132 tanpa ada yang menangkap,
+        # karena `verify:artifacts` hanya menjaga angka DB & file TS. Guard ini
+        # menutup lubang itu — pola Akar A yang sama.
+        run: npm run verify:test-count
 
       - name: Build
         run: npm run build

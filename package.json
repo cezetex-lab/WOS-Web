@@ -22,6 +22,7 @@
     "check:types": "tsc --noEmit",
     "verify:artifacts": "node scripts/verify-derived-artifacts.mjs",
     "verify:backup": "node scripts/verify-backup-artifact.mjs",
+    "verify:test-count": "node scripts/verify-test-count.mjs",
     "db:migrate": "node supabase/scripts/apply-migration.mjs",
     "db:replay": "node supabase/scripts/replay-fresh-install.mjs",
     "db:baseline": "node supabase/scripts/generate-baseline.mjs && node supabase/scripts/generate-baseline-data.mjs",
