@@ -33,7 +33,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          pg_dump "$DATABASE_URL" --schema=public --no-owner --no-privileges --clean --if-exists -f "backups/${{ steps.filename.outputs.filename }}.sql"
+          pg_dump "$DATABASE_URL" --schema=public --no-owner --no-privileges -f "backups/${{ steps.filename.outputs.filename }}.sql"
 
       - name: Compress backup
         run: |
@@ -57,6 +57,7 @@ jobs:
             exit 1
           fi
           gunzip "backups/${{ steps.filename.outputs.filename }}.sql.gz"
-          sed -i '/^DROP SCHEMA public;$/d' "backups/${{ steps.filename.outputs.filename }}.sql"
-          sed -i '/^CREATE SCHEMA public;$/a CREATE EXTENSION IF NOT EXISTS vector;' "backups/${{ steps.filename.outputs.filename }}.sql"
+          psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS public CASCADE;"
+          psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -c "CREATE SCHEMA public;"
+          psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
           psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -f "backups/${{ steps.filename.outputs.filename }}.sql"
