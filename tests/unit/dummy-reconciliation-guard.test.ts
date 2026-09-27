@@ -53,17 +53,10 @@ interface PasswordRow {
   reset_required: boolean | null;
 }
 
-function readDatabaseUrl(): string | undefined {
-  const envPath = path.join(ROOT, '.env.local');
-  if (!fs.existsSync(envPath)) return undefined;
-  const line = fs
-    .readFileSync(envPath, 'utf8')
-    .split(/\r?\n/)
-    .find((candidate) => /^\s*DATABASE_URL\s*=/.test(candidate));
-  if (!line) return undefined;
-  const value = line.slice(line.indexOf('=') + 1).trim().replace(/^["']|["']$/g, '');
-  return value.length > 0 ? value : undefined;
-}
+// `readDatabaseUrl()` sekarang datang dari `tests/helpers/db` (Fix #3 residual):
+// membaca `process.env.DATABASE_URL` DULU, baru fallback ke `.env.local`. Versi
+// lama hanya bisa melihat `.env.local`, jadi test ini selalu skip di CI.
+import { readDatabaseUrl } from '../helpers/db';
 
 const DATABASE_URL = readDatabaseUrl();
 

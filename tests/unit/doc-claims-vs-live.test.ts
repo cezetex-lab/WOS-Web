@@ -37,17 +37,11 @@ function grab(md: string, pattern: RegExp, group = 1): number | undefined {
   return match ? Number(match[group]) : undefined;
 }
 
-function readDatabaseUrl(): string | undefined {
-  const envPath = path.join(ROOT, '.env.local');
-  if (!fs.existsSync(envPath)) return undefined;
-  const line = fs
-    .readFileSync(envPath, 'utf8')
-    .split(/\r?\n/)
-    .find((l) => /^\s*DATABASE_URL\s*=/.test(l));
-  if (!line) return undefined;
-  const value = line.slice(line.indexOf('=') + 1).trim().replace(/^["']|["']$/g, '');
-  return value.length > 0 ? value : undefined;
-}
+// `readDatabaseUrl()` sekarang datang dari `tests/helpers/db` (Fix #3 residual):
+// membaca `process.env.DATABASE_URL` DULU, baru fallback ke `.env.local`. Sebelum
+// ini fungsi identik diduplikasi lokal di 3+ file dan hanya bisa melihat `.env.local`,
+// sehingga test-nya tetap skip di CI walaupun secret-nya sudah diset.
+import { readDatabaseUrl } from '../helpers/db';
 
 interface Claim {
   /** Nama manusia untuk pesan gagal. */
