@@ -142,7 +142,7 @@ Layer 3: DB-level (authz functions)
 | Component | Status | Notes |
 |---|---|---|
 | TypeScript | ✅ 157 .ts/.tsx files (132 `.tsx` + 25 `.ts`) | 0 tsc errors (re-verifikasi 2026-09-17), strict mode, `allowJs: false` |
-| Unit tests | ✅ 132/132 | vitest (20 berkas; 2 project: `node` + `jsdom`) — termasuk penjaga rekonsiliasi data dummy live (`dummy-reconciliation-guard.test.ts`) |
+| Unit tests | ✅ 141/141 | vitest (22 berkas: 20 `tests/unit` + 2 `tests/component`; 2 project: `node` + `jsdom`) — termasuk penjaga rekonsiliasi data dummy live (`dummy-reconciliation-guard.test.ts`). Angka diverifikasi 2026-09-27 dari `vitest run --reporter=json` (0 gagal, 0 pending) dan dijaga guard `verify:test-count` |
 | E2E tests | ✅ 4/4 passed (four-page live smoke) | `tests/e2e/four-page-smoke.spec.ts` (Worker/Admin/Dashboard/Owner, kredensial live via env); 13 live-backend lain tetap opt-in |
 | Lint | ✅ 0 errors | eslint |
 | Build | ✅ EXIT 0 | vite |
