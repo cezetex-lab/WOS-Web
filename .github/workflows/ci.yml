@@ -95,13 +95,15 @@ jobs:
         # lewat HTTP. TANPA KEDUANYA test itu di-skip — sengaja, supaya yang
         # tidak diuji terlihat jelas, bukan hijau palsu.
         #
-        # TIDAK ada DATABASE_URL di sini: test katalog DB (constraint, RLS,
-        # partisi) sengaja hanya jalan di mesin yang punya `.env.local`.
-        # Memberi akses DB penuh ke setiap push adalah privilege yang tidak
-        # diperlukan untuk membuktikan proteksi anon.
+        # `DATABASE_URL` diteruskan agar 6 test katalog DB ikut jalan:
+        # db-constraint-guard (P1-58-01), db-security-and-partition-guard
+        # (P1-72-01), doc-claims-vs-live, dan dummy-reconciliation-guard.
+        # Tanpa ini test-nya skip — terlihat jelas, bukan hijau palsu.
+        # Rahasia TIDAK ditulis literal di YAML, hanya diteruskan ke env step.
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx vitest run --reporter=default --reporter=json --outputFile.json=.vitest/test-result.json
 
       - name: Verify test count
