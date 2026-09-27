@@ -52,7 +52,9 @@ jobs:
         env:
           NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
         run: |
-          if [ -n "$NEON_DB_URL" ]; then
-            gunzip "backups/${{ steps.filename.outputs.filename }}.sql.gz"
-            pg_restore -d "$NEON_DB_URL" --no-owner --clean --if-exists "backups/${{ steps.filename.outputs.filename }}.sql"
+          if [ -z "$NEON_DB_URL" ]; then
+            echo "::error::NEON_DB_URL tidak di-set — restore test tidak jalan"
+            exit 1
           fi
+          gunzip "backups/${{ steps.filename.outputs.filename }}.sql.gz"
+          psql "$NEON_DB_URL" -v ON_ERROR_STOP=1 -f "backups/${{ steps.filename.outputs.filename }}.sql"
