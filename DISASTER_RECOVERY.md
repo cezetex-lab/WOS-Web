@@ -46,9 +46,13 @@ Neon free tier tidak menyediakan `pg_cron` maupun `pg_stat_statements`.
 ### 9.3 Yang benar-benar melindungi (dan sudah otomatis)
 
 1. **Backup artifact** — dump `--schema=public` harian → artifact GitHub, 30 hari.
-2. **Verifikasi artifact tiap CI** — cek file ada, ukuran masuk ambang, gzip
-   utuh, isi bermakna. Menangkap "backup rusak" dalam hitungan jam, bukan
-   30 hari. (`npm run verify:backup`)
+2. **Verifikasi artifact tiap backup harian** — di workflow `supabase-backup.yml` (step
+   `Verify artifact`, setelah upload). Cek file ada, ukuran masuk ambang, gzip utuh, isi
+   bermakna. Menangkap backup rusak **di run yang sama**, bukan 24 jam kemudian.
+   Dulu dijalankan sebagai job terpisah di `ci.yml` — dihapus 2026-09-27 karena artifact
+   antar-workflow-run tidak bisa dibaca tanpa API token, jadi job itu membuat dump sendiri
+   (duplikasi) dan memakai `pg_dump` 16 sehingga gagal *server version mismatch*.
+   Jalankan manual: `node scripts/verify-backup-artifact.mjs backups/<file>.sql.gz`
 3. **Restore test mingguan** — `npm run db:replay` membuat DB sekali pakai di
    cluster yang sama, mereplay baseline, lalu **membandingkan metrik + ACL
    dengan DB live**. Ini yang menutup P1-14-02: backup tanpa bukti restore

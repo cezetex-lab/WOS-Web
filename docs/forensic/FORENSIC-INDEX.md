@@ -34,7 +34,7 @@ Sisa: tidak ada.
 | Temuan | Status | Bukti |
 |---|---|---|
 | **P1-14-01** (`pg_restore` untuk plain SQL) | ✅ **CLOSED** | step "Sync to Neon" dihapus — commit `727b835`. Ditutup lewat **perubahan desain**, bukan patch: target restore (Neon free) tidak pernah setara Supabase. |
-| **P1-14-02** (tidak ada restore test / DR drill) | ✅ **CLOSED** | (a) `scripts/verify-backup-artifact.mjs` + job `backup-artifact` di `ci.yml` — commit `347ba01`; (b) workflow `.github/workflows/restore-test.yml` mingguan (`npm run db:replay` → replay baseline + bandingkan metrik & ACL vs DB live) — commit `6594cb0`. **Bukti eksekusi:** run hijau 2026-09-27 → <https://github.com/cezetex-lab/WOS-Web/actions/runs/36302850533> |
+| **P1-14-02** (tidak ada restore test / DR drill) | ✅ **CLOSED** | (a) `scripts/verify-backup-artifact.mjs`, dijalankan sebagai step `Verify artifact` di `supabase-backup.yml` — commit `347ba01`, dipindah `08f74cb`; (b) workflow `.github/workflows/restore-test.yml` mingguan (`npm run db:replay` → replay baseline + bandingkan metrik & ACL vs DB live) — commit `6594cb0`. **Bukti eksekusi:** run hijau 2026-09-27 → <https://github.com/cezetex-lab/WOS-Web/actions/runs/36302850533> |
 | **P1-45-01** (`DISASTER_RECOVERY.md` klaim palsu) | ✅ **CLOSED** | `DISASTER_RECOVERY.md` ditulis ulang 2026-09-27: hot standby dinyatakan **TIDAK ADA**, RPO 24 jam, RTO 1–2 jam manual, §9.6 mencantumkan tiap klaim lama yang dihapus + alasannya — commit `6594cb0`. |
 
 **Riwayat commit Batch #13** (branch `migrasi-vite`):
@@ -48,7 +48,7 @@ Sisa: tidak ada.
 | Commit | Isi |
 |---|---|
 | `727b835` | hapus step "Sync to Neon" (−15 baris) — P1-14-01 tertutup |
-| `347ba01` | `verify-backup-artifact.mjs` (5/5 exit code teruji lokal) + job `backup-artifact` + `npm run verify:backup` |
+| `347ba01` | `verify-backup-artifact.mjs` (5/5 exit code teruji lokal) + `npm run verify:backup` — **dipindah ke `supabase-backup.yml` di `08f74cb`** |
 | `6594cb0` | `restore-test.yml` (mingguan) + rewrite `DISASTER_RECOVERY.md` — P1-14-02 & P1-45-01 tertutup |
 
 **Kronologi kegagalan run #28–#32**: 5 run berturut gagal karena **premis** (dump Supabase →
