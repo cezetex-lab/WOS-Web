@@ -66,6 +66,7 @@ di `.github/workflows/`, `scripts/`, dan dokumen. Tidak menyentuh `src/` maupun 
 | #2 Sinkronisasi artefak | ⏳ RENCANA | menutup P1-31-01/56-01/68-01 + `continue-on-error` residual #1 |
 | #13 Backup & DR | ✅ **SELESAI** (2026-09-27) | `727b835`+`347ba01`+`6594cb0` — P1-14-01/02 + P1-45-01 CLOSED; [run restore-test hijau](https://github.com/cezetex-lab/WOS-Web/actions/runs/36302850533) (2/2 replay, 12 metrik SAMA) |
 | #4 Audit Trail | ✔ **SELESAI** (2026-09-27) | migrasi `251`/`252`/`253` — P1-13-01 (actor terisi: NRP asli / SYSTEM, dibuktikan uji JWT claim) · P2-13-01 (cron retensi 365 hari) · verify_audit_chain chain-aware · konsolidasi trigger (1 perubahan = 1 baris audit) · anon grants 131→130 (Opsi A) |
+| #5 Auth + Identitas | ✔ **SELESAI** (2026-09-28) — *kecuali deploy edge* | migrasi `254` DITERAPKAN (live 179 baris, `max(version)=254`) — **P1-46-01** (kanal reset password jujur via `settings.password_reset_channel`, default `admin`) · **P1-74-01** (`employees_core_email_unique`; 17/17 terisi, 0 duplikat raw & case-insensitive, 0 NULL) · edge `password-reset` action=request membaca flag lewat `service_role` (settings FORCE RLS tanpa policy SELECT) · `tests/unit/db-password-reset-channel.test.ts` (7 test, 5 DB-live + 2 sumber) |
 
 
 > **Anomali OID (P3-F04-01, ⚠ NEW, bukan blocker):** overload `verify_audit_chain(integer, integer)`
@@ -75,6 +76,24 @@ di `.github/workflows/`, `scripts/`, dan dokumen. Tidak menyentuh `src/` maupun 
 > adalah risiko tersisa yang harus jujur, bukan diabaikan.
 > **Dokumen diringkas**: 122 temuan → **4 akar masalah** (sinkronisasi artefak, test keamanan vakuit,
 > audit trail kosong, keputusan lama tak dire-evaluasi). Fix plan diurutkan dari akar, bukan gejala.
+
+
+### 🧾 Work Queue baru dari Fix #5 (2026-09-28) — wajib ditutup seperti item lain
+
+> Detail lengkap (Bukti + Definition of Done) ada di `AGENTS.md` §5.8. Ringkas:
+
+| ID | Prio | Masalah | DoD singkat |
+|---|---|---|---|
+| P1-F05-01 | P1 | `admin_get_employees()` stub — cek authz, **0 baris data**; dipakai `Employees.tsx` untuk daftar karyawan | RPC mengembalikan data nyata saat admin login |
+| P1-F05-02 | P1 | Dua skema hash password (`digest(sha256)+salt` vs `crypt+gen_salt('bf')`) | satu skema, atau bukti kompatibel + audit |
+| P2-F05-03 | P2 | 9/17 email `@insightwos.internal` (TLD privat) → tak bisa menerima surat | semua email bisa menerima surat, atau accepted risk tertulis |
+| P3-F05-04 | P3 | `src/pages/PasswordReset.tsx` orphan (0 route, 0 referensi) | hapus atau daftarkan route |
+| P3-F05-05 | P3 | RPC `request_password_reset` dead code + pesan palsu di `141:680/702` & `baseline:14067/14089` | dihapus/dikoreksi saat regenerasi baseline (Fix #9) |
+| P3-F05-06 | P3 | `login_otp`: `emailed = !linkErr` dari `generateLink()` (tidak mengirim email) | pesan jujur atau provider email nyata |
+
+> **Residual Fix #5:** `supabase/baseline/000_baseline_schema.sql` belum memuat `employees_core_email_unique`
+> maupun baris `settings` baru → instalasi perusahaan baru berbeda dari live sampai Fix #9 regenerasi baseline
+> (freeze P1-68-01 tetap dihormati). Sumber bukti: probe `.agents/scripts/fix5-*.mjs` + log `.agents/logs/fix5-*.log`.
 
 ## ❄️ FREEZE CONDITION — INSTALLER (P1-68-01)
 

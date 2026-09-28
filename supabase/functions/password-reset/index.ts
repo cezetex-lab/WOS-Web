@@ -60,6 +60,30 @@ async function hitRateLimit(adminClient: any, identifier: string, action: string
   return data === true;
 }
 
+const RESET_MSG_ADMIN =
+  "Reset mandiri belum aktif. Hubungi admin untuk reset password.";
+const RESET_MSG_EMAIL =
+  "Jika email terdaftar, link reset sudah dikirim.";
+
+// Fix #5 (P1-46-01): pesan lupa-password wajib JUJUR. Kanal reset dikendalikan
+// setting `password_reset_channel` di tabel public.settings — dibaca lewat
+// adminClient (service_role), karena tabel itu FORCE RLS tanpa policy SELECT
+// sehingga hanya jalur service role yang bisa membacanya.
+// 'admin' = default jujur; 'email' = pesan anti-enumerasi lama, hanya benar
+// setelah provider email benar-benar mengirim token (belum ada — belum ada SMTP).
+async function getResetMessage(adminClient: any): Promise<string> {
+  try {
+    const { data } = await adminClient
+      .from("settings")
+      .select("value")
+      .eq("key", "password_reset_channel")
+      .single();
+    return data?.value === "email" ? RESET_MSG_EMAIL : RESET_MSG_ADMIN;
+  } catch {
+    return RESET_MSG_ADMIN;   // default aman
+  }
+}
+
 async function sha256Hex(input: string): Promise<string> {
   const bytes = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -284,13 +308,16 @@ serve(async (req: Request) => {
         return new Response(JSON.stringify({ ok: false, msg: "Email required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const key = email.toLowerCase().trim();
+      // TODO Fix #5 lanjutan: kalau channel='email' dan provider aktif,
+      // kirim tokenCode lewat SMTP/Resend SEBELUM return sukses.
+      const resetMsg = await getResetMessage(adminClient);
       const { data: user } = await adminClient.from("employees_master").select("nrp, email").eq("email", key).single();
       // Always return success to prevent email enumeration
       if (!user) {
-        return new Response(JSON.stringify({ ok: true, msg: "Jika email terdaftar, link reset sudah dikirim." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ ok: true, msg: resetMsg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       if (!(await hitRateLimit(adminClient, key, "request"))) {
-        return new Response(JSON.stringify({ ok: true, msg: "Jika email terdaftar, link reset sudah dikirim." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ ok: true, msg: resetMsg }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const tokenCode = Math.floor(100000 + Math.random() * 900000).toString();
       const codeHash = await sha256Hex(tokenCode);
@@ -302,7 +329,7 @@ serve(async (req: Request) => {
       );
       // NOTE: token reset tidak ditulis ke log. Integrasi email (SMTP/Resend)
       // harus dikirim tokenCode ke email user di sini.
-      return new Response(JSON.stringify({ ok: true, msg: "Jika email terdaftar, link reset sudah dikirim." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true, msg: resetMsg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     } else if (action === "verify") {
       if (!email || !token) {

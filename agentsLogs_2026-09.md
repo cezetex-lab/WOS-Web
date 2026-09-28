@@ -3131,3 +3131,86 @@ schema_migrations                  = 177 → 178, max(version) 252 → 253
 - **P2-22-01** (soft delete) tidak dikerjakan → keputusan produk, bukan kelalaian. Dicatat di `DISASTER_RECOVERY.md` §9.6 sebagai risk yang diterima.
 
 - **Dampak lintas-page: worker → admin → dashboard → owner** — **TIDAK terdampak**. Semua perubahan ada di backend: trigger `audit_log` internal + fungsi SQL + `cron` + 1 grant. Tidak ada perubahan pada `src/`, route, menu, RPC publik, kontrak session, atau desain. Bukti: `git diff --stat` hanya menyasar `ARCHITECTURE.md`, `AGENTS.md`, `docs/`, `agentsLogs_2026-09.md`, `supabase/migrations/`, `tests/`; `tsc` EXIT 0; tidak ada satu pun file di `src/` yang berubah.
+
+## [2026-09-28] Fix #5 — kanal reset password JUJUR + UNIQUE email (P1-46-01, P1-74-01 CLOSED)
+
+- Status: **SELESAI** — kecuali **deploy edge `password-reset`** (langkah terpisah, §0.17). Migrasi `254` DITERAPKAN ke live lewat wrapper resmi; `schema_migrations` **179** baris, `max(version)=254`, checksum terverifikasi.
+- Item yang ditutup: **P1-46-01** (permukaan klaim email palsu: edge `request`, RPC dead `request_password_reset`, UI orphan `PasswordReset.tsx`) dan **P1-74-01** (`employees_core.email` tanpa UNIQUE). Investigasi read-only penuh ada di entri sesi ini (prompt investigasi 2026-09-28).
+
+### Yang berubah
+
+1. **Migrasi `254_fix_password_reset_channel_and_unique_email.sql`** (2 statement):
+   - `INSERT INTO public.settings (key,value) VALUES ('password_reset_channel','admin') ON CONFLICT (key) DO NOTHING;`
+   - `ALTER TABLE public.employees_core ADD CONSTRAINT employees_core_email_unique UNIQUE (email);`
+2. **Edge `supabase/functions/password-reset/index.ts`** — HANYA `action=request`: helper baru `getResetMessage(adminClient)` (membaca `settings.password_reset_channel` lewat service_role) + `const resetMsg = await getResetMessage(adminClient)` **satu kali**, dan **ketiga** `return` memakai `resetMsg`. Konstanta: `RESET_MSG_ADMIN` = "Reset mandiri belum aktif. Hubungi admin untuk reset password." · `RESET_MSG_EMAIL` = pesan anti-enumerasi lama. Lima action lain (`verify`, `reset`, `login_otp`, `verify_login_otp`, `change_password_sync`, `admin_reset_sync`) **tidak disentuh**; rate-limit & `otp_store.upsert` tidak disentuh. Diff: 29 insertions(+), 3 deletions(-).
+3. **`tests/unit/db-password-reset-channel.test.ts`** — 7 test (5 DB-live + 2 sumber edge), pola `db-audit-trail.test.ts` (helper `tests/helpers/db`, tulis di transaksi ROLLBACK).
+4. **Dokumen**: `AGENTS.md` §5.8 (6 item baru), `docs/forensic/FORENSIC-INDEX.md` (baris progres #5 + blok Work Queue), `ARCHITECTURE.md` §7.3/§7.4/§7.5 (4 angka + provenance).
+
+### Bukti migrasi (mentah)
+
+```
+$ node supabase/scripts/apply-migration.mjs 254_fix_password_reset_channel_and_unique_email.sql   # dry run
+status    : belum terdaftar
+DRY RUN — tidak ada yang dijalankan. Tambahkan --apply untuk menerapkan.        EXIT=0
+checksum  : 1a19b7cacb86e278617b2c30d590fef34399a2b2a7deddd57895845d672d0af9
+
+$ node supabase/scripts/apply-migration.mjs 254_….sql --apply
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (1004ms)            EXIT=0
+
+verifikasi pasca-apply:
+  settings WHERE key='password_reset_channel' → [{ "key": "password_reset_channel", "value": "admin" }]
+  constraint employees_core_email_unique      → UNIQUE   (index: CREATE UNIQUE INDEX … USING btree (email))
+  employees_core email NULL/kosong            → 0
+  schema_migrations count / max(version)      → 179 / 254
+  entri 254                                   → checksum 1a19b7ca… (identik cap dry-run)
+  check_migrations()                          → [] (nol drift registry)
+```
+
+### Bukti fungsional (semua tulisan di dalam transaksi yang di-ROLLBACK)
+
+```
+A) INSERT email duplikat  → DITOLAK · code 23505 · constraint employees_core_email_unique
+                            · detail "Key (email)=(ceo@insightwos.com) already exists."
+B) baris probe tertinggal (ZZTEST99) → 0
+C) employees_master       → 17 baris, 0 bad_email
+D) RLS settings:  authenticated → [{"n":"0"}] (tidak bisa baca)
+                  service_role  → [{"key":"password_reset_channel","value":"admin"}] (bisa baca)
+```
+
+### Gate (semua dijalankan pada tree final, sesudah seluruh perubahan termasuk ARCHITECTURE.md)
+
+```
+npm run check:types      → TSC_EXIT=0
+npm run lint             → LINT_EXIT=0
+npm run build            → BUILD_EXIT=0
+npm run verify:artifacts → RINGKASAN: 0 drift, 1 warning (baseline commit = Fix #9, infosional) · ART_EXIT=0
+npx vitest run           → Test Files 26 passed (26) · Tests 168 passed | 4 todo (172) · VITEST_EXIT=0
+                           (termasuk tests/unit/db-password-reset-channel.test.ts 7/7)
+verify:test-count        → OK total tests 172 · OK test files 26 · OK failed tests 0 · 0 drift · TC_EXIT=0
+```
+
+### Dampak lintas-page: worker → admin → dashboard → owner
+
+- **Worker:** pesan di layar lupa-password (`Home.tsx` tidak diubah kodenya) kini berasal dari edge; dengan `channel='admin'` berubah dari "link reset sudah dikirim" → "Reset mandiri belum aktif. Hubungi admin untuk reset password." Itu **tujuan fix**, bukan regresi. Tabel `employees_core` bertambah UNIQUE email → 17/17 email terverifikasi unik, jadi tidak ada jalur tulis worker yang pecah.
+- **Admin:** jalur hidup `ResetPassword.tsx` → `admin_reset_worker_password` → edge `admin_reset_sync` **tidak disentuh**; reset password karyawan oleh admin tetap bekerja (action lain di file yang sama tidak berubah). Test baru ikut menjaga hardening OPS-06b tidak mundur (`msg: resetMsg` tepat 3, tidak ada return baru yang memakai literal).
+- **Dashboard:** tidak terdampak — tidak ada `src/` yang berubah; `git diff --stat` hanya menyentuh `supabase/`, `tests/`, `AGENTS.md`, `docs/`, `ARCHITECTURE.md`, `agentsLogs`.
+- **Owner:** tidak terdampak — tidak menyentuh branding/analitik/`owner_*`; RLS `settings` tetap FORCE tanpa policy SELECT (kebijakan akses tidak dilonggarkan).
+
+### Kejujuran proses (§0.16)
+
+- **Miss AI Core, bukan helper:** `ARCHITECTURE.md` tidak masuk daftar TARGET Prompt 3, padahal menambah 1 migrasi + 1 berkas test **pasti** menggeser angka §7.3/§7.4/§7.5. Helper berhenti di gate (b) dan melaporkan `verify:artifacts` 3 drift + `npm test` 2 merah (keduanya `doc-claims-vs-live`), **tidak** menambal diam-diam. User menyetujui sinkronisasi; angkanya: Migrations tracked 178→179 · TS total 213→214 · TS tests 48→49 · Unit tests 165→172 (26 berkas).
+- **Test pertama saya sendiri salah:** assertion "literal pesan lama = 1" keliru sasaran (literalnya hidup di konstanta `RESET_MSG_EMAIL`, bukan di `msg:`), sehingga run pertama 6/7. Diperbaiki jadi 0 literal di `return` + 2 assertion konstanta; run berikutnya 7/7.
+- `npm run lint` dijalankan **sebelum** suntingan ARCHITECTURE.md; berkas itu `.md` (di luar cakupan eslint `src/ tests/`) sehingga tidak ada gate yang jadi tidak sah.
+
+### Residual (tidak disembunyikan)
+
+- **Deploy edge belum dilakukan** — pesan jujur ini belum berlaku di produksi sampai `supabase functions deploy password-reset` dijalankan (Prompt terpisah, §0.17). Sampai itu, edge live masih memakai kode lama.
+- **Baseline drift:** `supabase/baseline/000_baseline_schema.sql` belum memuat `employees_core_email_unique` maupun baris `settings` baru → instalasi PT baru berbeda dari live sampai regenerasi (Fix #9). Freeze P1-68-01 tetap dihormati: `install:baseline`/`db:rehearse-newco` **tidak** dijalankan.
+- **9 dari 17 email** berdomain `@insightwos.internal` (TLD privat) — kalau kanal dipindah ke `'email'`, 9 user terkunci. Dicatat sebagai P2-F05-03.
+- 519 baris `audit_log` historis tetap `actor` NULL (keputusan Fix #4, tidak diubah di sini).
+
+### Work Queue baru (6 item, tercatat di `AGENTS.md` §5.8)
+
+`P1-F05-01` `admin_get_employees()` stub (0 baris data, dipakai `Employees.tsx`) · `P1-F05-02` dua skema hash password (`digest(sha256)+salt` vs `crypt+gen_salt('bf')`) · `P2-F05-03` 9/17 email `@insightwos.internal` · `P3-F05-04` `src/pages/PasswordReset.tsx` orphan · `P3-F05-05` RPC `request_password_reset` dead code + pesan palsu di `141:680/702` & `baseline:14067/14089` · `P3-F05-06` `login_otp`: `emailed = !linkErr` dari `generateLink()` yang tidak mengirim email.
+
+- **Rollback migrasi 254:** `ALTER TABLE public.employees_core DROP CONSTRAINT employees_core_email_unique;` + `DELETE FROM public.settings WHERE key='password_reset_channel';`. TIDAK disiapkan sebagai berkas `supabase/migrations/rollback/` di sesi ini.
