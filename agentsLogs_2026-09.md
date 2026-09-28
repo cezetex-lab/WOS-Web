@@ -3079,3 +3079,55 @@ memberi USAGE ke anon/authenticated/service_role → stub diperbaiki agar setia 
 - **Catatan proses (§0.16):** commit `83863f7` (OPS-13) sempat mencatat "gate 141/141" padahal run-nya dilakukan **sebelum** baris OPS-13 dihapus dari AGENTS.md — tree yang dipush itu membuat 2 test guard ini merah. Ketidaksesuaian proses ini ditemukan oleh audit, bukan oleh gate, dan diperbaiki di commit `cc017f8` dengan gate yang dijalankan **setelah** seluruh perubahan (tree final).
 - **Dampak lintas-page: worker → admin → dashboard → owner** — tidak ada perubahan kode aplikasi (`src/`), RPC, route, atau session; perubahan murni pada guard pengujian dokumen (`tests/unit/`).
 
+## [2026-09-27] Fix #4 — AUDIT TRAIL: P1-13-01, P2-13-01 CLOSED
+
+- Status: ✔ SELESAI — migrasi `251`, `252`, `253` DITERAPKAN ke live (Supabase aws-ap-northeast-1), → `schema_migrations` 178 baris, `max(version)=253`. Checksum 251/252/253 terverifikasi oleh wrapper.
+- Item Work Queue ditutup: **P1-13-01** (CLOSED, migrasi 251), **P2-13-01** (CLOSED, migrasi 252), **P2-22-01** (DECIDED accepted risk, tidak dikerjakan), **P3-F04-01** (NEW).
+
+### Akar yang ditutup (bukan gejala)
+
+1. **P1-13-01** → `actor` NULL di 519 dari 526 baris. Akarnya BUKAN konfigurasi: `_generic_audit_trigger_fixed()` **secara literal tidak menulis kolom `actor`** di ketiga cabang INSERT-nya. Fix: `v_actor := COALESCE(public.authz_current_nrp(), 'SYSTEM')`. Pola `authz_current_nrp()` dipilih karena SUDAH terbukti jalan di produksi (7 baris `RESET_PASSWORD` berisi NRP asli) dan dipakai 451x di codebase.
+2. **Race condition chain** → `audit_log_hash_chain()` membaca `row_hash` baris terakhir tanpa lock → dua INSERT bersamaan bisa membuat rantai bercabang. Fix: `pg_advisory_xact_lock`.
+3. **Konsolidasi trigger** → `hr_payroll` punya 3 trigger audit, `user_roles` punya 2, keduanya overlap → 1 perubahan = 2 baris audit. Fix: 3 trigger spesialis dimatikan, generic dipertahankan. **Opsi Z**: fungsi `_audit_payroll_change`/`_audit_role_change` TIDAK dihapus (string `ROLE_CHANGE`/`PAYROLL_CREATE` sudah jadi kontrak di baseline, freeze P1-68-01 aktif).
+4. **P2-13-01** → `cleanup_audit_log()` ternyata SUDAH ADA (default 90 hari) tapi mereferensikan kolom `created_at` yang TIDAK PERNAH ADA (kolomnya `timestamp`) → pasti error kalau dipanggil, dan tidak ada cron, jadi tak pernah terdeteksi. Fix: kolom benar + default 365 hari + cron `30 4 * * *`.
+5. **Chain-aware verify** → `verify_audit_chain()` menginisialisasi `v_prev_row_hash := '0'` tanpa membaca DB, jadi begitu retensi aktif, baris pertama yang tersisa akan selalu dilaporkan `BROKEN_LINK` selamanya. Fix: parameter `p_mode` ('strict' default = perilaku lama; 'chain-aware' = genesis dari baris pertama + issue type baru `CHAIN_TRUNCATED`). Rumus hash TIDAK disentuh.
+6. **Opsi A grant** → signature 3-argumen mendapat default `PUBLIC EXECUTE` (OID 330584, `proacl=NULL`) → kelas yang sama dengan P1-58-01. Fix: migrasi 253 REVOKE `anon, PUBLIC` + GRANT `authenticated, service_role`. `anon grants` 131 → **130**.
+
+### Bukti (mentah, dari live)
+
+```
+verify_audit_chain() strict         = 0 issue
+verify_audit_chain() chain-aware   = 0 issue
+INSERT hr_payroll (1x)             = 1 baris audit, actor = NRP100 (JWT claim disimulasikan)
+INSERT hr_payroll (tanpa JWT)      = 1 baris audit, actor = SYSTEM
+audit_log total                    = 526 (tidak berubah)
+audit_log dengan actor NULL        = 519 (tidak di-backfill, sengaja)
+cron job                           = 4 → 5 (cleanup-audit-log @ 30 4 * * *)
+trigger spesialis tersisa          = 0
+anon grants                        = 131 → 130
+schema_migrations                  = 177 → 178, max(version) 252 → 253
+```
+
+### Gate (semua hijau di tree saat commit)
+
+- `tsc --noEmit` EXIT 0 · `verify:artifacts` 0 drift · `verify:test-count` 0 drift
+- `vitest run` = **165 test, 25 file, 0 gagal** (termasuk `db-audit-trail.test.ts` 10/10)
+- `ARCHITECTURE.md` §7.3/7.4 disinkron: Migrations tracked 175→178, pg_cron 4→5, anon grants tetap 130
+
+### Kejujuran proses (§0.16)
+
+- Test `cleanup_audit_log()` sempat merah karena **regex saya match ke komentar** di badan fungsi, bukan ke kodenya. Kodenya benar; testnya yang salah. Sudah diperbaiki dengan membuang baris komentar sebelum dicocokkan.
+- `.gitignore` sempat saya tambahi `supabase/migrations/rollback/` dengan alasan — reckons itu bukan konvensi repo. **Salah.** Folder itu sudah berisi 18 file rollback yang git-tracked. `.gitignore` sudah di-revert dan file rollback dikembalikan ke sana.
+- Flake lingkungan: satu run `vitest` kehilangan 19 test (`session` + `supabase-browser`) karena `[vitest-pool-runner]: Timeout waiting for worker to respond` — persis yang didokumentasikan di `vitest.config.ts:28-34`. Bukan regresi; run berikutnya 25 file lengkap.
+
+### Risiko tersisa (tidak disembunyikan)
+
+- ⚠ **P3-F04-01**: overload `verify_audit_chain(integer, integer)` (OID 298611) hilang setelah migrasi 252 tanpa ada `DROP FUNCTION` di file mana pun. Grep seluruh skrip `.agents/scripts/` bersih; `grep verify_audit_chain src/` = **0 hit** sehingga dampak fungsional nol. Penyebabnya BELUM teridentifikasi dan dicatat terbuka di `AGENTS.md` §5.8.
+- 519 baris historis tetap `actor` NULL **secara sengaja**. Mengisinya akan mengubah `row_hash` (aktor ikut masuk rumus hash) dan memicu 519 issue `TAMPERED` sekaligus. Backfill hanya mungkin dengan re-hash ulang — keputusan tersendiri.
+- `DISASTER_RECOVERY.md` masih menyebut angka lama; belum disentuh di batch ini.
+- Baseline **tidak** diregenerasi (freeze P1-68-01 masih aktif) → angka di baseline akan tertinggal dari live. Itu residual yang sudah diketahui.
+
+- **Rollback**: `supabase/migrations/rollback/251_rollback.sql` (definisi LAMA 4 fungsi + 3 trigger), ikut konvensi repo. TIDAK di-apply.
+- **P2-22-01** (soft delete) tidak dikerjakan → keputusan produk, bukan kelalaian. Dicatat di `DISASTER_RECOVERY.md` §9.6 sebagai risk yang diterima.
+
+- **Dampak lintas-page: worker → admin → dashboard → owner** — **TIDAK terdampak**. Semua perubahan ada di backend: trigger `audit_log` internal + fungsi SQL + `cron` + 1 grant. Tidak ada perubahan pada `src/`, route, menu, RPC publik, kontrak session, atau desain. Bukti: `git diff --stat` hanya menyasar `ARCHITECTURE.md`, `AGENTS.md`, `docs/`, `agentsLogs_2026-09.md`, `supabase/migrations/`, `tests/`; `tsc` EXIT 0; tidak ada satu pun file di `src/` yang berubah.

@@ -265,6 +265,10 @@ Operasi berikut WAJIB dry-run dulu, STOP, tunggu approval user:
 
 | ID | Prio | Masalah | Bukti (terverifikasi) | Definition of Done | Status |
 |---|---|---|---|---|---|
+| **P1-13-01** | P1 | 519 dari 526 baris `audit_log` punya `actor` NULL (98,7%) → jejak siapa tidak dapat ditentukan | `SELECT count(*) FILTER (WHERE actor IS NULL) FROM audit_log` = 519 dari 526; `prosrc` `_generic_audit_trigger_fixed()` tidak menulis kolom `actor` sama sekali | Actor terisi untuk setiap perubahan baru: dibuktikan uji transaksi dengan JWT claim → `actor = NRP100`, tanpa JWT → `SYSTEM`. Guard `tests/unit/db-audit-trail.test.ts` | ✔ **CLOSED** (migrasi 251, 2026-09-27) |
+| **P2-13-01** | P2 | Tidak ada cron retensi `audit_log` → tabel tumbuh tanpa batas | `SELECT * FROM cron.job WHERE command ILIKE '%audit_log%'` = 0 baris; `cleanup_audit_log()` mereferensikan kolom `created_at` yang TIDAK ADA (kolomnya `timestamp`) → fungsi pasti error kalau dipanggil | Cron `cleanup-audit-log` @ `30 4 * * *` terdaftar; dry-run `{"ok":true,"deleted":0,"retention_days":365}` | ✔ **CLOSED** (migrasi 252, 2026-09-27) |
+| **P2-22-01** | P2 | Tidak ada pola soft delete di tabel aplikasi → `DELETE` fisik tanpa pemulihan | `information_schema.columns WHERE column_name='deleted_at'` = 4 (semua tabel platform Supabase), 0 tabel aplikasi; `DELETE worker_passwords` 8x tercatat di `audit_log` | → → | ⚠ **DECIDED** accepted risk 2026-09-27: tidak dikerjakan di Fix #4 (menyentuh seluruh query aplikasi). Dicatat juga di `DISASTER_RECOVERY.md` §9.6 |
+| **P3-F04-01** | P3 | Anomali OID tak terduga: overload `verify_audit_chain(integer, integer)` (OID 298611) hilang setelah migrasi 252 tanpa ada `DROP FUNCTION` di file mana pun; signature 3-argumen mendapat OID 330584 | `pg_proc` sebelum 252: 2 overload; sesudah: 1. Grep semua skrip `.agents/scripts/`: nol `DROP FUNCTION` yang menyasar fungsi ini. `grep verify_audit_chain src/` = **0 hit** | Aktor DDL teridentifikasi, **atau** dicatat permanen sebagai known-unexplained | ⚠ **NEW** (2026-09-27) |
 
 
 

@@ -65,7 +65,14 @@ di `.github/workflows/`, `scripts/`, dan dokumen. Tidak menyentuh `src/` maupun 
 | #1 CI DULU | ✅ **SELESAI** (2026-09-26) | `5cd9ab3` — run #1 `success`, 11/11 step hijau |
 | #2 Sinkronisasi artefak | ⏳ RENCANA | menutup P1-31-01/56-01/68-01 + `continue-on-error` residual #1 |
 | #13 Backup & DR | ✅ **SELESAI** (2026-09-27) | `727b835`+`347ba01`+`6594cb0` — P1-14-01/02 + P1-45-01 CLOSED; [run restore-test hijau](https://github.com/cezetex-lab/WOS-Web/actions/runs/36302850533) (2/2 replay, 12 metrik SAMA) |
+| #4 Audit Trail | ✔ **SELESAI** (2026-09-27) | migrasi `251`/`252`/`253` — P1-13-01 (actor terisi: NRP asli / SYSTEM, dibuktikan uji JWT claim) · P2-13-01 (cron retensi 365 hari) · verify_audit_chain chain-aware · konsolidasi trigger (1 perubahan = 1 baris audit) · anon grants 131→130 (Opsi A) |
 
+
+> **Anomali OID (P3-F04-01, ⚠ NEW, bukan blocker):** overload `verify_audit_chain(integer, integer)`
+> (OID 298611) hilang setelah migrasi 252 tanpa ada `DROP FUNCTION` di file mana pun — grep
+> seluruh skrip bersih dan `grep verify_audit_chain src/` = **0 hit**, jadi dampaknya nol. Penyebabnya
+> belum teridentifikasi; dicatat terbuka di `AGENTS.md` §5.8. Aktor DDL yang tidak kita understand
+> adalah risiko tersisa yang harus jujur, bukan diabaikan.
 > **Dokumen diringkas**: 122 temuan → **4 akar masalah** (sinkronisasi artefak, test keamanan vakuit,
 > audit trail kosong, keputusan lama tak dire-evaluasi). Fix plan diurutkan dari akar, bukan gejala.
 
