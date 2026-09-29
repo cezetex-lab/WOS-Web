@@ -66,7 +66,7 @@ di `.github/workflows/`, `scripts/`, dan dokumen. Tidak menyentuh `src/` maupun 
 | #2 Sinkronisasi artefak | ⏳ RENCANA | menutup P1-31-01/56-01/68-01 + `continue-on-error` residual #1 |
 | #13 Backup & DR | ✅ **SELESAI** (2026-09-27) | `727b835`+`347ba01`+`6594cb0` — P1-14-01/02 + P1-45-01 CLOSED; [run restore-test hijau](https://github.com/cezetex-lab/WOS-Web/actions/runs/36302850533) (2/2 replay, 12 metrik SAMA) |
 | #4 Audit Trail | ✔ **SELESAI** (2026-09-27) | migrasi `251`/`252`/`253` — P1-13-01 (actor terisi: NRP asli / SYSTEM, dibuktikan uji JWT claim) · P2-13-01 (cron retensi 365 hari) · verify_audit_chain chain-aware · konsolidasi trigger (1 perubahan = 1 baris audit) · anon grants 131→130 (Opsi A) |
-| #5 Auth + Identitas | ✔ **SELESAI** (2026-09-28) — *kecuali deploy edge* | migrasi `254` DITERAPKAN (live 179 baris, `max(version)=254`) — **P1-46-01** (kanal reset password jujur via `settings.password_reset_channel`, default `admin`) · **P1-74-01** (`employees_core_email_unique`; 17/17 terisi, 0 duplikat raw & case-insensitive, 0 NULL) · edge `password-reset` action=request membaca flag lewat `service_role` (settings FORCE RLS tanpa policy SELECT) · `tests/unit/db-password-reset-channel.test.ts` (7 test, 5 DB-live + 2 sumber) |
+| #5 Auth + Identitas | ✔ **SELESAI** (2026-09-28) — *kecuali deploy edge* | migrasi `254` DITERAPKAN (live 179 baris, `max(version)=254`) — **P1-46-01** (kanal reset password jujur via `settings.password_reset_channel`, default `admin`) · **P1-74-01** (`employees_core_email_unique`; 17/17 terisi, 0 duplikat raw & case-insensitive, 0 NULL) · edge `password-reset` action=request membaca flag lewat `service_role` (settings FORCE RLS tanpa policy SELECT) · `tests/unit/db-password-reset-channel.test.ts` (7 test, 5 DB-live + 2 sumber) · guard `EMAIL_PROVIDER_READY` (2026-09-29): kanal `email` butuh env saat deploy, bukan cukup `UPDATE settings` |
 
 
 > **Anomali OID (P3-F04-01, ⚠ NEW, bukan blocker):** overload `verify_audit_chain(integer, integer)`
@@ -93,6 +93,12 @@ di `.github/workflows/`, `scripts/`, dan dokumen. Tidak menyentuh `src/` maupun 
 
 > **Residual Fix #5:** `supabase/baseline/000_baseline_schema.sql` belum memuat `employees_core_email_unique`
 > maupun baris `settings` baru → instalasi perusahaan baru berbeda dari live sampai Fix #9 regenerasi baseline
+>
+> **Residual Fix #5 lanjutan (2026-09-29):** `EMAIL_PROVIDER_READY` adalah **izin, BUKAN bukti**.
+> Kalau di-set `true` tanpa kode SMTP/Resend nyata, guard itu justru meloloskan kebohongan yang
+> sama seperti P1-46-01. Jangan diset sebelum provider benar-benar ada; implikasi pengiriman email
+> = batch berikutnya. Variabel didaftarkan di `.env.example` (bukan di `settings`, supaya tidak
+> bisa dinyalakan lewat satu `UPDATE`).
 > (freeze P1-68-01 tetap dihormati). Sumber bukti: probe `.agents/scripts/fix5-*.mjs` + log `.agents/logs/fix5-*.log`.
 
 ## ❄️ FREEZE CONDITION — INSTALLER (P1-68-01)

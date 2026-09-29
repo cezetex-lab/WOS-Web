@@ -3214,3 +3214,96 @@ verify:test-count        → OK total tests 172 · OK test files 26 · OK failed
 `P1-F05-01` `admin_get_employees()` stub (0 baris data, dipakai `Employees.tsx`) · `P1-F05-02` dua skema hash password (`digest(sha256)+salt` vs `crypt+gen_salt('bf')`) · `P2-F05-03` 9/17 email `@insightwos.internal` · `P3-F05-04` `src/pages/PasswordReset.tsx` orphan · `P3-F05-05` RPC `request_password_reset` dead code + pesan palsu di `141:680/702` & `baseline:14067/14089` · `P3-F05-06` `login_otp`: `emailed = !linkErr` dari `generateLink()` yang tidak mengirim email.
 
 - **Rollback migrasi 254:** `ALTER TABLE public.employees_core DROP CONSTRAINT employees_core_email_unique;` + `DELETE FROM public.settings WHERE key='password_reset_channel';`. TIDAK disiapkan sebagai berkas `supabase/migrations/rollback/` di sesi ini.
+## [2026-09-29] Fix #5 lanjutan (Opsi B) — guard `EMAIL_PROVIDER_READY`: kanal `email` butuh provider siap
+
+- Status: **SELESAI (kode + commit + push)** — **deploy edge masih MENUNGGU APPROVE** (§0.17). Ini prasyarat Prompt 5, bukan penggantinya.
+- Keputusan user: **Opsi B** (guard di kode) dipilih atas **Opsi A** (deploy as-is, flag hanya di `settings`).
+- Alasan: `settings` bisa diubah satu `UPDATE` tanpa deploy/review/jejak, sedangkan env hanya berubah saat deploy. Lapisan yang paling sulit diubah harus mengikat lapisan yang paling gampang diubah. Tambahan: mitigasi "dokumentasi + disiplin" sudah terbukti gagal 3× di repo ini (P1-56-01, P1-71-01, Akar A Fix #2).
+
+### Yang berubah (6 berkas, +74/−4)
+
+1. **Edge `supabase/functions/password-reset/index.ts`** — HANYA body `getResetMessage()`: `return data?.value === "email" ? …` menjadi cabang `if (data?.value === "email")` yang membaca `Deno.env.get("EMAIL_PROVIDER_READY") === "true"` → `providerReady ? RESET_MSG_EMAIL : RESET_MSG_ADMIN`; fallback nilai non-email dan `catch` tetap `RESET_MSG_ADMIN`. Titik pemanggilan (`const resetMsg`), ketiga `return` action=request, konstanta `RESET_MSG_*`, dan 6 action lain **tidak disentuh**. Diff: 12 insertions(+), 1 deletion(-).
+2. **`tests/unit/db-password-reset-channel.test.ts`** — 1 test baru (7 → 8): guard string ada, hasil env benar-benar dipakai memilih pesan, **urutan** cabang `'email'` → guard → pemakaian (guard tidak boleh naik ke luar cabang), dan tepat **2** `return RESET_MSG_ADMIN` (fallback + catch). Header berkas ditambah paragraf batas guard.
+3. **`.env.example`** — `EMAIL_PROVIDER_READY=false` + 4 baris komentar (izin, bukan bukti; lihat docblock).
+4. **Dokumen**: `ARCHITECTURE.md` §7.5 (**173** test total · 169 auto + 4 `it.todo`; rincian Fix #5 8 test), `AGENTS.md` §5.8 (catatan guard di kolom **Bukti** baris P2-F05-03 — status dan DoD **tidak** diubah), `docs/forensic/FORENSIC-INDEX.md` (baris batch #5 + blok residual).
+
+### Insiden kecil saat kerja (dilaporkan, sudah dipulihkan)
+
+`safe-file-writer --file .env.example --mode append` menulis ulang **seluruh** berkas dan **mengubah 4 baris yang tidak diminta**: `.env.example` bukan UTF-8 murni (memuat byte `0x97`, em-dash CP1252) → dibaca sebagai UTF-8 menjadi U+FFFD → ditulis kembali sebagai `EF BF BD`. Terdeteksi dari `git diff` (baris `-# INSIGHTWOS V6 …` / `+# INSIGHTWOS V6 …`), dipulihkan dengan `git checkout -- .env.example` (byte `0x97` kembali terbukti via `od -c`), lalu di-append **byte-safe**. **Pelajaran: append ke berkas yang encoding-nya belum terbukti UTF-8 tidak boleh lewat read-rewrite** — append byte mentah yang benar. Tidak ada baris lain yang tersentuh di berkas mana pun (diff akhir tepat 6 berkas).
+
+### Bukti patch (mentah)
+
+```
+$ node .agents/scripts/fix5b-edge-guard.mjs
+EOL terdeteksi: "\r\n"
+OK: guard diterapkan. bytes 23235 -> 23868
+
+$ node .agents/scripts/fix5b-env-append.mjs
+OK: 733 -> 1057 byte (+322)
+byte 0x97 masih ada: true
+EF BF BD (korupsi) muncul: false
+
+$ node .agents/scripts/fix5b-docs-patch.mjs
+OK   ARCHITECTURE §7.5 total 172->173 (ARCHITECTURE.md, 17874 -> 17874 byte)
+OK   ARCHITECTURE §7.5 rincian Fix #5 7->8 test (ARCHITECTURE.md, 17874 -> 17984 byte)
+OK   AGENTS §5.8 P2-F05-03 catatan guard (AGENTS.md, 35414 -> 35548 byte)
+OK   FORENSIC batch #5 catatan guard (docs/forensic/FORENSIC-INDEX.md, 17221 -> 17334 byte)
+OK   FORENSIC residual guard = izin bukan bukti (docs/forensic/FORENSIC-INDEX.md, 17334 -> 17765 byte)
+SEMUA patch dokumen OK.
+
+$ git diff --stat
+ .env.example                                 |  5 +++
+ AGENTS.md                                    |  2 +-
+ ARCHITECTURE.md                              |  2 +-
+ docs/forensic/FORENSIC-INDEX.md              |  8 ++++-
+ supabase/functions/password-reset/index.ts   | 13 +++++++-
+ tests/unit/db-password-reset-channel.test.ts | 48 ++++++++++++++++++++++++++++
+ 6 files changed, 74 insertions(+), 4 deletions(-)
+```
+
+### Gate (dijalankan pada tree ini)
+
+```
+$ npm run check:types
+TSC_EXIT=0
+
+$ npm run lint
+LINT_EXIT=0
+
+$ npx vitest run --reporter=default --reporter=json --outputFile=.vitest/test-result.json
+ Test Files  26 passed (26)
+      Tests  169 passed | 4 todo (173)
+   Duration  122.90s
+TEST_EXIT=0
+
+$ npm run verify:artifacts
+  OK    Tables 208 · Functions 658 · Migrations tracked 179 · RLS policies 225
+  OK    No-FORCE RLS 10 · anon grants 130 · pg_cron jobs 5
+  OK    TS total 214 · TS src 157 · TS tests 49 · TS config 8
+  OK    migration rows 179 · max(version) 254 · check_login_lockout granting ke anon
+  WARN  baseline commit 2026-09-24; regenerasi = Fix #9 (di luar scope batch ini)
+=== RINGKASAN: 0 drift, 1 warning ===
+ARTIFACTS_EXIT=0
+
+$ npm run verify:test-count
+  OK    test files 26
+  OK    total tests        173
+  OK    passed+pending+failed+todo 173
+  OK    failed tests       0
+=== RINGKASAN: 0 drift, 0 warning ===
+TESTCOUNT_EXIT=0
+```
+
+### Dampak lintas-page: worker → admin → dashboard → owner — TIDAK terdampak
+
+- **worker**: jalur lupa-password `Home.tsx` tetap menerima pesan dari `resetMsg`; dengan default `channel='admin'` pesannya identik dengan sebelum guard. Tidak ada perubahan kontrak/UI, **nol** berkas `src/` disentuh.
+- **admin**: `ResetPassword.tsx` → `admin_reset_worker_password` + edge `admin_reset_sync` tidak disentuh; guard hanya di `action=request`.
+- **dashboard**/**owner**: tidak memakai kanal reset password; `settings.password_reset_channel` tidak dibaca klien mana pun (RLS `settings` tetap FORCE tanpa policy SELECT).
+- Bukti cakupan: `git diff --name-only` = 6 berkas, semuanya non-`src/` (edge + test + 3 dokumen + `.env.example`).
+
+### Catatan risiko yang jujur (batas guard)
+
+- Env = **izin, BUKAN bukti**. `EMAIL_PROVIDER_READY=true` tanpa kode SMTP/Resend nyata akan **meloloskan** kebohongan yang sama; yang membuktikan tetap kode pengiriman.
+- Implikasi pengiriman email (SMTP/Resend + kirim `tokenCode` sebelum return sukses — TODO di `index.ts`) = batch berikutnya. Sampai itu ada, `settings.password_reset_channel` **wajib** tetap `'admin'`.
+- Variabel sengaja **tidak** ditaruh di `settings`: ditaruh di env supaya tidak bisa dinyalakan lewat satu `UPDATE`.
+- Residual lain Fix #5 yang belum tertutup: P1-F05-01 (stub `admin_get_employees`), P1-F05-02 (dua skema hash), P2-F05-03 (9 email `@insightwos.internal`), P3-F05-04/05/06.

@@ -78,7 +78,18 @@ async function getResetMessage(adminClient: any): Promise<string> {
       .select("value")
       .eq("key", "password_reset_channel")
       .single();
-    return data?.value === "email" ? RESET_MSG_EMAIL : RESET_MSG_ADMIN;
+    if (data?.value === "email") {
+      // Guard (Fix #5 lanjutan): channel 'email' hanya aktif kalau
+      // provider benar-benar siap. Env adalah izin — di-set hanya saat
+      // deploy provider (SMTP/Resend). Tanpa ini, UPDATE settings
+      // bisa menyalakan pesan bohong tanpa pipeline.
+      // CATATAN: EMAIL_PROVIDER_READY=true TIDAK berarti provider aktif —
+      // ia hanya izin. Kalau di-set tanpa kode SMTP nyata, guard ini
+      // justru meloloskan kebohongan. Jangan diset sebelum provider ada.
+      const providerReady = Deno.env.get("EMAIL_PROVIDER_READY") === "true";
+      return providerReady ? RESET_MSG_EMAIL : RESET_MSG_ADMIN;
+    }
+    return RESET_MSG_ADMIN;
   } catch {
     return RESET_MSG_ADMIN;   // default aman
   }

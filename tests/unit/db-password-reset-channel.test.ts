@@ -14,6 +14,13 @@
  *   (migrasi 254): `'admin'` = pesan jujur ("hubungi admin"), `'email'` =
  *   pesan anti-enumerasi lama — hanya benar setelah provider benar-benar ada.
  *
+ *   Fix #5 LANJUTAN (Opsi B, 2026-09-29): setting saja tidak cukup. Baris
+ *   `settings` bisa diubah dengan satu `UPDATE` — tanpa deploy, tanpa review.
+ *   Jadi channel `'email'` kini butuh DUA kunci: setting menyatakan niat, dan
+ *   env `EMAIL_PROVIDER_READY` (hanya berubah saat deploy) memberi izin. Env =
+ *   izin, BUKAN bukti — tanpa kode SMTP/Resend nyata, guard ini hanya
+ *   mencegah penyalaan tak sengaja, bukan membuktikan surat terkirim.
+ *
  * CARA TEST INI BEKERJA (membaca EFEK, bukan janji)
  *   - membaca setting di DB + membuktikan hanya `service_role` yang bisa
  *     membacanya (FORCE RLS, tanpa policy SELECT) — klaim desain di header 254
@@ -218,5 +225,46 @@ describe('P1-46-01: sumber edge password-reset memakai flag kanal', () => {
       'jumlah return action=request yang memakai resetMsg berubah. Kalau ada return baru, ' +
         'pastikan ia juga memakai resetMsg supaya pesannya jujur.',
     ).toBe(3);
+  });
+
+  it('channel email dijaga env EMAIL_PROVIDER_READY (env = izin, bukan bukti)', () => {
+    expect(
+      src,
+      'guard EMAIL_PROVIDER_READY hilang — channel email cukup dinyalakan dengan ' +
+        "`UPDATE settings SET value='email'`, satu statement tanpa deploy dan tanpa " +
+        'jejak pipeline, sehingga pesan bohong P1-46-01 hidup lagi.',
+    ).toMatch(/Deno\.env\.get\("EMAIL_PROVIDER_READY"\)/);
+
+    expect(
+      src,
+      'guard tidak memakai hasil env untuk memilih pesan — env-nya jadi hiasan, ' +
+        'bukan gerbang.',
+    ).toMatch(/providerReady\s*\?\s*RESET_MSG_EMAIL\s*:\s*RESET_MSG_ADMIN/);
+
+    // Rantai keputusan harus urut: cabang 'email' lebih dulu, guard di DALAMnya,
+    // lalu pemakaian hasil guard. Kalau guard naik ke luar cabang, channel 'admin'
+    // pun bisa terpengaruh env — dan itu bukan yang dijanjikan.
+    const emailBranch = src.indexOf('if (data?.value === "email")');
+    const guardEnv = src.indexOf('EMAIL_PROVIDER_READY');
+    const guardUse = src.indexOf('providerReady ? RESET_MSG_EMAIL : RESET_MSG_ADMIN');
+    expect(emailBranch, 'cabang nilai "email" hilang dari getResetMessage()').toBeGreaterThan(-1);
+    expect(
+      guardEnv > emailBranch,
+      'guard berada DI LUAR cabang email — keputusan kanal jadi tidak lagi bergantung ' +
+        "pada setting `password_reset_channel`.",
+    ).toBe(true);
+    expect(
+      guardUse > guardEnv,
+      'hasil env tidak dipakai SETELAH dibaca — urutan kode berubah, guard kehilangan efek.',
+    ).toBe(true);
+
+    // Default tetap jujur: dua jalur keluar (fallback nilai non-email + catch)
+    // keduanya wajib RESET_MSG_ADMIN.
+    const adminReturns = src.split('return RESET_MSG_ADMIN;').length - 1;
+    expect(
+      adminReturns,
+      'jumlah `return RESET_MSG_ADMIN` berubah (harus 2: fallback nilai non-email + catch). ' +
+        'Kalau berkurang, salah satu jalur default tidak lagi jujur.',
+    ).toBe(2);
   });
 });
