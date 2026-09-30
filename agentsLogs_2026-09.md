@@ -3346,3 +3346,19 @@ TESTCOUNT_EXIT=0
 - Dampak lintas-page: worker → admin → dashboard → owner belum ada perubahan — read-only penuh (docs + probe gitignored saja; src/ tidak disentuh).
 - Follow-up: Prompt B2 (code read src/ → §5-§6), B3 (rencana → §7-§11); item Work Queue P2-F14-A/B + P3-F14-C ditutup saat Fix #14 CLOSE.
 - Commit: "docs(forensic): Fix #14 peta role/level/login (B1 — DB live)" (entri ini ikut commit yang sama).
+
+## [2026-09-30] Investigasi Fix #14 (B2) — code read src/ + §5-§6 + keputusan Q1-Q3
+
+- Scope: baca read-only src/ (Home.tsx 1085 baris, RoleGuard, supabase-browser entryFromRole+setSession, route-config, App.tsx route literal, menu-builder, useModuleAccess, types UserSession, RoleMatrixPage, OwnerGuard, Dashboard.tsx) + grep pola kritis (allowedRoles/.entry/role_level/useModuleAccess/check_module_access — git grep, rg rusak). src/ TIDAK diubah.
+- File tracked: `docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md` §3b (Q1=A/Q2=A/Q3=A) + §5 (fakta code, 10 sub + 5 grep) + §6 (gap analysis 8 sub termasuk estimasi kompleksitas M) + §12 riwayat. FORENSIC-INDEX status 1/3 → 2/3. AGENTS.md §5.8 +4 item: **P1-F14-D** (get_my_role percaya param p_nrp — tanpa authz_current_nrp), **P2-F14-E** (admin_set_role STUB — 3 param tak dipakai), **P2-F14-F** (admin_set_employee_role mapping hardcoded 4/3/1 + whitelist tak lengkap), **P2-F14-G** (tier=4 semua vs minimum_tier_required max 3 — gate tak pernah memblokir).
+- Temuan utama:
+  - Gate riil = `session.entry` + `allowedRoles[]` string (RoleGuard fail-closed, owner bypass); role_level TIDAK dibaca gate mana pun; hanya 3 route statis di-guard (App.tsx:64-66), 155 modul dynamic via menu-builder (filter tier/role_access/BU, bukan level).
+  - Multi-view terkunci: `UserSession.entry` single value + RoleGuard `s.entry !== entry → redirect`; 8 titik baca `.entry` di 6 file → kontrak session berubah = breaking (estimasi §6.3).
+  - **Kejutan baik**: `loginMode` default Home.tsx SUDAH `'email'` (login_worker_by_email; NRP jadi fallback toggle) → gap login email praktis nihil.
+  - **UI owner mati end-to-end**: OwnerDashboard.tsx:349 memanggil `owner_update_role` yang broken (§4.19 audit kolom salah) — fix Q1=A menghidupkan UI existing, bukan bikin baru.
+  - Label level RoleMatrixPage (4=Sr. Manager, 5=Admin) KONTRADIKSI keputusan §3 (4=admin, 5=CEO) → diselaraskan saat Fix #14.
+  - Konsumen role_level tersembunyi: `business-units.ts:247` (`session.role_level || 1`) + OwnerDashboard (edit) + display (RoleMatrixPage/OrgSubtree/ModuleManagement).
+- Keputusan user (2026-09-30): Q1=A perbaiki owner_update_role (kolom audit sesuai skema riil), Q2=A patch get_my_role (NULL→authz_current_nrp), Q3=A hanya sentuh role_level (tier BU tidak diubah).
+- Dampak lintas-page: worker → admin → dashboard → owner belum ada perubahan — read-only penuh (docs + log saja; src/ tidak disentuh).
+- Follow-up: Prompt B3 (rencana eksekusi §7-§11 dari gap §6) → eksekusi Fix #14. Fix #5 deploy tetap HOLD.
+- Commit: "docs(forensic): Fix #14 peta role/level/login (B2 — code src/)" (entri ini ikut commit yang sama).

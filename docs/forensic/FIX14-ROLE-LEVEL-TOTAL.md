@@ -32,6 +32,12 @@ Fix #14 = aktivasi sistem level 1-5 yang infrastrukturnya sudah ada di DB (kolom
 - Multi-view: 1 user bisa masuk /dashboard (sesuai jabatan) DAN /worker (data diri individu sebagai pekerja)
 - Login pakai email + password (bukan NRP/NIK)
 
+## §3b Keputusan teknis (2026-09-30, setelah B1)
+- **Q1 = A**: Fix #14 perbaiki `owner_update_role` (INSERT `audit_log_owner` kolom sesuai skema riil: `owner_nrp, action, target_type, target_id, old_value, new_value`). Tidak bikin RPC baru.
+- **Q2 = A**: Fix #14 patch `get_my_role(p_nrp)` — NULL → `authz_current_nrp()`.
+- **Q3 = A**: Fix #14 sentuh HANYA `role_level`. Tier BU tetap (scope creep dihindari — `business_units.tier` tidak diubah).
+- 4 Work Queue baru dari B2: **P1-F14-D** (get_my_role percaya param), **P2-F14-E** (admin_set_role stub), **P2-F14-F** (admin_set_employee_role mapping hardcoded), **P2-F14-G** (tier gate tak pernah memblokir).
+
 ## §4 Fakta DB LIVE
 
 > Sumber: probe `fix14-b1-dbmap.mjs` B1–B7 (2026-09-30, BEGIN READ ONLY + ROLLBACK) + probe `fix14-dbmap.mjs` B–I (sesi sebelumnya, sama-sama read-only). Semua angka mentah.
@@ -347,10 +353,82 @@ END;
 §4.23 `schema_migrations` — 179 baris / max(version)=254 (sinkron dengan jumlah file repo; bukti verify:artifacts @ 978584d).
 
 ## §5 Fakta code src/
-⏳ Diisi di Prompt B2.
+
+> Sumber: baca langsung file + `git grep` @ a85d88c (rg rusak → git grep). Read-only; src/ tidak diubah.
+
+§5.1 **Home.tsx** (`src/pages/Home.tsx`, 1085 baris) — login bukan 4 jalur melainkan **3 tab** (worker | admin | dashboard) + OwnerLogin terpisah (`src/pages/OwnerLogin.tsx`):
+- Tab worker: `loginMode` state — **default `'email'`** (baris ~106: `const [loginMode, setLoginMode] = useState('email')`) → `login_worker_by_email` (email+password), fallback toggle NRP → `login_worker` (NRP+NIK+password). Keputusan §3 "login email" **sudah jadi default UI** sejak sekarang.
+- Tab admin: `syncSupabaseAuth(adminEmail, adminPass)` (Supabase Auth signIn) → RPC `get_user_context_by_auth_id` → OTP wajib via edge `password-reset` action `login_otp` (Home.tsx:338-351, `requestAdminOtpForEntry`).
+- Tab dashboard: login worker dulu lalu OTP wajib (`submitWorkerCredentials` → `requestAdminOtpForEntry` bila `tab==='dashboard'`).
+- Owner: file terpisah OwnerLogin.tsx (bukan tab di Home).
+- `finalizeWorkerSession` (Home.tsx:165): session build memasukkan `role_level: d.role_level` + `entry: (entry || tab)` — **entry = tab asal login**, bukan role.
+- `redirectAfterLogin(entry)` (Home.tsx:181): redirect per TAB (`dashboard`→/dashboard, `admin`→/admin, else /worker) — komentarnya eksplisit: "Admin juga bisa jadi worker: login lewat tab Pekerja → area pekerja".
+
+§5.2 **supabase-browser.ts** (`entryFromRole` + session build, baris ~130-170):
+```ts
+function entryFromRole(role?: string, isOwner?: boolean): UserSession['entry'] {
+  if (isOwner || role === 'owner') return 'owner';
+  if (role?.startsWith('admin_')) return 'admin';
+  if (role === 'manager') return 'dashboard';
+  return 'worker';
+}
+```
+`setSession()` = satu choke point: `entry: user.entry ?? entryFromRole(...)` + `expires_at` wajib (fail-closed `isSessionValid`: butuh `nrp` + `expires_at` masa depan). Key sessionStorage `wos_user_v2` (legacy `wos_user` dibuang). `SESSION_TTL_MS` 8 jam. `initSession()` → `get_current_user_context` (baris ~235 memasukkan `role_level: data.role_level`).
+
+§5.3 **RoleGuard.tsx** — gate riil = `session.entry` + `allowedRoles[]`, TIDAK membaca `role_level`:
+- Fail-closed tanpa nrp; isolasi entry: `if (entry && s.entry !== entry && s.role !== 'owner') → redirect` (multi-view saat ini TERKUNCI ke satu entry);
+- Role check: owner bypass semua; `allowedRoles.length === 0` → tolak semua (fail-closed); else `allowedRoles.includes(userRole)`.
+
+§5.4 **route-config.ts + App.tsx** — route statis yang di-guard hanya 3 (App.tsx:64-66, literal):
+```
+/admin     allowedRoles=[admin_pusat, admin_hrd, admin_finance, admin_operasional, admin_mining, admin_mill, admin_estate, owner] entry=admin
+/worker    allowedRoles=[worker, owner]                                          entry=worker
+/dashboard allowedRoles=[manager, admin_pusat, admin_hrd, admin_finance, admin_operasional, owner] entry=dashboard
+```
+route-config.ts = pemetaan `route_component` → lazy component (getComponent dipakai DynamicRoutes untuk 155 modul); /owner/* di-guard OwnerGuard (bukan RoleGuard).
+
+§5.5 **menu-builder.ts** — menu dari RPC `get_enabled_modules`, filter: `minimum_tier_required` vs `session.tier` (owner = 999), `role_access[]`, `required_business_unit`; area dari path (`areaFromPath`); TIDAK membaca role_level.
+
+§5.6 **useModuleAccess.ts** — `useModuleAccess(moduleCode, requiredRoleLevel = 1)` → RPC `check_module_access` (level dikirim, default 1 — karena user_roles flat=1, tidak pernah menolak); `useCurrentUserContext()` → `get_user_context_by_auth_id` (tanpa fallback session — "auth.uid() is the only source of truth").
+
+§5.7 **src/types/index.ts** — `UserSession` (baris 8-23): `nrp, nama, role, role_level, business_unit_id, business_unit?, divisi?, posisi?, is_owner?, email?, entry?: 'admin'|'worker'|'dashboard'|'owner' (SINGLE value), tier?, expires_at?` — TANPA `token` (by design). `UserContext` + `CurrentUserContext` punya `role_level?`.
+
+§5.8 **RoleMatrixPage.tsx** (`src/features/platform/authorization/`) — read-only: `admin_get_role_matrix` → group by `role_level`; **label LEVEL beda dengan keputusan §3**: `{1:Worker, 2:Supervisor, 3:Manager, 4:'Sr. Manager', 5:Admin}` vs keputusan user (4=admin, 5=CEO) → perlu diselaraskan saat Fix #14. Guard halaman: `useAdminAuth(["admin_pusat"])`.
+
+§5.9 **Dashboard routing per role** — dipilih via App.tsx route (entry=dashboard) + RoleGuard; Dashboard.tsx membaca session (clearSession/signOutAuth); OwnerDashboard terpisah di /owner (OwnerGuard → RPC `check_owner_identity` server-side). OwnerDashboard.tsx:349 memanggil `owner_update_role` (RPC broken per §4.19) → **UI kelola role owner saat ini mati end-to-end**; :205/:224 form role_level; :597-603 render label `L{role_level}`.
+
+§5.10 Grep results (mentah, `git grep -c`):
+- §5.10.1 `allowedRoles` — 18 hit / 3 file: App.tsx 3 (deklarasi route), RoleGuard.tsx 10, useAdminAuth.ts 5.
+- §5.10.2 `.entry` — 8 hit / 6 file: RoleGuard 2, supabase-browser 1, Admin.tsx 1, Dashboard.tsx 1, Home.tsx 1, Worker.tsx 2 (kategori: route guard ×4, page re-check ×3, redirect-after-login ×1).
+- §5.10.3 `role_level` — 25+ hit: Home.tsx ×7 (tulis session), supabase-browser ×1 (initSession), **business-units.ts:247 `session.role_level || 1` (konsumen gate tersembunyi)**, RoleMatrixPage ×4 (UI), OrgSubtree ×2 (display), ModuleManagement ×2 (display), OwnerDashboard ×6 (edit + panggil owner_update_role), useModuleAccess ×1 (kirim requiredRoleLevel).
+- §5.10.4 `useModuleAccess|useCurrentUserContext` — 4 file pemakai: CoreDataWrapper, ModuleRouteGuard, ModuleManagement, hook itu sendiri.
+- §5.10.5 `check_module_access` — 1 pemakai saja (useModuleAccess.ts:17).
 
 ## §6 Gap analysis
-⏳ Diisi di Prompt B2.
+
+§6.1 **Level 1-5 sebagai gate** — Target: level jadi gate /dashboard sesuai jabatan. Realita: RoleGuard pakai entry+allowedRoles (string role), bukan level; DB-nya pun flat=1. Gap: (a) data — seed role_level per keputusan §3, (b) kode — RoleGuard/App.tsx allowedRoles harus membaca/menghormati `session.role_level`; konsumen lain yang membaca role_level hanya business-units.ts:247 + UI display.
+
+§6.2 **Owner terpisah (GOD)** — Realita: `authz_is_owner` + `owner_login` + OwnerGuard (`check_owner_identity`) hidup; TAPI `owner_update_role` broken (audit kolom salah, §4.19) → UI OwnerDashboard.tsx:349 mati. Gap: Q1=A perbaiki INSERT audit; tidak ada perubahan konsep owner.
+
+§6.3 **Multi-view (1 user 2 entry)** — Realita: `UserSession.entry` single value; RoleGuard menolak `s.entry !== entry` (kecuali owner); redirectAfterLogin = tab asal. Gap: kontrak session + RoleGuard harus berubah — breaking untuk 8 titik baca `.entry` di 6 file (§5.10.2) + kontrak v2 `wos_user_v2` (perlu strategi migrasi sesi agar user login ulang sekali).
+
+§6.4 **Login email** — Realita: RPC `login_worker_by_email` sudah ada + anon grant + **Home.tsx default loginMode='email' sudah berlaku**; NRP tetap tersedia sebagai fallback toggle. Gap: praktis nihil di UI — sisanya verifikasi E2E + keputusan apakah fallback NRP dipertahankan.
+
+§6.5 **Tulisan level (owner/admin set role)** — Realita: 3 RPC bermasalah: `owner_update_role` broken (Q1=A), `admin_set_role` STUB (P2-F14-E), `admin_set_employee_role` mapping hardcoded 4/3/1 + whitelist role tidak lengkap (P2-F14-F). Gap: per Q1=A yang diperbaiki di Fix #14 = owner_update_role; dua lainnya berstatus Work Queue.
+
+§6.6 **Bacaan level** — `get_my_role(p_nrp)` percaya param (P1-F14-D, Q2=A patch NULL→authz_current_nrp).
+
+§6.7 **Tier gate** — business_units tier=4 semua vs minimum_tier_required max 3 → tidak pernah memblokir (P2-F14-G). Q3=A: Fix #14 TIDAK menyentuh tier.
+
+§6.8 **Estimasi kompleksitas Fix #14** (fakta-driven, bukan rencana — rencana final di B3):
+- Skala keseluruhan: **M (medium)**.
+- DB: ±1 migrasi — seed/update `user_roles.role_level` (17 baris, peta §3), fix `owner_update_role` (kolom audit), patch `get_my_role`; regenerasi baseline (Fix #9) + sinkron artefak (CONSTANTS-INVENTORY: §7.4 Functions/Migrations ikut berubah).
+- src/ (±6 file inti): RoleGuard.tsx (baca role_level / longgarkan isolasi entry), App.tsx (3 route literal), supabase-browser.ts (entryFromRole + kontrak multi-view), types/index.ts (UserSession.entry), business-units.ts (:247), RoleMatrixPage.tsx (label level 4/5); Home.tsx kemungkinan tidak sentuh (email sudah default).
+- Dokumen wajib ikut: SECURITY.md §3.1+§7.6 (P2-F14-A/B), ARCHITECTURE.md §7.2 (Layer 1-2 + multi-view), CONSTANTS-INVENTORY §1.3.
+- Risiko terbesar: kontrak session (breaking 8 titik `.entry` / 6 file) + uji E2E 4-page smoke (G6).
+
+## §7 Rencana eksekusi
+⏳ Diisi di Prompt B3.
 
 ## §7 Rencana eksekusi
 ⏳ Diisi di Prompt B3.
@@ -372,4 +450,6 @@ END;
 - 2026-09-30: user menetapkan prinsip "investigasi wajib tracked, bukan chat".
 - 2026-09-30: B0 selesai (inventaris konstanta + guard coverage).
 - 2026-09-30: B0.5 selesai (SECURITY.md §3.10 fix + guard).
-- 2026-09-30: B1 dibuat — §1-§4 diisi.
+- 2026-09-30: B1 selesai — §1-§4 diisi.
+- 2026-09-30: **Q1=A, Q2=A, Q3=A ditetapkan** (lihat §3b); 4 Work Queue baru P1-F14-D, P2-F14-E/F/G.
+- 2026-09-30: **B2 selesai — §5-§6 diisi** (code read src/ read-only; src/ tidak diubah).
