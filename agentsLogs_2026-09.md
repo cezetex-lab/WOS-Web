@@ -3307,3 +3307,17 @@ TESTCOUNT_EXIT=0
 - Implikasi pengiriman email (SMTP/Resend + kirim `tokenCode` sebelum return sukses — TODO di `index.ts`) = batch berikutnya. Sampai itu ada, `settings.password_reset_channel` **wajib** tetap `'admin'`.
 - Variabel sengaja **tidak** ditaruh di `settings`: ditaruh di env supaya tidak bisa dinyalakan lewat satu `UPDATE`.
 - Residual lain Fix #5 yang belum tertutup: P1-F05-01 (stub `admin_get_employees`), P1-F05-02 (dua skema hash), P2-F05-03 (9 email `@insightwos.internal`), P3-F05-04/05/06.
+
+## [2026-09-30] Inventaris konstanta hitungan + guard coverage (B0 — repo-focused)
+
+- Scope: semua konstanta hitungan di repo tracked (dokumen *.md, guard scripts/, test unit, baseline) + peta guard yang menjaganya. Read-only terhadap src/, supabase/, tests/.
+- File tracked: `docs/forensic/CONSTANTS-INVENTORY.md` (BARU) — rujukan tetap; fix apa pun yang menambah migrasi/test wajib cek file ini. FORENSIC-INDEX.md + entri ini ikut di-update.
+- Temuan utama:
+  - DIJAGA (guard hidup, bukti run verify:artifacts @ f81af1e = 0 drift, 1 warning pre-existing): §7.4 Tables 208 / Functions 658 / Migrations tracked 179 / RLS policies 225 / No-FORCE 10 / anon grants 130 / pg_cron 5 (verify:artifacts + doc-claims-vs-live); §7.3 TS 214 = 157 src + 49 tests + 8 config; §7.5 Unit tests 173 total (169 auto + 4 todo) / 26 berkas (verify:test-count); FuturePlans ~209/~658/20 overloads; max(version)=254.
+  - TANPA guard: kolom migrasi SECURITY.md (141/215/220, "18 scripts (183-214)"); duplikat klaim migrasi Fix #4/#5 di FORENSIC-INDEX.md (179/254 — konstanta sama dijaga di ARCHITECTURE.md tapi tidak di sini); total batch audit 88/122 + tabel severity; snapshot output alat di supabase/baseline/*.md (cap 173, 209 tabel, replay 212 — basi sampai Fix #9).
+  - Guard 3/3 scripts hidup: verify:artifacts, verify:test-count, verify-backup-artifact (CI). Doc-guard test 3 + baseline/checksum/db guards terinventarisasi dengan fail condition masing-masing (lihat §2 file).
+- Metode: git grep (rg rusak) + pembacaan 6 guard; agentsLogs_*.md di-exclude dari sweep (log historis).
+- Gate: `npm run verify:artifacts` EXIT 0 — "RINGKASAN: 0 drift, 1 warning" (warning = baseline commit → Fix #9, pre-existing). Tidak ada perubahan src/supabase/tests.
+- Dampak lintas-page: worker → admin → dashboard → owner TIDAK terdampak — perubahan hanya docs/forensic + log; read-only terhadap kode.
+- Follow-up: (1) opsional guard untuk SECURITY.md / FORENSIC-INDEX (rekomendasi §4 CONSTANTS-INVENTORY, butuh keputusan user); (2) lanjut B1 (DB LIVE Fix #14) → B2 (code read) → B3 (rencana).
+- Commit: lihat `git log migrasi-vite` 2026-09-30 — "docs(forensic): inventaris konstanta hitungan + guard coverage" (entri ini ikut commit yang sama).

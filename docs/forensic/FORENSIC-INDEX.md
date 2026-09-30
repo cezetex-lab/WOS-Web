@@ -29,6 +29,16 @@ Sisa: tidak ada.
 - [x] **FORENSIC-FIXPLAN.md** — 13 batch fix berurutan dari akar (**#1** `5cd9ab3` · **#13 SELESAI** `727b835`+`347ba01`+`6594cb0`; sisanya RENCANA)
 - Laporan mentah per batch: `.agents/reports/forensic/FORENSIC-RAW-batch-01..09.md`
 
+## 🔢 Konstanta & Guard — Inventaris (🟡 B0, 2026-09-30)
+
+- File: [`docs/forensic/CONSTANTS-INVENTORY.md`](CONSTANTS-INVENTORY.md) — peta semua konstanta hitungan
+  di repo tracked (dokumen, guard scripts, test, baseline) + guard yang menjaganya.
+- Prinsip: konstanta tanpa guard = drift diam-diam; guard yang tidak tahu konstanta yang dijaga = guard palsu.
+- Bukti guard hidup @ `f81af1e`: `verify:artifacts` 0 drift, 1 warning (baseline commit → Fix #9).
+- Konstanta TANPA guard yang teridentifikasi: SECURITY.md (kolom migrasi 141/215/220, "18 scripts (183–214)"),
+  duplikat klaim migrasi Fix #4/#5 di file ini (179/254), total batch audit 88/122, snapshot supabase/baseline/*.md.
+- Aturan: fix apa pun yang menambah migrasi/test/angka dokumen WAJIB cek + perbarui file itu.
+
 ## Status Temuan Backup & DR (P1-14 / P1-45) — ✅ SEMUA CLOSED (2026-09-27)
 
 | Temuan | Status | Bukti |
