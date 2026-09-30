@@ -3379,3 +3379,12 @@ TESTCOUNT_EXIT=0
 - Dampak lintas-page: worker → admin → dashboard → owner belum ada perubahan — read-only penuh (docs + log; src/ tidak disentuh).
 - Follow-up: B3 (rencana eksekusi §7-§11) kini punya konteks bisnis utuh; 4 poin §5b.7 menunggu klarifikasi/jawaban di B3.
 - Commit: "docs(forensic): Fix #14 sistem bisnis — koreksi pemahaman AI Core" (entri ini ikut commit yang sama).
+
+## [2026-09-30] Fix #14 (B2.7) — §5c peta level final (Opsi A) + §5d RBAC 4-layer + §5e gap DB
+
+- Keputusan user + GPT (Senior Enterprise HRIS Architect): **Opsi A** — peta final level: NRP001=5 (CEO), NRP100–106=3 (Manager, masing-masing dengan admin_role + scope: admin_pusat/ALL COMPANY, admin_hrd/HRD, admin_finance/Finance, admin_operasional/Operations, admin_mining/BU01, admin_mill/BU03, admin_estate/BU02), NRP002–010=1 (Worker). Level 2 (Supervisor) & 4 (Director/VP) hanya definisi, belum ada pemilik. REKONSILIASI: keputusan awal §3 "level 4=admin" DIGANTI (admin = fungsi, bukan level); arsitektur lama migrasi 051 (admin_pusat=5, fungsi=4) = USANG. Alasan: NRP100 punya akses admin terluas TAPI tidak dinaikkan jadi Director/CEO — scope direpresentasikan admin_role+permission+scope, bukan job_level.
+- File tracked `FIX14-ROLE-LEVEL-TOTAL.md`: +**§5c** (definisi level, peta NRP→level+admin_role+scope, alasan, sumber; catatan rekonsiliasi §3), +**§5d** (RBAC 4-layer: JOB LEVEL ≠ ADMIN ROLE ≠ PERMISSION ≠ DATA SCOPE; gate audit rules tabel: Manager=level≥3, Director=≥4, CEO=5, admin_* = admin_role, edit = permission, lihat BU = scope, full admin = permission/scope BUKAN level; pola salah vs benar; konsekuensi: RoleGuard baca admin_role+scope, job_level hanya hierarki, multi-view = level≥3 masuk /dashboard+/worker, /admin tetap butuh admin_role), +**§5e** (gap DB: user_roles 5 kolom TANPA admin_role/admin_scope/permissions vs spec butuh 3 itu; 4 opsi: A pakai user_role_assignments + ref admin_role · B tambah 3 kolom user_roles · C konsolidasi user_roles=job_level only + assignments=admin_role+scope [rekomendasi AI Core] · D lain; STATUS: menunggu keputusan user), §12 riwayat.
+- Bukti dasar: B2.6/B2.6b — tidak ada level existing di DB; peta ini KEPUTUSAN BARU, bukan penggalian.
+- Dampak lintas-page: worker → admin → dashboard → owner belum ada perubahan — docs only (src/ tidak disentuh).
+- Follow-up: **user putuskan Opsi §5e.3 (A/B/C/D)** → baru B3 (rencana eksekusi §7-§11). Eksekusi Fix #14 setelah B3.
+- Commit: "docs(forensic): Fix #14 §5c-§5e — peta level final + RBAC 4-layer" (entri ini ikut commit yang sama).

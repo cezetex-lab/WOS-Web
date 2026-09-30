@@ -455,6 +455,109 @@ worker/manager/supervisor/owner : TIDAK ADA baris (sumber kebenaran mereka = mod
 - Perkataan user "ADMIN ya hanya ADMIN saja dia masuk, khusus page admin" terkonfirmasi di code: allowedRoles `/admin` HANYA 7 admin_* (+owner) — manager/worker TIDAK masuk; sebaliknya /worker HANYA worker (+owner); /dashboard = manager + admin fungsi (bukan admin industri).
 - **Level (angka) dan halaman (matriks role×pattern) adalah dua dimensi berbeda**: level belum dipakai gate sama sekali (B1/B2), sementara halaman diatur role string + role_page_access. Fix #14 harus memetakan keduanya eksplisit, bukan menyamakan.
 
+## §5c Peta final level (keputusan user + Opsi A GPT, 2026-09-30)
+
+### §5c.1 Definisi level
+- Level 1 = Worker
+- Level 2 = Supervisor
+- Level 3 = Manager
+- Level 4 = Director / VP
+- Level 5 = CEO
+- Owner = terpisah (GOD/superuser, tidak masuk hierarki)
+
+> CATATAN REKONSILIASI: keputusan awal §3 menulis "Level 4 = admin". Opsi A (keputusan 2026-09-30, jawaban GPT Senior Enterprise HRIS Architect) MENGGANTIKAN peta itu: level 4 = Director/VP, level 5 = CEO. "Admin" BUKAN level — admin adalah fungsi (admin_role). §3 tetap sebagai riwayat; peta berlaku = §5c.
+
+### §5c.2 Peta final NRP → level + admin_role + scope
+
+| NRP | Jabatan | Job Level | Admin Role | Scope |
+|---|---|---|---|---|
+| NRP001 | CEO | 5 | (bukan admin) | ALL |
+| NRP100 | Manager / Admin Pusat | 3 | admin_pusat | ALL COMPANY |
+| NRP101 | Manager HRD | 3 | admin_hrd | HRD |
+| NRP102 | Manager Finance | 3 | admin_finance | Finance |
+| NRP103 | Manager Operasional | 3 | admin_operasional | Operations |
+| NRP104 | Manager Mining | 3 | admin_mining | BU01 |
+| NRP105 | Manager Mill | 3 | admin_mill | BU03 |
+| NRP106 | Manager Estate | 3 | admin_estate | BU02 |
+| NRP002–010 | Worker | 1 | (bukan admin) | BU/SELF |
+
+Level 2 (Supervisor) dan 4 (Director/VP) BELUM ada pemiliknya saat ini — hanya definisi.
+
+### §5c.3 Alasan
+Admin = fungsi, bukan level. NRP100 punya akses administrasi paling luas TAPI tidak dinaikkan jadi Director/CEO. Scope luas direpresentasikan oleh Admin Role + Permission + Scope, bukan job_level.
+
+### §5c.4 Sumber
+- Jawaban GPT (Senior Enterprise HRIS Architect) 2026-09-30 — Opsi A, di-approve user.
+- Preseden migrasi 051 (legacy: admin_pusat=5, admin fungsi=4) di-REPLACE — bukan diikuti.
+- Arsitektur lama = USANG.
+- Bukti B2.6/B2.6b: tidak ada level existing di DB — peta ini KEPUTUSAN BARU, bukan penggalian data.
+
+## §5d Prinsip RBAC 4-layer (WAJIB)
+
+### §5d.1 Pemisahan konsep
+```
+JOB LEVEL    → posisi hierarki (approval, reporting)
+ADMIN ROLE   → fungsi administrasi aplikasi
+PERMISSION   → tindakan yang boleh
+DATA SCOPE   → data/unit yang boleh diakses
+
+JOB LEVEL ≠ ADMIN ROLE ≠ PERMISSION ≠ DATA SCOPE
+```
+
+### §5d.2 Gate audit rules (dari spec §G)
+
+| Kebutuhan | Gunakan |
+|---|---|
+| Apakah Manager? | `job_level >= 3` |
+| Apakah Director/VP? | `job_level >= 4` |
+| Apakah CEO? | `job_level === 5` |
+| Apakah admin pusat? | `admin_role === 'admin_pusat'` |
+| Apakah admin HRD? | `admin_role === 'admin_hrd'` |
+| Apakah admin Mining? | `admin_role === 'admin_mining'` |
+| Apakah boleh edit? | permission |
+| Apakah boleh lihat BU01? | scope |
+| Apakah full admin? | permission/scope, BUKAN job_level |
+
+### §5d.3 Pola salah yang harus dicari di code
+```
+SALAH:
+  if (user.role_level >= 4) { allowFullAdmin(); }
+  — NRP100 lvl 3 tetap punya full admin.
+BENAR:
+  if (user.admin_role === 'admin_pusat') { allowFullAdmin(); }
+
+SALAH:
+  if (user.role_level >= 3) { allowMiningAdmin(); }
+  — semua Manager dapat akses Mining.
+BENAR:
+  if (user.admin_role === 'admin_mining' && user.admin_scope.includes('BU01'))
+```
+
+### §5d.4 Konsekuensi ke Fix #14
+- RoleGuard harus baca `admin_role` + `scope` untuk gate admin.
+- `job_level` dipakai HANYA untuk hierarki (approval, reporting).
+- Multi-view: `job_level >= 3` boleh masuk `/dashboard` + `/worker` (data diri). `/admin` tetap butuh `admin_role`.
+
+## §5e Gap DB — source of truth baru (perlu keputusan user)
+
+### §5e.1 Kondisi existing (B1/B2.6)
+- `user_roles` (5 kolom): `nrp | role_level | scope_divisi | plan | role` — TIDAK ada admin_role, admin_scope, permissions.
+- `admin_roles` (7 baris): `role_code | scope_type | permissions jsonb`.
+- `user_role_assignments` (17 baris): `nrp | role_code | scope_type | scope_bu_id | scope_org_unit | scope_domain`.
+- `role_page_access` (48 baris); `role_permission_sets` (28 baris); `permission_set_items` (93 baris).
+
+### §5e.2 Yang dibutuhkan spec
+`user_roles`: `admin_role | admin_scope | permissions` (sesuai spec §G/§5d).
+
+### §5e.3 Opsi desain (perlu keputusan user)
+- **Opsi A** — pakai `user_role_assignments` existing (tambah ref admin_role).
+- **Opsi B** — tambah 3 kolom ke `user_roles` (duplikasi).
+- **Opsi C** — konsolidasi: `user_roles` = job_level only; `user_role_assignments` = admin_role + scope (**rekomendasi AI Core**).
+- **Opsi D** — struktur lain.
+
+### §5e.4 Rekomendasi AI Core
+Opsi C — separation of concerns sesuai spec §5d. **Status: menunggu keputusan user** (gates B3).
+
 ## §6 Gap analysis
 
 §6.1 **Level 1-5 sebagai gate** — Target: level jadi gate /dashboard sesuai jabatan. Realita: RoleGuard pakai entry+allowedRoles (string role), bukan level; DB-nya pun flat=1. Gap: (a) data — seed role_level per keputusan §3, (b) kode — RoleGuard/App.tsx allowedRoles harus membaca/menghormati `session.role_level`; konsumen lain yang membaca role_level hanya business-units.ts:247 + UI display.
@@ -504,4 +607,5 @@ worker/manager/supervisor/owner : TIDAK ADA baris (sumber kebenaran mereka = mod
 - 2026-09-30: B1 selesai — §1-§4 diisi.
 - 2026-09-30: **Q1=A, Q2=A, Q3=A ditetapkan** (lihat §3b); 4 Work Queue baru P1-F14-D, P2-F14-E/F/G.
 - 2026-09-30: **B2 selesai — §5-§6 diisi** (code read src/ read-only; src/ tidak diubah).
+- 2026-09-30: **GPT menjawab Opsi A — semua admin NRP100–106 = level 3** (peta final §5c: NRP001=5 CEO, NRP100–106=3 Manager + admin_role + scope, NRP002–010=1 Worker). Prinsip RBAC 4-layer + gate audit rules ditulis §5d. Gap DB (user_roles belum punya admin_role/admin_scope/permissions; 4 opsi desain A/B/C/D) ditulis §5e — **menunggu keputusan user sebelum B3**.
 - 2026-09-30: **B2.5 — user mengoreksi AI Core soal sistem bisnis** ("ADMIN ya hanya ADMIN saja dia masuk, khusus page admin"). Investigasi ulang BU/sites/karyawan + peta halaman + role_page_access 48 baris + admin_roles + owner flow → **§5b ditambahkan** (termasuk 4 hal "perlu klarifikasi user").
