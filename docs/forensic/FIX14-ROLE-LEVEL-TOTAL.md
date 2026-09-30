@@ -404,6 +404,57 @@ route-config.ts = pemetaan `route_component` → lazy component (getComponent di
 - §5.10.4 `useModuleAccess|useCurrentUserContext` — 4 file pemakai: CoreDataWrapper, ModuleRouteGuard, ModuleManagement, hook itu sendiri.
 - §5.10.5 `check_module_access` — 1 pemakai saja (useModuleAccess.ts:17).
 
+## §5b Sistem bisnis — peta lengkap (2026-09-30, B2.5)
+
+> Pemicu: AI Core salah paham peta role (mengira "level 4=admin" cukup menggambarkan sistem). User mengoreksi: "ADMIN ya hanya ADMIN saja dia masuk, khusus page admin". §5b merekam FAKTA dari DB live + code, tanpa keputusan. Probe: `.agents/scripts/fix14-b25-biz.mjs` (SELECT only, SAVEPOINT per query).
+
+§5b.1 **Struktur perusahaan** (DB live):
+- **4 Business Unit**: BU01 MINING "Tambang" · BU02 ESTATE "Perkebunan (Sawit)" · BU03 MILL "Pabrik (CPO)" · BU04 HQ "Korporat" — semua `tier=4`, aktif.
+- **4 Site** (lokasi fisik + geofence): SITE-MINING-01 Site Tambang Sangatta (Kaltim, radius 500 m) · SITE-ESTATE-01 Kebun Sawit Riau (400 m) · SITE-MILL-01 Pabrik CPO Riau (300 m) · SITE-HQ-01 Kantor Pusat Jakarta (250 m).
+- **17 karyawan** (semua PKWTT): NRP001 CEO (BU HQ, site Jakarta, divisi KORPORAT); worker NRP002+010 (HQ/HRD, Jakarta), NRP003-005 (MINING, Sangatta), NRP006-007 (ESTATE, Riau), NRP008-009 (MILL, Riau); **admin NRP100-106: `business_unit` NULL, `site_id` NULL** (pusat — tidak ditempatkan di BU mana pun); `posisi/jabatan/level_jabatan/position_code` NULL untuk SEMUA.
+
+§5b.2 **Peta halaman** — dua lapis:
+- **Route statis (App.tsx:64-66 + OwnerGuard)**: `/admin` (entry=admin; allowedRoles 7 admin_* + owner) · `/worker` (entry=worker; allowedRoles `['worker','owner']` SAJA) · `/dashboard` (entry=dashboard; allowedRoles `['manager','admin_pusat','admin_hrd','admin_finance','admin_operasional','owner']` — TANPA admin industri) · `/owner/*` (OwnerGuard → RPC `check_owner_identity`, bukan RoleGuard).
+- **155 modul dinamis** (`module_definitions.route_group`): **hanya 2 nilai — admin 103, worker 52** (TIDAK ada route_group dashboard/owner). Area prefix: /admin 100, /worker 51, 4 path landing tanpa sub-path (`/admin` admin_landing, `/worker`, `/dashboard` ×2 = ceo_dashboard + dashboard_landing yang dinonaktifkan SQL-13). Sample 30 tercetak di probe; gate dinamis = ModuleRouteGuard/useModuleAccess (`check_module_access`), bukan allowedRoles.
+
+§5b.3 **Peta role → halaman EKSPLISIT** (`role_page_access`, 48 baris lengkap):
+```
+admin_pusat      : /admin/*                          can_access=T can_action=T   (SATU-SATUNYA akses admin penuh)
+admin_hrd        : /admin/{employees,recruitment,kpi,learning,talent,exit,requests,review-360} + /admin/*=F
+admin_finance    : /admin/{payroll,budget,timesheet,overtime,kpi,export} + /admin/*=F
+admin_operasional: /admin/{requests,leave,overtime,timesheet,shift-swap,assets} + /admin/*=F
+admin_mining     : /worker/{simper,heavy-equip,fatigue,production,safety,emergency,jsa} + /admin/*=F  ← HALAMAN /worker/*
+admin_mill       : /worker/{boiler,machines,qc,packing,maintenance,breakdown,shift}     + /admin/*=F  ← HALAMAN /worker/*
+admin_estate     : /worker/{harvest,blocks,nursery,transport,irrigation,facility,medical} + /admin/*=F ← HALAMAN /worker/*
+worker/manager/supervisor/owner : TIDAK ADA baris (sumber kebenaran mereka = module_definitions + App.tsx literal)
+```
+
+§5b.4 **Admin roles — apa bedanya** (role_page_access × admin_roles.permissions):
+- **admin_pusat** = super-admin aplikasi: `/admin/*` penuh, permissions `["*"]`, can_manage_users=true; tiles Admin.tsx: Pengajuan, Karyawan, Organisasi, Payroll, KPI, Analytics, Audit, Reset PW, Pengaturan.
+- **admin_hrd** = fungsi HRD: employees/recruitment/learning/talent/kpi/exit; permissions `employees.*, recruitment.*, kpi.*, learning.*, talent.*, exit.*`.
+- **admin_finance** = fungsi keuangan: payroll/budget/timesheet/overtime/kpi/export; permissions `payroll.*, budget.*, timesheet.*, overtime.*, export.*, kpi.*`.
+- **admin_operasional** = fungsi operasional: requests/leave/overtime/timesheet/shift-swap/assets; permissions `requests.*, leave.*, overtime.*, timesheet.*, assets.*, shift.*`.
+- **admin_mining / admin_mill / admin_estate** = **industri**: scope industry, permissions `mining.* / mill.* / estate.*`; halamannya BUKAN /admin melainkan **7 halaman operasional di bawah /worker/*** (simper/boiler/harvest dll) — artinya "admin industri" mengelola data operasional lapangan yang rutenya di area worker.
+
+§5b.5 **Dashboard vs Admin vs Worker vs Owner** — siapa masuk, lihat apa:
+- **/worker** (`Worker.tsx`, 153 baris): RPC `get_worker_status`, `get_worker_narrative`, `get_announcements`; menu dari `getUserModules()` (business-units.ts); **cek ganda**: entry ≠ worker → redirect; `role ≠ worker & ≠ owner` → "Akses Worker Ditolak".
+- **/dashboard** (`Dashboard.tsx`, 212 baris): permintaan tim (`approve_team_request`), KPI divisi, snapshot, keuangan, flight risk, turnover, exec summary (`get_executive_summary`/`get_executive_brief`), early warning, planning. Modul CEO `ceo_dashboard` (route_path `/dashboard`) — RPC data: `get_ceo_command_data` (2 overload), `get_dashboard_data`, `get_dashboard_stats` (**`ceo_dashboard` adalah MODULE_CODE, bukan RPC** — klarifikasi temuan awal B1).
+- **/admin** (`Admin.tsx`, 325 baris): ROLE_BADGES + ADMIN_TILES per admin_* (dashboard ringkasan approval + pintasan ke halaman fungsi masing-masing).
+- **/owner** (`OwnerDashboard.tsx`): **18 tab** — Overview, Module Lock, Tier & Pricing, Roles, Audit Log, Security, Business Units, Employees, Announcements, Notifications, System Banner, Activity, Integrations, Data Retention, System Log, Support, Analytics, Access Control (+ Branding + halaman Config). Memanggil `owner_update_role` di tab Roles (:349 — RPC broken per §4.19).
+
+§5b.6 **Owner GOD — konfirmasi teknis**: OwnerLogin.tsx = `signInWithPassword` (email pre-filled owner@insightwos.com) → RPC `owner_login(p_email)` (validasi `system_owner_identity` + `get_owner_email()` fail-closed) → `setSession({nrp:'OWNER001', role:'owner', role_level:5, is_owner:true})` → `/owner/dashboard`. Bypass owner ada di: RoleGuard (role owner lolos entry isolation + semua allowedRoles), Worker.tsx (owner boleh), authz_check_admin/authz_has_permission (owner bypass), get_current_user_context (OWNER001/level 5), menu-builder (`effectiveTier = 999`). `is_owner` dipakai 9 file. Owner tidak punya baris employees_core/user_roles — identitas murni `system_owner_identity`.
+
+§5b.7 **Yang BELUM jelas — perlu klarifikasi user** (bukan nebak):
+1. **Jalur masuk admin industri**: role_page_access memberi admin_mining/mill/estate 7 halaman `/worker/*` masing-masing, TAPI route statis `/worker` allowedRoles=`['worker','owner']` dan Worker.tsx menolak `role ≠ worker` → bagaimana admin industri SEHARUSNYA masuk (login tab worker lalu langsung ke halaman industri via dynamic route?) — perlu klarifikasi + kemungkinan desain di B3.
+2. **CEO lvl 5 belum ada wujud DB**: NRP001 = `admin_pusat` level 1 di user_roles; tidak ada role/level khusus CEO; beda UI CEO vs admin lvl 4 **belum ada** di code (cegah nebak: keputusan peta level §3 belum dieksekusi).
+3. **Tiga label level saling kontradiksi**: RoleMatrixPage `{4:'Sr. Manager',5:'Admin'}` vs ModuleManagement `{1:Staff,2:Supervisor,3:Manager,4:Director,5:CEO}` vs keputusan user `{4:admin,5:CEO}` — butuh satu peta final di B3.
+4. **worker/manager/supervisor/owner tidak ada di role_page_access** → peta halaman mereka tersebar di 2 sumber (module_definitions + App.tsx literal) — tidak ada satu matriks tunggal.
+
+§5b.8 **Koreksi AI Core** (fakta yang memperbaiki salah paham):
+- AI Core mengira "level 4 = admin" adalah satu wajah. FAKTA: **"admin" = 7 sub-kategori role** (pusat/hrd/finance/operasional + 3 industri) dengan matriks halaman BERBEDA per role; admin_pusat satu-satunya yang melihat seluruh /admin.
+- Perkataan user "ADMIN ya hanya ADMIN saja dia masuk, khusus page admin" terkonfirmasi di code: allowedRoles `/admin` HANYA 7 admin_* (+owner) — manager/worker TIDAK masuk; sebaliknya /worker HANYA worker (+owner); /dashboard = manager + admin fungsi (bukan admin industri).
+- **Level (angka) dan halaman (matriks role×pattern) adalah dua dimensi berbeda**: level belum dipakai gate sama sekali (B1/B2), sementara halaman diatur role string + role_page_access. Fix #14 harus memetakan keduanya eksplisit, bukan menyamakan.
+
 ## §6 Gap analysis
 
 §6.1 **Level 1-5 sebagai gate** — Target: level jadi gate /dashboard sesuai jabatan. Realita: RoleGuard pakai entry+allowedRoles (string role), bukan level; DB-nya pun flat=1. Gap: (a) data — seed role_level per keputusan §3, (b) kode — RoleGuard/App.tsx allowedRoles harus membaca/menghormati `session.role_level`; konsumen lain yang membaca role_level hanya business-units.ts:247 + UI display.
@@ -453,3 +504,4 @@ route-config.ts = pemetaan `route_component` → lazy component (getComponent di
 - 2026-09-30: B1 selesai — §1-§4 diisi.
 - 2026-09-30: **Q1=A, Q2=A, Q3=A ditetapkan** (lihat §3b); 4 Work Queue baru P1-F14-D, P2-F14-E/F/G.
 - 2026-09-30: **B2 selesai — §5-§6 diisi** (code read src/ read-only; src/ tidak diubah).
+- 2026-09-30: **B2.5 — user mengoreksi AI Core soal sistem bisnis** ("ADMIN ya hanya ADMIN saja dia masuk, khusus page admin"). Investigasi ulang BU/sites/karyawan + peta halaman + role_page_access 48 baris + admin_roles + owner flow → **§5b ditambahkan** (termasuk 4 hal "perlu klarifikasi user").

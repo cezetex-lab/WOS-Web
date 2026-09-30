@@ -3362,3 +3362,20 @@ TESTCOUNT_EXIT=0
 - Dampak lintas-page: worker → admin → dashboard → owner belum ada perubahan — read-only penuh (docs + log saja; src/ tidak disentuh).
 - Follow-up: Prompt B3 (rencana eksekusi §7-§11 dari gap §6) → eksekusi Fix #14. Fix #5 deploy tetap HOLD.
 - Commit: "docs(forensic): Fix #14 peta role/level/login (B2 — code src/)" (entri ini ikut commit yang sama).
+
+## [2026-09-30] Investigasi Fix #14 (B2.5) — sistem bisnis end-to-end + koreksi AI Core
+
+- Pemicu: AI Core salah paham peta role (mengira "level 4=admin" cukup menggambarkan sistem). User koreksi: "ADMIN ya hanya ADMIN saja dia masuk, khusus page admin". Investigasi ulang dengan FAKTA (DB live + code), bukan nebak; TANPA keputusan.
+- Probe: `.agents/scripts/fix14-b25-biz.mjs` (SELECT only, BEGIN READ ONLY + SAVEPOINT per query). 1 query gagal dilapor mentah lalu diperbaiki: `E-emp` asli memakai kolom `id` → ERROR 42703 `column "id" does not exist` (employees_core tanpa kolom id) + 25P02 berantai karena transaksi abort; fix: hapus `id` + SAVEPOINT per query.
+- File tracked: `docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md` + **§5b** (8 sub: struktur perusahaan, peta halaman 2 lapis, role→halaman eksplisit, matriks admin role, dashboard/admin/worker/owner, owner GOD, 4 hal "perlu klarifikasi user", koreksi AI Core) + §12 riwayat.
+- Temuan utama:
+  - Struktur: 4 BU (BU01 MINING Tambang Sangatta · BU02 ESTATE Perkebunan Riau · BU03 MILL Pabrik CPO Riau · BU04 HQ Korporat Jakarta, semua tier=4) + 4 site ber-geofence (radius 250-500 m); 17 karyawan: worker menurut BU/site, **admin NRP100-106 business_unit=NULL & site_id=NULL** (pusat, tidak ditempatkan).
+  - Peta halaman: route statis hanya 3 (/admin 7 admin_* + owner; /worker HANYA worker+owner; /dashboard manager+admin fungsi, TANPA admin industri) + 155 modul dinamis route_group HANYA `admin` (103) & `worker` (52) — tidak ada route_group dashboard/owner; /owner di-guard OwnerGuard (check_owner_identity), bukan RoleGuard.
+  - role_page_access (48 baris) = matriks eksplisit: admin_pusat satu-satunya `/admin/*` penuh; admin fungsi dapat halaman /admin spesifik; **admin industri (mining/mill/estate) justru diberi 7 halaman /worker/* masing-masing** (simper/boiler/harvest dll) + `/admin/*`=false; worker/manager/supervisor/owner TIDAK ada barisnya.
+  - Owner GOD terkonfirmasi teknis: OwnerLogin (signInWithPassword → owner_login(p_email) → setSession OWNER001/level5/is_owner) → /owner/dashboard 18 tab + Branding + Config; bypass owner di RoleGuard/Worker/authz_*/get_current_user_context/menu-builder(999); is_owner di 9 file; tanpa baris employees_core/user_roles.
+  - Klarifikasi temuan B1: `ceo_dashboard` = MODULE_CODE (route /dashboard), BUKAN RPC; RPC data dashboard: get_ceo_command_data (2 overload), get_dashboard_data/stats, get_executive_summary/brief.
+  - 4 hal "perlu klarifikasi user" (§5b.7): jalur masuk admin industri ke halaman /worker/* (route statis /worker menolak role ≠ worker); CEO lvl 5 belum ada wujud DB (NRP001 = admin_pusat level 1); 3 label level kontradiksi (RoleMatrixPage 4=Sr. Manager/5=Admin vs ModuleManagement 1=Staff…5=CEO vs keputusan user 4=admin/5=CEO); worker/manager/owner tak ada di role_page_access (peta tersebar 2 sumber).
+- Koreksi AI Core (§5b.8): "admin" = 7 sub-kategori role dengan matriks halaman berbeda; admin_pusat satu-satunya /admin penuh; perkataan user terkonfirmasi code; LEVEL (angka) dan MATRIKS HALAMAN (role×pattern) = dua dimensi berbeda — level belum dipakai gate sama sekali.
+- Dampak lintas-page: worker → admin → dashboard → owner belum ada perubahan — read-only penuh (docs + log; src/ tidak disentuh).
+- Follow-up: B3 (rencana eksekusi §7-§11) kini punya konteks bisnis utuh; 4 poin §5b.7 menunggu klarifikasi/jawaban di B3.
+- Commit: "docs(forensic): Fix #14 sistem bisnis — koreksi pemahaman AI Core" (entri ini ikut commit yang sama).
