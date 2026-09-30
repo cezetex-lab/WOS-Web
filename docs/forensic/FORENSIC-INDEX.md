@@ -39,6 +39,13 @@ Sisa: tidak ada.
   duplikat klaim migrasi Fix #4/#5 di file ini (179/254), total batch audit 88/122, snapshot supabase/baseline/*.md.
 - Aturan: fix apa pun yang menambah migrasi/test/angka dokumen WAJIB cek + perbarui file itu.
 
+## Fix #14 — Peta Role/Level/Login (🟡 INVESTIGASI 1/3 — B1 DB live, 2026-09-30)
+
+- File: [`docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md`](FIX14-ROLE-LEVEL-TOTAL.md) — single source of truth Fix #14 (B1 §1–§4 diisi; §5–§6 menunggu B2 code read; §7–§11 menunggu B3 rencana).
+- Fakta kunci DB live: `user_roles.role_level` flat=1 (17 baris) · `employees_core.role_level`=0 semua · `business_units` SEMUA tier=4 (gate tier tidak pernah memblokir) · `master_job_levels` kosong · `audit_log_owner` count=0 dan skema tidak cocok (`owner_auth_id`/`details` tidak ada) → `owner_update_role` broken · `admin_set_role` stub · `admin_set_employee_role` mapping level hardcoded 4/3/1 · set yatim `supervisor`/`manager`/`admin_produksi` (dipakai 0) · 0 FK pada tabel role · `get_my_role` percaya param `p_nrp`.
+- Keputusan produk (user, 2026-09-30): level 1=worker, 2=supervisor, 3=manager, 4=admin, 5=CEO; owner = GOD terpisah; multi-view (/dashboard sesuai jabatan + /worker data diri); login email+password.
+- Raw probes (gitignored): `.agents/scripts/fix14-b1-dbmap.mjs` (B1) + `.agents/scripts/fix14-dbmap.mjs` (peta awal B–I).
+
 ## Status Temuan Backup & DR (P1-14 / P1-45) — ✅ SEMUA CLOSED (2026-09-27)
 
 | Temuan | Status | Bukti |
