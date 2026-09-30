@@ -43,6 +43,7 @@ Plus 9 klaim kapabilitas (`CAPABILITIES`): exists/absent + `mustNotSay` (payroll
 | File:line | Konstanta | Nilai | Kenapa tanpa guard / risiko |
 |---|---|---|---|
 | SECURITY.md:61 | Rollback scripts | 18 scripts (183–214) | tidak ada guard yang baca SECURITY.md |
+| SECURITY.md:30 (§3.10) | unit count gate | ~~119/119~~ → **174/174 · 4 todo** (fixed 2026-09-30 B0.5) | semula tanpa guard; kini dijaga test baru di `doc-claims-vs-live` (total via `.vitest/test-result.json`; pola "unit N/N" jadi canary — lihat §2 catatan) |
 | SECURITY.md:52/56/57 | nomor migrasi referensi | 141; 141, 220; 141, 215 | idem — berubah saat migrasi baru tanpa peringatan |
 | ARCHITECTURE.md:118–119 | rentang fase | 141–153; 154–168 | histori fase; relatif stabil |
 | docs/forensic/FORENSIC-INDEX.md:68–69 | duplikat klaim migrasi Fix #4/#5 | 251/252/253; 254; 179 baris; max(version)=254 | TIDAK dijaga di file ini — hanya ARCHITECTURE.md yang dijaga; FORENSIC-INDEX bisa menyimpang diam-diam |
@@ -90,7 +91,7 @@ npm scripts terkait (package.json): `verify:artifacts`, `verify:test-count`, `te
 ## §4 Rekomendasi (masukan, bukan keputusan)
 
 1. **Duplikat klaim migrasi di FORENSIC-INDEX.md** (baris 68–69: 179 baris, max 254) TANPA guard padahal konstanta yang sama DIJAGA di ARCHITECTURE.md. Risiko: dua dokumen menyimpang. Opsi: (a) FORENSIC-INDEX merujuk §7.4 alih-alih menulis ulang angka, atau (b) perluas `doc-claims-vs-live` ke FORENSIC-INDEX.
-2. **SECURITY.md** kolom migrasi (141/215/220) + "18 scripts (183–214)" TANPA guard — murah ditambahkan sebagai klaim baru di `doc-claims-vs-live` (pola "N scripts (A–B)" bisa diverifikasi ke daftar file `supabase/migrations`).
+2. **SECURITY.md** kolom migrasi (141/215/220) + "18 scripts (183–214)" TANPA guard — murah ditambahkan sebagai klaim baru di `doc-claims-vs-live` (pola "N scripts (A–B)" bisa diverifikasi ke daftar file `supabase/migrations`). *Update B0.5: klaim "unit N/N" §3.10 KINI dijaga (test baru) — item 1.3 baris SECURITY.md:30; item Work Queue P2-F14-A/B + P3-F14-C menutup sisa klaim kontrak SECURITY.md saat Fix #14.*
 3. **Snapshot di supabase/baseline/*.md** (cap 173, 209 tabel, replay=212) sengaja TIDAK dijaga — basi permanen; hapus/perbarui saat Fix #9 regenerasi baseline, jangan dibikin guard.
 4. **Magic number test** tidak perlu guard tambahan; disiplin yang diminta: setiap fix yang menambah test berangka / migrasi / tabel severity FORENSIC-INDEX wajib memperbarui file ini di §1.3/§3.
 5. Guard yang terbukti hidup saat inventaris ini ditulis (bukti f81af1e): `verify:artifacts` = 0 drift, 1 warning (baseline commit → Fix #9, pre-existing).

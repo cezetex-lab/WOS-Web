@@ -299,6 +299,46 @@ describe('jumlah berkas TypeScript di dokumen', () => {
 });
 
 /**
+ * SECURITY.md §3.10 (checklist gate commit) memuat klaim "unit <N>/<N>".
+ *
+ * Latar (B0.5, 2026-09-30): tertulis 119/119 padahal suite sudah 174 — SECURITY.md
+ * tidak tercakup guard mana pun (verify:artifacts + sisa file ini hanya menjaga
+ * ARCHITECTURE.md/FuturePlans.md), jadi drift-nya diam-diam: pola Akar A (P1-71-01).
+ *
+ * Batas kejujuran (§0.16): angka TOTAL hanya bisa dicek bila `.vitest/test-result.json`
+ * ada — artefak `vitest run --reporter=json --outputFile=.vitest/test-result.json`.
+ * Di CI, JSON itu ditulis step "Unit test" SEBELUM `verify:test-count` jalan (bukan
+ * selama suite), jadi di dalam suite guard ini hanya memverifikasi polanya ada;
+ * pemeriksaan angka total penuh tetap di `verify:test-count`. Lokal: jalankan vitest
+ * dengan flag di atas sekali supaya guard ini benar-benar membandingkan angka.
+ */
+describe('SECURITY.md §3.10 angka unit test', () => {
+  it('klaim "unit N/N" cocok dengan total suite', () => {
+    const security = readDoc('SECURITY.md');
+    const claimedTotal = grab(security, /unit (\d+)\/\d+/);
+    expect(
+      claimedTotal,
+      'SECURITY.md §3.10: pola "unit N/N" tidak ketemu lagi — pola guard basi; perbarui guardnya, jangan dihapus.',
+    ).toBeDefined();
+
+    const jsonPath = path.join(ROOT, '.vitest', 'test-result.json');
+    if (!fs.existsSync(jsonPath)) {
+      console.warn(
+        '[guard SECURITY.md §3.10] .vitest/test-result.json tidak ada — angka total tidak dicek run ini. ' +
+          'Jalankan: npx vitest run --reporter=json --outputFile=.vitest/test-result.json',
+      );
+      return;
+    }
+    const j = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    const actual = Number(j.numTotalTests);
+    expect(
+      claimedTotal,
+      `SECURITY.md §3.10 stale — update ke unit ${actual}/${actual} (dokumen=${claimedTotal}, suite=${actual}).`,
+    ).toBe(actual);
+  });
+});
+
+/**
  * Kapabilitas roadmap `FuturePlans.md` vs kenyataan.
  *
  * Kelas bug yang dicegah: dokumen bilang "tidak ada X" padahal X sudah dibangun

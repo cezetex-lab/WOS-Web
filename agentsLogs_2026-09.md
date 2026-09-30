@@ -3321,3 +3321,13 @@ TESTCOUNT_EXIT=0
 - Dampak lintas-page: worker → admin → dashboard → owner TIDAK terdampak — perubahan hanya docs/forensic + log; read-only terhadap kode.
 - Follow-up: (1) opsional guard untuk SECURITY.md / FORENSIC-INDEX (rekomendasi §4 CONSTANTS-INVENTORY, butuh keputusan user); (2) lanjut B1 (DB LIVE Fix #14) → B2 (code read) → B3 (rencana).
 - Commit: lihat `git log migrasi-vite` 2026-09-30 — "docs(forensic): inventaris konstanta hitungan + guard coverage" (entri ini ikut commit yang sama).
+
+## [2026-09-30] B0.5 — Fix SECURITY.md §3.10 stale + guard + 3 item Work Queue Fix #14
+
+- SECURITY.md §3.10: "unit 119/119" → "unit 174/174 · 4 todo" (stale sejak suite naik ke 173; SECURITY.md tidak tercakup guard mana pun sebelumnya). Sisa berkas tidak disentuh — §3.1 + §7.6 sengaja DIBIARKAN untuk Fix #14 (lihat item baru di bawah).
+- Guard kecil baru di `tests/unit/doc-claims-vs-live.test.ts`: klaim "unit N/N" di SECURITY.md §3.10 dijaga — pola jadi canary (fail jika pola hilang), dan bila `.vitest/test-result.json` ada, angka dokumen WAJIB = `numTotalTests` suite (pesanan fail: "SECURITY.md §3.10 stale — update ke unit N/N"). Batas jujur dicatat di komentar: di dalam suite hanya pola yang dicek; cek angka penuh tetap di `verify:test-count` di CI.
+- AGENTS.md §5.8 — 3 item baru setelah P3-F05-06: **P2-F14-A** (update SECURITY.md §3.1 saat Fix #14 — kontrak authz level 1-5 + multi-view + owner), **P2-F14-B** (baris baru §7.6 "Role levels 1-5 — migrasi <N>"), **P3-F14-C** (duplikasi nama fungsi authz SECURITY.md §3.1 ↔ ARCHITECTURE.md §7.2 Layer 3, risiko drift ganda).
+- `docs/forensic/CONSTANTS-INVENTORY.md` §1.3: baris SECURITY.md:30 ditandai fixed (119→173) + catatan guard baru; §4 rekomendasi no.2 di-update.
+- Dampak lintas-page: worker → admin → dashboard → owner TIDAK terdampak — perubahan hanya SECURITY.md + guard test + dokumen; tidak ada src/, supabase/, migrasi.
+- Gate (mentah): `npm run check:types` EXIT 0; `npm run verify:artifacts` "RINGKASAN: 0 drift, 1 warning" (baseline commit → Fix #9, pre-existing); JSON segar `vitest --reporter=json` → total=174 passed=170 failed=0 pending=0 todo=4 files=26 (guard baru masuk FILE existing — jumlah berkas tetap 26, jumlah TEST naik 173→174) → ARCHITECTURE.md §7.5 dikoreksi 173→174 (170 auto + 4 todo), SECURITY.md §3.10 + CONSTANTS-INVENTORY ikut 174; suite penuh ulang **174/174 + 4 todo, EXIT 0** — guard baru terbukti dari JSON segar (pola canary PASS + angka dokumen = numTotalTests PASS); `verify:test-count` final 0 drift, 0 warning (dok 174 = suite 174, files 26 = 26).
+- Commit: 1 commit di migrasi-vite — "docs(security): fix §3.10 stale unit count + guard + Work Queue Fix #14". Follow-up: B1 (Fix #14 DB LIVE) → B2 → B3; item F14-A/B/C ditutup saat Fix #14 CLOSE.
