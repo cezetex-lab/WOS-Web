@@ -57,7 +57,9 @@ Sisa: tidak ada.
 |---|---|---|---|---|---|
 | **P1-F14-K** | P1 | `user_role_assignments` — tabel yang **menjadi sumber kebenaran admin** setelah §9 — **tidak punya trigger audit sama sekali**. Perubahan role/scope admin tidak masuk `audit_log`. Gate audit rules §12 tidak akan menangkapnya. | PRE: `K1-trig-user_role_assignments = 0 trigger`; 20 trigger `trg_audit_*` semuanya di tabel lain. POST (migrasi `257`): trigger `trg_audit_user_role_assignments` live `tgenabled='O'` via `_generic_audit_trigger_fixed`; uji INSERT `NRP999-TEST` → `audit_log` **582→583** (`audit_naik_1: true`), `actor='SYSTEM'` (probe tanpa JWT = fail-safe yang diterima, bukan NULL) | ✔ **CLOSED** (migrasi 257) |
 | **P2-F14-H** | P2 | `authz_in_scope()` cabang `TEAM` memakai `ho1.manager_nrp = ho2.manager_nrp`, tapi kolom itu **tidak ada** di `hr_org` (hanya `atasan_nrp`) → cabang TEAM **error saat runtime**, bukan sekadar false | PRE: `hr_org` 7 kolom tanpa `manager_nrp`; `Q4` scope_type distinct = `BU` 3, `ENTERPRISE` 4, `SELF` 9 (**`TEAM` = 0**). POST (migrasi `258`, keputusan **H2**): `pakai_atasan_nrp: true`, `masih_manager_nrp: false`; `prosecdef=true`/`provolatile='s'`/`proconfig` preservasi; smoke `authz_in_scope('NRP002')` = `false` (**bukan** error `42703`) | ✔ **CLOSED** (migrasi 258) |
-| **P2-F14-I** | P2 | `admin_produksi` ada di CHECK `user_roles_role_check` dan di whitelist `is_admin_or_owner`, tapi **tidak ada di tabel `admin_roles`** (7 role_code, `admin_produksi` n=0). Akibat: user dengan role itu **lolos `is_admin_or_owner`** lalu ditolak `check_admin_access` dengan `reason='role_not_found'` — dua gerbang admin tidak konsisten. | PRE: `B6`–`B9` = 0 di empat tempat; `I5` `is_admin_or_owner` vs `check_admin_access` tidak konsisten. POST (migrasi `259`, keputusan **I2 tahap murah**): CHECK 14→**13 elemen**, `punya_admin_produksi: false`; `is_admin_or_owner` `LANGUAGE sql`+`STABLE`+`SECURITY DEFINER` preservasi; **uji negatif `23514` check_violation** + sanity role valid tetap bisa ditulis | ✔ **CLOSED** (migrasi 259) — **sisa**: 3 baris `role_permission_sets` (id 14/15/16) masih ada, **dijadwalkan migrasi 260 (P3, opsional)** karena dibaca `authz_has_permission()` (105 RLS policy depend) |
+| **P2-F14-I** | P2 | `admin_produksi` ada di CHECK `user_roles_role_check` dan di whitelist `is_admin_or_owner`, tapi **tidak ada di tabel `admin_roles`** (7 role_code, `admin_produksi` n=0). Akibat: user dengan role itu **lolos `is_admin_or_owner`** lalu ditolak `check_admin_access` dengan `reason='role_not_found'` — dua gerbang admin tidak konsisten. | PRE: `B6`–`B9` = 0 di empat tempat; `I5` `is_admin_or_owner` vs `check_admin_access` tidak konsisten. POST (migrasi `259`, **I2 tahap murah**): CHECK 14→**13 elemen**, `punya_admin_produksi: false`; `is_admin_or_owner` `LANGUAGE sql`+`STABLE`+`SECURITY DEFINER` preservasi; **uji negatif `23514` check_violation** + sanity role valid tetap bisa ditulis. POST (migrasi `260`, **I2 tahap 2**): 3 baris `role_permission_sets` (id 14/15/16) dihapus, `permission_set_items` tetap **93** (ketiga set dipakai 10/6/3 role lain, tidak ada set yatim), 0 FK ke tabel, `sequence last_value=28` tak bergeser | ✔ **CLOSED** (migrasi 259 + 260) — `admin_produksi` = **0 di kelima tempat**; sisa satu-satunya whitelist `admin_set_employee_role` (§11 P2-F14-F) |
+| **P2-F14-L** | P2 | `user_role_assignments.role_code` **tidak punya CHECK constraint maupun FK ke `admin_roles`** → INSERT langsung dengan `role_code` sembarang tetap mungkin. Tabel ini yang jadi sumber kebenaran admin setelah §9, jadi gap di sini berarti sumber kebenaran bisa berisi role yang tidak dikenal sistem. | `user_role_assignments` constraint: PK + UNIQUE `(nrp, role_code, scope_type, scope_bu_id)` (probe B2.22), **tanpa CHECK role_code / FK**; `pg_constraint confrelid='user_role_assignments'` = 0 FK | CHECK `role_code IN (role_code aktif di admin_roles)` atau FK ke `admin_roles(role_code)` + guard test yang membuktikan INSERT role asing ditolak | **bukan blocker §9** — tapi pasang **sebelum/bersamaan** rewiring, karena setelah §9 tabel ini jadi sumber kebenaran tunggal |
+| **P2-F14-M** | P2 | Tidak ada guard yang mendeteksi perubahan **bahasa** / **volatilitas** fungsi. `verify:artifacts` hanya membandingkan **jumlah** fungsi, jadi `LANGUAGE sql` → `plpgsql` pada `is_admin_or_owner` (atau `STABLE`→`VOLATILE`) **tetap hijau**. | Hot spot nyata: migrasi 259 menyebut `is_admin_or_owner` `LANGUAGE plpgsql`, padahal fact live `LANGUAGE sql` + `STABLE` (`{"bahasa":"sql","provolatile":"s"}`). Kalau draft dipakai apa adanya, semantik fungsi berubah **tanpa** gate yang berteriak. `Functions` tetap 658 sebelum-sesudah | Test baru (mis. `tests/unit/db-function-attributes-guard.test.ts`) yang baca `pg_proc.prolang` / `provolatile` / `prosecdef` / `proconfig` untuk fungsi authz kunci dan bandingkan dengan ekspektasi | P2 (usulan) |
 | **P1-F14-J** | P1 | NRP001 sudah `role_level=5` (CEO) tetapi `role` masih literal `'admin_pusat'`. Rename ke `'ceo'` **belum dilakukan** dan belum bisa dilakukan murah | `J1 = 0 baris role='ceo'`; CHECK `user_roles_role_check` tidak memuat `'ceo'`; `git grep -l admin_pusat -- src/` = **61 file** / **127 kemunculan** | `ALTER TABLE ... DROP/ADD CONSTRAINT` memuat `'ceo'` + `user_roles` NRP001=`'ceo'` + **`admin_roles` + `role_page_access` punya `ceo`** + 61 file `src/` di-review — atau keputusan user mendokumentasikan keputusan menolak rename | §10 (K1β) |
 
 **Catatan prioritas (bukan keputusan — §0.13)**
@@ -70,8 +72,25 @@ Sisa: tidak ada.
 > P1-F14-K saya usulkan **P1** karena tanpa trigger, §9 menulis ulang data otorisasi admin
 > **tanpa jejak audit** — dan `audit_log` sudah jadi bahan investigasi §4/P1-13-01.
 
-**Dampak lintas-page**: worker → admin → dashboard → owner **tidak terdampak** — dokumen +
-Work Queue saja. Tidak ada yang menyentuh `src/`, `supabase/`, atau `tests/`.
+**Pelajaran proses baru (2026-10-02)**
+
+> **P7 — pre-image timestamp untuk rollback WAJIB diambil dari sisi server.** `role_permission_sets.created_at`
+> punya `datetime_precision = 6`, tapi driver `pg` truncate tampilan ke **3 digit** desimal, jadi probe
+> membaca `10:00:41.036` padahal aslinya `10:00:41.**036520**`. Rollback versi pertama menulis `.036`
+> → hash tabel tidak byte-identik. Simulasi pra-apply yang menangkapnya; kalau tidak disimulasikan,
+> byte yang salah ini akan tersimpan permanen di DB sampai migrasi berikutnya. **Aturan:** pakai
+> `created_at::text` atau `to_char(created_at, 'YYYY-MM-DD HH24:MI:SS.USOF')`.
+>
+> **P8 — `verify:artifacts` buta terhadap perubahan `LANGUAGE` / `provolatile`.** Gate hanya menghitung
+> **jumlah** fungsi (658). Mengubah `LANGUAGE sql` → `plpgsql` atau `STABLE` → `VOLATILE` tidak
+> mengubah hitungan, jadi gate tetap hijau padahal semantik authz bisa berubah. Migrasi 259 hampir
+> kena (rencana tulis `plpgsql`; fact live `sql`+`STABLE`) — tertangkap karena definisi byte-exact
+> `pg_get_functiondef` dipakai, bukan karena ada guard. Item: **P2-F14-M**.
+
+**Dampak lintas-page**: worker → admin → dashboard → owner **tidak terdampak** untuk 257/258/259/260
+(0 user dengan role `admin_produksi`, 0 assignment, scope `TEAM` = 0 baris — tidak ada perubahan
+perilaku untuk siapa pun). Yang berubah hanya kemampuan audit (`user_role_assignments`) dan
+penghapusan metadata role yang mustahil dipakai. Tidak ada yang menyentuh `src/` atau `tests/`.
 
 ## Status Temuan Backup & DR (P1-14 / P1-45) — ✅ SEMUA CLOSED (2026-09-27)
 

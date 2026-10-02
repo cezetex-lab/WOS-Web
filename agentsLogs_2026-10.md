@@ -194,3 +194,91 @@ menyentuh trigger audit + 2 fungsi authz + 1 CHECK constraint; **tidak ada satu 
 perilaku untuk user yang ada** (NRP001/002/003/100-106 tidak punya role `admin_produksi`, dan
 scope `TEAM` = 0 baris). `src/`, `supabase/functions/`, `tests/` tidak disentuh. Yang berubah
 hanya kemampuan audit (K) dan penghapusan 1 nilai role yang memang mustahil dipakai.
+## [2026-10-02] Fix #14 §9 I2 tahap 2 CLOSED — migrasi 260 (hapus 3 perm set `admin_produksi`)
+
+- **Status: 260 CLOSED.** `admin_produksi` kini **0 di kelima tempat**. Melanjutkan 259 (I2 tahap murah) yang hanya menghapus CHECK + whitelist.
+- **Alasan 260 ada.** Setelah 259, `admin_produksi` mustahil ada di `user_roles`, tapi 3 baris `role_permission_sets`-nya masih ada dan dibaca `authz_has_permission()`. Itu sisa setengah jadi yang persis kelas bug yang baru diperbaiki — jadi dibersihkan **sebelum** §9 rewiring, saat masih murah.
+- **Berkas:** `supabase/migrations/260_fix14_remove_admin_produksi_perm_sets.sql` (38 baris) + `supabase/scripts/rollback/260_rollback.sql` (34 baris).
+
+### Bukti apply
+
+```
+berkas    : 260_fix14_remove_admin_produksi_perm_sets.sql
+versi     : 260
+checksum  : 1cee1e4d11e94f63442a7f880817fe0a02d084919b13b281d2ff24abae30e931
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (848ms)
+{"version":"260","filename":"260_fix14_remove_admin_produksi_perm_sets.sql","applied_at":"2026-10-02T16:02:04.553Z"}
+{"migration_rows":185,"max_version":"260"}
+```
+
+Verifikasi:
+```
+{"n":0}    <- role_permission_sets role_code='admin_produksi'
+{"n":93}   <- permission_set_items (TIDAK tersentuh)
+{"ada_set_kosong":false,"total_set":9}
+{"last_value":"28","is_called":true}   <- sequence tidak bergeser
+{"n":0}    <- id 14/15/16 kosong
+
+=== X1-sisa-admin_produksi-semua tempat ===
+{"tempat":"user_roles","n":0}                {"tempat":"user_role_assignments","n":0}
+{"tempat":"admin_roles","n":0}                {"tempat":"role_page_access","n":0}
+{"tempat":"role_permission_sets","n":0}
+```
+Distribusi setelah 260: `worker_basic` 10 · `supervisor_ext` 6 · `manager_ext` 3 · plus 6 set khusus
+(`admin_pusat_all`, `estate_ops`, `finance_ops`, `hrd_ops`, `mill_ops`, `mining_ops`) = 25 baris
+dari 28. **Tidak ada set jadi 0**, jadi tidak ada metadata yatim.
+
+Pra-apply (probe B2.29, read-only): 0 foreign key ke `role_permission_sets` (dua metodologi),
+0 RLS policy yang hardcode `admin_produksi`, 1 fungsi yang menyebutnya (`admin_set_employee_role`,
+§11 P2-F14-F), 27 `permission_set_items` terkait, 0 assignment `admin_produksi`, dan ketiga
+permission_set dipakai 11/7/4 role lain.
+
+### Pelajaran P7 — pre-image timestamp WAJIB dari sisi server
+
+Kolom `role_permission_sets.created_at` punya `datetime_precision = 6`, tapi driver `pg` **truncate**
+tampilan ke **3 digit** desimal. Probe pertama melaporkan `10:00:41.036`, padahal nilai aslinya
+`10:00:41.**036520**`. Rollback versi pertama menulis `.036`, jadi hasil simulasi `byte_identik: false`
+meskipun 3 baris `pulih_persis: true` dan `jumlah_diff: 0` — hash seluruh tabel tetap beda 2 digit
+mikrodetik. Diperbaiki dengan pre-image yang diambil langsung dari server:
+```
+{"created_at_server":"2026-09-04 10:00:41.03652+00","created_at_us":"2026-09-04 10:00:41.036520+00","epoch":"1788516041.036520"}
+{"column_name":"created_at","datetime_precision":6}
+```
+**Aturan:** pre-image untuk rollback diambil via `created_at::text` / `to_char(..., 'USOF')` di sisi
+server, **bukan** dari output driver. Simulasi apply+rollback (satu transaksi, `ROLLBACK`) yang
+menangkapnya — tanpa simulasi, byte yang salah akan tersimpan permanen di DB.
+
+### Pelajaran P8 — `verify:artifacts` buta terhadap perubahan bahasa/volatilitas fungsi
+
+Rencana 259 menyebut `is_admin_or_owner` = `LANGUAGE plpgsql`; fact live = **`LANGUAGE sql` + `STABLE`**
+(`{"bahasa":"sql","provolatile":"s"}`). Kalau draft dipakai apa adanya, `CREATE OR REPLACE` mengubah
+semantik fungsi **tanpa** gate yang berteriak: `verify:artifacts` hanya menghitung **jumlah** fungsi
+(658 -> 658). Tertangkap karena definisi byte-exact `pg_get_functiondef` dipakai — bukan karena ada guard.
+Item **P2-F14-M** didaftarkan (test yang baca `prolang`/`provolatile`/`prosecdef`/`proconfig`).
+
+### Work Queue baru
+
+- **P2-F14-L** — `user_role_assignments.role_code` tanpa CHECK/FK ke `admin_roles` sehingga INSERT
+  langsung dengan `role_code` sembarang masih mungkin. Bukan blocker §9, tapi tabel ini jadi sumber
+  kebenaran tunggal setelah rewiring, jadi harus dipasang sebelum atau bersamaan dengan rewiring.
+- **P2-F14-M** — guard deteksi perubahan `LANGUAGE`/`provolatile` fungsi authz kunci.
+
+### Gate
+
+```
+npm run check:types        -> EXIT 0
+npm test                   -> 1 gagal (doc-claims-vs-live: ARCHITECTURE.md 184 vs live 185)
+                             ^ diperbaiki di entri ini: ARCHITECTURE.md 184 -> 185, max 259 -> 260
+npm run verify:artifacts   -> EXIT 0 setelah sync (0 drift)
+```
+
+**Dampak lintas-page: tidak terdampak** — worker / admin / dashboard / owner. 260 hanya menghapus
+3 baris metadata permission untuk role yang **mustahil dipakai** (0 user, 0 assignment, 0 di
+`admin_roles`/`role_page_access`). Tidak ada jalur authz yang berubah untuk user nyata:
+`permission_set_items` tetap 93, keenam set khusus tidak tersentuh, dan ketiga set yang terpengaruh
+masih dipakai 10/6/3 role lain. `src/`, `tests/`, `supabase/functions/` tidak disentuh.
+
+> Sisa `admin_produksi` setelah 260: **nol** di `user_roles` / `user_role_assignments` / `admin_roles` /
+> `role_page_access` / `role_permission_sets`. Satu-satunya sisa = whitelist di `admin_set_employee_role`
+> (§11 P2-F14-F, item OPEN terpisah — daftarnya masih memuat `admin_produksi` yang kini tak akan pernah
+> bisa melewati CHECK `user_roles_role_check`).

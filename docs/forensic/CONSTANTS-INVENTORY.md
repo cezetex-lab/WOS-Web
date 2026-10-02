@@ -18,7 +18,7 @@ Metode: `git grep -E` (rg rusak di lingkungan kerja ini) + pembacaan kode guard.
 |---|---|---|---|---|
 | ARCHITECTURE.md:131 (§7.4) | Tables | 208 | `verify:artifacts` + `doc-claims-vs-live` | vs `pg_class` relkind r/p non-partisi; 209 jika view dihitung |
 | ARCHITECTURE.md:132 (§7.4) | Functions | 658 (+20 overloads) | `verify:artifacts` + `doc-claims-vs-live` | overloads = query `HAVING count(*)>1`, dijaga terpisah |
-| ARCHITECTURE.md:133 (§7.4) | Migrations tracked | 184 (max 259) | `verify:artifacts` + `doc-claims-vs-live` | vs `schema_migrations`; max(version) dijaga verify:artifacts. Nilai ini rose 179→181 (Fix #5 migrasi 254) → 184 (Fix #14 §8 migrasi 255/256 + §9 blocker 257/258/259); kolom ini tertinggal 2× karena `verify:artifacts` tidak dijalankan langsung setelah apply |
+| ARCHITECTURE.md:133 (§7.4) | Migrations tracked | 185 (max 260) | `verify:artifacts` + `doc-claims-vs-live` | vs `schema_migrations`; max(version) dijaga verify:artifacts. Nilai ini rose 179→181 (Fix #5 migrasi 254) → 184 (Fix #14 §8 255/256 + §9 257/258/259) → 185 (migrasi 260); kolom ini pernah tertinggal 2× karena `verify:artifacts` tidak dijalankan langsung setelah apply |
 | ARCHITECTURE.md:134 (§7.4) | RLS policies | 225 (10 belum FORCE) | `verify:artifacts` + `doc-claims-vs-live` | No-FORCE=10 dijaga keduanya |
 | ARCHITECTURE.md:135 (§7.4) | SECDEF search_path violations | 0 | `doc-claims-vs-live` | |
 | ARCHITECTURE.md:136 (§7.4) | anon/PUBLIC grants | 130 | `verify:artifacts` + `doc-claims-vs-live` | TANPA filter `prokind` — metodologi kedua guard wajib identik (catatan di dalam guard) |
@@ -64,6 +64,7 @@ Plus 9 klaim kapabilitas (`CAPABILITIES`): exists/absent + `mustNotSay` (payroll
 | `tests/unit/no-stale-file-references.test.ts` | komentar di `src/` + `tests/` | referensi nama berkas (R1 ekstensi lama → TS; R2 nama tidak ada) | komentar menyebut berkas yang hilang |
 | `tests/unit/baseline-install-guard.test.ts` | `supabase/baseline/000+010`, installer, generator data | tanpa identitas perusahaan sumber (owner/ceo email, merek, domain); registry pakai padding bukan `parseInt` | pola terlarang muncul di dump/generator |
 | `tests/unit/migration-checksum-eol.test.ts` | `supabase/scripts/migration-checksum.mjs`; cap checksum di `010_baseline_config_data.sql` | checksum identik LF vs CRLF; nilai = cap baseline | algoritma bergantung EOL / tidak cocok cap |
+| **Presisi `timestamptz` di probe** (BARU 2026-10-02) | `role_permission_sets.created_at` | `datetime_precision = 6` | **belum ada** — lihat P2-F14-M | Driver `pg` truncate tampilan ke 3 digit desimal, jadi `created_at` yang terbaca lewat driver bisa **kehilangan 2 digit mikrodetik terakhir**. Untuk pre-image rollback wajib ambil via `created_at::text` / `to_char(..., 'USOF')` di sisi server. Terbukti di rollback 260: `.036` vs `.036520` → hash tabel tidak byte-identik |
 | `tests/unit/db-security-and-partition-guard.test.ts` | DB live | `PRE_AUTH_WHITELIST` eksplisit (8 RPC pra-login); RPC penulis tak terjangkau anon/PUBLIC; jendela partisi absensi ≥12 bulan; fail-fast `to_regclass` | RPC penulis bocor ke anon; partisi habis |
 | `tests/unit/db-audit-trail.test.ts` | DB live | chain 0 issue, fungsi audit ada, actor terisi, retensi | chain/retensi/actor rusak |
 | `tests/unit/db-password-reset-channel.test.ts` | DB live + sumber edge `password-reset` | setting `password_reset_channel`; UNIQUE `employees_core_email_unique`; FORCE RLS settings; guard `EMAIL_PROVIDER_READY` di `getResetMessage()` | kontrak Fix #5 melenceng |
@@ -80,10 +81,10 @@ npm scripts terkait (package.json): `verify:artifacts`, `verify:test-count`, `te
 | §7.4 Audit chain 526 | (sengaja tidak) | ✔ `>=` | | | prose snapshot |
 | §7.3 TS total/src/tests/config (4) | ✔ | ✔ | | | |
 | §7.5 Unit tests total/berkas (2) | | (baris .ts/.tsx) | ✔ | | |
-| §7.5 max(version)=259 | ✔ | | | | |
+| §7.5 max(version)=260 | ✔ | | | | |
 | FuturePlans Tables/Functions/Overloads/Audit (4) | | ✔ | | | |
 | SECURITY.md rollback 18 / migrasi 141/215/220 | | | | | ✔ TANPA guard |
-| FORENSIC-INDEX migrasi 251–259/184 (duplikat klaim) | | | | | ✔ TANPA guard |
+| FORENSIC-INDEX migrasi 251–260/185 (duplikat klaim) | | | | | ✔ TANPA guard |
 | FORENSIC-INDEX batch 88/122 + tabel severity | | | | | ✔ TANPA guard (histori) |
 | Baseline docs snapshot (209/155/cap 173/replay 212) | | | | | ✔ TANPA guard (snapshot alat) |
 | Magic number test (30, 17, 23505, …) | | | | logika test masing-masing | inventaris manual |

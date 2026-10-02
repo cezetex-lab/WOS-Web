@@ -712,11 +712,11 @@ CLOSED §8 karena itu dibangun di **bukti pengganti yang lebih kuat dari log app
 (3) state data live memenuhi DoD per-versi, (4) `prosrc`/`proconfig`/`prosecdef` live
 sesuai, (5) smoke gate tidak regresi, (6) commit `6ffc890` sudah di `origin/migrasi-vite`.
 
-## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER CLOSED (2026-10-02, 257/258/259), rewiring belum
+## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I **fully CLOSED** (2026-10-02, 257/258/259/260), rewiring belum
 
-Tiga blocker §9 sudah ditutup lewat migrasi `257`/`258`/`259` (DITERAPKAN + terdaftar + checksum
-terverifikasi, `schema_migrations` = **184** baris, `max(version)=259`). **Rewiring 10 RPC di bawah
-belum dieksekusi** — itu langkah berikutnya, setelah Anda APPROVE.
+Empat blocker §9 sudah ditutup lewat migrasi `257`/`258`/`259`/`260` (DITERAPKAN + terdaftar +
+checksum terverifikasi, `schema_migrations` = **185** baris, `max(version)=260`). **Rewiring 10 RPC
+di bawah belum dieksekusi** — itu langkah berikutnya, setelah Anda APPROVE.
 
 | Item | Migrasi | Yang diubah | Bukti apply |
 |---|---|---|---|
@@ -730,7 +730,45 @@ belum dieksekusi** — itu langkah berikutnya, setelah Anda APPROVE.
 
 **Koreksi terhadap draft:** `is_admin_or_owner` adalah `LANGUAGE sql` + `STABLE` (bukan plpgsql).
 Migrasi memakai definisi byte-exact hasil `pg_get_functiondef`, jadi volatilitas & bahasa tidak
-berubah. Kenaikan `Functions` tetap 658 (tiga migrasi ini tidak menambah fungsi).
+berubah. Kenaikan `Functions` tetap 658 (tiga migrasi ini tidak menambah fungsi). Kelas bug ini
+tidak tertangkap `verify:artifacts` — dicatat sebagai **P2-F14-M**.
+
+### 260 — I2 tahap 2 (penutup): hapus 3 permission set
+
+Setelah 259, `admin_produksi` mustahil ada di `user_roles`, tapi masih punya 3 baris
+`role_permission_sets` yang dibaca `authz_has_permission()` — sisa setengah-jadi yang persis
+kelas bug yang baru diperbaiki.
+
+| Bukti pra-apply (probe B2.29) | Nilai |
+|---|---|
+| baris target | 3 (`id` 14/15/16) |
+| foreign key ke `role_permission_sets` | **0** (dua metodologi: `information_schema` + `pg_constraint`) |
+| RLS policy yang hardcode `admin_produksi` | **0** |
+| fungsi yang masih menyebut `admin_produksi` | 1 (`admin_set_employee_role` — §11 P2-F14-F) |
+| `permission_set_items` terkait | 27 (14 + 7 + 6) — **tidak dihapus**, dipakai role lain |
+| `user_role_assignments` `admin_produksi` | **0** |
+| pemakaian 3 set oleh role lain | `worker_basic` 11 · `supervisor_ext` 7 · `manager_ext` 4 → tidak ada set yatim |
+
+Post-apply: `{"n":0}` di `role_permission_sets` · `permission_set_items` tetap **93** ·
+distribusi set `worker_basic` 10, `supervisor_ext` 6, `manager_ext` 3, `ada_set_kosong: false`
+· registry 185 / `max=260` · sequence `last_value=28` tidak bergeser (INSERT eksplisit id, bukan serial).
+
+**`admin_produksi` = 0 di kelima tempat** (`user_roles`, `user_role_assignments`, `admin_roles`,
+`role_page_access`, `role_permission_sets`). Sisa satu-satunya = whitelist `admin_set_employee_role`
+(§11 P2-F14-F, sudah terdaftar sebagai item terpisah).
+
+**Pelajaran P7 — pre-image timestamp wajib dari server.** `created_at` kolom ini
+`datetime_precision = 6`, tapi driver `pg` truncate tampilan ke **3 digit** desimal, jadi probe
+pertama membaca `10:00:41.036` padahal aslinya `10:00:41.**036520**`. Rollback versi pertama
+hanya menulis `.036` → hash tabel tidak byte-identik (selisih 2 digit mikrodetik). Simulasi
+menangkapnya sebelum apply. Pre-image untuk rollback **wajib** diambil via
+`created_at::text` / `to_char(created_at, 'YYYY-MM-DD HH24:MI:SS.USOF')` di sisi server, bukan
+dari output driver.
+
+**Pelajaran P8 — `verify:artifacts` buta terhadap perubahan bahasa/volatilitas fungsi.**
+Changing `LANGUAGE sql` → `plpgsql` pada `is_admin_or_owner` **tidak** mengubah `Functions`
+(658 → 658), jadi gate tetap hijau. Itu sebabnya definisi byte-exact dipakai. Dicatat sebagai
+item **P2-F14-M** (butuh guard test), bukan catatan biasa.
 
 **Sisa pekerjaan §9 (belum):** rewiring 10 RPC + rewiring 3 edge function (§10) + test §12.
 
@@ -799,4 +837,5 @@ CI: hijau (types/lint/test/build) di HEAD setelah eksekusi.
 - 2026-09-30: **GPT menjawab Opsi A — semua admin NRP100–106 = level 3** (peta final §5c: NRP001=5 CEO, NRP100–106=3 Manager + admin_role + scope, NRP002–010=1 Worker). Prinsip RBAC 4-layer + gate audit rules ditulis §5d. Gap DB (user_roles belum punya admin_role/admin_scope/permissions; 4 opsi desain A/B/C/D) ditulis §5e — **menunggu keputusan user sebelum B3**.
 - 2026-09-30: **B2.5 — user mengoreksi AI Core soal sistem bisnis** ("ADMIN ya hanya ADMIN saja dia masuk, khusus page admin"). Investigasi ulang BU/sites/karyawan + peta halaman + role_page_access 48 baris + admin_roles + owner flow → **§5b ditambahkan** (termasuk 4 hal "perlu klarifikasi user").
 - 2026-09-30: **B2.8 — peta dependensi user_roles/user_role_assignments** (read-only): 32 RPC sebut user_roles, 5 RPC authz sebut user_role_assignments; RLS user_roles memanggil authz_* yang baca assignments; 0 FK/0 view; code hanya 3 file (password-reset ×2, ai-copilot ×1) + DetailPageFactory fallback.
+- 2026-10-02: **§9 blocker K/H/I CLOSED** — migrasi `257` (P1-F14-K: trigger audit `user_role_assignments`) + `258` (P2-F14-H, H2: `authz_in_scope` TEAM `manager_nrp` → `atasan_nrp`) + `259` (P2-F14-I, I2 tahap murah: cabut `admin_produksi` dari CHECK + `is_admin_or_owner`) + **`260`** (I2 tahap 2: hapus 3 `role_permission_sets` `admin_produksi`) DITERAPKAN. Registry 185 baris / `max=260`. `admin_produksi` = **0 di kelima tempat**. Uji negatif `23514` membuktikan CHECK `user_roles_role_check` benar-benar aktif. Dua item Work Queue baru: **P2-F14-L** (`role_code` tanpa CHECK/FK) + **P2-F14-M** (guard bahasa/volatilitas fungsi). Pelajaran **P7** (pre-image timestamp dari server, bukan driver — driver `pg` truncate ke 3 digit padahal kolom precision 6) dan **P8** (`verify:artifacts` buta terhadap perubahan `LANGUAGE`/`provolatile` karena jumlah fungsi tidak berubah).
 - 2026-09-30: **B3 — rencana eksekusi Fix #14 §7–§12 (Opsi C') ditulis** (data model, backfill, rewiring 10 RPC + 3 edge, perbaikan RPC rusak, test plan; docs only; HEAD 6e3920b) — menunggu APPROVE user sebelum commit. Riwayat pindah ke §13 (nomor §12 dipakai draft Test + verifikasi).

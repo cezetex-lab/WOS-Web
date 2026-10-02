@@ -1,0 +1,38 @@
+-- Fix #14 §9 P2-F14-I lanjutan (I2 tahap 2): hapus 3 baris
+-- role_permission_sets role_code='admin_produksi' (id 14/15/16).
+--
+-- Setelah 259, admin_produksi mustahil di user_roles; sisa ini
+-- membuat authz_has_permission() masih bisa mengembalikan
+-- permission untuk assignment role_code='admin_produksi'
+-- seandainya ada (jalur INSERT langsung ke user_role_assignments).
+--
+-- permission_set_items TIDAK dihapus — ketiga set itu dipakai role lain:
+--   worker_basic    11 role (admin_estate, admin_finance, admin_hrd, admin_mill,
+--                            admin_mining, admin_operasional, admin_pusat, manager,
+--                            supervisor, worker, + admin_produksi yang dihapus)
+--   supervisor_ext   7 role (admin_finance, admin_hrd, admin_operasional, admin_pusat,
+--                            manager, supervisor, + admin_produksi)
+--   manager_ext      4 role (admin_hrd, admin_pusat, manager, + admin_produksi)
+-- 27 item di permission_set_items (14 + 7 + 6) tetap dipakai role lain, jadi
+-- menghapus mapping TIDAK membuat item yatim.
+--
+-- Bukti pre-apply (probe B2.29, 2026-10-02, read-only):
+--   B1 = 3 baris (id 14/15/16, created_at 2026-09-04T10:00:41.036Z)
+--   B2 = 0 foreign key ke role_permission_sets (information_schema + pg_constraint)
+--   B3 = 0 RLS policy yang hardcode admin_produksi
+--   B4 = hanya admin_set_employee_role masih menyebutnya (§11 P2-F14-F, terpisah)
+--   B5 = 27 permission_set_items terkait (TIDAK dihapus)
+--   B6 = 0 baris user_role_assignments dengan role_code='admin_produksi'
+--   B7 = ketiga permission_set dipakai 11 / 7 / 4 role lain
+--
+-- CATATAN: yang TIDAK ikut dihapus — permission_set yang HANYA dipakai
+-- admin_produksi. Dari B7 tidak ada: ketiga set di atas shared. Jadi migrasi ini
+-- tidak meninggalkan set yatim.
+--
+-- Sisa admin_produksi setelah 260: hanya whitelist di admin_set_employee_role
+-- (§11 P2-F14-F) dan item Work Queue P2-F14-L (role_code tanpa CHECK/FK) —
+-- keduanya di luar cakupan 260.
+--
+-- P4: TANPA BEGIN/COMMIT (wrapper apply-migration.mjs membungkus sendiri).
+
+DELETE FROM role_permission_sets WHERE role_code = 'admin_produksi';
