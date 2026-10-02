@@ -581,25 +581,96 @@ Opsi C — separation of concerns sesuai spec §5d. **Status: menunggu keputusan
 - Dokumen wajib ikut: SECURITY.md §3.1+§7.6 (P2-F14-A/B), ARCHITECTURE.md §7.2 (Layer 1-2 + multi-view), CONSTANTS-INVENTORY §1.3.
 - Risiko terbesar: kontrak session (breaking 8 titik `.entry` / 6 file) + uji E2E 4-page smoke (G6).
 
-## §7 Rencana eksekusi
-⏳ Diisi di Prompt B3.
+## §7 — Data model final (Opsi C')
 
-## §7 Rencana eksekusi
-⏳ Diisi di Prompt B3.
+Prinsip: JOB LEVEL ≠ ADMIN ROLE ≠ PERMISSION ≠ DATA SCOPE.
 
-## §8 Definition of Done
-⏳ Diisi di Prompt B3.
+| Konsep | Sumber |
+|---|---|
+| Job level | user_roles.role_level (1–5) |
+| Baseline worker role | user_roles.role (dipertahankan — sumber sesi login_worker) |
+| Admin role | user_role_assignments.role_code (admin_pusat, admin_hrd, ...) |
+| Permission | role_permission_sets + permission_set_items |
+| Scope | user_role_assignments.scope_type + scope_bu_id + is_primary |
 
-## §9 Recovery plan / rollback
-⏳ Diisi di Prompt B3.
+Deprecate (jangan drop):
+- user_roles.scope_divisi — semantik sudah mati (NULL semua → COALESCE selalu 'FREE'), 3 pembaca kosmetik.
 
-## §10 Test plan
-⏳ Diisi di Prompt B3.
+Tidak berubah:
+- user_roles.role tetap di-maintain (login_worker, login_worker_by_email, gate OTP/admin, edge).
+- RLS user_roles tetap lewat authz_* (baca user_role_assignments).
 
-## §11 Work Queue + referensi
-⏳ Diisi di Prompt B3.
+## §8 — Backfill data user_role_assignments
 
-## §12 Riwayat keputusan
+Idempotent (INSERT ... ON CONFLICT DO NOTHING atau cek EXISTS dulu).
+
+| NRP | role_code | scope_type | scope_bu_id | is_primary |
+|---|---|---|---|---|
+| NRP100 | admin_pusat | ENTERPRISE | NULL | TRUE |
+| NRP101 | admin_hrd | DEPARTMENT | NULL | TRUE |
+| NRP102 | admin_finance | DEPARTMENT | NULL | TRUE |
+| NRP103 | admin_operasional | DEPARTMENT | NULL | TRUE |
+| NRP104 | admin_mining | BU | BU01 | TRUE |
+| NRP105 | admin_mill | BU | BU03 | TRUE |
+| NRP106 | admin_estate | BU | BU02 | TRUE |
+
+NRP001 (CEO), NRP002–010 (Worker): TIDAK dapat assignment admin.
+
+## §9 — Rewiring RPC gate admin (10 RPC)
+
+Ubah dari baca user_roles.role → baca admin_role via user_role_assignments.role_code (JOIN role_permission_sets sesuai authz_has_permission existing):
+
+1. is_admin_or_owner
+2. check_admin_access
+3. get_my_admin_modules
+4. get_current_user_context
+5. get_user_context_by_auth_id
+6. get_worker_status
+7. verify_admin_otp_core
+8. generate_admin_otp
+9. admin_get_role_matrix (sesuaikan sumber level+scope)
+10. admin_set_employee_role (lihat §11)
+
+TETAP baca user_roles.role + role_level:
+- login_worker, login_worker_by_email (entry sesi worker) — TIDAK diubah.
+
+## §10 — Rewiring edge function (3 hit)
+
+- supabase/functions/password-reset/index.ts:138 — .select("role") → ganti via authz_current_nrp() + assignments.role_code
+- supabase/functions/password-reset/index.ts:285 — sama
+- supabase/functions/ai-copilot/index.ts:86-87 — sama
+
+Gate: isAdmin = role_code.startsWith("admin") (dari assignments, bukan user_roles.role).
+
+## §11 — Perbaikan RPC rusak (Fix #14)
+
+1. owner_update_role — INSERT audit_log_owner pakai skema riil 9 kolom:
+   (id, owner_nrp, action, target_type, target_id, old_value, new_value, ip_address, created_at).
+2. get_my_role(p_nrp) — ganti p_nrp → authz_current_nrp(). Jangan percaya param.
+3. admin_set_role — implementasi 3 param yang selama ini diabaikan.
+4. admin_set_employee_role — mapping lengkap: worker/supervisor/manager/director/ceo + admin_* (termasuk admin_operasional, admin_industri bila ada). Bukan hardcoded 4/3/1.
+5. get_my_role / get_my_plan — berhenti pakai scope_divisi sebagai 'tier'/'plan'. Pakai sumber benar (role_level / assignments).
+
+## §12 — Test + verifikasi
+
+Unit test (gate audit rules):
+- job_level >= 3 → manager; >= 4 → director; === 5 → CEO
+- admin_role === 'admin_pusat' → gate admin, terlepas dari role_level
+- Pola salah `role_level >= 4 allowFullAdmin()` harus GAGAL di test.
+
+Integration test:
+- NRP100 (lvl 3, admin_pusat, ENTERPRISE) → akses ALL company
+- NRP104 (lvl 3, admin_mining, BU01) → akses BU01 saja, BUKAN BU02/BU03
+- Worker NRP002 (lvl 1) → /worker saja
+
+Regression:
+- login_worker + login_worker_by_email tetap hijau (role dari user_roles)
+- generate_admin_otp + verify_admin_otp_core tetap hijau (via assignments)
+- RLS user_roles masih valid (authz_* tetap lewat assignments)
+
+CI: hijau (types/lint/test/build) di HEAD setelah eksekusi.
+
+## §13 Riwayat keputusan
 - 2026-09-30: user menetapkan peta level 1-5 + owner terpisah + multi-view.
 - 2026-09-30: user menetapkan prinsip "investigasi wajib tracked, bukan chat".
 - 2026-09-30: B0 selesai (inventaris konstanta + guard coverage).
@@ -609,3 +680,5 @@ Opsi C — separation of concerns sesuai spec §5d. **Status: menunggu keputusan
 - 2026-09-30: **B2 selesai — §5-§6 diisi** (code read src/ read-only; src/ tidak diubah).
 - 2026-09-30: **GPT menjawab Opsi A — semua admin NRP100–106 = level 3** (peta final §5c: NRP001=5 CEO, NRP100–106=3 Manager + admin_role + scope, NRP002–010=1 Worker). Prinsip RBAC 4-layer + gate audit rules ditulis §5d. Gap DB (user_roles belum punya admin_role/admin_scope/permissions; 4 opsi desain A/B/C/D) ditulis §5e — **menunggu keputusan user sebelum B3**.
 - 2026-09-30: **B2.5 — user mengoreksi AI Core soal sistem bisnis** ("ADMIN ya hanya ADMIN saja dia masuk, khusus page admin"). Investigasi ulang BU/sites/karyawan + peta halaman + role_page_access 48 baris + admin_roles + owner flow → **§5b ditambahkan** (termasuk 4 hal "perlu klarifikasi user").
+- 2026-09-30: **B2.8 — peta dependensi user_roles/user_role_assignments** (read-only): 32 RPC sebut user_roles, 5 RPC authz sebut user_role_assignments; RLS user_roles memanggil authz_* yang baca assignments; 0 FK/0 view; code hanya 3 file (password-reset ×2, ai-copilot ×1) + DetailPageFactory fallback.
+- 2026-09-30: **B3 — rencana eksekusi Fix #14 §7–§12 (Opsi C') ditulis** (data model, backfill, rewiring 10 RPC + 3 edge, perbaikan RPC rusak, test plan; docs only; HEAD 6e3920b) — menunggu APPROVE user sebelum commit. Riwayat pindah ke §13 (nomor §12 dipakai draft Test + verifikasi).

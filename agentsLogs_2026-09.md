@@ -3388,3 +3388,19 @@ TESTCOUNT_EXIT=0
 - Dampak lintas-page: worker → admin → dashboard → owner belum ada perubahan — docs only (src/ tidak disentuh).
 - Follow-up: **user putuskan Opsi §5e.3 (A/B/C/D)** → baru B3 (rencana eksekusi §7-§11). Eksekusi Fix #14 setelah B3.
 - Commit: "docs(forensic): Fix #14 §5c-§5e — peta level final + RBAC 4-layer" (entri ini ikut commit yang sama).
+
+## [2026-09-30] B3 — Rencana eksekusi Fix #14 §7–§12 (Opsi C') — docs only
+
+- STATE: HEAD 6e3920b (tree bersih; verify:artifacts 0 drift, 1 warning pre-existing — dicek sebelum & sesudah edit, EXIT 0).
+- File tracked: docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md — placeholder §7–§11 diganti rencana eksekusi Opsi C' (draft user, verbatim strukturnya):
+  - §7 Data model final (JOB LEVEL ≠ ADMIN ROLE ≠ PERMISSION ≠ SCOPE; job level = user_roles.role_level; user_roles.role DIPERTAHANKAN sebagai sumber sesi login_worker; admin role = user_role_assignments.role_code; scope_divisi di-deprecate tanpa drop).
+  - §8 Backfill idempotent user_role_assignments 7 admin (NRP100 ENTERPRISE; NRP101–103 DEPARTMENT; NRP104–106 BU01/BU03/BU02; NRP001 + worker TIDAK dapat assignment admin).
+  - §9 Rewiring 10 RPC gate admin ke assignments.role_code; login_worker + login_worker_by_email TIDAK diubah.
+  - §10 Rewiring 3 hit edge (password-reset :138/:285, ai-copilot :86-87); gate isAdmin = role_code.startsWith("admin").
+  - §11 Perbaikan RPC rusak: owner_update_role (audit_log_owner skema riil 9 kolom), get_my_role (p_nrp → authz_current_nrp), admin_set_role (implementasi 3 param), admin_set_employee_role (mapping lengkap, bukan 4/3/1), get_my_role/get_my_plan berhenti pakai scope_divisi sebagai tier/plan.
+  - §12 Test + verifikasi (unit gate audit rules; integration NRP100/NRP104/NRP002; regression login + OTP + RLS; CI hijau).
+- Struktur: riwayat keputusan pindah §12 → §13 (nomor §12 dipakai draft "Test + verifikasi"); duplikat heading "## §7 Rencana eksekusi" (sisa scaffolding B1) ikut tergantikan.
+- §1–§5e + §6 TIDAK disentuh. Bukan eksekusi — src/, supabase/, tests/ tidak disentuh.
+- Commit + push DITAHOLD — menunggu APPROVE user + review AI Core.
+- Dampak lintas-page: worker → admin → dashboard → owner TIDAK terdampak (docs only — belum ada perubahan kode/DB).
+- Follow-up: setelah APPROVE → commit "docs(forensic): Fix #14 §7-§12 — rencana eksekusi Opsi C'" + push; eksekusi Fix #14 menyusul.
