@@ -712,7 +712,29 @@ CLOSED §8 karena itu dibangun di **bukti pengganti yang lebih kuat dari log app
 (3) state data live memenuhi DoD per-versi, (4) `prosrc`/`proconfig`/`prosecdef` live
 sesuai, (5) smoke gate tidak regresi, (6) commit `6ffc890` sudah di `origin/migrasi-vite`.
 
-## §9 — Rewiring RPC gate admin (10 RPC)
+## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER CLOSED (2026-10-02, 257/258/259), rewiring belum
+
+Tiga blocker §9 sudah ditutup lewat migrasi `257`/`258`/`259` (DITERAPKAN + terdaftar + checksum
+terverifikasi, `schema_migrations` = **184** baris, `max(version)=259`). **Rewiring 10 RPC di bawah
+belum dieksekusi** — itu langkah berikutnya, setelah Anda APPROVE.
+
+| Item | Migrasi | Yang diubah | Bukti apply |
+|---|---|---|---|
+| **P1-F14-K** | `257` | trigger `trg_audit_user_role_assignments` (AFTER INSERT/UPDATE/DELETE, `_generic_audit_trigger_fixed`) | trigger live `tgenabled='O'`; uji INSERT `NRP999-TEST` → `audit_log` 582→583 (`audit_naik_1: true`), `actor='SYSTEM'` (probe tanpa JWT; fail-safe yang diterima) |
+| **P2-F14-H** | `258` | cabang `TEAM` `authz_in_scope`: `ho1.manager_nrp = ho2.manager_nrp` → `ho1.atasan_nrp = ho2.atasan_nrp` | `pakai_atasan_nrp: true`, `masih_manager_nrp: false`; `prosecdef=true`, `provolatile='s'`, `proconfig=["search_path=public, extensions"]` preservasi; smoke `authz_in_scope('NRP002')` = `false` (**bukan** error 42703) |
+| **P2-F14-I** | `259` | `admin_produksi` dicabut dari CHECK `user_roles_role_check` (14→13 elemen) + whitelist `is_admin_or_owner` | `jumlah_elemen: 13`, `punya_admin_produksi: false`; `is_admin_or_owner` `LANGUAGE sql` + `STABLE` + `SECURITY DEFINER` preservasi; **uji negatif `23514` check_violation** (CHECK benar-benar aktif) + sanity role valid tetap bisa ditulis |
+
+**Pre-check 259 (wajib, sebelum `DROP CONSTRAINT`)** — `role_di_luar_whitelist: 0`,
+`user_roles` `admin_produksi: 0`, `role IS NULL: 0`. Tidak ada data yang bisa membuat
+`ADD CONSTRAINT` gagal dan meninggalkan `user_roles` tanpa CHECK.
+
+**Koreksi terhadap draft:** `is_admin_or_owner` adalah `LANGUAGE sql` + `STABLE` (bukan plpgsql).
+Migrasi memakai definisi byte-exact hasil `pg_get_functiondef`, jadi volatilitas & bahasa tidak
+berubah. Kenaikan `Functions` tetap 658 (tiga migrasi ini tidak menambah fungsi).
+
+**Sisa pekerjaan §9 (belum):** rewiring 10 RPC + rewiring 3 edge function (§10) + test §12.
+
+### §9b — Rencana rewiring 10 RPC (belum dieksekusi)
 
 Ubah dari baca user_roles.role → baca admin_role via user_role_assignments.role_code (JOIN role_permission_sets sesuai authz_has_permission existing):
 
