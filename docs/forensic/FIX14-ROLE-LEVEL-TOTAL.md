@@ -600,7 +600,14 @@ Tidak berubah:
 - user_roles.role tetap di-maintain (login_worker, login_worker_by_email, gate OTP/admin, edge).
 - RLS user_roles tetap lewat authz_* (baca user_role_assignments).
 
-## §8 — Backfill data user_role_assignments
+## §8 — Backfill data user_role_assignments — ✅ CLOSED (2026-10-01, commit `6ffc890`)
+
+Status: **CLOSED**. Diterapkan ke DB live lewat migrasi `255` + `256`, diverifikasi ulang
+2026-10-01, sudah di-commit (`6ffc890`) dan di-push (`origin/migrasi-vite` = `6ffc890`).
+
+Rencana §8 di bawah ditulis 2026-09-30 (B3). Eksekusinya **menyimpang sengaja** dari tabel
+rencana — sesuai keputusan K1–K5 user 2026-10-02; lihat "State transisi (K1α)". Bagian
+§9–§13 tetap utuh dan belum dieksekusi.
 
 Idempotent (INSERT ... ON CONFLICT DO NOTHING atau cek EXISTS dulu).
 
@@ -615,6 +622,95 @@ Idempotent (INSERT ... ON CONFLICT DO NOTHING atau cek EXISTS dulu).
 | NRP106 | admin_estate | BU | BU02 | TRUE |
 
 NRP001 (CEO), NRP002–010 (Worker): TIDAK dapat assignment admin.
+
+### State transisi (K1α)
+
+Setelah migrasi 255 + 256, state role di live:
+
+| NRP | role | role_level (sebelum → sesudah) | assignment |
+|---|---|---|---|
+| NRP001 (CEO) | `admin_pusat` (**dipertahankan**) | 1 → **5** | **dihapus** (sebelumnya 1 baris `admin_pusat`) |
+| NRP100 | `admin_pusat` | 1 → **3** | `admin_pusat` / ENTERPRISE / `BU04` (tak berubah) |
+| NRP101 | `admin_hrd` | 1 → **3** | `admin_hrd` / ENTERPRISE / `BU04` (tak berubah) |
+| NRP102 | `admin_finance` | 1 → **3** | `admin_finance` / ENTERPRISE / `BU04` (tak berubah) |
+| NRP103 | `admin_operasional` | 1 → **3** | `admin_operasional` / ENTERPRISE / `BU04` (tak berubah) |
+| NRP104 | `admin_mining` | 1 → **3** | `admin_mining` / BU / `BU01` (tak berubah) |
+| NRP105 | `admin_mill` | 1 → **3** | `admin_mill` / BU / `BU03` (tak berubah) |
+| NRP106 | `admin_estate` | 1 → **3** | `admin_estate` / BU / `BU02` (tak berubah) |
+| NRP002–010 | `worker` | 1 → **1** (no-op) | `worker` / SELF (tak berubah) |
+
+**NRP001 masih memakai `role='admin_pusat'`** — sengaja. Rename ke `'ceo'` **DITUNDA** ke §9/§10
+karena (a) CHECK `user_roles_role_check` tidak memuat `'ceo'`, dan (b) 61 file di `src/`
+menyebut literal `admin_pusat`. `role_level=5` sudah memberi CEO seluruh hak akses modul
+(lihat Bukti/smoke), jadi **zero lock-out** NRP001 selama transisi.
+
+**`employees_master.role_level` ikut dicerminkan** (NRP001=5, NRP100–106=3) walau kolom itu
+vestigial (sebelumnya semua 0 dan tidak meng-gate apa pun) — dicerminkan supaya tidak
+menjadi drift baru.
+
+**Divergence dari rencana §8:** tabel rencana menyebut NRP101–103 = `DEPARTMENT` dengan
+`scope_bu_id` NULL, dan NRP100 `scope_bu_id` NULL. Live sekarang semua NRP100–103 =
+`ENTERPRISE` dengan `scope_bu_id='BU04'`. Ini **keputusan K2/K3 user** (divisi NULL untuk
+NRP100–106 → `DEPARTMENT` selalu FALSE; `scope_bu_id` BU04 sengaja dipertahankan agar
+`ON CONFLICT` tetap idempoten). Rencana tabel di atas **tidak** diubah; yang berlaku adalah
+tabel state transisi ini.
+
+Reversibel: `supabase/scripts/rollback/255_rollback.sql` (52 baris) dan
+`supabase/scripts/rollback/256_rollback.sql` (50 baris). Rollback = keputusan terpisah
+(§0.17), tidak dijalankan otomatis.
+
+### Bukti
+
+Semua READ ONLY (`BEGIN READ ONLY` … `ROLLBACK`), probe `.agents/scripts/fix14-b219-verify-255.mjs`
+dan `.agents/scripts/fix14-b220-verify-256-smoke.mjs`, dijalankan ulang **2026-10-01**.
+
+**E1 — registry apply sukses** (`schema_migrations`, 2 baris):
+```
+{"version":"255","filename":"255_fix14_backfill_level_nrp001_role.sql","checksum":"04ba81a1197bb91161954c6f9b993e750a09b8905cb251a2a61905b7c925cbb7","applied_at":"2026-10-02T06:41:07.566Z"}
+{"version":"256","filename":"256_fix14_owner_assign_level_map.sql","checksum":"8126bf1b15c49ad65c33a86cd5b802f3ceca504f9946721b00bc132e1f4240ed","applied_at":"2026-10-02T06:41:31.393Z"}
+{"version":"255","filename":"255_fix14_backfill_level_nrp001_role.sql","ok":true}          ← verify_migration_checksum
+```
+Cross-check checksum file lokal via wrapper (mode dry-run default, **tidak** eksekusi SQL) —
+`status: SUDAH terdaftar (checksum cocok)` untuk kedua berkas, EXIT 0 → file yang di-commit
+adalah file yang benar-benar dieksekusi.
+
+**E2 — DoD-255** (`user_roles`, 17/17 baris): NRP001=**5**; NRP002–010=**1** (tidak berubah);
+NRP100–106=**3**. `employees_master`: NRP001=5, NRP100–106=3, worker 0.
+`user_role_assignments` = `{"total":16,"nrp001":0}` (17→16). Assignment NRP100/104/106 utuh
+persis: `admin_pusat/ENTERPRISE/BU04`, `admin_mining/BU/BU01`, `admin_estate/BU/BU02`.
+Audit trail: 8 baris `actor=SYSTEM`, `action="UPDATE user_roles"`, `detail` berisi old+new,
+rantai `prev_hash`/`row_hash` menyambung → `{"actor":"SYSTEM","n":8}`.
+
+**E3 — prosrc 256** (`pg_proc`, `proname='owner_assign_admin_user'`):
+```
+{"punya_LIKE_admin_pct_THEN_3":true,"masih_punya_5_4_3":false,"masih_punya_THEN_4":false}
+{"prosecdef":true,"proconfig":["search_path=public, extensions"],"provolatile":"v","proisstrict":false,"returns":"jsonb"}
+```
+Mapping lama 5/4/3 hilang; `SECURITY DEFINER` + `search_path` eksplisit **terus preserve**.
+
+**Smoke gate `role_level`** (impersonasi JWT di dalam transaksi, lalu `ROLLBACK`):
+`get_current_user_context` → NRP100 `role_level=3`, NRP001 `role_level=5`, NRP003 `role_level=1`.
+`check_module_access(mining_simper|mining_equipment|mining_production)` pada butuh_level 1 & 3:
+NRP100 semua **true**, NRP001 semua **true**, NRP003 semua **false** (kondisi data lama
+`business_unit_modules`, pre-existing — bukan regresi 255/256). **Akses hanya naik, tidak turun.**
+
+**Rollback teruji byte-identik** (sesi sebelumnya 2026-10-02, probe B2.16–B2.18): simulasi
+255 + 256 + kedua file rollback dalam 1 transaksi → `pulih_sepenuhnya = true` untuk
+`user_roles`, `employees_master`, `user_role_assignments`, `fn_src` (1121 char) dan `fn_attrs`;
+`schema_migrations` tidak tersentuh. ⚠ Grade bukti: **ringkasan hasil probe sesi sebelumnya**,
+raw stdout tidak di-archive di `.agents/logs/`.
+
+### Catatan bukti
+
+**stdout asli `apply-migration.mjs --apply` untuk 255 dan 256 TIDAK TERSIMPAN** — tidak ada di
+`.agents/logs/` dan tidak ada di konteks saat CLOSED ditulis. Tidak direkonstruksi, karena
+§0.16 melarang klaim tanpa output mentah.
+
+CLOSED §8 karena itu dibangun di **bukti pengganti yang lebih kuat dari log apply**:
+(1) checksum file di-commit cocok byte-per-byte dengan checksum yang tercatat di
+`schema_migrations` hasil eksekusi, (2) `verify_migration_checksum` = `ok:true`,
+(3) state data live memenuhi DoD per-versi, (4) `prosrc`/`proconfig`/`prosecdef` live
+sesuai, (5) smoke gate tidak regresi, (6) commit `6ffc890` sudah di `origin/migrasi-vite`.
 
 ## §9 — Rewiring RPC gate admin (10 RPC)
 

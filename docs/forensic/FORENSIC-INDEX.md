@@ -45,6 +45,33 @@ Sisa: tidak ada.
 - Fakta kunci DB live: `user_roles.role_level` flat=1 (17 baris) · `employees_core.role_level`=0 semua · `business_units` SEMUA tier=4 (gate tier tidak pernah memblokir) · `master_job_levels` kosong · `audit_log_owner` count=0 dan skema tidak cocok (`owner_auth_id`/`details` tidak ada) → `owner_update_role` broken · `admin_set_role` stub · `admin_set_employee_role` mapping level hardcoded 4/3/1 · set yatim `supervisor`/`manager`/`admin_produksi` (dipakai 0) · 0 FK pada tabel role · `get_my_role` percaya param `p_nrp`.
 - Keputusan produk (user, 2026-09-30): level 1=worker, 2=supervisor, 3=manager, 4=admin, 5=CEO; owner = GOD terpisah; multi-view (/dashboard sesuai jabatan + /worker data diri); login email+password.
 - Raw probes (gitignored): `.agents/scripts/fix14-b1-dbmap.mjs` (B1) + `.agents/scripts/fix14-dbmap.mjs` (peta awal B–I).
+- **[2026-10-01] §8 CLOSED** — migrasi `255` (backfill `role_level` + hapus assignment NRP001) + `256` (selaraskan pemetaan level `owner_assign_admin_user`) DITERAPKAN ke live, commit `6ffc890`, sudah push. NRP001=5, NRP100–106=3, NRP002–010=1; assignments 17→16; `prosrc` 256 = semua `admin_*`→3. Detail + bukti di [`FIX14-ROLE-LEVEL-TOTAL.md` §8](FIX14-ROLE-LEVEL-TOTAL.md). **§9–§13 belum dieksekusi.**
+
+## 🧾 Work Queue Fix #14 — blocker §9/§10 (2026-10-01, bukti fresh)
+
+> Item **wajib ditutup seperti item lain** — lihat `AGENTS.md` §5.8. Bukti di bawah dari probe
+> READ ONLY `.agents/scripts/fix14-b221-wq-evidence.mjs` (2026-10-01) + `git grep src/`.
+> Nomor P1/P2-F14-A…G sudah ada di `AGENTS.md` §5.8; yang baru di sini = K, H, I, J.
+
+| ID | Prio | Masalah | Bukti (terverifikasi) | Definition of Done | Target |
+|---|---|---|---|---|---|
+| **P1-F14-K** | P1 | `user_role_assignments` — tabel yang **menjadi sumber kebenaran admin** setelah §9 — **tidak punya trigger audit sama sekali**. Perubahan role/scope admin tidak masuk `audit_log`. Gate audit rules §12 tidak akan menangkapnya. | `K1-trig-user_role_assignments = 0 trigger`; 20 trigger `trg_audit_*` yang ada semuanya di tabel lain (`trg_audit_user_roles`, `worker_passwords`, 17× `hr_*`, `reviews_360`); `K3-audit_log-untuk-assignments = 0 baris` | Trigger `trg_audit_user_role_assignments` terpasang (1 perubahan = 1 baris audit, `actor` terisi), dibuktikan uji transaksi JWT claim | **§9** — pasang **sebelum** penulisan massal; kalau tidak, §9 menulis data tanpa jejak |
+| **P2-F14-H** | P2 | `authz_in_scope()` cabang `TEAM` memakai `ho1.manager_nrp = ho2.manager_nrp`, tapi kolom itu **tidak ada** di `hr_org` (hanya `atasan_nrp`) → cabang TEAM **error saat runtime**, bukan sekadar false | `H1-hr_org-columns` = `nrp, atasan_nrp, status, effective_from, effective_to, created_at, updated_at` (7 kolom, **tanpa `manager_nrp`**); `H3` prosrc: `sebut_manager_nrp=true, sebut_atasan_nrp=false, sebut_TEAM=true` | Cabang TEAM memakai `atasan_nrp` yang benar (atau dihapus bila scope TEAM tidak dipakai) + guard test yang memanggil `authz_in_scope` dengan scope TEAM | §9 |
+| **P2-F14-I** | P2 | `admin_produksi` ada di CHECK `user_roles_role_check` dan di whitelist `is_admin_or_owner`, tapi **tidak ada di tabel `admin_roles`** (7 role_code, `admin_produksi` n=0). Akibat: user dengan role itu **lolos `is_admin_or_owner`** lalu ditolak `check_admin_access` dengan `reason='role_not_found'` — dua gerbang admin tidak konsisten. | `I1` CHECK memuat `'admin_produksi'`; `I2` `admin_roles` = 7 role (tanpa `admin_produksi`); `I3 = 0`; `I5`: `is_admin_or_owner` `sebut_admin_produksi=true` vs `check_admin_access` (2 overload) `=false` | Satu sumber kebenaran untuk whitelist admin: `admin_produksi` dihapus dari CHECK + `is_admin_or_owner`, **atau** ditambahkan ke `admin_roles` + `role_page_access` | §9 (peta §5c) |
+| **P1-F14-J** | P1 | NRP001 sudah `role_level=5` (CEO) tetapi `role` masih literal `'admin_pusat'`. Rename ke `'ceo'` **belum dilakukan** dan belum bisa dilakukan murah | `J1 = 0 baris role='ceo'`; CHECK `user_roles_role_check` tidak memuat `'ceo'`; `git grep -l admin_pusat -- src/` = **61 file** / **127 kemunculan** | `ALTER TABLE ... DROP/ADD CONSTRAINT` memuat `'ceo'` + `user_roles` NRP001=`'ceo'` + **`admin_roles` + `role_page_access` punya `ceo`** + 61 file `src/` di-review — atau keputusan user mendokumentasikan keputusan menolak rename | §10 (K1β) |
+
+**Catatan prioritas (bukan keputusan — §0.13)**
+
+> P1-F14-J saya usulkan **P1**, bukan P2: selama NRP001 masih `admin_pusat`, gate mana pun yang
+> memeriksa `role = 'admin_pusat'` (bukan `role_level`) akan memperlakukan CEO sebagai admin
+> biasa — persis kelas bug yang §9 akan perbaiki. Tapi prioritas di-set **user**, jadi item
+> ini menunggu konfirmasi.
+>
+> P1-F14-K saya usulkan **P1** karena tanpa trigger, §9 menulis ulang data otorisasi admin
+> **tanpa jejak audit** — dan `audit_log` sudah jadi bahan investigasi §4/P1-13-01.
+
+**Dampak lintas-page**: worker → admin → dashboard → owner **tidak terdampak** — dokumen +
+Work Queue saja. Tidak ada yang menyentuh `src/`, `supabase/`, atau `tests/`.
 
 ## Status Temuan Backup & DR (P1-14 / P1-45) — ✅ SEMUA CLOSED (2026-09-27)
 
