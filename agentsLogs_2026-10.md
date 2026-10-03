@@ -660,3 +660,21 @@ schema_migrations 188/263 → 188/263 (tidak tersentuh)
 - §9b: **2 dari 10** selesai. Sisa: `265` `get_current_user_context` + `get_user_context_by_auth_id`, `266` `verify_admin_otp_core` + `generate_admin_otp`, `267` `admin_get_role_matrix` + `admin_set_employee_role`.
 - 265 punya 75 caller RPC untuk `get_current_user_context`, dan `user_role_assignments` **tidak** punya `role_level`/`scope_divisi`/`plan` → rewrite-nya wajib **hybrid** (assignment untuk role_code + `user_roles.role_level` untuk level), bukan pengganti total.
 - `264_rollback.sql` mengembalikan ACL dengan `REVOKE` eksplisit — **jangan** dihapus barisnya saat menyederhanakan file.
+### [2026-10-03] Work Queue sync — A3 (guard CI) + B1 (pecah jadi P1-TABLE-AUDIT) — docs-only
+
+Dokumentasi saja, **tanpa migrasi, tanpa SQL, tanpa `src/`**. Tujuannya hanya §0.9: dua follow-up dari batch 264 tidak boleh hilang dari pandangan.
+
+**2 keputusan user yang didaftarkan:**
+
+- **A3 → masuk `P1-POST-HARDENING-AUDIT` (scope ditambah).** Item itu kini hanya memegang sisi (a) grant yatim **46** fungsi, plus **guard CI otomatis** dengan urutan wajib: **tahap 1 guard (2-3 jam, dahulukan) → tahap 2 checklist audit 46 fungsi → tahap 3 perbaikan per fungsi**. Guard wajib **MERAH** pada 46 fungsi yatim sekarang — guard yang diam adalah guard palsu (kelas bug yang sama seperti `P2-F14-M`).
+- **B1 → item baru `P1-TABLE-AUDIT` (P1).** **61 dari 208** tabel RLS tanpa policy SELECT → default-deny, `SELECT` 0 baris untuk semua orang termasuk `admin_pusat` dan owner. DoD-nya **tabel keputusan 61 baris**, **BUKAN** sprint perbaikan teknis, dan helper berikutnya **dilarang** membuka policy SELECT tanpa baris keputusan.
+
+**Kenapa 2 follow-up ini dipisah** (bukan satu item): sifatnya berbeda. Grant yatim ditutup dengan alat yang objektif — ada grant atau tidak, bisa dibuktikan `proacl`, murah, dan selesai dengan guard + checklist. Policy SELECT hilang tidak bisa ditutup dengan asumsi: tabel yang hari ini perlu dibuka mungkin memang harus tertutup, dan itu **keputusan produk per tabel**. Menggabungnya akan memaksa helper mengarang akses untuk 61 tabel sekaligus. Keduanya tetap satu akar historis (whitelist `172`), dan itu dicatat di masing-masing baris.
+
+**Rujukan ID dibersihkan** (tidak ada lagi item yang menunjuk ID yang sudah tidak ada di tabel Work Queue): `P1-ACL-AUDIT` dan `P2-F14-Q` di [AGENTS.md](AGENTS.md) §5.8 + [FORENSIC-INDEX.md](docs/forensic/FORENSIC-INDEX.md) §5.8 + blok P10 + blok CLOSED 263/264 → diarahkan ke `P1-POST-HARDENING-AUDIT` / `P1-TABLE-AUDIT` (nama lama disimpan di satu tempat sebagai catatan, supaya riwayatnya tidak hilang).
+
+**Konstanta baru** di [CONSTANTS-INVENTORY.md](docs/forensic/CONSTANTS-INVENTORY.md) §1.3 + §3 matriks: `61/208` tabel tanpa policy SELECT dan `46` fungsi tanpa `EXECUTE authenticated`, keduanya **TIDAK ADA guard** — itu justru isi item A3 tahap 1.
+
+**Diketahui, sengaja tidak dikerjakan turn ini** (di luar gate 4 file): [FIX14-ROLE-LEVEL-TOTAL.md](docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md) baris 921, 1014, 1106, 1108 masih menyebut `P2-F14-Q` dan `P1-ACL-AUDIT`. Rujukan historis di blok 263/264 itu tidak salah secara fakta, tapi menunjuk ID yang sudah tidak ada di tabel Work Queue. Perlu sapuan singkat di turn dokumentasi berikutnya.
+
+Dampak lintas-page: worker → admin → dashboard → owner **tidak terdampak** — tidak ada perubahan kode, kontrak RPC, RLS, menu, route, maupun design system. Four-page smoke dan E2E `full-sweep` tidak perlu diulang karena tidak ada byte `src/` yang berubah; yang diverifikasi hanya dokumen (`verify:artifacts` + `doc-claims-vs-live`).

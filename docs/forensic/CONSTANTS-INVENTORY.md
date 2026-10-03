@@ -43,6 +43,8 @@ Plus 9 klaim kapabilitas (`CAPABILITIES`): exists/absent + `mustNotSay` (payroll
 
 | File:line | Konstanta | Nilai | Kenapa tanpa guard / risiko |
 |---|---|---|---|
+| docs/forensic/FORENSIC-INDEX.md §5.8 (BARU 2026-10-03) | Tabel RLS tanpa policy SELECT | **61 dari 208** | **TIDAK ADA guard** + probe manual `.agents/logs/fix14-c9c-why-select2.log`. Work Queue `P1-TABLE-AUDIT`. RLS default-deny, jadi 0 baris untuk semua user termasuk admin_pusat & owner. Angka bergerak sendiri tiap migrasi menambah/menghapus policy SELECT dan tidak ada gate yang berteriak — kelas bug yang sama seperti P2-F14-M |
+| Work Queue `P1-POST-HARDENING-AUDIT` tahap 1 (BARU 2026-10-03) | Fungsi `public` tanpa `EXECUTE` untuk `authenticated` | **46** | **TIDAK ADA guard** (rencana guard baru `scripts/verify-*`). `verify:artifacts` hanya menghitung policy, tidak pernah membandingkan `proacl` fungsi vs policy yang memanggilnya — itulah akar kelas bug "mati senyap" |
 | SECURITY.md:61 | Rollback scripts | 18 scripts (183–214) | tidak ada guard yang baca SECURITY.md |
 | SECURITY.md:30 (§3.10) | unit count gate | ~~119/119~~ → **174/174 · 4 todo** (fixed 2026-09-30 B0.5) | semula tanpa guard; kini dijaga test baru di `doc-claims-vs-live` (total via `.vitest/test-result.json`; pola "unit N/N" jadi canary — lihat §2 catatan) |
 | SECURITY.md:52/56/57 | nomor migrasi referensi | 141; 141, 220; 141, 215 | idem — berubah saat migrasi baru tanpa peringatan |
@@ -89,6 +91,9 @@ npm scripts terkait (package.json): `verify:artifacts`, `verify:test-count`, `te
 | FORENSIC-INDEX batch 88/122 + tabel severity | | | | | ✔ TANPA guard (histori) |
 | Baseline docs snapshot (209/155/cap 173/replay 212) | | | | | ✔ TANPA guard (snapshot alat) |
 | Magic number test (30, 17, 23505, …) | | | | logika test masing-masing | inventaris manual |
+
+| FORENSIC-INDEX tabel RLS tanpa policy SELECT 61/208 | | | | | ✔ TANPA guard (P1-TABLE-AUDIT) |
+| Fungsi tanpa EXECUTE authenticated 46 | | | | guard baru (P1-POST-HARDENING-AUDIT tahap 1) | ✔ TANPA guard sekarang |
 
 ## §4 Rekomendasi (masukan, bukan keputusan)
 
