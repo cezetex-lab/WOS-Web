@@ -63,9 +63,10 @@ Sisa: tidak ada.
 | **P1-F14-J** | P1 | NRP001 sudah `role_level=5` (CEO) tetapi `role` masih literal `'admin_pusat'`. Rename ke `'ceo'` **belum dilakukan** dan belum bisa dilaku
 | **P2-F14-N** | P2 | `is_admin_or_owner()` membaca role lewat `user_roles` dengan whitelist literal 4 dari 7 admin role → `admin_operasional` / `admin_mining` / `admin_mill` / `admin_estate` ditolak padahal punya `role_page_access` + permission set khusus + `admin_roles.is_active=TRUE`. | Pre-263 (probe live, simulasi 17 employees_core): NRP103/104/105/106 `lama=false`. Distribusi `user_roles` memuat 7 admin role, tapi hanya 4 masuk whitelist. Dampak: **6 policy RLS + 3 RPC** menolak mereka. 0 test menyentuh fungsi ini | Rewire ke `user_role_assignments` pola `admin\_%` + uji positif 8 admin | ✔ **CLOSED** (migrasi **263**, 2026-10-03) — `admin_operasional`/`admin_mining`/`admin_mill`/`admin_estate` **false → true**; owner TRUE lewat `authz_is_owner()`; worker tetap false; anon tetap DENIED 42501 |
 | **P2-F14-O** | P2 | Wrapper `rpcGetWorkerStatus` di `src/lib/supabase-rpc.ts:87` memanggil RPC tanpa argumen `p_nrp`, padahal `get_worker_status(p_nrp)` butuh NRP target. Pemanggil lain (`Worker.tsx:35`) benar. | `src/lib/supabase-rpc.ts:87` memanggil `get_worker_status` tanpa argumen; signature live `get_worker_status(p_nrp text)`. 0 caller `src/` lain memakai wrapper ini | Wrapper menerima `p_nrp` lalu meneruskannya; atau hapus bila memang tidak dipakai | ⚠ **NEW** (2026-10-03) |
-| **P1-ACL-AUDIT** | P1 | Migrasi `172` me-`REVOKE EXECUTE ON ALL FUNCTIONS` lalu grant balik **hanya daftar putih manual**. Fungsi yang tidak masuk daftar **mati senyap** — policy RLS tetap tertulis di `pg_policies` (jadi `verify:artifacts` menghitungnya sebagai policy yang ada) tapi tidak bisa dievaluasi. Tidak ada guard yang membandingkan `proacl` fungsi terhadap daftar policy yang memanggilnya. | **46** fungsi di `public` tanpa `EXECUTE` untuk `authenticated` (probe `.agents/logs/fix14-c3d-gate-grants.log`). Kasus terbukti: `is_admin_or_owner` → 6 policy RLS **42501 untuk semua user**, status **latent** (UI tidak membaca tabel itu langsung). 263 menutup 1 dari 46 | Audit menyeluruh: untuk tiap policy RLS yang memanggil helper `SECURITY DEFINER`, pastikan role yang di-shadow punya `EXECUTE`. Laporan fungsi-yatim vs policy-yatim, lalu perbaiki bertahap | ⚠ **NEW** (2026-10-03) |
+| **P1-POST-HARDENING-AUDIT** | P1 | **MERGE dari `P1-ACL-AUDIT` + `P2-F14-Q` (2026-10-03)** — dua sisi dari satu akar: migrasi `172` ("end-state deterministik": revoke semua, grant daftar putih manual) meninggalkan dua jenis sisaan yang **mati senyap** dan tidak digerbang apa pun. **(a) Grant yatim**: **46** fungsi di `public` tanpa `EXECUTE` untuk `authenticated` — policy RLS tetap tertulis di `pg_policies` jadi `verify:artifacts` menghitungnya ADA, tapi tidak bisa dievaluasi. Kasus terbukti `is_admin_or_owner` → 6 policy **42501 untuk semua user** (termasuk `admin_pusat` & CEO); 263 menutup 1 dari 46. **(b) Policy SELECT hilang**: **61 dari 208** tabel RLS tanpa policy SELECT → default-deny. Termasuk `business_units` + `settings`, yang policy `bu_select`/`st_select` dari `083` (`USING (TRUE)`) **tidak ada lagi di live** → `SELECT 0 baris` untuk siapa pun, meski `is_admin_or_owner()=true` | Grant: `has_function_privilege('authenticated', oid, 'EXECUTE')` = false untuk 46 fungsi (log `.agents/logs/fix14-c3d-gate-grants.log`). Policy: `pg_policies` `business_units` = 1 policy (`bu_update` UPDATE), `settings` = 1 (`st_update` UPDATE); sumber policy SELECT `083_rls_hardening.sql:52` + `:123`; total 61/208 tabel RLS tanpa policy SELECT (log `.agents/logs/fix14-c9c-why-select2.log`) | Sprint audit gabungan dua sisi: (1) untuk tiap policy RLS yang memanggil helper `SECURITY DEFINER`, pastikan role yang di-shadow punya `EXECUTE` — laporan fungsi-yatim vs policy-yatim; (2) tentukan tabel mana yang **memang** harus tertutup penuh, lalu pulihkan policy SELECT untuk sisanya; tabel yang ditutup dibuktikan dengan policy SELECT `USING (false)` eksplisit. Tambahkan guard CI yang membandingkan `proacl` fungsi terhadap daftar policy yang memanggilnya | ⚠ **NEW** (2026-10-03, hasil merge) |
+| **P2-F14-R** | P2 | Bug a11y **latent** di halaman owner login: `<label>Email</label>` di `src/pages/OwnerLogin.tsx:62` **tidak punya `htmlFor`**, dan `input[type=email]` di baris 63 tidak punya `id` → axe violation `label` **critical**. Tidak terlihat selama berbulan-bulan karena route `/owner/*` butuh sesi valid, jadi test a11y hanya mendarat di halaman ini ketika `storageState` owner **kedaluwarsa** | Terbukti 2026-10-03 saat a11y 4/6: `[critical] label (1 node): input[type="email"]`, html `<input type="email" … value="owner@insightwos.com">` tanpa `htmlFor`/`id` (log `.agents/logs/fix14-d4-a11y.log`). Setelah `storageState` di-regen → suite **6/6 PASS, 0 violation**, jadi bug ini **tidak pernah dieksekusi** pada alur normal; ia hanya muncul sebagai efek samping token kedaluwarsa | Tambahkan `htmlFor` + `id` yang cocok (atau `aria-label`) pada input email, lalu verifikasi suite a11y tetap 6/6. Periksa juga `<label>` Password di baris 66 — pola yang sama kemungkinan berulang | ⚠ **NEW** (2026-10-03) |
 | **P2-F14-P** | P2 | `employee.view_all` hanya dimiliki 2 role (`admin_hrd` lewat `hrd_ops`, `admin_pusat` lewat `admin_pusat_all`). 4 admin industri (`admin_operasional` 21 perm, `admin_mining` 21, `admin_mill` 21, `admin_estate` 21) dan `admin_finance` (28) **tidak punya** permission ini, sehingga `authz_check_admin('employee.view_all')` = **false** untuk mereka. | `permission_set_items` join `role_permission_sets`: hanya `hrd_ops`→`admin_hrd` dan `admin_pusat_all`→`admin_pusat` punya `employee.view_all`. Probe live: NRP001/100/101 `true`, NRP102/103/104/105/106 `false` | Keputusan produk: apakah 4 admin industri memang tidak boleh melihat semua karyawan? Kalau tidak, tambahkan permission ke `role_permission_sets` masing-masing. **Butuh keputusan user** | ⚠ **NEW** (2026-10-03, butuh keputusan user) |
-| **P2-F14-Q** | P2 | **61 dari 208 tabel dengan RLS tidak punya policy SELECT sama sekali** → RLS default-deny, tabel tidak bisa dibaca siapa pun lewat PostgREST. Termasuk `business_units` dan `settings`: policy `bu_select`/`st_select` dari migrasi `083` (`USING (TRUE)`) **tidak ada lagi di live**. | Probe `pg_policies`: `business_units` = 1 policy (`bu_update`, UPDATE), `settings` = 1 policy (`st_update`, UPDATE). `SELECT count(*)` sebagai `admin_pusat` = 0 di kedua tabel meski `is_admin_or_owner()=true`. Sumber policy SELECT: `083_rls_hardening.sql:52` + `:123`. **Tidak terkait 263** | Tentukan tabel mana yang memang harus tertutup penuh, lalu pulihkan policy SELECT untuk sisanya; tabel yang harus tertutup dibuktikan dengan policy SELECT `USING (false)` yang eksplisit | ⚠ **NEW** (2026-10-03) |kan murah | `J1 = 0 baris role='ceo'`; CHECK `user_roles_role_check` tidak memuat `'ceo'`; `git grep -l admin_pusat -- src/` = **61 file** / **127 kemunculan** | `ALTER TABLE ... DROP/ADD CONSTRAINT` memuat `'ceo'` + `user_roles` NRP001=`'ceo'` + **`admin_roles` + `role_page_access` punya `ceo`** + 61 file `src/` di-review — atau keputusan user mendokumentasikan keputusan menolak rename | §10 (K1β) |
+
 
 **Bukti apply 263 (2026-10-03) — 6 policy RLS kembali hidup**
 
@@ -102,6 +103,46 @@ Registry **188** / `max(version)=263**. `admin_operasional`/`admin_mining`/`admi
 > *substring nama*, lalu `get_worker_leave`/`get_worker_overtime`/`submit_voice` memanggil
 > *helper* itu, bukan `is_admin_or_owner`. Rantai sebenarnya lewat `authz_check_admin`.
 > Verifikasi caller harus baca `pg_get_functiondef` per fungsi.
+
+**Bukti apply 264 (2026-10-03) — DROP 2 overload dead `check_admin_access`**
+
+`264` DITERAPKAN + terdaftar + checksum terverifikasi (`43eed6f5…`). Registry **189** /
+`max(version)=264`. `Functions` **658 → 656**, overload **20 → 19**.
+
+```
+[PRE ] check_admin_access overload = 2   (oid 298204 (), oid 298205 (p_path text))
+[PRE ] acl keduanya = {postgres=X/postgres, service_role=X/postgres}  (tanpa PUBLIC/anon/authenticated)
+[POST] check_admin_access overload = 0
+[POST] SELECT public.check_admin_access();        → 42883 function … does not exist
+[POST] SELECT public.check_admin_access('/admin'); → 42883 function … does not exist
+[POST] Functions 656 · policy 225 · tabel 209 · check_owner_identity() masih ada
+[POST] is_admin_or_owner md5 18a97b91… + acl {postgres,service_role,authenticated} — utuh
+```
+
+Konfirmasi 0 caller di **7 sumber**: `src/` (0 hit) · `pg_proc.prosrc` (0) · `pg_policies`
+(0) · `pg_trigger` → `tgfoid` (0) · `pg_views` + `pg_matviews` (0) · `pg_attrdef` (0) ·
+`pg_constraint` (0) · seluruh schema (2 = definisinya sendiri). Rollback byte-identik
+termasuk **ACL**: `0106fcb4…` → `0106fcb4…`, `5aeaa26c…` → `5aeaa26c…`, prosrc 210/2093,
+privilege post-rollback `anon=false auth=false svc=true`.
+
+**Pelajaran proses baru (2026-10-03, dari 264)**
+
+> **P12 — rollback `DROP FUNCTION` WAJIB sertakan restore ACL.** Default privilege fungsi
+> baru adalah EXECUTE untuk owner **dan PUBLIC**. ACL pre-264 sengaja tidak mengandung
+> PUBLIC (migrasi 172 revoke-all lalu grant hanya service_role). Kalau rollback hanya
+> `CREATE OR REPLACE`, hasilnya `proacl = {postgres, =}` — setiap role bisa memanggil fungsi
+> `SECURITY DEFINER` itu, dan `role_page_access` / `admin_roles` ikut terekspos. Itu
+> mengembalikan **security hole**, bukan pre-image. Aturan: untuk rollback berbasis
+> `CREATE OR REPLACE`, **ACL adalah bagian dari definisi "byte-identik"**.
+> `pg_get_functiondef` **tidak** memuat ACL sama sekali, jadi gate wajib menambah
+> `proacl` + `has_function_privilege` per role — membandingkan functiondef saja tidak cukup.
+>
+> **P13 — OID berubah setelah DROP + CREATE; itu normal.** Simulasi 264: oid
+> `298204` → `336335` dan `298205` → `336336`, meski transaksi di-`ROLLBACK`. **OID counter
+> PostgreSQL tidak pernah di-rollback.** Konsekuensi untuk semua gate byte-identik: kunci
+> perbandingan ke **signature** (`pg_get_function_identity_arguments`), **jangan** ke `oid` —
+> kalau tidak, simulasi kedua akan melahukan gate yang sebenarnya hijau. Kelas yang sama
+> seperti **P3-F04-01**.
 
 **Catatan prioritas (bukan keputusan — §0.13)**
 

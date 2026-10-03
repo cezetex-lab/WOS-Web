@@ -1,0 +1,79 @@
+-- ============================================================================
+-- 264 — Fix #14 §9 batch 264: HAPUS check_admin_access (2 overload)
+--
+-- KEPUTUSAN USER (2026-10-03)
+--   Batch 264 = DROP kedua overload, bukan rewrite. Alasannya konfirmasi caller
+--   (lihat blok BUKTI): fungsi ini dead code total. Rewrite 72 baris logika
+--   yang tidak pernah dieksekusi hanya menambah permukaan authz yang harus
+--   diaudit tanpa memberi manfaat apa pun.
+--
+-- MASALAH
+--   Dua overload dengan dua masalah berbeda, dan KEDUA-BANYA tidak bisa
+--   dipanggil oleh role aplikasi:
+--
+--   1) check_admin_access() → boolean, 210 byte prosrc
+--      Membaca claim JWT lewat `current_setting('request.jwt.claims')::json
+--      ->>'role'`. Supabase TIDAK PERNAH mengisi claim `role` — claim itu
+--      berisi sub/email/app_metadata, bukan nilai role aplikasi. Role
+--      aplikasi disimpan di user_roles.role_code / user_role_assignments.
+--      Jadi fungsi ini secara struktural SELALU mengembalikan FALSE untuk
+--      sesi Supabase mana pun. Policy konfirmasi dari 083-era yang tidak
+--      pernah lagi relevan.
+--
+--   2) check_admin_access(p_path text) → jsonb, 2093 byte prosrc
+--      Logikanya masih masuk akal (owner bypass → user_roles → admin_roles
+--      → role_page_access, default deny) TAPI chain-nya salah untuk §9:
+--      `SELECT ur.role INTO v_role FROM user_roles ur ORDER BY ur.role_level
+--      DESC LIMIT 1` — membaca role_level dari user_roles, sementara
+--      sumber kebenaran admin setelah §9 adalah user_role_assignments
+--      (+ permission set). Sama seperti is_admin_or_owner yang sudah
+--      di-rewire di 263. Kalau rewrite, harus masuk antrean batch 265–267
+--      dengan bukti tiap pemanggil nyata — dan pemanggilnya tidak ada.
+--
+-- BUKTI 0 CALLER (probe read-only 2026-10-03, post-263, log
+-- .agents/logs/fix14-h0-264-probe.log + fix14-h0b-preimage.log):
+--
+--   B1 src/        : git grep -n "check_admin_access" -- src/      = 0 hit
+--   B2 RPC prosrc  : SELECT proname FROM pg_proc
+--                    WHERE prosrc ILIKE '%check_admin_access%'
+--                      AND proname <> 'check_admin_access'          = 0 baris
+--   B3 RLS policy  : pg_policies WHERE qual/with_check ILIKE …      = 0 baris
+--   B4 trigger     : pg_trigger JOIN pg_proc ON tgfoid             = 0 baris
+--   B5 view/matview: pg_views / pg_matviews WHERE definition ILIKE  = 0 baris
+--   B6 tambahan    : pg_attrdef (DEFAULT kolom)  = 0
+--                    pg_constraint (CHECK/FK/…)  = 0
+--                    seluruh schema (bukan cuma public) = 2 baris,
+--                    yaitu kedua overload ini sendiri
+--
+--  dependensi pg_depend tiap overload: normal=2 (milik schema + kolom pg_proc),
+--   internal=0. Tidak ada objek lain yang bergantung pada keduanya, jadi
+--   DROP tidak butuh CASCADE.
+--
+--   ACLkedua overload live = {postgres=X/postgres, service_role=X/postgres}.
+--   authenticated DAN anon TIDAK punya EXECUTE → mustahil dipanggil lewat
+--   PostgREST, jadi tidak ada risiko kompatibilitas API untuk pemanggil yang
+--   tidak terlihat.
+--
+-- VERIFIKASI PASCA-DROP (simulasi transaksi, ROLLBACK):
+--   SELECT public.check_admin_access();        → 42883 function does not exist
+--   SELECT public.check_admin_access('/admin'); → 42883 function does not exist
+--
+-- CATATAN ROLLBACK
+--   264_rollback.sql memakai CREATE OR REPLACE, bukan CREATE FUNCTION, supaya
+--   tidak gagal kalau dijalankan dua kali. Konsekuensinya: CREATE OR REPLACE
+--   memberi ACL default (owner + PUBLIC), BUKAN ACL pre-264. Karena itu
+--   rollback wajib melakukan REVOKE eksplisit dari PUBLIC/anon/authenticated
+--   lalu GRANT ke service_role — kalau tidak, proacl berubah dari
+--   {postgres, service_role} menjadi {= /postgres} dan kita mengembalikan
+--  security hole, bukan pre-image.
+--
+-- YANG TIDAK IKUT DI-DROP (sengaja)
+--   check_owner_identity() — dipanggil oleh overload text, tapi punya caller
+--   sendiri dan tidak terkait 264. Bukan target batch ini.
+--
+-- P4: file ini TIDAK BOLEH punya BEGIN/COMMIT — wrapper apply-migration.mjs
+-- yang memegang transaksi.
+-- ============================================================================
+
+DROP FUNCTION IF EXISTS public.check_admin_access();
+DROP FUNCTION IF EXISTS public.check_admin_access(text);

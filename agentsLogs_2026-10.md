@@ -553,3 +553,110 @@ rollback md5                     = 6c0fb3d3ca5a10e2f789f295790d33c7  len 547  ac
 - §9b dikoreksi: hanya **1 dari 10** RPC yang selesai. `263` = `is_admin_or_owner`. Sisa: `check_admin_access` (264, termasuk DROP overload 0-arg), `get_current_user_context` + `get_user_context_by_auth_id` (265), `verify_admin_otp_core` + `generate_admin_otp` (266), `admin_get_role_matrix` + `admin_set_employee_role` (267).
 - `check_admin_access()` (kedua overload) juga **tidak** punya `EXECUTE` untuk `authenticated` (`{postgres, service_role}`) dan **0 policy** memanggilnya — kalau memang tidak dipakai, **DROP** lebih murah daripada rewrite.
 - `263_rollback.sql` mengembalikan policy RLS ke kondisi **42501 untuk semua user**. Itu restore yang jujur, tapi kalau sistem ini butuh policy itu hidup, jangan rollback 263 — perbaiki forward.
+## [2026-10-03] Fix #14 §9 **batch 264 CLOSED** — DROP dead `check_admin_access` (2 overload)
+
+- **Status: CLOSED.** Migrasi `264` DITERAPKAN ke DB live lewat wrapper `apply-migration.mjs --apply`, diverifikasi, di-commit, di-push ke `origin/migrasi-vite`.
+- **Keputusan user: DROP kedua overload, bukan rewrite.** Alasannya konfirmasi caller: fungsi ini dead code total. Rewrite 72 baris logika yang tidak pernah dieksekusi hanya menambah permukaan authz yang harus diaudit tanpa memberi manfaat.
+- **Berkas (2):**
+  - `supabase/migrations/264_fix14_drop_dead_check_admin_access.sql` (78 baris, sha256 `43eed6f50624d92a0f7d1cee4f65bc7588cd8935caea9912b4b8e6c952a817e5`) — **tanpa** BEGIN/COMMIT (P4).
+  - `supabase/scripts/rollback/264_rollback.sql` (145 baris, sha256 `7c636fda4678e706e55a8224f473598099f16a98eafda991c47d55ff360c1f73`) — dengan BEGIN/COMMIT + restore ACL eksplisit.
+- **Dokumentasi tersinkron (6):** `ARCHITECTURE.md` §7.4 (Functions 658→656, overload 20→19, Migrations 188→189, diagram §7.1, Fact 264), `FuturePlans.md` §1.3 (Total Functions + Legacy Overloads — ikut dijaga `doc-claims-vs-live`), `FIX14-ROLE-LEVEL-TOTAL.md` §9 (blok `### 264` + P12/P13 + §9b), `FORENSIC-INDEX.md` (merge Work Queue + blok bukti), `CONSTANTS-INVENTORY.md` (189/max 264, 656/+19), `AGENTS.md` §5.8.
+
+### Konfirmasi 0 caller — 7 sumber, bukan 5
+
+```
+B1 src/                git grep -n "check_admin_access" -- src/   = 0 hit
+B2 pg_proc.prosrc      prosrc ILIKE '%check_admin_access%'
+                         AND proname <> 'check_admin_access'       = 0 baris
+B3 pg_policies         qual / with_check ILIKE                   = 0 baris
+B4 pg_trigger          JOIN pg_proc ON tgfoid                    = 0 baris
+B5 pg_views + pg_matviews  definition ILIKE                      = 0 baris
+B6 pg_attrdef          DEFAULT kolom ILIKE                       = 0 baris
+B6 pg_constraint       pg_get_constraintdef ILIKE                = 0 baris
+B6 seluruh schema (bukan cuma public)                            = 2 baris
+                          → keduanya definisi overload itu sendiri
+```
+
+`pg_depend` tiap overload: `normal=2` (milik schema + kolom `pg_proc`), `internal=0` → **DROP tanpa CASCADE** tidak akan merusak objek lain. ACL pre-264 `{postgres=X/postgres, service_role=X/postgres}` — `authenticated` dan `anon` **tidak** punya EXECUTE, jadi mustahil dipanggil lewat PostgREST dan nol risiko kompatibilitas API.
+
+### Dua overload, dua alasan berbeda bahwa DROP lebih baik daripada rewrite
+
+**1. `check_admin_access()` → boolean, prosrc 210 byte — struktural selalu FALSE.**
+Membaca `current_setting('request.jwt.claims', true)::json->>'role'`. Supabase **tidak pernah** mengisi claim `role`; claim itu berisi `sub`/`email`/`app_metadata`, bukan nilai role aplikasi (role ada di `user_roles`/`user_role_assignments`). Sisa policy konfirmasi era-083 yang tidak pernah lagi relevan.
+
+**2. `check_admin_access(p_path text)` → jsonb, prosrc 2093 byte — logikanya salah untuk §9.**
+Logikanya masih masuk akal (owner bypass → `user_roles` → `admin_roles` → `role_page_access`, default deny) **tapi** chain-nya:
+`SELECT ur.role INTO v_role FROM user_roles ur … ORDER BY ur.role_level DESC LIMIT 1`
+mengambil role dari `user_roles`, sementara sumber kebenaran admin setelah §9 adalah `user_role_assignments` + permission set. Kalau dihidupkan, dia butuh **rewrite total**, bukan pemulihan sebagian — dan tidak ada satu pun pemanggil yang membutuhkan dia hidup.
+
+### Bukti apply (mentah, query live pasca-264)
+
+**B1 stdout wrapper:**
+```
+berkas    : 264_fix14_drop_dead_check_admin_access.sql
+versi     : 264
+checksum  : 43eed6f50624d92a0f7d1cee4f65bc7588cd8935caea9912b4b8e6c952a817e5
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (635ms)
+```
+
+**B3–B8:**
+```
+{"version":"264","filename":"264_fix14_drop_dead_check_admin_access.sql","checksum":"43eed6f5…"}
+check_admin_access overload tersisa      = 0
+public_functions                          = 656   (dari 658, turun 2)
+schema_migrations                         = 189 / max 264
+SELECT public.check_admin_access();       → 42883 function public.check_admin_access() does not exist
+SELECT public.check_admin_access('/admin') → 42883 function public.check_admin_access(unknown) does not exist
+policy_total   = 225   base_tables = 209   (tidak berubah)
+check_owner_identity() masih ada (ret boolean) — bukan target 264
+is_admin_or_owner md5 = 18a97b91ebd8152f788fc7b72fb8f454  acl {postgres,service_role,authenticated} — utuh
+authz_check_admin / authz_current_nrp / authz_has_permission / authz_in_scope / authz_is_owner — md5 tidak berubah
+```
+
+### Rollback byte-identik termasuk ACL (simulasi pra-apply, 19 PASS / 0 FAIL)
+
+```
+pre      (noargs)      md5def=0106fcb4584a0e06d9c3200c4dd2a1b2  md5src=970bd74bb4b0c18a2357f559eef87f31  len=210
+rollback (noargs)      md5def=0106fcb4584a0e06d9c3200c4dd2a1b2  md5src=970bd74bb4b0c18a2357f559eef87f31  len=210   ← identik
+pre      (p_path text) md5def=5aeaa26ccbf17f928fe95c4a41aa457e  md5src=0f0ce77ce4cc68a8b1ac9f66c400988c  len=2093
+rollback (p_path text) md5def=5aeaa26ccbf17f928fe95c4a41aa457e  md5src=0f0ce77ce4cc68a8b1ac9f66c400988c  len=2093  ← identik
+ACL keduanya rollback  {postgres=X/postgres,service_role=X/postgres}   = pre-264
+privilege post-rollback  anon=false  auth=false  svc=true              = pre-264
+schema_migrations 188/263 → 188/263 (tidak tersentuh)
+```
+
+### Gate
+
+| Gate | Hasil |
+|---|---|
+| `verify:artifacts` | pre-sync 2 drift (Migrations 188→189, Functions 658→656) → sinkron → **0 drift, EXIT 0** |
+| `check:types` | **EXIT 0** |
+| `npm test` | pre-sync 1 gagal = `doc-claims-vs-live` yang tepat menunjuk 5 drift dokumen → sinkron → **26 file, 170 passed \| 4 todo, EXIT 0** |
+| `npm run test:a11y` | **6/6 PASS, 0 violation** (storageState owner sudah di-regen di sesi draft; ini konfirmasi, bukan pekerjaan ulang) |
+
+### Dampak lintas-page
+
+- **worker** → tidak berubah (fungsi tidak pernah bisa dipanggil role aplikasi).
+- **admin** → tidak berubah. Tidak ada halaman yang memanggil fungsi ini (`src/` = 0 hit).
+- **dashboard** → tidak berubah.
+- **owner** → tidak berubah; `check_owner_identity()` yang dipanggil overload text **tidak** ikut di-DROP (punya caller sendiri, bukan target 264).
+- Yang benar-benar berubah: `Functions` 658 → 656 (angka yang dijaga `verify:artifacts` + `doc-claims-vs-live` di 3 dokumen) dan Work Queue.
+
+### Work Queue
+
+| ID | Status | Isi |
+|---|---|---|
+| **P1-POST-HARDENING-AUDIT** | ⚠ **NEW (merge)** | `P1-ACL-AUDIT` + `P2-F14-Q` digabung — satu akar (migrasi 172), dua sisi: **(a)** 46 fungsi tanpa `EXECUTE` untuk `authenticated`; **(b)** 61 dari 208 tabel RLS tanpa policy SELECT. Sprint audit gabungan + guard CI `proacl` vs daftar policy pemanggil |
+| **P2-F14-R** | ⚠ **NEW** | Bug a11y latent: `<label>` tanpa `htmlFor` di `src/pages/OwnerLogin.tsx:62` → axe `label` critical. Terbukti saat a11y 4/6; setelah storageState di-regen menjadi 6/6, jadi bug ini **tidak pernah dieksekusi** pada alur normal |
+
+### Pelajaran proses baru
+
+**P12 — rollback `DROP FUNCTION` WAJIB sertakan restore ACL.** Default privilege fungsi baru di PostgreSQL adalah EXECUTE untuk owner **dan PUBLIC**. ACL pre-264 sengaja tidak mengandung PUBLIC (migrasi 172 revoke-all lalu grant hanya service_role). Kalau rollback hanya `CREATE OR REPLACE`, hasilnya `proacl = {postgres=X/postgres, =X/postgres}` — setiap role bisa memanggil fungsi `SECURITY DEFINER` ini, dan `role_page_access`/`admin_roles` ikut terekspos. Itu mengembalikan **security hole**, bukan pre-image. Aturan: untuk rollback berbasis `CREATE OR REPLACE`, **ACL adalah bagian dari definisi "byte-identik"**, bukan hiasan. `pg_get_functiondef` **tidak** memuat ACL sama sekali, jadi gate wajib menambah `proacl` + `has_function_privilege` per role — membandingkan functiondef saja tidak cukup.
+
+**P13 — OID berubah setelah DROP + CREATE; itu normal.** Simulasi 264 menunjukkan oid `298204` → `336335` dan `298205` → `336336`, meski transaksi seluruhnya di-`ROLLBACK`. Bukan drift: **OID counter PostgreSQL tidak pernah di-rollback**. Konsekuensi praktis untuk semua gate byte-identik: kunci perbandingan ke **signature** (`pg_get_function_identity_arguments`), **jangan** ke `oid` — kalau tidak, simulasi kedua akan melahukan gate yang sebenarnya hijau. Kelas bug yang sama seperti **P3-F04-01**.
+
+### Catatan untuk batch berikutnya
+
+- §9b: **2 dari 10** selesai. Sisa: `265` `get_current_user_context` + `get_user_context_by_auth_id`, `266` `verify_admin_otp_core` + `generate_admin_otp`, `267` `admin_get_role_matrix` + `admin_set_employee_role`.
+- 265 punya 75 caller RPC untuk `get_current_user_context`, dan `user_role_assignments` **tidak** punya `role_level`/`scope_divisi`/`plan` → rewrite-nya wajib **hybrid** (assignment untuk role_code + `user_roles.role_level` untuk level), bukan pengganti total.
+- `264_rollback.sql` mengembalikan ACL dengan `REVOKE` eksplisit — **jangan** dihapus barisnya saat menyederhanakan file.
