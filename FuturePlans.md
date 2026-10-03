@@ -37,7 +37,7 @@ insightWOS adalah HR/WMS (Workforce Management System) dengan fokus industri (mi
 - ❌ **Tidak ada predictive AI** - hanya basic intelligence
 
 ### 1.3 Database State (from Forensic Audit)
-- **Total Tables**: ~209 (live DB saat ini: 208 tabel non-partisi + 1 view; klaim 253/257 sudah ketinggalan)
+- **Total Tables**: ~210 (live DB saat ini: 209 tabel non-partisi + 1 view; klaim 253/257 sudah ketinggalan)
 - **Total Functions**: ~658 (live DB saat ini: 658 fungsi — 657 setelah migrasi 243 drop 13 legacy, +1 `authz_is_owner()` dari migrasi 247 (OPS-14b); klaim 617/657/667/670/672/673 sudah ketinggalan)
 - **Search Path Violations**: 0 (migration `207` sudah fix semua — OBSOLETE, klaim "8 functions missing" salah)
 - **pg_cron**: 3 jobs aktif (`cron.job`) 2026-09-18 (pasca-228: 3 job MV dipensiunkan)

@@ -712,11 +712,11 @@ CLOSED §8 karena itu dibangun di **bukti pengganti yang lebih kuat dari log app
 (3) state data live memenuhi DoD per-versi, (4) `prosrc`/`proconfig`/`prosecdef` live
 sesuai, (5) smoke gate tidak regresi, (6) commit `6ffc890` sudah di `origin/migrasi-vite`.
 
-## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I **fully CLOSED** (2026-10-02, 257/258/259/260), rewiring belum
+## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I/L2/J3 **fully CLOSED** (2026-10-02 257/258/259/260 · 2026-10-03 261/262), rewiring belum
 
-Empat blocker §9 sudah ditutup lewat migrasi `257`/`258`/`259`/`260` (DITERAPKAN + terdaftar +
-checksum terverifikasi, `schema_migrations` = **185** baris, `max(version)=260`). **Rewiring 10 RPC
-di bawah belum dieksekusi** — itu langkah berikutnya, setelah Anda APPROVE.
+Enam blocker §9 sudah ditutup lewat migrasi `257`/`258`/`259`/`260`/`261`/`262` (DITERAPKAN +
+terdaftar + checksum terverifikasi, `schema_migrations` = **187** baris, `max(version)=262`).
+**Rewiring 10 RPC di bawah belum dieksekusi** — itu langkah berikutnya.
 
 | Item | Migrasi | Yang diubah | Bukti apply |
 |---|---|---|---|
@@ -771,6 +771,82 @@ Changing `LANGUAGE sql` → `plpgsql` pada `is_admin_or_owner` **tidak** menguba
 item **P2-F14-M** (butuh guard test), bukan catatan biasa.
 
 **Sisa pekerjaan §9 (belum):** rewiring 10 RPC + rewiring 3 edge function (§10) + test §12.
+
+### 261 — L2: master table `role_codes` (P2-F14-L)
+
+Sebelum 261, `role_code` tersebar di 5 tabel **tanpa constraint silang**. After §9, tabel
+`user_role_assignments` menjadi sumber kebenaran tunggal admin — jadi `role_code` palsu di sana
+berarti sumber kebenaran berisi role yang tidak dikenal sistem.
+
+`role_codes` harus **tabel mandiri**, bukan FK ke `admin_roles`: `manager` dan `supervisor`
+hanya hidup di `role_permission_sets`, tidak punya baris di `admin_roles` — kalau FK diarahkan
+ke sana keduanya akan ditolak (terverifikasi, bukan asumsi).
+
+| Bukti pra-apply (probe B2.36, read-only) | Nilai |
+|---|---|
+| role_code distinct dari 5 sumber | **10** |
+| diff CHECK lama minus 5 sumber | **3** — `admin`, `director`, `owner` |
+| diff 5 sumber minus CHECK lama | **0** (tidak ada role hilang) |
+| union final | **13** — persis sama dengan CHECK lama |
+| pre-image CHECK | `len=283`, `md5=bd4d0ad49d6c587a6b0f21a92434da12` |
+| tabel `role_codes` bentrok? | `false` |
+| sumber lain (`session_store`, `admin_division_access`) | **0 baris** — bukan sumber role |
+
+**Urutan fail-safe (deviasi dari rancangan awal, disengaja):** FK ditambahkan **lebih dahulu**,
+CHECK lama di-`DROP` **setelahnya**. Kalau urutannya dibalik dan `ADD FK` gagal, `user_roles`
+tertinggal **tanpa validasi sama sekali** di tengah migrasi. Keduanya dalam satu transaksi, jadi
+hasil akhirnya identik.
+
+Post-apply: registry 186 / `max=261` · `role_codes` **13 baris** (10 `is_active=true` + 3 `false`)
+· FK `fk_ura_role_code` + `fk_ur_role` terpasang, keduanya `REFERENCES role_codes(code)` ·
+CHECK `user_roles_role_check` **0 baris** · data utuh (`user_roles` 17, assignments 16) ·
+**uji negatif 23503** pada kedua FK (`role_palsu` di `user_roles` DAN `role_palsu_2` di
+`user_role_assignments`) — FK benar-benar enforce, bukan sekadar dekoratif.
+
+Simulasi pra-apply: `261 byte-identik: TRUE` · `rollback kedua idempoten: TRUE` · gabungan
+261→262→RB262→RB261 byte-identik untuk seluruh state role.
+
+### 262 — J3: assignment transisi NRP001
+
+Temuan investigasi yang mengubah urgensi J3: rantai `authz_check_admin → authz_has_permission`
+**sudah live hari ini** dan membaca `user_role_assignments` — **bukan** `user_roles`. NRP001
+(CEO, `role='admin_pusat'`, level 5) tidak punya baris assignment, sehingga secara teknis
+kehilangan **50 permission** termasuk `employee.update`, `employee.view_all`, `leave.approve`,
+`payroll.process`, `audit.view`. Rantai ini menyentuh **15 policy RLS**.
+
+Jadi J3 bukan mitigasi untuk masa depan — itu **perbaikan kondisi yang sedang rusak**.
+
+| Gate (impersonasi claims, auth_id terverifikasi dari DB) | pre-262 | post-262 |
+|---|---|---|
+| `is_admin_or_owner()` | true | **true** |
+| `authz_check_admin('employee.update')` | **false** | **true** |
+| `authz_has_role('admin_pusat')` | **false** | **true** |
+| `authz_has_permission('audit.view')` | **false** | **true** |
+| `authz_has_permission('payroll.process')` | **false** | **true** |
+
+Baris: `id=45`, `admin_pusat`, `ENTERPRISE`, `BU04`, `is_primary=false`, `assigned_by='migration:262'`.
+`audit_log` id 662 tercatat (`actor='SYSTEM'` — apply berjalan tanpa JWT context, fail-safe yang
+diterima). Registry 187 / `max=262`.
+
+> ⚠️ **`262_rollback.sql` sengaja TIDAK memfilter `is_primary`.** Kalau di §10 assignment NRP001
+> di-upgrade jadi permanen dengan `is_primary=TRUE`, predicate rollback **harus diubah lebih dulu**
+> atau assignment permanen ikut terhapus. Peringatan ini tertanam di file rollback itu sendiri.
+
+### Pelajaran proses P9 — `audit_log` di dalam transaksi ikut ter-ROLLBACK
+
+Simulasi rollback 262 menunjukkan `audit_n` 582→583→584 lalu "tidak kembali". Itu **bukan
+drift**. Probe terpisah (B2.38) membuktikan:
+
+```
+T0 sebelum transaksi          : audit_log=582
+T1 di dalam trx, setelah 262   : audit_log=583   (+1, trigger 257)
+T2 di dalam trx, setelah RB    : audit_log=584   (DELETE juga tercatat)
+T3 SETELAH ROLLBACK transaksi  : audit_log=582   ← pulih
+```
+
+Pengukuran di dalam transaksi **sebelum** `ROLLBACK` selalu terlihat "menyimpang" untuk tabel
+yang punya trigger audit. Ukur ulang **setelah** `ROLLBACK`, di koneksi baru. `audit_log` punya
+`trg_audit_hash_chain` sendiri (bukan trigger audit generik), jadi tidak rekursif.
 
 ### §9b — Rencana rewiring 10 RPC (belum dieksekusi)
 
@@ -838,4 +914,5 @@ CI: hijau (types/lint/test/build) di HEAD setelah eksekusi.
 - 2026-09-30: **B2.5 — user mengoreksi AI Core soal sistem bisnis** ("ADMIN ya hanya ADMIN saja dia masuk, khusus page admin"). Investigasi ulang BU/sites/karyawan + peta halaman + role_page_access 48 baris + admin_roles + owner flow → **§5b ditambahkan** (termasuk 4 hal "perlu klarifikasi user").
 - 2026-09-30: **B2.8 — peta dependensi user_roles/user_role_assignments** (read-only): 32 RPC sebut user_roles, 5 RPC authz sebut user_role_assignments; RLS user_roles memanggil authz_* yang baca assignments; 0 FK/0 view; code hanya 3 file (password-reset ×2, ai-copilot ×1) + DetailPageFactory fallback.
 - 2026-10-02: **§9 blocker K/H/I CLOSED** — migrasi `257` (P1-F14-K: trigger audit `user_role_assignments`) + `258` (P2-F14-H, H2: `authz_in_scope` TEAM `manager_nrp` → `atasan_nrp`) + `259` (P2-F14-I, I2 tahap murah: cabut `admin_produksi` dari CHECK + `is_admin_or_owner`) + **`260`** (I2 tahap 2: hapus 3 `role_permission_sets` `admin_produksi`) DITERAPKAN. Registry 185 baris / `max=260`. `admin_produksi` = **0 di kelima tempat**. Uji negatif `23514` membuktikan CHECK `user_roles_role_check` benar-benar aktif. Dua item Work Queue baru: **P2-F14-L** (`role_code` tanpa CHECK/FK) + **P2-F14-M** (guard bahasa/volatilitas fungsi). Pelajaran **P7** (pre-image timestamp dari server, bukan driver — driver `pg` truncate ke 3 digit padahal kolom precision 6) dan **P8** (`verify:artifacts` buta terhadap perubahan `LANGUAGE`/`provolatile` karena jumlah fungsi tidak berubah).
+- 2026-10-03: **§9 blocker L2 + J3 CLOSED** — investigasi read-only memetakan state role sebelum desain, lalu migrasi `261` (master table `role_codes`, P2-F14-L) + `262` (assignment transisi NRP001, J3) DITERAPKAN; registry **187** baris / `max=262`. Keputusan desain user: seed **semua** role sah — 10 aktif dari 5 sumber + 3 reservasi (`owner`/`director`/`admin`) dengan `is_active=false`; `is_active` = metadata UI/docs, **bukan** gate runtime. Temuan utama investigasi: rantai `authz_check_admin → authz_has_permission` **sudah live** dan membaca `user_role_assignments` (bukan `user_roles`), sehingga NRP001 sejak awal kehilangan 50 permission — J3 memperbaiki kondisi yang sedang rusak. Uji negatif **23503** pada kedua FK. `P2-F14-L` → **PARTIAL** (sisa: guard test §12). Pelajaran **P9**: pengukuran di dalam transaksi sebelum `ROLLBACK` terlihat menyimpang untuk tabel berttrigger audit — ukur ulang setelah `ROLLBACK`.
 - 2026-09-30: **B3 — rencana eksekusi Fix #14 §7–§12 (Opsi C') ditulis** (data model, backfill, rewiring 10 RPC + 3 edge, perbaikan RPC rusak, test plan; docs only; HEAD 6e3920b) — menunggu APPROVE user sebelum commit. Riwayat pindah ke §13 (nomor §12 dipakai draft Test + verifikasi).

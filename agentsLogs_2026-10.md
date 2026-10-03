@@ -282,3 +282,147 @@ masih dipakai 10/6/3 role lain. `src/`, `tests/`, `supabase/functions/` tidak di
 > `role_page_access` / `role_permission_sets`. Satu-satunya sisa = whitelist di `admin_set_employee_role`
 > (§11 P2-F14-F, item OPEN terpisah — daftarnya masih memuat `admin_produksi` yang kini tak akan pernah
 > bisa melewati CHECK `user_roles_role_check`).
+## [2026-10-03] Fix #14 §9 blocker L2 + J3 CLOSED — migrasi 261 + 262
+
+**Commit:** (diisi setelah commit) · **Branch:** `migrasi-vite` · **HEAD sebelum:** `57cffe2`
+
+### Yang dikerjakan
+
+Dua blocker §9 yang tersisa ditutup: **L2** (master table role_code) dan **J3** (assignment transisi NRP001).
+
+### FASE A — Investigasi read-only (sebelum desain)
+
+Semua probe `BEGIN READ ONLY … ROLLBACK`; tidak ada write. Log: `.agents/logs/fix14-b23[5-9]*.log`
+
+**State role saat ini:** `user_roles` 17 baris (NRP001 `admin_pusat` level 5; NRP100–106 `admin_*` level 3; NRP002–010 `worker` level 1) · `user_role_assignments` **16** baris, **NRP001 = 0** · `admin_roles` 7 · `role_permission_sets` 25 baris / 10 role_code · `role_page_access` 48 baris / 7 role_code.
+
+**Daftar role_code (dipakai untuk seed 261):**
+
+| sumber | role_code distinct |
+|---|---|
+| 5 sumber data (union) | **10** — 7 `admin_*` + `manager`, `supervisor`, `worker` |
+| CHECK lama `user_roles_role_check` | **13** elemen |
+| diff (CHECK − 5 sumber) | **3** — `admin`, `director`, `owner` |
+| diff (5 sumber − CHECK) | **0** — tidak ada role hilang |
+| union final | **13** — persis sama dengan CHECK lama |
+
+Pre-image CHECK: `len=283`, `md5(pg_get_constraintdef)=bd4d0ad49d6c587a6b0f21a92434da12` (diambil dari server, pelajaran **P7**).
+
+**Constraint/FK existing di `user_role_assignments`:** PK + UNIQUE `(nrp, role_code, scope_type, scope_bu_id)`; **0 CHECK**, **0 FK**, **0 FK menunjuk ke tabel ini**. Tabel `role_codes` belum ada (`false`) → nama bebas.
+
+**Temuan utama — urgensi J3 bukan untuk masa depan.** Rantai berikut **sudah live** hari ini dan membaca `user_role_assignments`, bukan `user_roles`:
+
+```
+authz_check_admin(perm) → authz_has_permission(perm)
+  → JOIN user_role_assignments ura ON ura.nrp = authz_current_nrp()
+    JOIN role_permission_sets rps ON rps.role_code = ura.role_code
+```
+
+NRP001 (CEO) tidak punya baris assignment, sehingga secara teknis kehilangan **50 permission** termasuk `employee.update`, `employee.view_all`, `leave.approve`, `payroll.process`, `audit.view`. Rantai ini juga menyentuh **15 policy RLS**. Bukti (impersonasi claims, `auth_id` **terverifikasi dari DB** = `1e4c944e-60ba-4423-b5e8-997edd0beac8`):
+
+| gate | pre-J3 | post-J3 |
+|---|---|---|
+| `is_admin_or_owner()` | true | true |
+| `authz_check_admin('employee.update')` | **false** | **true** |
+| `authz_has_role('admin_pusat')` | **false** | **true** |
+| `authz_in_scope('NRP002')` | **false** | **true** |
+
+**Pemetaan RPC §9 (E1–E4):** **32** RPC masih baca `user_roles`; hanya **3** yang sudah baca `user_role_assignments` (`authz_has_permission`, `authz_has_role`, `admin_get_payroll`). Ketiganya (`is_admin_or_owner`, 2 overload `check_admin_access`) terbukti **belum** menyentuh assignments. 6 policy RLS memanggil `is_admin_or_owner`.
+
+**`admin_pusat` di `src/` (untuk §10 J1):** **61 file, 127 kemunculan** — teratas `AdminRouteGuard.tsx` 53 (peta akses per-path), `App.tsx` 2 (`allowedRoles` di route guard).
+
+**Nomor migrasi:** `schema_migrations` 185 baris, `max(version)=260` → **261/262 bebas**.
+
+### FASE B — Apply 261 (L2)
+
+```
+node supabase/scripts/apply-migration.mjs 261_fix14_role_codes_master_table.sql --apply
+status : DITERAPKAN + terdaftar + checksum terverifikasi (848ms)   EXIT_261=0
+```
+
+Isi: `CREATE TABLE role_codes(code PK, is_active, catatan, created_at)` + seed 13 (`ON CONFLICT DO NOTHING`) + FK `fk_ura_role_code` + FK `fk_ur_role` (dua-duanya `DO $$ … IF NOT EXISTS`) + `DROP CONSTRAINT user_roles_role_check`.
+
+**Deviasi dari rancangan awal (disengaja, fail-safe):** FK ditambahkan **lebih dahulu**, CHECK lama di-`DROP` **setelahnya**. Kalau urutannya dibalik dan `ADD FK` gagal, `user_roles` tertinggal **tanpa validasi sama sekali** di tengah migrasi. Keduanya satu transaksi → hasil akhir identik.
+
+**Desain `role_codes` = tabel mandiri, bukan FK ke `admin_roles`:** `manager` dan `supervisor` hanya hidup di `role_permission_sets` (terverifikasi) — kalau FK diarahkan ke `admin_roles` keduanya akan ditolak.
+
+Verifikasi post-apply:
+
+```
+registry            : {"version":"261","filename":"261_fix14_role_codes_master_table.sql"}
+role_codes          : 13 baris → {"is_active":true,"n":10} · {"is_active":false,"n":3}
+FK                  : fk_ur_role       FOREIGN KEY (role)      REFERENCES role_codes(code)
+                      fk_ura_role_code FOREIGN KEY (role_code) REFERENCES role_codes(code)
+CHECK lama          : 0 baris (hilang ✅)
+data utuh           : user_roles 17 · user_role_assignments 16
+registry            : n=186, max=261
+uji negatif 23503   : user_roles 'role_palsu'          → violates foreign key constraint "fk_ur_role"
+                      user_role_assignments 'role_palsu_2' → violates foreign key constraint "fk_ura_role_code"
+```
+
+### FASE C — Apply 262 (J3)
+
+```
+node supabase/scripts/apply-migration.mjs 262_fix14_assign_nrp001_transitional.sql --apply
+status : DITERAPKAN + terdaftar + checksum terverifikasi (817ms)   EXIT_262=0
+```
+
+```
+assignment  : {"id":45,"nrp":"NRP001","role_code":"admin_pusat","scope_type":"ENTERPRISE",
+               "scope_bu_id":"BU04","is_primary":false,"assigned_by":"migration:262"}
+total       : 17 (16 + 1)
+audit_log   : {"id":662,"actor":"SYSTEM","action":"INSERT user_role_assignments"}
+registry    : n=187, max=262
+C7 UTAMA    : {"ceo_gate":true,"emp_update":true,"has_role":true,"audit_view":true,
+               "payroll_process":true,"current_nrp":"NRP001",
+               "acc_admin":"{\"ok\": true, \"reason\": \"global_admin\", ...}"}
+             → is_admin_or_owner(NRP001) = true → J3 BERHASIL
+kontrol     : NRP105 (admin_mill, sudah punya assignment) = {"gate":false,"emp_update":false}
+```
+
+`actor='SYSTEM'` karena apply berjalan tanpa JWT context — fail-safe yang diterima.
+
+### FASE D — Gate
+
+`npm run verify:artifacts` → **2 drift yang diharapkan** (Tables dok=208 live=209 · Migrations tracked dok=185 live=187), `migration rows 187 OK`, `max(version) 262 OK`, 1 warning baseline Fix #9 · `npm run check:types` **EXIT 0** · `npm test` → setelah 4 klaim dokumen di-sync: **5 passed** di `doc-claims-vs-live`, suite penuh hijau (26 files).
+
+### Pelajaran proses P7 (reused) & P9 (baru)
+
+**P7** — pre-image CHECK diambil via `pg_get_constraintdef` **di sisi server**, bukan dari output driver. `261_rollback.sql` memakai definisi byte-exact tersebut; simulasi membuktikan `byte-identik: TRUE`.
+
+**P9 (baru)** — pengukuran **di dalam transaksi yang belum di-`ROLLBACK`** selalu terlihat "menyimpang" untuk tabel berttrigger audit. Simulasi 262 menunjukkan `audit_n` 582→583→584 lalu "tidak kembali". Probe terpisah membuktikannya artefak, bukan drift:
+
+```
+T0 sebelum transaksi          : audit_log=582
+T1 di dalam trx, setelah 262   : audit_log=583   (+1, trigger 257)
+T2 di dalam trx, setelah RB    : audit_log=584   (DELETE juga tercatat)
+T3 SETELAH ROLLBACK transaksi  : audit_log=582   ← pulih
+trigger: trg_audit_hash_chain (audit_log), trg_audit_user_role_assignments
+```
+
+`audit_log` punya `trg_audit_hash_chain` sendiri (bukan trigger generik) → tidak rekursif. **Aturan: ukur ulang setelah `ROLLBACK`, di koneksi baru.**
+
+### Simulasi pra-apply (semua ROLLBACK, tidak tersimpan)
+
+- `261 byte-identik: TRUE` · `261 rollback kedua idempoten: TRUE`
+- `262 pulih persis: TRUE` (data role) · `262 idempoten jalan 2×: TRUE` · `262 rollback kedua idempoten: TRUE`
+- Gabungan `261→262→RB262→RB261`: byte-identik untuk seluruh state role
+
+### 4 file baru
+
+`supabase/migrations/261_fix14_role_codes_master_table.sql` (117 baris, tanpa BEGIN/COMMIT — P4)
+`supabase/migrations/262_fix14_assign_nrp001_transitional.sql` (44 baris, tanpa BEGIN/COMMIT — P4)
+`supabase/scripts/rollback/261_rollback.sql` (47 baris, ada BEGIN/COMMIT)
+`supabase/scripts/rollback/262_rollback.sql` (30 baris, ada BEGIN/COMMIT)
+
+### ⚠️ Peringatan yang wajib dibawa ke §10
+
+**`262_rollback.sql` sengaja TIDAK memfilter `is_primary`.** Kalau di §10 assignment NRP001 di-upgrade jadi permanen dengan `is_primary=TRUE`, predicate rollback **harus diubah lebih dulu** atau assignment permanen ikut terhapus. Peringatan ini tertanam di file rollback itu sendiri.
+
+### Work Queue
+
+**P2-F14-L → PARTIAL** — FK terpasang (261, uji 23503 ✅). Sisa: guard test otomatis (§12). FK bisa dilepas tanpa `verify:artifacts` berteriak — kelas bug yang sama seperti **P2-F14-M**.
+
+### Dampak lintas-page: worker → admin → dashboard → owner
+
+**Tidak keempatnya.** Rinciannya: (1) **Worker** — 261/262 tidak menambah/mengubah kolom yang dibaca worker; `get_worker_status` tetap baca `user_roles`, tidak disentuh. (2) **Admin** — FK baru hanya menolak `role_code` yang tidak ada di master (tidak ada data existing yang ditolak, dibuktikan `user_roles` 17 + assignments 16 utuh); assignment NRP001 **menambah** akses, tidak mengurangi. (3) **Dashboard** — `is_admin_or_owner` kini `true` untuk NRP001 (sebelumnya sudah `true` juga, lewat `user_roles`), jadi tidak ada perubahan perilaku. (4) **Owner** — `role_codes` adalah tabel referensi baru, tidak ada UI/call yang membaca `is_active`; gate owner tetap `system_owner_identity` + bypass yang tidak disentuh. §8 sudah memberi NRP001 `role_level=5`, jadi tidak ada perubahan role level.
