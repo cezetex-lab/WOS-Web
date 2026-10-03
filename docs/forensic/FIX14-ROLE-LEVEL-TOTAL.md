@@ -712,11 +712,15 @@ CLOSED §8 karena itu dibangun di **bukti pengganti yang lebih kuat dari log app
 (3) state data live memenuhi DoD per-versi, (4) `prosrc`/`proconfig`/`prosecdef` live
 sesuai, (5) smoke gate tidak regresi, (6) commit `6ffc890` sudah di `origin/migrasi-vite`.
 
-## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I/L2/J3 **fully CLOSED** (2026-10-02 257/258/259/260 · 2026-10-03 261/262), rewiring belum
+## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I/L2/J3 **fully CLOSED** (2026-10-02 257/258/259/260 · 2026-10-03 261/262), **batch 263 CLOSED** — 9 RPC sisanya belum
 
-Enam blocker §9 sudah ditutup lewat migrasi `257`/`258`/`259`/`260`/`261`/`262` (DITERAPKAN +
-terdaftar + checksum terverifikasi, `schema_migrations` = **187** baris, `max(version)=262`).
-**Rewiring 10 RPC di bawah belum dieksekusi** — itu langkah berikutnya.
+Tujuh item §9 ditutup lewat migrasi `257`/`258`/`259`/`260`/`261`/`262`/`263` (DITERAPKAN +
+terdaftar + checksum terverifikasi, `schema_migrations` = **188** baris, `max(version)=263`).
+**Batch 263 (rewiring `is_admin_or_owner`, P2-F14-N) sudah Closed** — lihat blok `### 263` di bawah.
+Sisa **9 RPC** dari rencana §9b belum dieksekusi; itu batch 264–267.Plan 5 batch:
+`263` is_admin_or_owner ✅ · `264` check_admin_access · `265` get_current_user_context +
+get_user_context_by_auth_id · `266` verify_admin_otp_core + generate_admin_otp ·
+`267` admin_get_role_matrix + admin_set_employee_role.
 
 | Item | Migrasi | Yang diubah | Bukti apply |
 |---|---|---|---|
@@ -832,7 +836,112 @@ diterima). Registry 187 / `max=262`.
 > di-upgrade jadi permanen dengan `is_primary=TRUE`, predicate rollback **harus diubah lebih dulu**
 > atau assignment permanen ikut terhapus. Peringatan ini tertanam di file rollback itu sendiri.
 
-### Pelajaran proses P9 — `audit_log` di dalam transaksi ikut ter-ROLLBACK
+### 263 — Batch 1/5: rewire `is_admin_or_owner()` (P2-F14-N) + restore grant
+
+Applied 2026-10-03 (commit + registry 188 / `max(version)=263`, checksum
+`a9707149b0706c574ad6262a4aef5956eee6ad83e521a0b3b6f11c629f20dacb`).
+
+**MASALAH 1 — whitelist gerbang tidak lengkap (P2-F14-N).** Fungsi membaca role lewat
+`user_roles` dengan whitelist literal 4 dari 7 admin role:
+`IN ('owner','admin_pusat','admin_hrd','admin_finance')`. Hilang:
+`admin_operasional`, `admin_mining`, `admin_mill`, `admin_estate` — semuanya role_code
+aktif di `role_codes`, punya `role_page_access` sendiri, dan punya permission set khusus.
+
+**MASALAH 2 (temuan baru, blocking) — grant `authenticated` hilang sejak migrasi 172.**
+ACL live hanya `{postgres, service_role}`. Policy RLS dievaluasi dengan hak akses role
+PEMANGGIL, jadi keenam policy yang memanggil fungsi ini **tidak pernah bisa dievaluasi**:
+
+| policy | tabel | cmd |
+|---|---|---|
+| `ok_select` | hr_okrs | SELECT |
+| `of_select` | offboarding_checklist | SELECT |
+| `sc_select` | hr_succession_matrix | SELECT |
+| `bu_update` | business_units | UPDATE |
+| `hk_update` | hr_kpi_config | UPDATE |
+| `st_update` | settings | UPDATE |
+
+Akar: `172_hardening_grants.sql` `REVOKE EXECUTE ON ALL FUNCTIONS` dari
+PUBLIC/anon/authenticated lalu grant balik hanya daftar putih; `is_admin_or_owner` tidak ada
+di daftar itu (`git grep` = 0 hit). Bandingkan `authz_check_admin` / `authz_has_permission` /
+`authz_current_nrp` / `authz_in_scope` yang semuanya punya `authenticated=X`.
+
+**Bukti pre-263 (probe read-only, role=authenticated).** Tiga tabel policy SELECT gagal
+**42501 untuk SEMUA user** — bukan hanya 4 admin role, juga `admin_pusat` dan CEO:
+
+```
+NRP001..NRP106 + NRP002  SELECT hr_okrs              = 42501
+NRP001..NRP106 + NRP002  SELECT offboarding_checklist = 42501
+NRP001..NRP106 + NRP002  SELECT hr_succession_matrix = 42501
+NRP105 SELECT ai_rate_limits = OK:0   ← pembanding: authz_check_admin punya grant
+```
+
+Dampaknya **latent** — UI tidak membaca ketiga tabel itu langsung (`git grep hr_okrs -- src`
+= 0 hit; `Offboarding.tsx:95` memakai RPC `get_offboarding_checklist`), jadi tidak pernah
+ada user yang komplain. Tetap harus diperbaiki.
+
+**Body baru.** Blok pertama diganti ke `user_role_assignments` + pola `admin\_%` (underscore
+di-escape; tanpa escape `adminx` ikut cocok — dibuktikan live). Cabang `authz_is_owner()`
+ditambahkan karena owner (`a8a77284-…`) **tidak punya baris di `employees_core`** sehingga
+tidak bisa dicocokkan lewat `employees_master`, dan `user_roles.role='owner'` = 0 baris —
+tanpa cabang ini owner berubah jadi FALSE (regresi dari 247). Blok kedua yang lama
+(`user_roles.role='owner'`) dipertahankan apa adanya. `GRANT EXECUTE` ke `authenticated`
+ikut dalam berkas yang sama; **tidak** ada grant ke `anon`.
+
+**Bukti apply (query live pasca-263).**
+
+| Uji | Hasil |
+|---|---|
+| registry | `schema_migrations` 188 baris, `max(version)=263`, 1 baris version=263 |
+| prosrc | `ada_authz_is_owner=true`, `ada_ura=true`, `ada_pola_admin_escaped=true`, `masih_whitelist_lama=false`, `masih_ur_role_in=false` |
+| ACL | `{postgres=X/postgres, service_role=X/postgres, authenticated=X/postgres}` — tanpa `anon` |
+| attrs preservasi | `sql` · `s` · `secdef=true` · `{search_path=public, extensions}` · `boolean` |
+| C1 positif 9/9 | NRP001, NRP100, NRP101, NRP102, NRP103, NRP104, NRP105, NRP106, owner `a8a77284` → **true** |
+| C2 negatif 4/4 | NRP002 worker **false** · anon `{}` **42501** · anon ber-sub worker **42501** · sub asing **false** |
+| C3 policy RLS | 6 policy × 4 NRP (105/106/103/100) → semua **OK**, 0 × 42501 |
+| C4 fail-closed | worker 0 baris di 6 tabel; UPDATE baris nyata ditolak RLS |
+| rollback D4 | `md5(pg_get_functiondef)` `6c0fb3d3…` → `18a97b91…` → `6c0fb3d3…` **byte-identik**, ACL kembali persis |
+
+Perubahan inti: `admin_operasional`/`admin_mining`/`admin_mill`/`admin_estate`
+**false → true**; owner **tidak berubah** (tetap TRUE lewat `authz_is_owner()`); worker
+**tidak berubah** (tetap fail-closed).
+
+> ⚠️ **KLASIFIKASI TIDAK SEPADAT — 3 RPC di §9b TIDAK terpengaruh 263.** Investigasi
+> menunjukkan `get_worker_leave` / `get_worker_overtime` / `submit_voice` **tidak** memanggil
+> `is_admin_or_owner()` sama sekali; rantainya
+> `_is_admin_or_owner_caller()` → `authz_check_admin('employee.view_all')`. Grep substring
+> `%is_admin_or_owner%` menyesatkan karena nama helper itu mengandung `is_admin_or_owner`.
+> NRP105 tetap `"Akses ditolak."` pada `get_worker_leave` — dan itu perilaku yang benar
+> menurut permission, bukan bug grant. Item: **P2-F14-P**.
+
+> ⚠️ **61 dari 208 tabel RLS tidak punya policy SELECT sama sekali** (default-deny).
+> Termasuk `business_units` dan `settings`: policy `bu_select`/`st_select` yang dibuat
+> migrasi `083` (`USING (TRUE)`) **tidak ada lagi di live**, jadi kedua tabel itu `SELECT 0
+> baris` untuk siapa pun — termasuk `admin_pusat` meski `is_admin_or_owner()=true`.
+>Ini **tidak** terkait 263 (policy 263 sudah dievaluasi normal). Item: **P2-F14-Q**.
+
+### Pelajaran proses P10 — whitelist grant yang melewatkan fungsi kritis
+
+Kelas bug berulang yang harus di-hole. `172_hardening_grants.sql` Intentional "end-state
+deterministik: revoke semua, grant minimal" — tapi daftar putih itu **dipilih manual** dan
+fungsi yang tidak masuk daftar **mati senyap**, bukan error yang terlihat. Gejalanya:
+policy RLS tetap tertulis di `pg_policies`, jadi `verify:artifacts` menghitungnya sebagai
+policy yang ada; yang mati adalah **permission untuk mengevaluasinya**. Tidak ada guard
+mana pun yang membandingkan `proacl` fungsi terhadap daftar policy yang memanggilnya.
+Migrasi 263 menutup satu kasus; **46 fungsi lain** di `public` juga tidak punya
+`EXECUTE` untuk `authenticated` (Work Queue **P1-ACL-AUDIT**).
+
+Aturan turunan: setiap policy RLS yang memanggil `SECURITY DEFINER` helper WAJIB punya
+`EXECUTE` untuk role yang di-shadow. Menambah policy tanpa grant = policy mati.
+
+### Pelajaran proses P11 — grep substring menyesatkan untuk memetakan caller
+
+`prosrc ILIKE '%is_admin_or_owner%'` mengembalikan 5 pemanggil, dan itu **salah 3**:
+`_is_admin_or_owner` dan `_is_admin_or_owner_caller` mengandung string itu sebagai
+**substring nama**, lalu `get_worker_leave`/`get_worker_overtime`/`submit_voice` memanggil
+*helper* itu, bukan `is_admin_or_owner`. Rantai sebenarnya lewat `authz_check_admin`.
+Verifikasi caller harus baca `pg_get_functiondef` per fungsi, bukan Uncategorized
+
+
 
 Simulasi rollback 262 menunjukkan `audit_n` 582→583→584 lalu "tidak kembali". Itu **bukan
 drift**. Probe terpisah (B2.38) membuktikan:
@@ -848,11 +957,11 @@ Pengukuran di dalam transaksi **sebelum** `ROLLBACK` selalu terlihat "menyimpang
 yang punya trigger audit. Ukur ulang **setelah** `ROLLBACK`, di koneksi baru. `audit_log` punya
 `trg_audit_hash_chain` sendiri (bukan trigger audit generik), jadi tidak rekursif.
 
-### §9b — Rencana rewiring 10 RPC (belum dieksekusi)
+### §9b — Rencana rewiring 10 RPC (1/10 selesai via 263; sisanya belum)
 
 Ubah dari baca user_roles.role → baca admin_role via user_role_assignments.role_code (JOIN role_permission_sets sesuai authz_has_permission existing):
 
-1. is_admin_or_owner
+1. is_admin_or_owner ✅ **CLOSED via 263**
 2. check_admin_access
 3. get_my_admin_modules
 4. get_current_user_context
@@ -901,6 +1010,21 @@ Regression:
 - RLS user_roles masih valid (authz_* tetap lewat assignments)
 
 CI: hijau (types/lint/test/build) di HEAD setelah eksekusi.
+
+### 2026-10-03 — Batch 263 CLOSED (P2-F14-N) + grant restoration
+
+Keputusan: **Opsi 1** (rewire + `GRANT EXECUTE` dalam satu migrasi `263`), bukan dipisah
+menjadi dua nomor. Alasan: tanpa grant, 6 policy RLS tetap 42501 dan hasil fix tidak bisa
+diobservasi sama sekali — memisahkannya hanya menambah satu titik gagal di tengah.
+
+Hasil: `263` DITERAPKAN + terdaftar + checksum terverifikasi; registry 188 / `max=263`;
+C1 9/9 positif, C2 4/4 negatif, C3 6 policy tanpa 42501, C4 worker tetap fail-closed,
+rollback byte-identik. 4 item Work Queue didaftarkan: **P2-F14-O** (wrapper
+`rpcGetWorkerStatus` tanpa `p_nrp`), **P1-ACL-AUDIT** (46 fungsi tanpa grant
+`authenticated`), **P2-F14-P** (`employee.view_all` hanya dimiliki `admin_hrd` +
+`admin_pusat`), **P2-F14-Q** (61 tabel RLS tanpa policy SELECT). Pelajaran baru **P10**
+(whitelist grant yang melewatkan fungsi kritis) dan **P11** (grep substring menyesatkan
+untuk memetakan caller).
 
 ## §13 Riwayat keputusan
 - 2026-09-30: user menetapkan peta level 1-5 + owner terpisah + multi-view.

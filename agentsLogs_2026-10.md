@@ -426,3 +426,130 @@ trigger: trg_audit_hash_chain (audit_log), trg_audit_user_role_assignments
 ### Dampak lintas-page: worker → admin → dashboard → owner
 
 **Tidak keempatnya.** Rinciannya: (1) **Worker** — 261/262 tidak menambah/mengubah kolom yang dibaca worker; `get_worker_status` tetap baca `user_roles`, tidak disentuh. (2) **Admin** — FK baru hanya menolak `role_code` yang tidak ada di master (tidak ada data existing yang ditolak, dibuktikan `user_roles` 17 + assignments 16 utuh); assignment NRP001 **menambah** akses, tidak mengurangi. (3) **Dashboard** — `is_admin_or_owner` kini `true` untuk NRP001 (sebelumnya sudah `true` juga, lewat `user_roles`), jadi tidak ada perubahan perilaku. (4) **Owner** — `role_codes` adalah tabel referensi baru, tidak ada UI/call yang membaca `is_active`; gate owner tetap `system_owner_identity` + bypass yang tidak disentuh. §8 sudah memberi NRP001 `role_level=5`, jadi tidak ada perubahan role level.
+## [2026-10-03] Fix #14 §9 **batch 263 CLOSED** — rewire `is_admin_or_owner` + restore grant `authenticated` (P2-F14-N)
+
+- **Status: CLOSED.** Migrasi `263` DITERAPKAN ke DB live lewat wrapper `apply-migration.mjs --apply`, diverifikasi, di-commit, di-push ke `origin/migrasi-vite`. Entrinya menutup kewajiban §0.4 untuk batch 1 dari 5 (rencana `263`–`267`).
+- **Keputusan user: Opsi 1** — rewire body + `GRANT EXECUTE` dalam **satu** migrasi, bukan dipecah dua nomor. Alasan yang diuji: tanpa grant, 6 policy RLS tetap `42501` dan hasil fix tidak bisa diobservasi sama sekali; memecah hanya menambah satu titik gagal di tengah.
+- **Berkas (2):**
+  - `supabase/migrations/263_fix14_is_admin_or_owner_rewire.sql` (119 baris, sha256 `a9707149b0706c574ad6262a4aef5956eee6ad83e521a0b3b6f11c629f20dacb`) — **tanpa** BEGIN/COMMIT (P4).
+  - `supabase/scripts/rollback/263_rollback.sql` (53 baris, sha256 `ffce8d18620b9494a1aea3dab805719fdb10241cf56079c70d3e569a89c2ba89`) — dengan BEGIN/COMMIT (psql manual).
+- **Dokumentasi tersinkron (5):** `ARCHITECTURE.md` §7.4 (187→188, Fact 2026-10-03), `FIX14-ROLE-LEVEL-TOTAL.md` §9 (blok `### 263` + P10/P11 + §13), `FORENSIC-INDEX.md` (4 Work Queue + blok bukti), `CONSTANTS-INVENTORY.md` (188/max 263), `AGENTS.md` §5.8 (N CLOSED + O/P/Q/P1-ACL-AUDIT + P10/P11).
+
+### Dua masalah yang ditutup dalam satu migrasi
+
+**MASALAH 1 — P2-F14-N, whitelist gerbang tidak lengkap.** `is_admin_or_owner()` membaca role lewat `user_roles` dengan whitelist literal 4 dari 7 admin role: `IN ('owner','admin_pusat','admin_hrd','admin_finance')`. Yang hilang: `admin_operasional`, `admin_mining`, `admin_mill`, `admin_estate` — keempatnya `is_active=TRUE` di `role_codes`, punya `role_page_access` sendiri, dan punya permission set khusus (`supervisor_ext` / `mining_ops` / `mill_ops` / `estate_ops`).
+
+**MASALAH 2 — temuan BARU saat investigasi, blocking: grant `authenticated` hilang sejak migrasi 172.** ACL live hanya `{postgres, service_role}`. Policy RLS dievaluasi dengan hak akses role **pemanggil**, jadi keenam policy yang memanggil fungsi ini tidak pernah bisa dievaluasi:
+
+```
+business_units.bu_update        [UPDATE]  is_admin_or_owner()
+hr_kpi_config.hk_update         [UPDATE]  is_admin_or_owner()
+hr_okrs.ok_select               [SELECT]  (nrp = <self>) OR is_admin_or_owner()
+hr_succession_matrix.sc_select  [SELECT]  is_admin_or_owner()
+offboarding_checklist.of_select [SELECT]  is_admin_or_owner()
+settings.st_update              [UPDATE]  is_admin_or_owner()
+```
+
+Akar: `172_hardening_grants.sql` `REVOKE EXECUTE ON ALL FUNCTIONS` dari PUBLIC/anon/authenticated lalu grant balik **hanya daftar putih manual**; `is_admin_or_owner` tidak ada di daftar itu (`git grep is_admin_or_owner -- supabase/migrations/172_hardening_grants.sql` = **0 hit**). Bandingkan `authz_check_admin` / `authz_has_permission` / `authz_current_nrp` / `authz_in_scope` yang semuanya punya `authenticated=X`.
+
+### Bukti pre-263 — 42501 untuk SEMUA user, bukan hanya 4 admin
+
+```
+[PRE] NRP001..NRP106 + NRP002  SELECT hr_okrs              = 42501
+[PRE] NRP001..NRP106 + NRP002  SELECT offboarding_checklist = 42501
+[PRE] NRP001..NRP106 + NRP002  SELECT hr_succession_matrix = 42501
+[PRE] NRP105 SELECT ai_rate_limits = OK:0   ← pembanding: authz_check_admin punya grant
+[PRE] NRP105 SELECT api_keys        = OK:0
+[PRE] NRP105 SELECT api_rate_limits = OK:0
+```
+
+Status **latent**: UI tidak membaca ketiga tabel itu langsung (`git grep hr_okrs -- src` = 0 hit; `Offboarding.tsx:95` memakai RPC `get_offboarding_checklist`), jadi tidak pernah ada user yang komplain.
+
+### Perubahan body
+
+```
+- AND ur.role IN ('owner', 'admin_pusat', 'admin_hrd', 'admin_finance')
++     AND ura.role_code LIKE 'admin\_%'
+```
+
+blok pertama pindah dari `user_roles` ke `EXISTS` atas `user_role_assignments` JOIN `employees_master`; cabang `authz_is_owner()` ditambahkan di akhir; blok kedua yang lama (`user_roles.role='owner'`) dipertahankan apa adanya. Alasannya dua:
+
+1. Pola ditulis `admin\_%` (underscore di-escape), bukan `admin_%` polos — tanpa escape `adminx` ikut cocok. Pada 13 baris `role_codes` live hasil keduanya identik (`beda = 0`), jadi ini tidak mengubah perilaku sekarang, hanya menutup celah kalau nanti ada kode liar. Bukti semantik live: `'admin_pusat' LIKE 'admin\_%'` = true, `'adminx'` = false, `'admin'` = false.
+2. Cabang `authz_is_owner()` wajib ada karena owner (`a8a77284-…`, **diverifikasi ke `system_owner_identity`**, bukan placeholder) punya `employees_core` = **0 baris** — tidak bisa dicocokkan lewat `employees_master` sama sekali, dan `user_roles.role='owner'` = **0 baris** juga (mati secara struktural). Tanpa cabang ini owner berubah jadi FALSE, yaitu regresi dari perilaku migrasi 247.
+
+### Bukti apply (mentah, `BEGIN READ ONLY` … `ROLLBACK`)
+
+**B1 stdout wrapper:**
+```
+berkas    : 263_fix14_is_admin_or_owner_rewire.sql
+versi     : 263
+checksum  : a9707149b0706c574ad6262a4aef5956eee6ad83e521a0b3b6f11c629f20dacb
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (648ms)
+```
+
+**B3–B7 query pasca-apply:**
+```
+{"version":"263","filename":"263_fix14_is_admin_or_owner_rewire.sql"}
+{"total":188,"max_version":"263"}
+ada_pola_admin_escaped=true  ada_ura_alias=true  ada_authz_is_owner=true
+masih_whitelist_lama=false   masih_ur_role_in=false
+acl = {postgres=X/postgres, service_role=X/postgres, authenticated=X/postgres}
+attrs = {bahasa:"sql", volatilitas:"s", secdef:true, config:{search_path=public, extensions}, ret:"boolean"}
+md5(pg_get_functiondef) = 18a97b91ebd8152f788fc7b72fb8f454  (pre: 6c0fb3d3ca5a10e2f789f295790d33c7)
+audit_log 583 → 583   user_role_assignments 17 → 17   (tidak tersentuh)
+```
+
+**C1 positif 9/9:** NRP001, NRP100, NRP101, NRP102, NRP103, NRP104, NRP105, NRP106, owner `a8a77284` → `is_admin_or_owner() = true`.
+
+**C2 negatif 4/4:** NRP002 worker `false` · anon `{}` **42501** · anon ber-sub worker **42501** · authenticated sub asing `false`. Tidak ada grant ke `anon` — fail-closed terbukti.
+
+**C3 policy RLS:** 6 policy × 4 NRP (105/106/103/100) → semua **OK, 0 × 42501**.
+
+**C4 fail-closed (bukti definitif, bukan "kebetulan 0 baris"):** admin `NRP100`/`NRP105` meng-update baris `business_units` id `BU01` yang **benar-benar ada** (sanity: 1 baris) → policy dievaluasi; worker `NRP002` meng-update **baris yang sama** → **0 baris ter-update** karena RLS menyaring. Enam tabel dari sudut worker: `SELECT` 0 baris, `UPDATE` 0 baris.
+
+**Rollback byte-identik (D4, simulasi pra-apply):**
+```
+pre      md5(pg_get_functiondef) = 6c0fb3d3ca5a10e2f789f295790d33c7  len 547  acl {postgres,service_role}
+apply    md5                     = 18a97b91ebd8152f788fc7b72fb8f454  len 544  acl {postgres,service_role,authenticated=X}
+rollback md5                     = 6c0fb3d3ca5a10e2f789f295790d33c7  len 547  acl {postgres,service_role}   ← identik
+```
+`md5(prosrc)` `d3ccc554…` kembali persis; panjang identik; ACL persis sama. `schema_migrations` tidak tersentuh (187/262 → 187/262 di dalam simulasi).
+
+### Gate
+
+| Gate | Hasil |
+|---|---|
+| `verify:artifacts` | 1 drift **dokumen** (dok=187 live=188) → sinkron di entri ini, lalu EXIT 0 |
+| `check:types` | **EXIT 0** |
+| `npm test` | run-1 gagal `vitest-pool` timeout (2 file tak sempat start; **lolos 19/19 saat diisolasi** → bukan regresi). run-2: 26 file, **169 passed \| 4 todo**, 1 gagal = `doc-claims-vs-live` yang tepat menunjuk drift 187→188. Setelah sync → hijau |
+| `npm run test:a11y` | **4/6 PASS**. 2 test owner gagal: `storageState` owner dibuat 24 Sep, token sudah kedaluwarsa → halaman mendarat di `/owner/login` yang punya violation `label` **critical** pada `input[type=email]`. **Bukan regresi 263** — `is_admin_or_owner` tidak menyentuh render. Bug `OwnerLogin.tsx:62` (`<label>` tanpa `htmlFor`) dicatat terpisah |
+
+### Dampak lintas-page
+
+- **worker** → **tidak berubah**: `is_admin_or_owner()` tetap `false`, 6 policy RLS tetap fail-closed (0 baris, UPDATE ditolak). Tidak ada akses baru.
+- **admin_pusat / admin_hrd / admin_finance / CEO** → **tidak berubah** di hasil fungsi, tapi **6 policy RLS berhenti error 42501**. Sebelumnya halaman yang membaca `hr_okrs` / `offboarding_checklist` / `hr_succession_matrix` akan gagal total untuk semua orang, termasuk mereka.
+- **admin_operasional / admin_mining / admin_mill / admin_estate** → **perubahan nyata**: `is_admin_or_owner()` **false → true**, sehingga 3 policy SELECT + 3 policy UPDATE aktif untuk mereka. Ini inti fix P2-F14-N.
+- **dashboard** → tidak ada panggilan langsung ke fungsi ini;tergantung secara transitif dari policy RLS yang kini hidup.
+- **owner** → **tidak berubah** (`authz_is_owner()` sudah TRUE lewat 247); cabang itu hanya dipagari agar tidak jadi FALSE.
+
+### Work Queue yang diperbarui
+
+| ID | Status | Isi |
+|---|---|---|
+| **P2-F14-N** | ✔ **CLOSED** (263) | whitelist 4 role → `user_role_assignments` `admin\_%` |
+| **P2-F14-O** | ⚠ **NEW** | wrapper `rpcGetWorkerStatus` (`src/lib/supabase-rpc.ts:87`) tanpa `p_nrp` |
+| **P1-ACL-AUDIT** | ⚠ **NEW** | **46** fungsi `public` tanpa `EXECUTE` untuk `authenticated`; sprint audit menyeluruh, 263 menutup 1 dari 46 |
+| **P2-F14-P** | ⚠ **NEW** | `employee.view_all` hanya dimiliki `admin_hrd` + `admin_pusat` → 4 admin industri `authz_check_admin(...) = false`; **butuh keputusan user** |
+| **P2-F14-Q** | ⚠ **NEW** | **61 dari 208** tabel RLS tanpa policy SELECT (termasuk `business_units`, `settings` — `bu_select`/`st_select` dari `083` hilang). **Tidak terkait 263** |
+
+### Pelajaran proses baru
+
+**P10 — whitelist grant yang melewatkan fungsi kritis.** `172_hardening_grants.sql` bermaksud "end-state deterministik: revoke semua, grant minimal", tapi daftar putih dipilih manual dan fungsi yang tidak masuk daftar **mati senyap** selama berbulan-bulan. Policy RLS tetap tertulis di `pg_policies`, jadi `verify:artifacts` menghitungnya sebagai policy yang **ADA** — yang mati adalah *permission untuk mengevaluasinya*, dan tidak ada guard mana pun yang menangkapnya. Aturan turunan: **setiap policy RLS yang memanggil helper `SECURITY DEFINER` WAJIB punya `EXECUTE` untuk role yang di-shadow**; menambah policy tanpa grant = policy mati. Item turunan: **P1-ACL-AUDIT**.
+
+**P11 — grep substring menyesatkan untuk memetakan caller.** `prosrc ILIKE '%is_admin_or_owner%'` mengembalikan 5 pemanggil dan **salah 3**: `_is_admin_or_owner` / `_is_admin_or_owner_caller` hanya mengandung string itu sebagai **substring nama**, lalu `get_worker_leave` / `get_worker_overtime` / `submit_voice` memanggil *helper* itu, bukan `is_admin_or_owner`. Rantai sebenarnya: `_is_admin_or_owner_caller()` → `authz_check_admin('employee.view_all')`. Verifikasi caller harus baca `pg_get_functiondef` per fungsi, bukan mengandalkan substring.
+
+### Catatan untuk batch berikutnya
+
+- §9b dikoreksi: hanya **1 dari 10** RPC yang selesai. `263` = `is_admin_or_owner`. Sisa: `check_admin_access` (264, termasuk DROP overload 0-arg), `get_current_user_context` + `get_user_context_by_auth_id` (265), `verify_admin_otp_core` + `generate_admin_otp` (266), `admin_get_role_matrix` + `admin_set_employee_role` (267).
+- `check_admin_access()` (kedua overload) juga **tidak** punya `EXECUTE` untuk `authenticated` (`{postgres, service_role}`) dan **0 policy** memanggilnya — kalau memang tidak dipakai, **DROP** lebih murah daripada rewrite.
+- `263_rollback.sql` mengembalikan policy RLS ke kondisi **42501 untuk semua user**. Itu restore yang jujur, tapi kalau sistem ini butuh policy itu hidup, jangan rollback 263 — perbaiki forward.

@@ -18,7 +18,7 @@ Metode: `git grep -E` (rg rusak di lingkungan kerja ini) + pembacaan kode guard.
 |---|---|---|---|---|
 | ARCHITECTURE.md:131 (§7.4) | Tables | 208 | `verify:artifacts` + `doc-claims-vs-live` | vs `pg_class` relkind r/p non-partisi; 209 jika view dihitung |
 | ARCHITECTURE.md:132 (§7.4) | Functions | 658 (+20 overloads) | `verify:artifacts` + `doc-claims-vs-live` | overloads = query `HAVING count(*)>1`, dijaga terpisah |
-| ARCHITECTURE.md:133 (§7.4) | Migrations tracked | 187 (max 262) | `verify:artifacts` + `doc-claims-vs-live` | vs `schema_migrations`; max(version) dijaga verify:artifacts. Nilai ini rose 179→181 (Fix #5 migrasi 254) → 184 (Fix #14 §8 255/256 + §9 257/258/259) → 185 (migrasi 260) → 187 (261 `role_codes` + 262 assignment NRP001); kolom ini pernah tertinggal 2× karena `verify:artifacts` tidak dijalankan langsung setelah apply |
+| ARCHITECTURE.md:133 (§7.4) | Migrations tracked | 188 (max 263) | `verify:artifacts` + `doc-claims-vs-live` | vs `schema_migrations`; max(version) dijaga verify:artifacts. Nilai ini rose 179→181 (Fix #5 migrasi 254) → 184 (Fix #14 §8 255/256 + §9 257/258/259) → 185 (migrasi 260) → 187 (261 `role_codes` + 262 assignment NRP001) → 188 (263 rewire `is_admin_or_owner` + restore grant `authenticated`); kolom ini pernah tertinggal 2× karena `verify:artifacts` tidak dijalankan langsung setelah apply, dan **tertilang sekali lagi tepat setelah 263** — akar masalahnya sama: verify harus dijalankan segera setelah apply, bukan nanti |
 | **`role_codes` jumlah baris** (BARU 2026-10-03) | `role_codes` | **13** (10 `is_active=true` + 3 `false`) | `verify:artifacts` (tidak ada) + probe manual | Master role_code setelah migrasi 261. 10 = union 5 sumber data; 3 = `owner`/`director`/`admin` dari CHECK lama tanpa data. `is_active` = **metadata UI/docs, BUKAN gate runtime** — gate tetap rantai `authz_has_permission → role_permission_sets`. Belum ada guard otomatis; naik/turun harus selalu lewat migrasi |
 | ARCHITECTURE.md:134 (§7.4) | RLS policies | 225 (10 belum FORCE) | `verify:artifacts` + `doc-claims-vs-live` | No-FORCE=10 dijaga keduanya |
 | ARCHITECTURE.md:135 (§7.4) | SECDEF search_path violations | 0 | `doc-claims-vs-live` | |
@@ -82,10 +82,10 @@ npm scripts terkait (package.json): `verify:artifacts`, `verify:test-count`, `te
 | §7.4 Audit chain 526 | (sengaja tidak) | ✔ `>=` | | | prose snapshot |
 | §7.3 TS total/src/tests/config (4) | ✔ | ✔ | | | |
 | §7.5 Unit tests total/berkas (2) | | (baris .ts/.tsx) | ✔ | | |
-| §7.5 max(version)=262 | ✔ | | | | |
+| §7.5 max(version)=263 | ✔ | | | | |
 | FuturePlans Tables/Functions/Overloads/Audit (4) | | ✔ | | | |
 | SECURITY.md rollback 18 / migrasi 141/215/220 | | | | | ✔ TANPA guard |
-| FORENSIC-INDEX migrasi 251–262/187 (duplikat klaim) | | | | | ✔ TANPA guard |
+| FORENSIC-INDEX migrasi 251–263/188 (duplikat klaim) | | | | | ✔ TANPA guard |
 | FORENSIC-INDEX batch 88/122 + tabel severity | | | | | ✔ TANPA guard (histori) |
 | Baseline docs snapshot (209/155/cap 173/replay 212) | | | | | ✔ TANPA guard (snapshot alat) |
 | Magic number test (30, 17, 23505, …) | | | | logika test masing-masing | inventaris manual |
