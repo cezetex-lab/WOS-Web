@@ -234,8 +234,6 @@ export async function initSession(): Promise<UserSession | null> {
           role: data.role,
           role_level: data.role_level,
           business_unit_id: data.business_unit_id,
-          divisi: data.divisi,
-          posisi: data.posisi,
           is_owner: data.is_owner || data.role === 'owner',
           email: data.email,
         };

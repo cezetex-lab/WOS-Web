@@ -786,3 +786,107 @@ Gate pertama pasca-sync ternyata masih merah satu kali: skrip sync dokumen v2 me
 **Pelajaran P14** — sync berbasis replacement **tidak boleh** divalidasi dengan "skrip exit 0". Skrip v2 sukses, 0 duplikasi, 0 lone CR, dan tetap meninggalkan dokumen **tidak sinkron** karena target replacement-nya memilih pola yang tidak memuat angka tabel §7.4. Pintu yang benar: rerun gate (**`verify:artifacts`** harus hijau) barulah sync dianggap selesai — kelas bug yang sama dengan P8 (jumlah fungsi hijau ≠ atribut fungsi benar). Untuk sync berikutnya: assert `dok == live` per metrik, bukan hanya keberhasilan skrip.
 
 Dampak lintas-page: worker → admin → dashboard → owner **tidak terdampak** — addendum hanya mencatat temuan proses + bukti gate; tidak ada byte `src/`, DB, RPC, RLS, menu, route, atau design system yang berubah.
+## [2026-10-04] Fix #14 §9 batch 266 CLOSED — apply `266_fix14_by_auth_id_rewire_and_cleanup.sql` (rewire `by_auth_id` + hapus auto-repair UPDATE) + U1a
+
+- **Status: CLOSED.** Migrasi `266` DITERAPKAN ke DB live, diverifikasi, di-commit, di-push ke `origin/migrasi-vite`.
+- **Berkas migrasi:** `supabase/migrations/266_fix14_by_auth_id_rewire_and_cleanup.sql` (92 baris, sha256 `22c370546ad6bc9a7fecaf3cfab9b8d18852cf005cc138289b3268655d44d3a9`) + jalur pemulihan `supabase/scripts/rollback/266_rollback.sql` (76 baris, sha256 `8d5985751b894f6a886bb5a2ac1d5531d59c0409730139f48b35d01bc5c57af0`).
+- **Keputusan user:** **S1** (hapus blok `UPDATE`), **T2** (owner tetap by-design — tanpa bypass di `by_auth_id`), **U1a** (hapus 4 field interface `divisi?`/`posisi?`). Ini batch terakhir §9 rewiring; 267 (OTP), 268 (matrix+set_role) menyusul.
+
+### Perubahan (4 hunk, tidak ada yang lain)
+
+Dibuktikan *inverse proof*: body baru dengan 4 hunk dibalik ke bentuk lama **===** pre-image persis (`TRUE`).
+
+1. `DECLARE`: tambah `v_assign_role TEXT;`
+2. **Hapus** blok `IF FOUND THEN UPDATE employees_master SET auth_id = p_auth_id WHERE nrp = v_emp.nrp; END IF;` — satu-satunya jalur tulis di fungsi "get" (S1/P2-F14-S); fallback baca via email TETAP (SELECT tanpa efek tulis).
+3. Tambah `SELECT a.role_code INTO v_assign_role FROM user_role_assignments a WHERE a.nrp = v_emp.nrp ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC LIMIT 1;`
+4. `RETURN`: `'role'` → `COALESCE(v_assign_role, v_role.role, 'worker')`
+
+**Sengaja tidak berubah:** `role_level` / `bu` / `unit_code` / `tier` / `divisi` / `jabatan` · signature `(p_auth_id uuid) -> jsonb` + urutan key · attrs (plpgsql/VOLATILE/SECDEF/`search_path`) + ACL · **tanpa** owner bypass (T2 — owner lewat `OwnerLogin`; `by_auth_id` tetap `{"ok":false}` untuk owner, `Home.tsx` tidak diubah).
+
+### Bukti apply (mentah)
+
+```
+$ node supabase/scripts/apply-migration.mjs --apply --file supabase/migrations/266_fix14_by_auth_id_rewire_and_cleanup.sql
+berkas    : 266_fix14_by_auth_id_rewire_and_cleanup.sql
+versi     : 266
+checksum  : 22c370546ad6bc9a7fecaf3cfab9b8d18852cf005cc138289b3268655d44d3a9
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (1230ms)
+EXIT=0
+```
+
+| Uji | Hasil |
+|---|---|
+| B3 registry | `{"version":"266","filename":"266_fix14_by_auth_id_rewire_and_cleanup.sql","checksum":"22c37054..."}` |
+| B4 oid | **298467 preserved** (CREATE OR REPLACE — bukan DROP+CREATE) |
+| B5 attrs | plpgsql · `provolatile='v'` · `prosecdef=true` · `proconfig=["search_path=public, extensions"]` · `ret=jsonb` — preserved |
+| B5 ACL | `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}` · `auth=true anon=false svc=true` |
+| B6 prosrc | `v_assign_role`=true · `user_role_assignments`=true · `UPDATE employees_master`=**false** · `md5(def)` `9cf05457...` · `md5(prosrc)` `c19ec787...` · def 1666→1922 · prosrc 1470→1726 |
+| B7 registry | count=**191** · `max(version)=266` |
+| `Functions` | tetap **656** (266 tidak menambah fungsi) |
+
+### C1 — netralitas 8/8 byte-identik (post-apply vs baseline pre-266)
+
+```
+PASS  NRP001    ctx={"ok": true, "nrp": "NRP001", ... "role": "admin_pusat", "role_level": 5, ...}
+PASS  NRP002    ctx={"ok": true, "nrp": "NRP002", ... "role": "worker", "role_level": 1, ...}
+PASS  NRP100    ctx={"ok": true, "nrp": "NRP100", ... "role": "admin_pusat", "role_level": 3, ...}
+PASS  NRP101    ctx={"ok": true, "nrp": "NRP101", ... "role": "admin_hrd", "role_level": 3, ...}
+PASS  NRP102    ctx={"ok": true, "nrp": "NRP102", ... "role": "admin_finance", "role_level": 3, ...}
+PASS  NRP105    ctx={"ok": true, "nrp": "NRP105", ... "role": "admin_mill", "role_level": 3, "unit_code": "MILL", ...}
+PASS  OWNER     ctx={"ok": false, "msg": "Akun tidak ditemukan. Email: owner@insightwos.com"}
+PASS  ZERO_UUID ctx={"ok": false, "msg": "Akun tidak ditemukan. Email: null"}
+PASS  C1 netralitas — 8/8 byte-identik
+```
+
+### C2 — uji S1: auto-repair mati + C1c dampak
+
+NRP002 `auth_id=NULL` di dalam tx, lalu panggil `by_auth_id` dengan `auth_id` aslinya:
+
+```
+{
+  "call_ctx_text": "{\"ok\": true, \"nrp\": \"NRP002\", ... \"role\": \"worker\", \"role_level\": 1, ...}",
+  "auth_id_sebelum_rollback_master": null,
+  "auth_id_sebelum_rollback_core": null,
+  "repaired": false,
+  "ctx_identik_dengan_baseline_NRP002": true
+}
+PASS  C2 auto-repair MATI — repaired=false (auth_id tetap NULL di dalam tx)
+PASS  C2 baca tetap utuh — ctx identik baseline NRP002
+PASS  C2 rollback utuh — auth_id pasca-rollback=55f100d8-c215-435c-942a-d2502e5119d7
+```
+
+Catatan jujur: ekspektasi awal prompt (`{"ok":false}`) terlalu kuat — fallback **baca** via email memang tetap ada; delta S1 yang benar adalah hilangnya **efek tulis** (inilah yang diuji `repaired=false`), dan itu persis hasil G2 dry-run. C1c: **0 baris** `employees_master` email-match `auth.users` dengan `auth_id` beda → jalur UPDATE tidak terjangkau pada data sekarang; 1 `auth.users` tanpa employee link = owner (T2, memang tidak lewat `by_auth_id`).
+
+### U1a — hapus field mati (kode)
+
+- `src/lib/supabase-browser.ts`: 2 baris `divisi: data.divisi,` / `posisi: data.posisi,` dihapus (diff 2 deletions).
+- `src/types/index.ts`: 4 field `divisi?`/`posisi?` dihapus dari `UserSession` + `CurrentUserContext` (diff 4 deletions).
+- `git grep session.divisi|session.posisi|data.divisi|data.posisi` = **0 hit**; satu-satunya `s.divisi` (`OwnerDashboard.tsx:709`) = baris data list, bukan `UserSession`.
+- `npm run check:types` — **EXIT 0**.
+
+### Simulasi pra-apply + dry-run
+
+- Simulasi rollback: `md5(def)` `13afaf04…` → `9cf05457…` → `13afaf04…` byte-identik; oid + ACL preserved + auth/anon/svc = true/false/true; registry 190/265 tidak tersentuh; audit 587→587→587.
+- Dry-run wrapper: EXIT 0, "belum terdaftar", checksum cocok — dijalankan sebelum apply.
+
+### Gate
+
+- `npm run verify:artifacts` — pra-sync: 1 drift (`Migrations tracked dok=190 live=191`, ekspektasi); pasca-sync: **0 drift, 1 warning (baseline commit = Fix #9, infosional), EXIT 0** (Migrations tracked 191 · max(version) 266 · Functions 656).
+- `npm run check:types` — **EXIT 0**.
+- `npm test` — pra-sync: 25/26 files (1 gagal = `doc-claims-vs-live` menuntut sync dokumen, ekspektasi); pasca-sync: **26/26 files, 170 passed | 4 todo**, EXIT 0.
+
+### Work Queue
+
+- **P2-F14-S** → ✔ CLOSED (migrasi 266) — blok `UPDATE` dihapus; C2 sintetis membuktikan auto-repair mati.
+- **P2-F14-T** → ✔ CLOSED (keputusan T2) — by-design: owner lewat `OwnerLogin`; `by_auth_id` tetap `{"ok":false}` untuk owner.
+- **P3-F14-U** → ✔ CLOSED (266 + U1a) — 2 baris `initSession` + 4 field interface dihapus; 0 konsumen.
+- **P2-F14-V** (baru, P2) — `employees_master`/`employees_core` **tidak punya trigger audit**: probe 2026-10-04 → `employees_master` hanya `trg_employees_master_{insert,update,delete}` (sync, `prosrc` tanpa `audit_log`), `employees_core` 0 trigger, **0** `trg_audit_*` (21 tabel lain punya). DoD: pasang `trg_audit` via `_generic_audit_trigger_fixed` (pola Fix #4) + uji INSERT/UPDATE.
+
+### Pelajaran proses
+
+1. **D2 — hapus field "mati" hanya sah setelah membaca interface-nya.** Asumsi awal (dari laporan 265): `UserSession` tidak punya `divisi?`/`posisi?` sehingga cukup bersihkan `initSession`. Fact live: kedua field MEMANG ada di `UserSession` + `CurrentUserContext` — perbaikan yang benar = hapus 2 baris `initSession` **dan** 4 field interface (keputusan user U1a). Verifikasi grep konsumen sebelum menghapus: 0 hit.
+2. **P14 diformalkan ke AGENTS.md §5.8** (berasal dari sync 265): sync dokumen tidak sah divalidasi oleh exit-code skrip pengganti; `verify:artifacts` (+ `doc-claims-vs-live`) wajib dijalankan ulang **setelah sync dan sebelum commit**. Batch ini memperkuatnya: test doc-claims memang merah sampai ARCHITECTURE.md disinkronkan, dan hijau hanya setelah gate dijalankan.
+
+### Dampak lintas-page: worker → admin → dashboard → owner TIDAK berubah
+
+Rewiring ini **nilai-netral** dan dibuktikan begitu: 8 kasus baseline (worker NRP002 · admin NRP100/101/102/105 · CEO NRP001 · owner · uuid nol) byte-identik pre vs post. Worker: `role=worker` identik. Admin: keempat NRP admin identik (`Home.tsx:328` menerima JSON yang sama). Dashboard/CEO: NRP001 identik (`admin_pusat`, level 5). Owner: alur `OwnerLogin` tidak berubah; `by_auth_id` tetap `{"ok":false}` untuk owner (T2 by-design, perilaku sama seperti sebelum 266). U1a hanya menghapus field yang **terbukti selalu `undefined`** (0 konsumen, `check:types` EXIT 0); kontrak `entryFromRole`/session tidak berubah. Tidak ada perubahan RLS, menu, route, design system. Four-page smoke/E2E tidak diulang karena tidak ada perubahan perilaku `src/` yang dapat diamati (yang berubah hanya dua baris objek sesi yang nilainya selalu undefined + tipe field yang tidak dipakai).

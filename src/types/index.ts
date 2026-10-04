@@ -12,8 +12,6 @@ export interface UserSession {
   role_level: number;
   business_unit_id: string;
   business_unit?: string;
-  divisi?: string;
-  posisi?: string;
   is_owner?: boolean;
   email?: string;
   // CATATAN: TIDAK ada `token` di sini. Token app-level tidak pernah dipersist lagi
@@ -87,8 +85,6 @@ export interface CurrentUserContext {
   role?: string;
   role_level?: number;
   business_unit_id?: string;
-  divisi?: string;
-  posisi?: string;
   is_owner?: boolean;
   email?: string;
 }

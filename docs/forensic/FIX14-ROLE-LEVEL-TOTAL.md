@@ -712,16 +712,16 @@ CLOSED §8 karena itu dibangun di **bukti pengganti yang lebih kuat dari log app
 (3) state data live memenuhi DoD per-versi, (4) `prosrc`/`proconfig`/`prosecdef` live
 sesuai, (5) smoke gate tidak regresi, (6) commit `6ffc890` sudah di `origin/migrasi-vite`.
 
-## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I/L2/J3 **fully CLOSED** (2026-10-02 257/258/259/260 · 2026-10-03 261/262/263/264/265), **batch 263 + 264 + 265 CLOSED** — 7 RPC sisanya belum
+## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I/L2/J3 **fully CLOSED** (2026-10-02 257/258/259/260 · 2026-10-03 261/262/263/264/265 · 2026-10-04 266), **batch 263 + 264 + 265 + 266 CLOSED** — 6 RPC sisanya belum
 
 Tujuh item §9 ditutup lewat migrasi `257`/`258`/`259`/`260`/`261`/`262`/`263` (DITERAPKAN +
 terdaftar + checksum terverifikasi, `schema_migrations` = **188** baris, `max(version)=263`).
 **Batch 263 (rewiring `is_admin_or_owner`, P2-F14-N) sudah Closed** — lihat blok `### 263` di bawah.
 **Batch 264 (DROP dead `check_admin_access`) juga Closed** — lihat blok `### 264`.
-Sisa **8 RPC** dari rencana §9b belum dieksekusi; itu batch 265–267. Plan 5 batch:
-`263` is_admin_or_owner ✅ · `264` check_admin_access ✅ · `265` get_current_user_context +
-get_user_context_by_auth_id · `266` verify_admin_otp_core + generate_admin_otp ·
-`267` admin_get_role_matrix + admin_set_employee_role.
+Sisa **6 RPC** dari rencana §9b belum dieksekusi; itu batch 267–268 (rencana awal 265–267 bergeser karena `get_user_context_by_auth_id` dipisah dari 265 ke 266). Plan 5 batch:
+`263` is_admin_or_owner ✅ · `264` check_admin_access ✅ · `265` get_current_user_context ✅ ·
+`266` get_user_context_by_auth_id ✅ · `267` verify_admin_otp_core + generate_admin_otp ·
+`268` admin_get_role_matrix + admin_set_employee_role.
 
 | Item | Migrasi | Yang diubah | Bukti apply |
 |---|---|---|---|
@@ -729,6 +729,7 @@ get_user_context_by_auth_id · `266` verify_admin_otp_core + generate_admin_otp 
 | **P2-F14-H** | `258` | cabang `TEAM` `authz_in_scope`: `ho1.manager_nrp = ho2.manager_nrp` → `ho1.atasan_nrp = ho2.atasan_nrp` | `pakai_atasan_nrp: true`, `masih_manager_nrp: false`; `prosecdef=true`, `provolatile='s'`, `proconfig=["search_path=public, extensions"]` preservasi; smoke `authz_in_scope('NRP002')` = `false` (**bukan** error 42703) |
 | **P2-F14-I** | `259` | `admin_produksi` dicabut dari CHECK `user_roles_role_check` (14→13 elemen) + whitelist `is_admin_or_owner` | `jumlah_elemen: 13`, `punya_admin_produksi: false`; `is_admin_or_owner` `LANGUAGE sql` + `STABLE` + `SECURITY DEFINER` preservasi; **uji negatif `23514` check_violation** (CHECK benar-benar aktif) + sanity role valid tetap bisa ditulis |
 | **P2-F14-S/T + P3-F14-U** | `265` | `get_current_user_context()`: `role` dari `user_role_assignments.role_code` (fallback `user_roles.role`); `role_level` tetap `user_roles`; owner bypass dipertahankan. Anomali `by_auth_id` (S/T/U) TIDAK disentuh — batch 266 | netralitas **8/8 byte-identik** vs baseline pre-265; owner bypass `is_owner:true`; NRP001 `admin_pusat`; NRP002 `worker`; oid 298319 preserved; attrs + ACL preserved; rollback byte-identik |
+| **P2-F14-S/T + P3-F14-U (lanjutan)** | `266` | `get_user_context_by_auth_id()`: **hapus** blok `UPDATE employees_master SET auth_id` (S1) + `role` hybrid dari `user_role_assignments` (fallback `user_roles.role`); **tanpa** owner bypass (**T2 by-design** — owner via `OwnerLogin`). U1a (kode): hapus field mati `divisi`/`posisi` di `initSession` + 4 field interface | netralitas **8/8 byte-identik** vs baseline pre-266; **oid 298467 preserved**; C2 sintetis: auto-repair mati (`repaired=false`) dengan baca tetap utuh; owner tetap `{"ok":false}`; `check:types` EXIT 0; rollback byte-identik |
 
 **Pre-check 259 (wajib, sebelum `DROP CONSTRAINT`)** — `role_di_luar_whitelist: 0`,
 `user_roles` `admin_produksi: 0`, `role IS NULL: 0`. Tidak ada data yang bisa membuat
@@ -1094,7 +1095,50 @@ Pengukuran di dalam transaksi **sebelum** `ROLLBACK` selalu terlihat "menyimpang
 yang punya trigger audit. Ukur ulang **setelah** `ROLLBACK`, di koneksi baru. `audit_log` punya
 `trg_audit_hash_chain` sendiri (bukan trigger audit generik), jadi tidak rekursif.
 
-### §9b — Rencana rewiring 10 RPC (1/10 selesai via 263; sisanya belum)
+### 266 — Batch 4/5: rewire `get_user_context_by_auth_id()` + hapus auto-repair UPDATE (P2-F14-S/T + P3-F14-U)
+
+Applied 2026-10-04 (registry **191** / `max(version)=266`, checksum
+`22c370546ad6bc9a7fecaf3cfab9b8d18852cf005cc138289b3268655d44d3a9`, 1230ms).
+
+**Perubahan = 4 hunk, tidak ada yang lain** (dibuktikan *inverse proof*: body baru dengan 4
+hunk dibalik ke bentuk lama **===** pre-image persis; `def_len` 1666 → 1922, `prosrc` 1470 → 1726):
+
+1. `DECLARE`: tambah `v_assign_role TEXT;`
+2. **Hapus** blok `IF FOUND THEN UPDATE employees_master SET auth_id = p_auth_id`
+   `WHERE nrp = v_emp.nrp; END IF;` — satu-satunya jalur tulis di fungsi "get" (keputusan user
+   **S1**, P2-F14-S) → fungsi jadi **read-only murni**.
+3. Tambah `SELECT a.role_code INTO v_assign_role FROM user_role_assignments a`
+   `WHERE a.nrp = v_emp.nrp ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC LIMIT 1;`
+   (disamakan dengan 265).
+4. `RETURN`: `'role'` → `COALESCE(v_assign_role, v_role.role, 'worker')`.
+
+**Yang sengaja tidak berubah:** fallback baca via email (`SELECT` saja, tanpa efek tulis) TETAP ·
+`role_level` / `bu` / `unit_code` / `tier` / `divisi` / `jabatan` identik · signature + attrs +
+ACL tidak disentuh · **TIDAK** ada owner bypass (keputusan **T2**: owner lewat `OwnerLogin`,
+`by_auth_id` tetap `{"ok":false}` untuk owner — **by-design**, bukan bug; `Home.tsx` tidak diubah).
+
+| Uji | Hasil |
+|---|---|
+| registry | 191 baris, `max(version)=266`, checksum cocok |
+| oid | **298467 preserved** (CREATE OR REPLACE, bukan DROP+CREATE) |
+| attrs | plpgsql · `v` · `prosecdef=true` · `search_path=public, extensions` — preserved |
+| ACL | `{postgres,authenticated,service_role}` preserved · **anon tetap tanpa EXECUTE** |
+| `Functions` | tetap **656** (266 tidak menambah fungsi) |
+| C1 netralitas | **8/8 byte-identik** vs baseline pre-266 (NRP001/002/100/101/102/105 + owner + uuid nol) |
+| C2 uji S1 | NRP002 `auth_id=NULL` dalam tx → panggilan `by_auth_id` **tidak me-repair** (`repaired=false`, `auth_id` tetap NULL); output baca tetap **byte-identik** baseline NRP002 |
+| C1c dampak | **0 baris** `employees_master` email-match `auth.users` dengan `auth_id` beda → jalur UPDATE **tidak terjangkau** pada data sekarang; 1 `auth.users` tanpa employee link = owner (T2, memang tidak lewat `by_auth_id`) |
+| U1a kode | `divisi`/`posisi` dihapus dari `initSession` + 4 field interface (`UserSession` + `CurrentUserContext`) — **0 konsumen**, `check:types` EXIT 0 |
+
+Simulasi pra-apply: rollback byte-identik (`md5(def)` `13afaf04…` → `9cf05457…` → `13afaf04…`,
+oid preserved, ACL preserved, registry 190/265 tidak tersentuh) + dry-run `apply-migration.mjs`
+EXIT 0 sebelum apply.
+
+**Pelajaran baru — D2: hapus field "mati" hanya sah setelah membaca interface.** Asumsi awal:
+`UserSession` tidak punya `divisi?`/`posisi?` sehingga cukup bersihkan `initSession`. Fact live:
+kedua field MEMANG ada di `UserSession` + `CurrentUserContext` (`src/types/index.ts`), jadi
+perbaikan yang benar = hapus 2 baris `initSession` **dan** 4 field interface (keputusan user **U1a**).
+
+### §9b — Rencana rewiring 10 RPC (**4/10 selesai** via 263/264/265/266; sisanya belum)
 
 Ubah dari baca user_roles.role → baca admin_role via user_role_assignments.role_code (JOIN role_permission_sets sesuai authz_has_permission existing):
 
@@ -1102,7 +1146,7 @@ Ubah dari baca user_roles.role → baca admin_role via user_role_assignments.rol
 2. check_admin_access ✅ **CLOSED via 264 — DROP, bukan rewrite**
 3. get_my_admin_modules
 4. get_current_user_context ✅ **CLOSED via 265** (hybrid: role dari assignments, role_level tetap user_roles)
-5. get_user_context_by_auth_id
+5. get_user_context_by_auth_id ✅ **CLOSED via 266** (`role` hybrid dari assignments + hapus auto-repair `UPDATE auth_id` — S1; T2 by-design)
 6. get_worker_status
 7. verify_admin_otp_core
 8. generate_admin_otp
@@ -1164,6 +1208,7 @@ rollback byte-identik. 4 item Work Queue didaftarkan: **P2-F14-O** (wrapper
 untuk memetakan caller).
 
 ## §13 Riwayat keputusan
+- 2026-10-04: **batch 266 CLOSED** — migrasi `266` (rewire `get_user_context_by_auth_id()`: `role` hybrid dari `user_role_assignments` + **hapus auto-repair `UPDATE employees_master SET auth_id`** — S1/P2-F14-S; T2 by-design: owner tetap `{"ok":false}` lewat `by_auth_id`) DITERAPKAN + terdaftar; registry **191** baris / `max=266`. Netralitas **8/8 byte-identik**; **oid 298467 preserved**; C2 sintetis membuktikan auto-repair mati (`repaired=false`) dengan baca tetap utuh; C1c: 0 baris jalur repair terjangkau. **U1a**: hapus 4 field `divisi?`/`posisi?` (`UserSession` + `CurrentUserContext`) + 2 baris `initSession` — 0 konsumen, `check:types` EXIT 0. Item baru **P2-F14-V** (audit coverage `employees_master`/`employees_core` tanpa `trg_audit_*`). Pelajaran **P14** (sync dokumen tidak sah divalidasi dari exit-code skrip; `verify:artifacts` wajib dijalankan ulang setelah sync, sebelum commit).
 - 2026-10-03: **batch 265 CLOSED** — migrasi `265` (rewire `get_current_user_context()` hybrid: `role` dari `user_role_assignments.role_code` + fallback `user_roles.role`, `role_level` tetap dari `user_roles`, owner bypass dipertahankan) DITERAPKAN + terdaftar; registry **190** baris / `max=265`. Netralitas **8/8 byte-identik** karena 17/17 `role_code` assignment identik dengan `user_roles.role` + 0 user multi-assignment; oid **298319 preserved**, attrs + ACL preserved; rollback byte-identik + ACL restore (D4a-D4g PASS); read-path proof E5 membuktikan `role` benar-benar dibaca dari assignment. 3 item Work Queue baru: **P2-F14-S** (UPDATE `auth_id` di fungsi "get"), **P2-F14-T** (by_auth_id tanpa owner bypass), **P3-F14-U** (field mati `divisi`/`posisi`) — semuanya untuk batch 266. Pelajaran: komparator byte-identik wajib pakai teks in-tag dollar-quote (perluasan P7/P13) + `String.replace` string replacement bisa menduplikasi file (wajib function replacer).
 - 2026-09-30: user menetapkan peta level 1-5 + owner terpisah + multi-view.
 - 2026-09-30: user menetapkan prinsip "investigasi wajib tracked, bukan chat".
