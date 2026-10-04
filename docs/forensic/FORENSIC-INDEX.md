@@ -67,6 +67,9 @@ Sisa: tidak ada.
 | **P1-TABLE-AUDIT** | P1 | **61 dari 208** tabel RLS **tanpa policy SELECT** -> default-deny, jadi `SELECT` mengembalikan **0 baris untuk siapa pun**, termasuk `admin_pusat` dan owner. Termasuk `business_units` + `settings`, yang policy `bu_select`/`st_select` dari `083` (`USING (TRUE)`) **tidak ada lagi di live**. **Dipisah dari `P1-POST-HARDENING-AUDIT` (keputusan user B1, 2026-10-03)** — bukan karena buktinya berbeda, tapi karena **tidak bisa diselesaikan dengan asumsi teknis**: perlu keputusan produk per tabel. **Bukan efek samping 264** — `264_fix14_drop_dead_check_admin_access.sql` hanya menyentuh fungsi, tidak ada `DROP POLICY` di file itu | `pg_policies` `business_units` = 1 policy (`bu_update` UPDATE saja), `settings` = 1 (`st_update` UPDATE saja); sumber policy SELECT yang hilang `083_rls_hardening.sql:52` + `:123`; total **61/208** (log `.agents/logs/fix14-c9c-why-select2.log`) | **Tabel keputusan 61 baris** (`nama tabel · siapa butuh akses · pernah dipakai UI di mana`) lalu **keputusan per tabel**: buka (pulihkan policy SELECT) atau tutup (buktikan dengan policy SELECT `USING (false)` **eksplisit**, bukan policy hilang). **BUKAN sprint perbaikan teknis** — helper berikutnya **dilarang** membuka policy SELECT tanpa baris keputusan di tabel ini. Bukan blocker §9; boleh paralel dengan batch 265-267 | ⚠ **NEW** (2026-10-03; butuh keputusan produk bertahap) |
 | **P2-F14-R** | P2 | Bug a11y **latent** di halaman owner login: `<label>Email</label>` di `src/pages/OwnerLogin.tsx:62` **tidak punya `htmlFor`**, dan `input[type=email]` di baris 63 tidak punya `id` → axe violation `label` **critical**. Tidak terlihat selama berbulan-bulan karena route `/owner/*` butuh sesi valid, jadi test a11y hanya mendarat di halaman ini ketika `storageState` owner **kedaluwarsa** | Terbukti 2026-10-03 saat a11y 4/6: `[critical] label (1 node): input[type="email"]`, html `<input type="email" … value="owner@insightwos.com">` tanpa `htmlFor`/`id` (log `.agents/logs/fix14-d4-a11y.log`). Setelah `storageState` di-regen → suite **6/6 PASS, 0 violation**, jadi bug ini **tidak pernah dieksekusi** pada alur normal; ia hanya muncul sebagai efek samping token kedaluwarsa | Tambahkan `htmlFor` + `id` yang cocok (atau `aria-label`) pada input email, lalu verifikasi suite a11y tetap 6/6. Periksa juga `<label>` Password di baris 66 — pola yang sama kemungkinan berulang | ⚠ **NEW** (2026-10-03) |
 | **P2-F14-P** | P2 | `employee.view_all` hanya dimiliki 2 role (`admin_hrd` lewat `hrd_ops`, `admin_pusat` lewat `admin_pusat_all`). 4 admin industri (`admin_operasional` 21 perm, `admin_mining` 21, `admin_mill` 21, `admin_estate` 21) dan `admin_finance` (28) **tidak punya** permission ini, sehingga `authz_check_admin('employee.view_all')` = **false** untuk mereka. | `permission_set_items` join `role_permission_sets`: hanya `hrd_ops`→`admin_hrd` dan `admin_pusat_all`→`admin_pusat` punya `employee.view_all`. Probe live: NRP001/100/101 `true`, NRP102/103/104/105/106 `false` | Keputusan produk: apakah 4 admin industri memang tidak boleh melihat semua karyawan? Kalau tidak, tambahkan permission ke `role_permission_sets` masing-masing. **Butuh keputusan user** | ⚠ **NEW** (2026-10-03, butuh keputusan user) |
+| **P2-F14-S** | P2 | `get_user_context_by_auth_id()` — fungsi "get" tapi **menulis**: ada `UPDATE employees_master SET auth_id = p_auth_id` di dalam body (SECURITY DEFINER, dipanggil lewat JWT apa pun) — privilege escalation surface | `prosrc` live: `UPDATE employees_master SET auth_id = p_auth_id WHERE nrp = v_emp.nrp;` (fallback email→auth_id), dibaca 2026-10-03 saat investigasi 265 | Pindahkan UPDATE ke fungsi terpisah dengan gate eksplisit, atau hapus dengan keputusan user. Batch 266 tidak boleh apply sebelum ini diputuskan | ⚠ **NEW** (2026-10-03, butuh keputusan user) |
+| **P2-F14-T** | P2 | `get_user_context_by_auth_id()` **tanpa owner bypass** — owner (shadow, 0 baris `employees_core`) dapat `{"ok":false,"msg":"Akun tidak ditemukan..."}` → owner tidak bisa lewat tab admin (`Home.tsx:328`) | Probe impersonasi owner `a8a77284-...`: `by_auth_id` → `{"ok":false,"msg":"Akun tidak ditemukan. Email: owner@insightwos.com"}`; `get_current_user_context()` → `is_owner:true` (punya bypass) | Keputusan produk: tambahkan `check_owner_identity()` (konsisten dengan `get_current_user_context`) ATAU dokumentasikan sebagai by-design. Batch 266 | ⚠ **NEW** (2026-10-03, butuh keputusan user) |
+| **P3-F14-U** | P3 | Field mati `divisi`/`posisi` di `src/lib/supabase-browser.ts:229-230` — `initSession` membaca `data.divisi`/`data.posisi`, tapi `get_current_user_context()` tidak pernah mengembalikannya | `get_current_user_context()` return keys: `nrp,nama,role,role_level,is_owner,business_unit_id,email` — tanpa `divisi`/`posisi`; `by_auth_id` memuat `divisi`, `jabatan` (bukan `posisi`) | Hapus referensi `divisi`/`posisi` di `initSession`, ATAU tambahkan field ke return. Batch 266 | ⚠ **NEW** (2026-10-03) |
 
 
 **Bukti apply 263 (2026-10-03) — 6 policy RLS kembali hidup**
@@ -88,6 +91,37 @@ Registry **188** / `max(version)=263**. `admin_operasional`/`admin_mining`/`admi
 **false → true**. Worker **tidak berubah** (fail-closed). Owner **tidak berubah** (TRUE lewat
 `authz_is_owner()`). Rincian penuh: blok `### 263` di `FIX14-ROLE-LEVEL-TOTAL.md` §9.
 
+**Bukti apply 265 (2026-10-03) — rewiring `get_current_user_context` hybrid, netral 8/8**
+
+```
+[PRE ] oid 298319 · md5(def) 65c9b57823ffee398d45aaf4c3149e8b · prosrc 1032 · acl {postgres,authenticated,service_role} · anon=false
+[APPLY] DITERAPKAN + terdaftar + checksum terverifikasi (1022ms) · checksum da1bb156859f2eca89bed144178ccaf56c5ec69a6778cfe5b69a2c654856482a
+[POST] oid 298319 (preserved) · md5(def) 29f0f73211db6cd1092badd13af33725 · prosrc 1442 · attrs + ACL preserved · anon tetap tidak punya EXECUTE
+[POST] registry 190 baris / max(version)=265 · Functions tetap 656
+[C1  ] netralitas 8/8 byte-identik: NRP001 · NRP002 · NRP100 · NRP101 · NRP102 · NRP105 · OWNER · ZERO_UUID
+[C2  ] owner bypass: {"nrp":"OWNER001","nama":"System Owner","role":"owner","email":"owner@insightwos.com","is_owner":true,"role_level":5,"business_unit_id":null}
+[C3  ] NRP001: role=admin_pusat (assignment 262, is_primary=false) · role_level=5 (user_roles)
+[C4  ] NRP002: role=worker · role_level=1
+[D4  ] rollback byte-identik + ACL restore: md5(def) 29f0f732... -> 65c9b578... · oid preserved · D4a-D4g PASS
+[E5  ] read-path proof: assignment NRP002 diubah -> role ikut berubah (admin_estate); role_level tetap 1; restore -> byte-identik
+```
+
+**Pelajaran proses baru (2026-10-03, dari 265) — komparator byte-identik wajib pakai teks in-tag**
+
+> Dua `prosrc`-comparator pertama salah dan menghasilkan 3 FAIL palsu. `pg_get_functiondef()`
+> mengembalikan trailing `\n` (file pre-image disimpan tanpa itu), dan `prosrc` adalah teks
+> **di antara** tag dollar-quote termasuk newline pembuka+penutup — bukan line-slice.
+> Ekstraksi line-slice kehilangan tepat 2 byte sehingga `md5(prosrc)` beda walau isinya identik.
+> Gate byte-identik yang benar: bandingkan `def` terhadap file+`\n`, dan `prosrc` terhadap
+> regex `/\$function\$([\s\S]*)\$function\$/`. Setelah komparator dibetulkan: 30/30 PASS.
+> Ini perluasan **P7** (pre-image dari server) dan **P13** (kunci ke signature, bukan oid).
+
+> **Pelajaran proses baru (2026-10-03, dari sync 265) — jangan pakai `String.replace` dengan
+> string replacement untuk konten markdown.** Replacement string JavaScript memperlakukan
+> `$&`, `` $` ``, `$'`, `$1` sebagai pola substitusi. Teks yang memuat `` `$function$` ``
+> berakhiran `` $` `` = "seluruh prefix match" → seluruh isi file tersuntik ke tengah →
+> file terduplikasi (FIX14-ROLE-LEVEL-TOTAL.md 1125 → 2239 baris). Wajib pakai FUNCTION
+> replacer: `s.replace(old, () => newS)`. Kelas bug ini tidak terlihat di diff singkat.
 **Pelajaran proses baru (2026-10-03, dari 263)**
 
 > **P10 — whitelist grant yang melewatkan fungsi kritis.** `172_hardening_grants.sql` bermaksud

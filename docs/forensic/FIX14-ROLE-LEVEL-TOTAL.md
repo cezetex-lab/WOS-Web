@@ -712,7 +712,7 @@ CLOSED §8 karena itu dibangun di **bukti pengganti yang lebih kuat dari log app
 (3) state data live memenuhi DoD per-versi, (4) `prosrc`/`proconfig`/`prosecdef` live
 sesuai, (5) smoke gate tidak regresi, (6) commit `6ffc890` sudah di `origin/migrasi-vite`.
 
-## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I/L2/J3 **fully CLOSED** (2026-10-02 257/258/259/260 · 2026-10-03 261/262), **batch 263 + 264 CLOSED** — 8 RPC sisanya belum
+## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I/L2/J3 **fully CLOSED** (2026-10-02 257/258/259/260 · 2026-10-03 261/262/263/264/265), **batch 263 + 264 + 265 CLOSED** — 7 RPC sisanya belum
 
 Tujuh item §9 ditutup lewat migrasi `257`/`258`/`259`/`260`/`261`/`262`/`263` (DITERAPKAN +
 terdaftar + checksum terverifikasi, `schema_migrations` = **188** baris, `max(version)=263`).
@@ -728,6 +728,7 @@ get_user_context_by_auth_id · `266` verify_admin_otp_core + generate_admin_otp 
 | **P1-F14-K** | `257` | trigger `trg_audit_user_role_assignments` (AFTER INSERT/UPDATE/DELETE, `_generic_audit_trigger_fixed`) | trigger live `tgenabled='O'`; uji INSERT `NRP999-TEST` → `audit_log` 582→583 (`audit_naik_1: true`), `actor='SYSTEM'` (probe tanpa JWT; fail-safe yang diterima) |
 | **P2-F14-H** | `258` | cabang `TEAM` `authz_in_scope`: `ho1.manager_nrp = ho2.manager_nrp` → `ho1.atasan_nrp = ho2.atasan_nrp` | `pakai_atasan_nrp: true`, `masih_manager_nrp: false`; `prosecdef=true`, `provolatile='s'`, `proconfig=["search_path=public, extensions"]` preservasi; smoke `authz_in_scope('NRP002')` = `false` (**bukan** error 42703) |
 | **P2-F14-I** | `259` | `admin_produksi` dicabut dari CHECK `user_roles_role_check` (14→13 elemen) + whitelist `is_admin_or_owner` | `jumlah_elemen: 13`, `punya_admin_produksi: false`; `is_admin_or_owner` `LANGUAGE sql` + `STABLE` + `SECURITY DEFINER` preservasi; **uji negatif `23514` check_violation** (CHECK benar-benar aktif) + sanity role valid tetap bisa ditulis |
+| **P2-F14-S/T + P3-F14-U** | `265` | `get_current_user_context()`: `role` dari `user_role_assignments.role_code` (fallback `user_roles.role`); `role_level` tetap `user_roles`; owner bypass dipertahankan. Anomali `by_auth_id` (S/T/U) TIDAK disentuh — batch 266 | netralitas **8/8 byte-identik** vs baseline pre-265; owner bypass `is_owner:true`; NRP001 `admin_pusat`; NRP002 `worker`; oid 298319 preserved; attrs + ACL preserved; rollback byte-identik |
 
 **Pre-check 259 (wajib, sebelum `DROP CONSTRAINT`)** — `role_di_luar_whitelist: 0`,
 `user_roles` `admin_produksi: 0`, `role IS NULL: 0`. Tidak ada data yang bisa membuat
@@ -978,6 +979,59 @@ dan `5aeaa26c…` → `5aeaa26c…`; `md5(prosrc)` `970bd74b…` / `0f0ce77c…`
 prosrc 210 / 2093 identik; **ACL identik**; privilege post-rollback
 anon=false auth=false svc=true = pre-264.
 
+### 265 — Batch 3/5: rewire `get_current_user_context()` hybrid (P2-F14-S/T, P3-F14-U)
+
+Applied 2026-10-03 (registry **190** / `max(version)=265`, checksum
+`da1bb156859f2eca89bed144178ccaf56c5ec69a6778cfe5b69a2c654856482a`, 1022ms).
+
+**Perubahan = 3 hunk, tidak ada yang lain** (dibuktikan *inverse proof*: body baru dengan 3
+hunk dibalik ke bentuk lama **===** pre-image persis):
+
+1. `DECLARE`: tambah `v_assign_role TEXT;`
+2. Setelah `SELECT * INTO v_role FROM user_roles ...`: `SELECT a.role_code INTO v_assign_role`
+   `FROM user_role_assignments a WHERE a.nrp = v_emp.nrp`
+   `ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC LIMIT 1;`
+3. `RETURN`: `'role'` → `COALESCE(v_assign_role, v_role.role, 'worker')`
+
+**Yang sengaja tidak berubah:** `role_level` tetap dari `user_roles` (assignment tidak punya
+kolom level) · owner bypass `check_owner_identity()` dipertahankan · signature `() -> jsonb` +
+return shape + urutan key identik · attrs (plpgsql/VOLATILE/SECDEF/`search_path`) tidak disentuh ·
+anomali `by_auth_id` (B-1/B-2/B-3) tidak disentuh — batch 266.
+
+**Kenapa netral (bukti C1):** 17/17 `user_role_assignments.role_code` identik dengan
+`user_roles.role`; 0 user dengan >1 assignment (ORDER BY deterministik); 0 `user_roles` tanpa
+assignment dan 0 assignment tanpa `user_roles`. Jadi `COALESCE(...)` menghasilkan nilai yang
+sama untuk SEMUA 17 user.
+
+| Uji | Hasil |
+|---|---|
+| registry | 190 baris, `max(version)=265`, checksum cocok |
+| oid | **298319 preserved** (CREATE OR REPLACE, bukan DROP+CREATE) |
+| attrs | plpgsql · `v` · `prosecdef=true` · `search_path=public, extensions` — preserved |
+| ACL | `{postgres,authenticated,service_role}` preserved · **anon tetap tanpa EXECUTE** |
+| `Functions` | tetap **656** (265 tidak menambah fungsi) |
+| def/prosrc | 1211 → 1621 · 1032 → 1442 (`md5` `29f0f732...` / `666bf8ef...`) |
+| C1 netralitas | **8/8 byte-identik** vs baseline pre-265 (NRP001/002/100/101/102/105 + owner + uuid nol) |
+| C2 owner bypass | `is_owner:true` · `role:owner` · `role_level:5` · `nrp:OWNER001` · `bu:null` |
+| C3 NRP001 | `role:admin_pusat` (assignment 262, `is_primary=false`) · `role_level:5` (user_roles) |
+| C4 NRP002 | `role:worker` · `role_level:1` |
+| D4 rollback | byte-identik + ACL restore: `md5(def)` `29f0f732...` → `65c9b578...` · oid preserved · D4a-D4g PASS |
+| E5 read-path | assignment NRP002 → `admin_estate` ⇒ `role` ikut berubah; `role_level` tetap 1; restore ⇒ byte-identik |
+
+Simulasi pra-apply: **30/30 PASS** (2 FAIL awal palsu — artefak komparator, lihat pelajaran di bawah).
+
+**Pelajaran perluasan P7/P13 — komparator byte-identik wajib pakai teks in-tag.**
+`pg_get_functiondef()` mengembalikan trailing `\n`; `prosrc` adalah teks **di antara** tag
+dollar-quote termasuk newline pembuka+penutup. Ekstraksi line-slice kehilangan tepat 2 byte →
+`md5(prosrc)` beda walau isi identik. Gate yang benar: `def` vs file+`\n`, dan `prosrc` vs
+regex tag dollar-quote.
+
+**Pelajaran baru — `String.replace` dengan string replacement berbahaya untuk markdown.**
+Replacement string JS memperlakukan `$&`, `` $` ``, `$'`, `$1` sebagai pola substitusi.
+Teks yang memuat `` `$function$` `` berakhiran `` $` `` = "seluruh prefix match" → seluruh isi
+file tersuntik ke tengah → **file terduplikasi** (1125 → 2239 baris) dan tidak terlihat di diff
+singkat. Wajib function replacer: `s.replace(old, () => newS)`. Kerusakan ditemukan dan
+dipulihkan dengan `git checkout --` sebelum commit; tidak ada byte korup yang masuk commit.
 ### Pelajaran proses P12 — rollback `DROP FUNCTION` WAJIB sertakan restore ACL
 
 Default privilege fungsi baru di PostgreSQL adalah EXECUTE untuk owner **dan PUBLIC**.
@@ -1047,7 +1101,7 @@ Ubah dari baca user_roles.role → baca admin_role via user_role_assignments.rol
 1. is_admin_or_owner ✅ **CLOSED via 263**
 2. check_admin_access ✅ **CLOSED via 264 — DROP, bukan rewrite**
 3. get_my_admin_modules
-4. get_current_user_context
+4. get_current_user_context ✅ **CLOSED via 265** (hybrid: role dari assignments, role_level tetap user_roles)
 5. get_user_context_by_auth_id
 6. get_worker_status
 7. verify_admin_otp_core
@@ -1110,6 +1164,7 @@ rollback byte-identik. 4 item Work Queue didaftarkan: **P2-F14-O** (wrapper
 untuk memetakan caller).
 
 ## §13 Riwayat keputusan
+- 2026-10-03: **batch 265 CLOSED** — migrasi `265` (rewire `get_current_user_context()` hybrid: `role` dari `user_role_assignments.role_code` + fallback `user_roles.role`, `role_level` tetap dari `user_roles`, owner bypass dipertahankan) DITERAPKAN + terdaftar; registry **190** baris / `max=265`. Netralitas **8/8 byte-identik** karena 17/17 `role_code` assignment identik dengan `user_roles.role` + 0 user multi-assignment; oid **298319 preserved**, attrs + ACL preserved; rollback byte-identik + ACL restore (D4a-D4g PASS); read-path proof E5 membuktikan `role` benar-benar dibaca dari assignment. 3 item Work Queue baru: **P2-F14-S** (UPDATE `auth_id` di fungsi "get"), **P2-F14-T** (by_auth_id tanpa owner bypass), **P3-F14-U** (field mati `divisi`/`posisi`) — semuanya untuk batch 266. Pelajaran: komparator byte-identik wajib pakai teks in-tag dollar-quote (perluasan P7/P13) + `String.replace` string replacement bisa menduplikasi file (wajib function replacer).
 - 2026-09-30: user menetapkan peta level 1-5 + owner terpisah + multi-view.
 - 2026-09-30: user menetapkan prinsip "investigasi wajib tracked, bukan chat".
 - 2026-09-30: B0 selesai (inventaris konstanta + guard coverage).

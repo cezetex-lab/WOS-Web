@@ -678,3 +678,99 @@ Dokumentasi saja, **tanpa migrasi, tanpa SQL, tanpa `src/`**. Tujuannya hanya §
 **Diketahui, sengaja tidak dikerjakan turn ini** (di luar gate 4 file): [FIX14-ROLE-LEVEL-TOTAL.md](docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md) baris 921, 1014, 1106, 1108 masih menyebut `P2-F14-Q` dan `P1-ACL-AUDIT`. Rujukan historis di blok 263/264 itu tidak salah secara fakta, tapi menunjuk ID yang sudah tidak ada di tabel Work Queue. Perlu sapuan singkat di turn dokumentasi berikutnya.
 
 Dampak lintas-page: worker → admin → dashboard → owner **tidak terdampak** — tidak ada perubahan kode, kontrak RPC, RLS, menu, route, maupun design system. Four-page smoke dan E2E `full-sweep` tidak perlu diulang karena tidak ada byte `src/` yang berubah; yang diverifikasi hanya dokumen (`verify:artifacts` + `doc-claims-vs-live`).
+## [2026-10-03] Fix #14 §9 batch 265 CLOSED — apply `265_fix14_get_current_user_context_hybrid.sql` (rewire hybrid)
+
+- **Status: CLOSED.** Migrasi `265` DITERAPKAN ke DB live, diverifikasi, di-commit, di-push ke `origin/migrasi-vite`.
+- **Berkas migrasi:** `supabase/migrations/265_fix14_get_current_user_context_hybrid.sql` (98 baris, sha256 `da1bb156859f2eca89bed144178ccaf56c5ec69a6778cfe5b69a2c654856482a`) + jalur pemulihan `supabase/scripts/rollback/265_rollback.sql` (81 baris, sha256 `c31fa16726a0c36b16396bb022c04929c9a3acfd70fbd3c3555c62c80f87378a`).
+- **Keputusan user:** Opsi B — 265 hanya `get_current_user_context()`. Batch 266 (`get_user_context_by_auth_id` + keputusan B-1/B-2/B-3) terpisah.
+
+### Perubahan (3 hunk, tidak ada yang lain)
+
+Dibuktikan *inverse proof*: body baru dengan 3 hunk dibalik ke bentuk lama **===** pre-image persis (`TRUE`).
+
+1. `DECLARE`: tambah `v_assign_role TEXT;`
+2. Setelah `SELECT * INTO v_role FROM user_roles WHERE nrp = v_emp.nrp LIMIT 1;` → `SELECT a.role_code INTO v_assign_role FROM user_role_assignments a WHERE a.nrp = v_emp.nrp ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC LIMIT 1;`
+3. `RETURN`: `'role'` → `COALESCE(v_assign_role, v_role.role, 'worker')`
+
+**Sengaja tidak berubah:** `role_level` tetap `user_roles` (assignment tidak punya kolom level) · owner bypass `check_owner_identity()` dipertahankan · signature `() -> jsonb` + return shape + urutan key · attrs (plpgsql/VOLATILE/SECDEF/`search_path`) · anomali `by_auth_id` (B-1/B-2/B-3) untuk batch 266.
+
+### Bukti apply (mentah)
+
+```
+$ node supabase/scripts/apply-migration.mjs 265_fix14_get_current_user_context_hybrid.sql --apply
+berkas    : 265_fix14_get_current_user_context_hybrid.sql
+versi     : 265
+checksum  : da1bb156859f2eca89bed144178ccaf56c5ec69a6778cfe5b69a2c654856482a
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (1022ms)
+EXIT=0
+```
+
+| Uji | Hasil |
+|---|---|
+| registry | `{"version":"265","filename":"265_fix14_get_current_user_context_hybrid.sql","checksum":"da1bb156..."}` · 190 baris / `max(version)=265` |
+| oid | **298319 preserved** (CREATE OR REPLACE — bukan DROP+CREATE, tidak ada window tanpa fungsi untuk 75 caller) |
+| attrs | plpgsql · `provolatile='v'` · `prosecdef=true` · `proconfig={"search_path=public, extensions"}` · `ret=jsonb` — preserved |
+| ACL | `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}` preserved · `anon_exec=false` (fail-closed) |
+| def/prosrc | 1211 → 1621 · 1032 → 1442 (`md5(def)` `65c9b578...` → `29f0f732...` · `md5(prosrc)` `0227517266...` → `666bf8ef...`) |
+| `Functions` | tetap **656** (265 tidak menambah/mengurangi fungsi) |
+| prosrc hunks | `v_assign_role`=true · `user_role_assignments`=true · `COALESCE(v_assign_role, v_role.role`=true · blok lama `COALESCE(v_role.role, 'worker')`=**false** · `check_owner_identity()`=true |
+
+### C1 — netralitas 8/8 byte-identik (post-apply vs baseline pre-265)
+
+```
+PASS  C1 NRP001     byte-identik
+PASS  C1 NRP002     byte-identik
+PASS  C1 NRP100     byte-identik
+PASS  C1 NRP101     byte-identik
+PASS  C1 NRP102     byte-identik
+PASS  C1 NRP105     byte-identik
+PASS  C1 OWNER      byte-identik
+PASS  C1 ZERO_UUID  byte-identik
+
+PASS  C2 owner is_owner=true role=owner level=5 nrp=OWNER001 bu=null  {"nrp":"OWNER001","nama":"System Owner","role":"owner","email":"owner@insightwos.com","is_owner":true,"role_level":5,"business_unit_id":null}
+PASS  C3 NRP001 role='admin_pusat' role_level=5  {"nrp":"NRP001","nama":"CEO InsightWOS","role":"admin_pusat","email":"ceo@insightwos.com","is_owner":false,"role_level":5,"business_unit_id":"BU04"}
+PASS  C4 NRP002 role='worker' role_level=1  {"nrp":"NRP002","nama":"Worker NRP002","role":"worker","email":"nrp002@insightwos.internal","is_owner":false,"role_level":1,"business_unit_id":"BU04"}
+
+===== RINGKASAN: SEMUA PASS =====
+```
+
+Kenapa netral: 17/17 `user_role_assignments.role_code` identik dengan `user_roles.role`; 0 user dengan >1 assignment (ORDER BY deterministik); 0 `user_roles` tanpa assignment dan 0 assignment tanpa `user_roles`.
+
+### Simulasi pra-apply (30/30 PASS)
+
+| Uji | Hasil |
+|---|---|
+| D1a pre-image live === file pre-image | PASS |
+| D2a/D2a2 def+prosrc post-apply === expected | PASS |
+| D2b oid preserved | PASS (298319 → 298319) |
+| D2c/D2d attrs + ACL preserved | PASS |
+| D2e/D2f anon=false / authenticated=true | PASS |
+| D2g def_len 1211 → 1621 (+410) | PASS |
+| D4a-D4g rollback byte-identik + ACL + oid + def/prosrc vs file | PASS (`29f0f732...` → `65c9b578...`) |
+| D5 `schema_migrations` tidak tersentuh | PASS |
+| D7 state live kembali pre-265 setelah ROLLBACK | PASS |
+| E5 read-path proof | PASS — assignment NRP002 → `admin_estate` ⇒ `role` ikut berubah; `role_level` tetap 1; restore ⇒ byte-identik |
+
+### Gate
+
+- `npm run verify:artifacts` — pra-sync: 1 drift (`Migrations tracked dok=189 live=190`), pasca-sync: **0 drift, EXIT 0**.
+- `npm run check:types` — **EXIT 0**.
+- `npm test` — pra-sync: 25/26 files (1 gagal = `doc-claims-vs-live` menuntut sync dokumen, ekspektasi); pasca-sync: **26/26 files, 170 passed | 4 todo**.
+- Dry-run wrapper: EXIT 0, `status: belum terdaftar`, checksum cocok.
+
+### Work Queue
+
+3 item baru terdaftar (P2-F14-S, P2-F14-T, P3-F14-U) — semua untuk batch 266:
+
+- **P2-F14-S** — `get_user_context_by_auth_id()` fungsi "get" tapi **menulis**: `UPDATE employees_master SET auth_id = p_auth_id` (SECURITY DEFINER, privilege escalation surface).
+- **P2-F14-T** — `by_auth_id` tanpa owner bypass → owner dapat `{"ok":false,...}`; `Home.tsx:328` memakainya.
+- **P3-F14-U** — field mati `divisi`/`posisi` di `initSession` (`get_current_user_context` tidak mengembalikannya).
+
+### Pelajaran proses (2 baru dari turn ini)
+
+1. **Komparator byte-identik wajib pakai teks in-tag, bukan line-slice** (perluasan P7/P13). `pg_get_functiondef()` mengembalikan trailing `\n`; `prosrc` adalah teks **di antara** tag dollar-quote termasuk newline pembuka+penutup. Ekstraksi line-slice kehilangan tepat 2 byte → `md5(prosrc)` beda walau isi identik → 3 FAIL palsu di simulasi. Gate yang benar: `def` vs file+`\n`, dan `prosrc` vs regex `/\\$function\\$([\\s\\S]*)\\$function\\$/`. Setelah dibetulkan: 30/30 PASS.
+2. **`String.replace(old, newString)` berbahaya untuk konten markdown — wajib function replacer.** Replacement string JS memperlakukan `$&`, `` $` ``, `$'`, `$1` sebagai pola substitusi. Teks yang memuat `` `$function$` `` berakhiran `` $` `` = "seluruh prefix match" → seluruh isi file tersuntik ke tengah → **file terduplikasi** (`FIX14-ROLE-LEVEL-TOTAL.md` 1125 → 2239 baris, `FORENSIC-INDEX.md` 429 → 549). Tidak terlihat di diff singkat. Kerusakan ditemukan sebelum commit dan dipulihkan dengan `git checkout --`; tidak ada byte korup yang masuk commit. Aturan: `s.replace(old, () => newS)`.
+
+### Dampak lintas-page: worker → admin → dashboard → owner TIDAK berubah
+
+Rewiring ini **nilai-netral** dan dibuktikan begitu: 8 kasus baseline (worker NRP002 · admin NRP100/101/102/105 · CEO NRP001 · owner · uuid nol) byte-identik pre vs post. Tidak ada perubahan `src/`, kontrak RPC, RLS, menu, route, design system. `role` yang dibaca frontend tetap nilai yang sama; choke point `entryFromRole` (`supabase-browser.ts:138-143`) menerima input identik. Owner bypass — satu-satunya perlindungan owner (tidak punya baris `user_roles`/`user_role_assignments`) — terverifikasi hidup. Four-page smoke dan E2E tidak diulang karena tidak ada byte `src/` yang berubah; yang diverifikasi adalah DB + dokumen.
