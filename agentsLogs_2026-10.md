@@ -774,3 +774,15 @@ Kenapa netral: 17/17 `user_role_assignments.role_code` identik dengan `user_role
 ### Dampak lintas-page: worker → admin → dashboard → owner TIDAK berubah
 
 Rewiring ini **nilai-netral** dan dibuktikan begitu: 8 kasus baseline (worker NRP002 · admin NRP100/101/102/105 · CEO NRP001 · owner · uuid nol) byte-identik pre vs post. Tidak ada perubahan `src/`, kontrak RPC, RLS, menu, route, design system. `role` yang dibaca frontend tetap nilai yang sama; choke point `entryFromRole` (`supabase-browser.ts:138-143`) menerima input identik. Owner bypass — satu-satunya perlindungan owner (tidak punya baris `user_roles`/`user_role_assignments`) — terverifikasi hidup. Four-page smoke dan E2E tidak diulang karena tidak ada byte `src/` yang berubah; yang diverifikasi adalah DB + dokumen.
+### Addendum (pasca-commit `0e2f6b3`)
+
+Gate pertama pasca-sync ternyata masih merah satu kali: skrip sync dokumen v2 menempel Fact 265 ke sel tabel §7.4 **tetapi tidak mengubah angka** `| Migrations tracked | 189 |` di depan sel — `verify:artifacts` membaca angka itu, jadi dok=189 vs live=190. Fix: edit langsung angka `189 → 190` (CRLF-preserving, diff tepat 1 baris). Hasil mentah setelah fix:
+
+- `verify:artifacts` pra-push: **0 drift, 1 warning** (WARN baseline = Fix #9, infosional).
+- `verify:artifacts` pasca-push: **0 drift**; `migration rows 190`, `max(version) 265`, `Tables 209`, `Functions 656`, `RLS policies 225`, `anon grants 130`.
+- `npm test` pasca-sync: **26/26 files, 170 passed | 4 todo (174)**.
+- Commit `0e2f6b3` (8 file, 375+/6−) + push `e854658..0e2f6b3`; `git status` bersih.
+
+**Pelajaran P14** — sync berbasis replacement **tidak boleh** divalidasi dengan "skrip exit 0". Skrip v2 sukses, 0 duplikasi, 0 lone CR, dan tetap meninggalkan dokumen **tidak sinkron** karena target replacement-nya memilih pola yang tidak memuat angka tabel §7.4. Pintu yang benar: rerun gate (**`verify:artifacts`** harus hijau) barulah sync dianggap selesai — kelas bug yang sama dengan P8 (jumlah fungsi hijau ≠ atribut fungsi benar). Untuk sync berikutnya: assert `dok == live` per metrik, bukan hanya keberhasilan skrip.
+
+Dampak lintas-page: worker → admin → dashboard → owner **tidak terdampak** — addendum hanya mencatat temuan proses + bukti gate; tidak ada byte `src/`, DB, RPC, RLS, menu, route, atau design system yang berubah.
