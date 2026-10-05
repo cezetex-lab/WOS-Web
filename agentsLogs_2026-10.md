@@ -890,3 +890,87 @@ Catatan jujur: ekspektasi awal prompt (`{"ok":false}`) terlalu kuat — fallback
 ### Dampak lintas-page: worker → admin → dashboard → owner TIDAK berubah
 
 Rewiring ini **nilai-netral** dan dibuktikan begitu: 8 kasus baseline (worker NRP002 · admin NRP100/101/102/105 · CEO NRP001 · owner · uuid nol) byte-identik pre vs post. Worker: `role=worker` identik. Admin: keempat NRP admin identik (`Home.tsx:328` menerima JSON yang sama). Dashboard/CEO: NRP001 identik (`admin_pusat`, level 5). Owner: alur `OwnerLogin` tidak berubah; `by_auth_id` tetap `{"ok":false}` untuk owner (T2 by-design, perilaku sama seperti sebelum 266). U1a hanya menghapus field yang **terbukti selalu `undefined`** (0 konsumen, `check:types` EXIT 0); kontrak `entryFromRole`/session tidak berubah. Tidak ada perubahan RLS, menu, route, design system. Four-page smoke/E2E tidak diulang karena tidak ada perubahan perilaku `src/` yang dapat diamati (yang berubah hanya dua baris objek sesi yang nilainya selalu undefined + tipe field yang tidak dipakai).
+## [2026-10-05] Fix #14 §9 batch 267 CLOSED — apply `267_fix14_otp_rewire_wildcard.sql` (rewire OTP `verify_admin_otp_core` + `generate_admin_otp`; wildcard `admin\_%` escaped + override assignment E2)
+
+- **Status: CLOSED.** Migrasi `267` DITERAPKAN ke DB live, diverifikasi (B3–B7 + C1–C3), docs disinkronkan, di-commit, di-push ke `origin/migrasi-vite`. **Batch 5/5 §9 rewiring → §9 rewiring tuntas (5/5 batch).** Sisa §9 = batch 268 (`admin_get_role_matrix` + `admin_set_employee_role`).
+- **Commit:** (diisi setelah commit) · **Branch:** `migrasi-vite` · **HEAD sebelum:** `399061c`
+- **Berkas migrasi:** `supabase/migrations/267_fix14_otp_rewire_wildcard.sql` (206 baris, LF, sha256 `553ed3adb898ffcdb846c70d811629e0052fd5b48e19e7083ce16a181273316b`, tanpa `BEGIN`/`COMMIT` — P4) + jalur pemulihan `supabase/scripts/rollback/267_rollback.sql` (161 baris, LF, sha256 `9fb026fa8580cd8af202761794b9b9c3f940a2897fe209968f1fe6e94599500f`, pre-image byte-exact + ACL restore).
+- **Konteks:** dua fungsi OTP `verify_admin_otp_core(p_code text)` + `generate_admin_otp()` = RPC #7–#8 rencana §9b. Selain rewiring sumber role (hybrid assignment + fallback `user_roles`), 267 menutup **celah wildcard**: gerbang lama memakai `LIKE 'admin_%'` polos — di `LIKE`, `_` = wildcard 1 karakter, sehingga role generik `'admin'` LOLOS gate (terbukti T5 pra-267). Pola baru **escaped** `admin\_%` (kanon migrasi `263:81`). **E2**: gate `generate_admin_otp` memakai `SELECT CASE` — assignment menang, fallback `user_roles` menahan instalasi baru tanpa assignment (simetris `COALESCE` di verify).
+
+### Perubahan (5 hunk, tidak ada yang lain)
+
+Dibuktikan *inverse proof*: body baru dengan 5 hunk dibalik ke bentuk lama **===** pre-image persis (`TRUE`).
+
+1. `verify_admin_otp_core` `DECLARE`: tambah `v_assign_role TEXT;`
+2. Tambah `SELECT a.role_code INTO v_assign_role FROM user_role_assignments a WHERE a.nrp = v_nrp ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC LIMIT 1;`
+3. Gate `verify_admin_otp_core`: `v_role.role` → `COALESCE(v_assign_role, v_role.role)`; whitelist `... <> 'owner' AND ... NOT LIKE 'admin\_%'`
+4. `RETURN` `verify_admin_otp_core`: `'role'` → `COALESCE(v_assign_role, v_role.role, 'admin_pusat')` (fallback dipertahankan)
+5. Gate `generate_admin_otp`: `SELECT CASE WHEN EXISTS(assignment utk v_nrp) THEN EXISTS(assignment role_code LIKE 'admin\_%') ELSE EXISTS(user_roles owner|admin\_%) END INTO v_is_admin;`
+
+**Sengaja tidak berubah:** signature `(p_code text)` / `()` + rettype `jsonb` + urutan key · attrs (plpgsql/VOLATILE/SECDEF/`search_path=public, extensions`) + ACL · wrapper publik `verify_admin_otp` + **grant anon pra-sesi** (dari migrasi 231, sengaja — `Home.tsx:361`/`:468` memanggil SEBELUM sesi ada; 267 hanya menyasar `_core`/`generate`) · fallback `'admin_pusat'` di RETURN verify · `role_codes`/assignments/`user_roles` tidak disentuh.
+
+### Bukti apply (mentah)
+
+```text
+$ node supabase/scripts/apply-migration.mjs --apply --file supabase/migrations/267_fix14_otp_rewire_wildcard.sql
+berkas    : 267_fix14_otp_rewire_wildcard.sql
+versi     : 267
+checksum  : 553ed3adb898ffcdb846c70d811629e0052fd5b48e19e7083ce16a181273316b
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (1022ms)
+PIPESTATUS=0
+```
+
+Post-apply B3–B7 (`.agents/logs/fix14-267b-verify-apply.log` / `.json`, verdict **ALL PASS 14/14**):
+
+| Uji | Hasil |
+|---|---|
+| B3 registry | `{"version":"267","filename":"267_fix14_otp_rewire_wildcard.sql"}` |
+| B4 oid | **298610** (verify, `p_code text`) + **298267** (generate, `''`) **preserved** (CREATE OR REPLACE — bukan DROP+CREATE) |
+| B5 attrs | plpgsql · `provolatile='v'` · `prosecdef=true` · `proconfig=["search_path=public, extensions"]` · `ret=jsonb` — preserved |
+| B5 ACL | `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}` · `auth=true anon=false svc=true` (keduanya) |
+| B6 prosrc verify | `v_assign_role`=true · escaped `admin\_%`=true · `LIKE 'admin%'` polos=**false** · `md5(def)` `5ec65ec8…` → `bcdfbaee5933a7a15ec3587b95f45211` (== ekspektasi simulasi) · def 2438→2893 · prosrc 2251→2706 |
+| B6 prosrc generate | `SELECT CASE`=true · escaped×3 · `LIKE 'admin%'` polos=**false** · `md5(def)` `0605759c…` → `cf00922d1c642b83129e433d354c49a9` (== ekspektasi simulasi) · def 2320→2817 · prosrc 2147→2644 |
+| B7 registry | count=**192** · `max(version)=267` |
+| `Functions` | tetap **656** (267 tidak menambah fungsi) |
+
+### C1–C3 — netralitas 5/5 + wildcard fix + zero residue (post-apply via call-based, tx ROLLBACK)
+
+```
+C1 netralitas 5/5 byte-identik vs baseline pre-267 (.agents/logs/fix14-267-baseline-call.json):
+   NRP001 PASS (admin_pusat) · NRP100 PASS (admin_pusat) · NRP105 PASS (admin_mill)
+   NRP002 REJECT ("Akses ditolak." / "Kode OTP admin tidak valid") · OWNER PASS (OWNER001)
+C2 T5 wildcard: role generik 'admin' TANPA assignment → pra-267 generate=true verify=true (LOLOS)
+   → pasca-267 generate=false verify=false (REJECT)   ← inti DoD 267
+C2 T6 override: assignment admin_pusat + user_roles 'worker' → pra DITOLAK → pasca PASS (assignment dibaca)
+C2 T7 basi:    assignment worker + user_roles 'admin_pusat' → pra LOLOS → pasca REJECT
+C3 regression: NRP100 identik simulasi · P9 nol residu (koneksi baru setelah ROLLBACK):
+   audit_log 587 · otp_store 0 · otp_attempts 0 · session_tokens 357
+VERDICT ALL PASS (.agents/logs/fix14-267c-postapply-call.log / .json)
+```
+
+### Simulasi pra-apply + dry-run (sebelum apply)
+
+- Simulasi satu tx (F/G): rollback byte-identik (`F4 TRUE`), oid + ACL + attrs preserved di 3 stage, registry 191/266 tidak tersentuh, G1 netralitas 5/5, T5 fix terbukti, P9 zero residue (`.agents/logs/fix14-267f-simulasi.log` / `.json`).
+- Dry-run `apply-migration.mjs` (mode default): checksum `553ed3ad…` · status "belum terdaftar" · EXIT 0.
+
+### Gate
+
+- `npm run verify:artifacts` — pra-sync: 1 drift (`Migrations tracked dok=191 live=192`, ekspektasi); **pasca-sync: 0 drift, 1 warning (baseline commit = Fix #9, infosional), EXIT 0** (Migrations tracked 192 · max(version) 267 · Functions 656).
+- `npm run check:types` — **EXIT 0**.
+- `npm test` — pra-sync: 26 file total (25 passed, 1 gagal = `doc-claims-vs-live` menuntut sync 191→192, ekspektasi); **pasca-sync: 26/26 files, 170 passed | 4 todo, EXIT 0**.
+
+### Work Queue
+
+- Tidak ada item Work Queue baru dari batch ini (267 adalah item rencana §9b #7/#8, bukan temuan audit baru).
+- Tidak ada item OPEN yang tertutup karena 267: **P3-F05-06** (`login_otp` edge function — jalur lain), **P1-POST-HARDENING-AUDIT** (46 fungsi tanpa grant — kedua fungsi 267 terbukti `auth=true`), **P2-F14-V** (audit trigger `employees_master`/`employees_core` — belum dikerjakan). Status item queue di AGENTS.md §5.8 tidak diubah selain blok CLOSED 267.
+
+### Pelajaran proses
+
+1. **P15 — wildcard `_` di `LIKE` yang lolos review.** `LIKE 'admin_%'` "terlihat sama" dengan `LIKE 'admin\_%'` tapi artinya beda satu karakter: `_` = wildcard 1 karakter vs literal underscore — role generik `'admin'` karena itu LOLOS gate OTP sejak lama. **Aturan turunan:** setiap whitelist pola role di `LIKE` wajib escaped + punya uji negatif sintetis (role generik tanpa assignment → REJECT).
+2. **P7 tepat lagi:** pre-image/functiondef diambil dari sisi server; komparator byte-identik pakai ekstraksi in-tag `/\$function\$([\s\S]*)\$function\$/`; gate kunci ke **signature**, bukan `oid` (P13). Kelas bug P12 (rollback DROP wajib restore ACL) tidak terulang: 267 CREATE OR REPLACE + rollback menyertakan ACL restore dan disimulasikan.
+
+### Dampak lintas-page: worker → admin → dashboard → owner TIDAK berubah
+
+Rewiring nilai-netral **dan** dibuktikan byte-exact: 5 kasus baseline pre vs post identik pada dua fungsi yang hidup di jalur login. **Worker** — `NRP002` tetap REJECT (worker tidak lewat gate OTP admin; login worker harian via `login_worker` tidak disentuh). **Admin** — NRP100/105 identik (tab admin via OTP tetap sama). **Dashboard/CEO** — NRP001 identik (`admin_pusat`). **Owner** — OWNER identik; `OwnerLogin` tidak memakai kedua fungsi ini, cabang `'owner'` di verify tidak berubah. **Wildcard fix hanya menutup celah hipotetis**: role generik `'admin'` **0 baris** di `user_roles` maupun `user_role_assignments`, jadi tidak ada user nyata yang kehilangan akses; `role_codes` menganggap `'admin'` reserved non-aktif. Tidak ada perubahan RLS, menu, route, design system, kontrak session/entry. E2E 4-page tidak diulang karena 0 perubahan perilaku `src/` yang dapat diamati.
+
+**Signature: Batch 267 CLOSED. §9 rewiring tuntas (5/5 batch). Batch 268 (matrix + set_role) = penutup §9.**

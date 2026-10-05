@@ -140,6 +140,33 @@ Registry **188** / `max(version)=263**. `admin_operasional`/`admin_mining`/`admi
 T2 by-design: owner tetap `{"ok":false}` lewat `by_auth_id` (owner via `OwnerLogin`; `Home.tsx` tidak diubah).
 P2-F14-S/T/U **CLOSED**; item baru **P2-F14-V** (coverage audit `employees_master`/`employees_core` — tanpa `trg_audit_*`).
 
+**Bukti apply 267 (2026-10-05) — rewire OTP `verify_admin_otp_core` + `generate_admin_otp`, netral 5/5 + wildcard fix**
+
+```
+[PRE ] oid 298610 (verify, args 'p_code text') · md5(def) 5ec65ec8d66a1a50b2f7ee1b647a8adf · prosrc 2251
+[PRE ] oid 298267 (generate, args '') · md5(def) 0605759c243854f7920d4c4c52ab668b · prosrc 2147
+[PRE ] acl {postgres,authenticated,service_role} · anon=false · svc=true (keduanya)
+[APPLY] DITERAPKAN + terdaftar + checksum terverifikasi (1022ms) · checksum 553ed3adb898ffcdb846c70d811629e0052fd5b48e19e7083ce16a181273316b
+[POST] oid 298610 + 298267 (preserved) · md5(def) bcdfbaee… (verify) / cf00922d… (generate) · prosrc 2706 / 2644
+[POST] registry 192 baris / max(version)=267 · Functions tetap 656 · attrs + ACL preserved · anon tetap tanpa EXECUTE
+[POST] prosrc verify: v_assign_role ADA · pola escaped admin\_% ADA · LIKE 'admin%' polos TIDAK ada
+[POST] prosrc generate: SELECT CASE ADA · escaped ×3 · LIKE 'admin%' polos TIDAK ada
+[C1  ] netralitas 5/5 byte-identik: NRP001 · NRP100 · NRP105 · NRP002 · OWNER
+[C2  ] T5 wildcard: 'admin' generik tanpa assignment pra-267 LOLOS (gen+ver) -> pasca REJECT (gen+ver)
+[C2  ] T6 assignment admin_pusat + user_roles worker -> PASS (pra-267 DITOLAK) · T7 user_roles basi -> REJECT (pra LOLOS)
+[C3  ] NRP100 regression identik simulasi · P9 nol residu (audit 587 / otp 0 / attempts 0 / session 357)
+[D4  ] rollback byte-identik teruji pra-apply (F4 TRUE; oid+ACL+attrs preserved 3 stage; registry 191/266 tak tersentuh)
+```
+
+**Pelajaran proses baru (2026-10-05, dari 267)**
+
+> **P15 — wildcard `_` yang lolos review.** `LIKE 'admin_%'` "terlihat sama" dengan
+> `LIKE 'admin\_%'`, tapi artinya beda satu karakter: `_` = wildcard 1 karakter vs literal
+> underscore. Gate OTP memakai pola polos sejak lama dan role generik `'admin'` LOLOS;
+> celah itu baru tertutup setelah pola di-escape mengikuti kanon 263:81. Aturan turunan:
+> setiap whitelist pola role di `LIKE` wajib escaped + punya uji negatif sintetis
+> (role generik tanpa assignment → REJECT).
+
 **Pelajaran proses baru (2026-10-03, dari 263)**
 
 > **P10 — whitelist grant yang melewatkan fungsi kritis.** `172_hardening_grants.sql` bermaksud
