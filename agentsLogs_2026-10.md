@@ -974,3 +974,83 @@ VERDICT ALL PASS (.agents/logs/fix14-267c-postapply-call.log / .json)
 Rewiring nilai-netral **dan** dibuktikan byte-exact: 5 kasus baseline pre vs post identik pada dua fungsi yang hidup di jalur login. **Worker** — `NRP002` tetap REJECT (worker tidak lewat gate OTP admin; login worker harian via `login_worker` tidak disentuh). **Admin** — NRP100/105 identik (tab admin via OTP tetap sama). **Dashboard/CEO** — NRP001 identik (`admin_pusat`). **Owner** — OWNER identik; `OwnerLogin` tidak memakai kedua fungsi ini, cabang `'owner'` di verify tidak berubah. **Wildcard fix hanya menutup celah hipotetis**: role generik `'admin'` **0 baris** di `user_roles` maupun `user_role_assignments`, jadi tidak ada user nyata yang kehilangan akses; `role_codes` menganggap `'admin'` reserved non-aktif. Tidak ada perubahan RLS, menu, route, design system, kontrak session/entry. E2E 4-page tidak diulang karena 0 perubahan perilaku `src/` yang dapat diamati.
 
 **Signature: Batch 267 CLOSED. §9 rewiring tuntas (5/5 batch). Batch 268 (matrix + set_role) = penutup §9.**
+## [2026-10-07] Fix #14 §9 **batch 268 CLOSED — §9 REWIRING TUNTAS 6/6** — apply `268_fix14_admin_get_role_matrix_hybrid.sql` (rewire hybrid: field `role_code` dari assignment, field lama netral)
+
+- **Status: CLOSED.** Migrasi `268` DITERAPKAN ke DB live, diverifikasi (B3–B7 + C1–C3), docs disinkronkan, di-commit, di-push ke `origin/migrasi-vite`. **Batch 6/6 §9 rewiring → §9 REWIRING TUNTAS 6/6.** Sisa §9b: 2 RPC belum terjadwal (`get_my_admin_modules` #3, `get_worker_status` #6) + `admin_set_employee_role` #10 **pindah ke §11** (mapping hardcoded 4/3/1 — P2-F14-F).
+- **Commit:** (diisi setelah commit) · **Branch:** `migrasi-vite` · **HEAD sebelum:** `4e885ff`
+- **Berkas migrasi:** `supabase/migrations/268_fix14_admin_get_role_matrix_hybrid.sql` (60 baris, LF, sha256 `a26327e8b268e0be77921b12378e8e928f7511fb946f0226bfe61ad313071ea4`, tanpa `BEGIN`/`COMMIT` — P4) + jalur pemulihan `supabase/scripts/rollback/268_rollback.sql` (41 baris, LF, sha256 `1bd374d0b4c98bfb6c4129b3719cbef8484639122a6a3cd62ab622450f0a5f4a`, pre-image byte-exact + ACL restore).
+- **Konteks:** `admin_get_role_matrix()` = RPC #9 rencana §9b — RPC terakhir yang menjalurkan role, sekaligus penutup §9. Rewire dipilih **hybrid aditif** (keputusan user): tambah field `role_code` dari `user_role_assignments.role_code` (fallback `user_roles.role`), **tanpa** menyentuh field lama (`nrp`/`nama`/`level`/`scope`/`plan`) maupun `ORDER BY ur.role_level DESC`. Alasan: mengganti sumber `level`/`scope` (opsi scope a/b/c) akan mengubah nilai yang sudah dibaca pemanggil, sehingga perbaikan konsumen UI wajib masuk batch yang sama; aditif memisahkan "menyediakan data benar" (DB) dari "memperbaiki konsumen" (UI) dan membuat langkah DB terbukti netral.
+
+### Perubahan (1 hunk, tidak ada yang lain)
+
+Dibuktikan *inverse proof*: body baru dengan 1 hunk dibalik ke bentuk lama **===** pre-image persis (`TRUE`).
+
+1. `jsonb_build_object` per baris: tambah `'role_code', COALESCE((SELECT a.role_code FROM user_role_assignments a WHERE a.nrp = ur.nrp ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC LIMIT 1), ur.role)`.
+2. `def` 495 → **660** byte (md5 `2693bca841a7c4e34171fb5f5d27344d` → `6760b06856318ef8989c857b14a19d40`); `prosrc` 319 → **484** byte (md5 `e5db8c01…` → `2a724d0fe31cbfbd7c44577610460e1d`).
+
+### Bukti apply (mentah)
+
+```
+berkas    : 268_fix14_admin_get_role_matrix_hybrid.sql
+versi     : 268
+checksum  : a26327e8b268e0be77921b12378e8e928f7511fb946f0226bfe61ad313071ea4
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (1021ms)
+EXIT=0
+```
+
+```json
+{"version":"268","filename":"268_fix14_admin_get_role_matrix_hybrid.sql","checksum":"a26327e8b268e0be77921b12378e8e928f7511fb946f0226bfe61ad313071ea4"}
+```
+
+```
+[PRE ] oid 298139 · plpgsql · v · prosecdef=true · proconfig ["search_path=public, extensions"] · jsonb · pronargs 0
+[PRE ] acl {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} · anon_exec=false · auth_exec=true · svc_exec=true
+[POST] oid 298139 PRESERVED · lanname plpgsql · provolatile v · prosecdef true · proconfig ["search_path=public, extensions"] · prorettype jsonb · pronargs 0
+[POST] acl {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} · anon_exec=false · auth_exec=true · svc_exec=true
+[POST] def_len 660 / md5 6760b06856318ef8989c857b14a19d40 · prosrc_len 484 / md5 2a724d0fe31cbfbd7c44577610460e1d · in-tag def === prosrc TRUE
+[POST] prosrc: 'role_code' ADA · 'user_role_assignments' ADA · field lama nrp/nama/level/scope/plan ADA · ORDER BY ur.role_level DESC ADA (tidak disentuh)
+[B7  ] registry 193 baris · max(version)=268 · Functions tetap 656 (CREATE OR REPLACE, bukan fungsi baru)
+```
+
+44 cek otomatis (B3–B7 + C1–C3) = **ALL PASS**, EXIT 0. Log mentah: `.agents/logs/fix14-268b-apply.log`, `.agents/logs/fix14-268c-postapply.log` + `.json`.
+
+### C1–C3 — netralitas 4/4 + `role_code` 17/17 + zero residue (post-apply via call-based, tx ROLLBACK)
+
+| Uji | Hasil |
+|---|---|
+| C1 NRP100 | projeksi field lama **byte-identik** baseline · urutan baris identik · 17 baris |
+| C1 NRP001 | projeksi field lama **byte-identik** baseline · urutan baris identik · 17 baris |
+| C1 NRP002 (worker) | projeksi field lama **byte-identik** baseline · urutan baris identik · 17 baris |
+| C1 OWNER | projeksi field lama **byte-identik** baseline · urutan baris identik · 17 baris |
+| C2 `role_code` | **17/17** cocok `user_role_assignments`: NRP001 `admin_pusat`, NRP100 `admin_pusat`, NRP101 `admin_hrd`, NRP102 `admin_finance`, NRP103 `admin_operasional`, NRP104 `admin_mining`, NRP105 `admin_mill`, NRP106 `admin_estate`, NRP002–010 `worker` · keys baru = `nrp,nama,plan,level,scope,role_code` |
+| C3 owner | owner tetap melihat **17 baris** (owner tidak punya baris `user_roles` → tidak muncul sebagai baris sendiri), identik baseline |
+| P9 residu | `audit_log` 587 · `user_roles` 17 · `user_role_assignments` 17 — nol drift (diukur di koneksi baru setelah ROLLBACK) |
+
+### Simulasi pra-apply + dry-run (sebelum apply)
+
+- Rollback byte-identik (F4 `TRUE`) + `def` text hasil rollback **===** file pre-image.
+- oid + ACL + attrs preserved di 3 stage (pre → post → post-rollback); registry 192/267 tidak tersentuh.
+- G2 sintetis: assignment NRP002 → `admin_pusat` ⇒ `role_code=admin_pusat` + field lama tidak berubah; assignment `admin_hrd` + `user_roles.role='admin_finance'` ⇒ `admin_hrd` (assignment menang); tanpa assignment ⇒ fallback `worker`.
+- `apply-migration.mjs` dry-run EXIT 0 (`status: belum terdaftar`, checksum == sha256 file).
+
+### Gate
+
+- `npm run verify:artifacts` — pra-sync: 1 drift (`Migrations tracked dok=192 live=193`, ekspektasi); **pasca-sync: 0 drift, 1 warning (baseline commit = Fix #9, infosional), EXIT 0** (Migrations tracked 193 · max(version) 268 · Functions 656).
+- `npm run check:types` — **EXIT 0**.
+- `npm test` — pra-sync: 26 file total (25 passed, 1 gagal = `doc-claims-vs-live` menuntut sync 192→193, ekspektasi); **pasca-sync: 26/26 files, 170 passed | 4 todo, EXIT 0**.
+
+### Work Queue
+
+- **4 item baru** dari batch ini: **P1-F14-X** (`admin_get_role_matrix` tanpa authz gate — worker NRP002 menerima 17 baris; prioritas tinggi, rapid follow-up), **P2-F14-Y** (`RoleMatrixPage.tsx` salah-kontrak: baca `role_level`/`divisi` vs RPC kirim `level`/`scope` — pre-existing sejak 171), **P3-F14-Z** (`ORDER BY` tie nondeterministik), **P2-F14-W** (guard P15: unit test scan `prosrc` tolak `LIKE '…%'` unescaped — mengubah P15 dari catatan jadi gerbang).
+- Tidak ada item OPEN yang tertutup karena 268: P1-POST-HARDENING-AUDIT (46 fungsi tanpa grant — `admin_get_role_matrix` terbukti `auth=true`), P1-TABLE-AUDIT, P2-F14-V tetap OPEN.
+
+### Pelajaran proses
+
+1. **P16 — hybrid aditif = bentuk rewire paling aman ketika pemanggil belum siap.** Mengganti `level`/`scope` akan mengubah output yang dibaca pemanggil dan menuntut perbaikan UI di batch yang sama; menambah field baru sambil mempertahankan yang lama memisahkan "menyediakan data benar" dari "memperbaiki konsumen", sehingga langkah DB bisa diverifikasi netral byte-identik dan perbaikan UI menjadi item terpisah. **Aturan turunan:** untuk RPC yang bentuk outputnya belum cocok dengan konsumen, dahulukan aditif + item UI terpisah; jangan gabungkan perubahan kontrak dengan penutupan batch.
+2. **Trap tooling baru:** `prolang::regtype` **GAGAL** untuk bahasa (`prolang` menunjuk `pg_language`, bukan `pg_type` → mengembalikan string OID seperti `"13619"`, bukan `plpgsql`). Nama bahasa yang benar diambil lewat `JOIN pg_language l ON l.oid = p.prolang` → `l.lanname`. Kelas bug ini berbahaya karena OID string terlihat "berhasil" dan tidak error.
+
+### Dampak lintas-page: worker → admin → dashboard → owner TIDAK berubah
+
+Perubahan netral **dan** dibuktikan byte-exact pada 4 identitas (2 admin, 1 worker, 1 owner). **Worker** — panggilan NRP002 menghasilkan projeksi field lama byte-identik baseline (jadi tidak ada perubahan yang bisa diamati UI worker); `RoleMatrixPage` tidak dirender di sisi worker. **Admin** — NRP100/NRP001 identik; halaman `/admin/role-matrix` sendiri **sudah salah-kontrak sebelum 268** (semua user tampil "Level 1 / divisi '-'"), jadi tampilannya tidak berubah oleh 268 (tetap seperti sebelumnya) — perbaikannya adalah **P2-F14-Y**, bukan regresi baru. **Dashboard/CEO** — NRP001 identik; `admin_get_role_matrix` tidak dipakai KPI/agregat apa pun (konsumen tunggal `RoleMatrixPage.tsx:38`). **Owner** — output owner identik baseline (17 baris, owner tetap bukan baris di matrix). Tidak ada perubahan RLS, menu, route, design system, kontrak session/entry, maupun `src/`; E2E 4-page tidak diulang karena 0 perubahan perilaku yang dapat diamati.
+
+**Signature: Batch 268 CLOSED. §9 REWIRING TUNTAS 6/6 (batch 263–268). Batch berikutnya: §10 (rename NRP001 → 'ceo') atau §11 (5 RPC rusak, termasuk `admin_set_employee_role`).**

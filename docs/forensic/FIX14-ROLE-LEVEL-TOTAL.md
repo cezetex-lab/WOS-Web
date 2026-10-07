@@ -712,19 +712,19 @@ CLOSED §8 karena itu dibangun di **bukti pengganti yang lebih kuat dari log app
 (3) state data live memenuhi DoD per-versi, (4) `prosrc`/`proconfig`/`prosecdef` live
 sesuai, (5) smoke gate tidak regresi, (6) commit `6ffc890` sudah di `origin/migrasi-vite`.
 
-## §9 — Rewiring RPC gate admin (10 RPC) — 🟡 BLOCKER K/H/I/L2/J3 **fully CLOSED** (2026-10-02 257/258/259/260 · 2026-10-03 261/262/263/264/265 · 2026-10-04 266 · 2026-10-05 267), **batch 263–267 CLOSED** — 4 RPC sisanya belum
+## §9 — Rewiring RPC gate admin — ✅ **§9 REWIRING TUNTAS 6/6** (2026-10-02 `257`/`258`/`259`/`260` · 2026-10-03 `261`/`262`/`263`/`264`/`265` · 2026-10-04 `266` · 2026-10-05 `267` · 2026-10-07 **`268`**) — batch 263–268 **semua CLOSED**; sisa 2 RPC belum terjadwal + `admin_set_employee_role` pindah §11
 
 Item §9 blocker ditutup lewat migrasi `257`/`258`/`259`/`260`/`261`/`262`/`263` (DITERAPKAN +
-terdaftar + checksum terverifikasi), lalu batch rewiring `264`–`267`. Registry live per
-2026-10-05: `schema_migrations` = **192** baris, `max(version)=267`.
-**Batch 263–267 semuanya CLOSED** — lihat blok `### 263` … `### 267` di bawah (267 = rewire OTP:
-`verify_admin_otp_core` + `generate_admin_otp`, wildcard `admin\_%` **escaped**).
-Sisa **4 RPC** dari rencana §9b belum dieksekusi: batch 268 (`admin_get_role_matrix` +
-`admin_set_employee_role`) + 2 belum terjadwal (`get_my_admin_modules`, `get_worker_status`).
+terdaftar + checksum terverifikasi), lalu **6 batch rewiring `264`–`268`** — semuanya CLOSED.
+Registry live per 2026-10-07: `schema_migrations` = **193** baris, `max(version)=268`.
+**§9 rewiring TUNTAS 6/6** — lihat blok `### 263` … `### 268` di bawah (268 = rewire terakhir:
+`admin_get_role_matrix` hybrid aditif + field `role_code`).
+Sisa dari rencana §9b: **2 RPC belum terjadwal** (`get_my_admin_modules` #3, `get_worker_status` #6)
+dan `admin_set_employee_role` #10 yang **pindah ke §11** (mapping level hardcoded 4/3/1 — P2-F14-F).
 Plan batch:
 `263` is_admin_or_owner ✅ · `264` check_admin_access ✅ · `265` get_current_user_context ✅ ·
 `266` get_user_context_by_auth_id ✅ · `267` verify_admin_otp_core + generate_admin_otp ✅ ·
-`268` admin_get_role_matrix + admin_set_employee_role.
+`268` admin_get_role_matrix ✅ (batch 6/6 — penutup §9).
 
 | Item | Migrasi | Yang diubah | Bukti apply |
 |---|---|---|---|
@@ -734,6 +734,7 @@ Plan batch:
 | **P2-F14-S/T + P3-F14-U** | `265` | `get_current_user_context()`: `role` dari `user_role_assignments.role_code` (fallback `user_roles.role`); `role_level` tetap `user_roles`; owner bypass dipertahankan. Anomali `by_auth_id` (S/T/U) TIDAK disentuh — batch 266 | netralitas **8/8 byte-identik** vs baseline pre-265; owner bypass `is_owner:true`; NRP001 `admin_pusat`; NRP002 `worker`; oid 298319 preserved; attrs + ACL preserved; rollback byte-identik |
 | **P2-F14-S/T + P3-F14-U (lanjutan)** | `266` | `get_user_context_by_auth_id()`: **hapus** blok `UPDATE employees_master SET auth_id` (S1) + `role` hybrid dari `user_role_assignments` (fallback `user_roles.role`); **tanpa** owner bypass (**T2 by-design** — owner via `OwnerLogin`). U1a (kode): hapus field mati `divisi`/`posisi` di `initSession` + 4 field interface | netralitas **8/8 byte-identik** vs baseline pre-266; **oid 298467 preserved**; C2 sintetis: auto-repair mati (`repaired=false`) dengan baca tetap utuh; owner tetap `{"ok":false}`; `check:types` EXIT 0; rollback byte-identik |
 | **§9 RPC OTP (7+8)** | `267` | `verify_admin_otp_core(p_code text)` + `generate_admin_otp()`: `role` hybrid dari `user_role_assignments.role_code` (fallback `user_roles.role`); whitelist pola **escaped** `admin\_%` (kanon 263:81); E2 CASE override — assignment menang, fallback `user_roles` untuk instalasi tanpa assignment | netralitas OTP **5/5 byte-identik** (NRP001/100/105 + owner PASS, NRP002 REJECT); oid **298610/298267 preserved**; T5 wildcard fix (generik `'admin'` pra-267 LOLOS → pasca REJECT); T6 override terbaca; T7 basi REJECT; ACL tetap tanpa anon; rollback byte-identik |
+| **§9 RPC matrix (9)** | `268` | `admin_get_role_matrix()` — **hybrid aditif**: tambah field `role_code` dari `user_role_assignments.role_code` (fallback `user_roles.role`); field lama + `ORDER BY` tidak disentuh | netralitas field lama **4/4 byte-identik** (NRP100/NRP001/NRP002/OWNER) + urutan baris identik; `role_code` **17/17** cocok assignment; oid **298139 preserved**; attrs + ACL preserved; rollback byte-identik |
 
 **Pre-check 259 (wajib, sebelum `DROP CONSTRAINT`)** — `role_di_luar_whitelist: 0`,
 `user_roles` `admin_produksi: 0`, `role IS NULL: 0`. Tidak ada data yang bisa membuat
@@ -1191,7 +1192,59 @@ underscore. Dua fungsi OTP memakai pola polos itu sejak lama tanpa gate; satu te
 (role `'admin'` generik tanpa assignment) cukup untuk membuktikan celahnya. **Aturan turunan:**
 setiap whitelist pola role di `LIKE` wajib escaped + punya uji negatif sintetis.
 
-### §9b — Rencana rewiring 10 RPC (**6/10 selesai** via 263/264/265/266/267; sisanya 4)
+### 268 — Batch 6/6 (penutup): rewire `admin_get_role_matrix()` hybrid (field `role_code`)
+
+Applied 2026-10-07 (registry **193** / `max(version)=268`, checksum
+`a26327e8b268e0be77921b12378e8e928f7511fb946f0226bfe61ad313071ea4`, 1021ms).
+
+**Perubahan = 1 hunk, tidak ada yang lain** (dibuktikan *inverse proof*: body baru dengan 1 hunk
+dibalik === pre-image persis; `def` 495 → **660** byte, `prosrc` 319 → **484** byte):
+
+1. `jsonb_build_object` per baris: tambah field `'role_code', COALESCE((SELECT a.role_code FROM
+   user_role_assignments a WHERE a.nrp = ur.nrp ORDER BY a.is_primary DESC NULLS LAST,
+   a.role_code ASC LIMIT 1), ur.role)`.
+
+Field lama (`nrp`/`nama`/`level`/`scope`/`plan`) dan `ORDER BY ur.role_level DESC` **tidak disentuh** —
+inilah alasan `role_code` ditambahkan sebagai field **baru**, bukan menggantikan `level`/`scope`:
+opsi ganti-sumber (scope a/b/c) akan mengubah nilai yang sudah dibaca pemanggil, sedangkan hybrid
+aditif terbukti netral. Konsumen tunggal `RoleMatrixPage.tsx` **tidak diubah** di batch ini —
+salah-kontraknya (baca `role_level`/`divisi` vs RPC kirim `level`/`scope`) dicatat sebagai **P2-F14-Y**.
+
+| Uji | Hasil |
+|---|---|
+| registry | 193 baris, `max(version)=268`, checksum cocok |
+| oid | **298139 preserved** (CREATE OR REPLACE, bukan DROP+CREATE) |
+| attrs | plpgsql · `v` · `prosecdef=true` · `search_path=public, extensions` — preserved |
+| ACL | `{postgres,authenticated,service_role}` preserved · **anon tanpa EXECUTE** |
+| `Functions` | tetap **656** (268 tidak menambah fungsi) |
+| C1 netralitas | **4/4 byte-identik** vs baseline pre-268 (NRP100/NRP001/NRP002/OWNER) — projeksi field lama + urutan baris identik |
+| C2 `role_code` | **17/17** cocok `user_role_assignments` (NRP001 `admin_pusat`; NRP100 `admin_pusat`; NRP101 `admin_hrd`; NRP102 `admin_finance`; NRP103 `admin_operasional`; NRP104 `admin_mining`; NRP105 `admin_mill`; NRP106 `admin_estate`; NRP002–010 `worker`) |
+| C3 owner | owner melihat **17 baris** identik baseline (owner tidak punya baris `user_roles` → tidak muncul sebagai baris) |
+| P9 residu | `audit_log` 587 · `user_roles` 17 · `user_role_assignments` 17 — nol residu |
+
+Simulasi pra-apply: rollback byte-identik (F4 TRUE + def text === file pre-image), oid + ACL + attrs
+preserved di 3 stage, registry 192/267 tidak tersentuh, dry-run `apply-migration.mjs` EXIT 0.
+
+**3 temuan kandidat dari batch ini — TIDAK diperbaiki di 268** (batch ini sengaja netral; fix-nya
+mengubah perilaku/kontrak, jadi wajib item Work Queue):
+
+1. **P1-F14-X** — `admin_get_role_matrix()` **tanpa authz gate internal**: worker NRP002 menerima
+   seluruh 17 baris (nama + level + role_code semua karyawan). DoD: tambah `authz_check_admin('employee.view_all')`
+   atau `is_admin_or_owner()` di awal body, lalu uji negatif worker (fail-closed).
+2. **P2-F14-Y** — `RoleMatrixPage.tsx` **salah-kontrak** sejak migrasi 171: membaca `role_level`/`divisi`
+   sedangkan RPC mengirim `level`/`scope` → semua user tampil "Level 1 / divisi -" dan kartu Admin+ = 0
+   (field yang benar sudah ada di respons, tapi tidak dibaca). DoD: baca `level`/`scope`/`role_code` +
+   label level 4/5 sesuai peta §5c.
+3. **P3-F14-Z** — `ORDER BY ur.role_level DESC` tanpa tie-breaker → urutan 7 baris level-3 bergantung
+   heap (NRP106 lebih dulu). Deterministik pada data yang sama, tapi tidak dijamin stabil. DoD: tambah
+   `, ur.nrp`.
+
+**Pelajaran baru — P16: "hybrid aditif" adalah bentuk rewire paling aman ketika pemanggil belum siap.**
+Rewire yang mengganti `level`/`scope` (scope a/b/c) akan mengubah output yang dibaca pemanggil mana pun
+dan menuntut perbaikan UI **dalam batch yang sama**. Menambah field baru + mempertahankan field lama
+memisahkan "menyediakan data benar" dari "memperbaiki konsumen", sehingga langkah DB bisa diverifikasi
+netral (byte-identik) dan langkah UI menjadi item terpisah yang tidak memblokir penutupan §9.
+### §9b — Rencana rewiring 10 RPC (**8/10 selesai** via 263/264/265/266/267/268 + 1 pindah §11; sisa 2)
 
 Ubah dari baca user_roles.role → baca admin_role via user_role_assignments.role_code (JOIN role_permission_sets sesuai authz_has_permission existing):
 
@@ -1203,8 +1256,8 @@ Ubah dari baca user_roles.role → baca admin_role via user_role_assignments.rol
 6. get_worker_status
 7. verify_admin_otp_core ✅ **CLOSED via 267** (rewire + wildcard escaped `admin\_%` + override assignment E2)
 8. generate_admin_otp ✅ **CLOSED via 267** (CASE override assignment + fallback `user_roles`)
-9. admin_get_role_matrix (sesuaikan sumber level+scope)
-10. admin_set_employee_role (lihat §11)
+9. admin_get_role_matrix ✅ **CLOSED via 268** (hybrid aditif: field `role_code` ditambah, field lama + `ORDER BY` netral — netralitas 4/4 byte-identik; sekaligus melahirkan **P1-F14-X** gate authz hilang, **P2-F14-Y** salah-kontrak `RoleMatrixPage`, **P3-F14-Z** tie-breaker `ORDER BY`)
+10. admin_set_employee_role → **DIPINDAH ke §11** (#4) — mapping level hardcoded 4/3/1 (P2-F14-F), bukan rewire baca-sumber
 
 TETAP baca user_roles.role + role_level:
 - login_worker, login_worker_by_email (entry sesi worker) — TIDAK diubah.
@@ -1261,6 +1314,7 @@ rollback byte-identik. 4 item Work Queue didaftarkan: **P2-F14-O** (wrapper
 untuk memetakan caller).
 
 ## §13 Riwayat keputusan
+- 2026-10-07: **§9 REWIRING TUNTAS 6/6 — batch 268 CLOSED (penutup §9)** — migrasi `268` (rewire `admin_get_role_matrix()` **hybrid aditif**: tambah field `role_code` dari `user_role_assignments.role_code` fallback `user_roles.role`; field lama `nrp`/`nama`/`level`/`scope`/`plan` + `ORDER BY ur.role_level DESC` **tidak disentuh**) DITERAPKAN + terdaftar; registry **193** baris / `max=268`, checksum `a26327e8…`. Netralitas field lama **4/4 byte-identik** (NRP100/NRP001/NRP002/OWNER) termasuk urutan baris; `role_code` **17/17** cocok assignment; **oid 298139 preserved**; attrs + ACL preserved (`anon` tetap tanpa EXECUTE); nol residu P9. 3 temuan kandidat didaftarkan sebagai Work Queue (**P1-F14-X** gate authz hilang, **P2-F14-Y** salah-kontrak `RoleMatrixPage`, **P3-F14-Z** tie-breaker `ORDER BY`) + **P2-F14-W** (guard P15: unit test scan `prosrc` tolak `LIKE '…%'` unescaped). Pelajaran **P16**: hybrid aditif = bentuk rewire paling aman saat pemanggil belum siap.
 - 2026-10-05: **batch 267 CLOSED** — migrasi `267` (rewire OTP: `verify_admin_otp_core` + `generate_admin_otp` — `role` hybrid dari `user_role_assignments.role_code` fallback `user_roles.role`; whitelist `admin\_%` **escaped**; E2 CASE override + fallback) DITERAPKAN + terdaftar; registry **192** baris / `max=267`, checksum `553ed3ad…`. Netralitas OTP **5/5 byte-identik**; oid **298610/298267 preserved**; wildcard fix T5 terbukti (generik `'admin'` pra-267 LOLOS → pasca REJECT kedua fungsi); T6 override assignment terbaca, T7 `user_roles` basi REJECT; nol residu P9. Pelajaran **P15**: wildcard `_` di `LIKE` (`admin_%` polos) lolos review — wajib escaped + uji negatif sintetis.
 - 2026-10-04: **batch 266 CLOSED** — migrasi `266` (rewire `get_user_context_by_auth_id()`: `role` hybrid dari `user_role_assignments` + **hapus auto-repair `UPDATE employees_master SET auth_id`** — S1/P2-F14-S; T2 by-design: owner tetap `{"ok":false}` lewat `by_auth_id`) DITERAPKAN + terdaftar; registry **191** baris / `max=266`. Netralitas **8/8 byte-identik**; **oid 298467 preserved**; C2 sintetis membuktikan auto-repair mati (`repaired=false`) dengan baca tetap utuh; C1c: 0 baris jalur repair terjangkau. **U1a**: hapus 4 field `divisi?`/`posisi?` (`UserSession` + `CurrentUserContext`) + 2 baris `initSession` — 0 konsumen, `check:types` EXIT 0. Item baru **P2-F14-V** (audit coverage `employees_master`/`employees_core` tanpa `trg_audit_*`). Pelajaran **P14** (sync dokumen tidak sah divalidasi dari exit-code skrip; `verify:artifacts` wajib dijalankan ulang setelah sync, sebelum commit).
 - 2026-10-03: **batch 265 CLOSED** — migrasi `265` (rewire `get_current_user_context()` hybrid: `role` dari `user_role_assignments.role_code` + fallback `user_roles.role`, `role_level` tetap dari `user_roles`, owner bypass dipertahankan) DITERAPKAN + terdaftar; registry **190** baris / `max=265`. Netralitas **8/8 byte-identik** karena 17/17 `role_code` assignment identik dengan `user_roles.role` + 0 user multi-assignment; oid **298319 preserved**, attrs + ACL preserved; rollback byte-identik + ACL restore (D4a-D4g PASS); read-path proof E5 membuktikan `role` benar-benar dibaca dari assignment. 3 item Work Queue baru: **P2-F14-S** (UPDATE `auth_id` di fungsi "get"), **P2-F14-T** (by_auth_id tanpa owner bypass), **P3-F14-U** (field mati `divisi`/`posisi`) — semuanya untuk batch 266. Pelajaran: komparator byte-identik wajib pakai teks in-tag dollar-quote (perluasan P7/P13) + `String.replace` string replacement bisa menduplikasi file (wajib function replacer).
