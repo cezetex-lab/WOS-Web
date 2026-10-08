@@ -200,6 +200,25 @@ Konsumen tunggal `RoleMatrixPage.tsx` **tidak diubah** (netral). 3 temuan kandid
 [NEW ] P1-F14-AA: kelas admin_get_* tanpa authz_check_admin (C2 batch 269)
 ```
 
+**Bukti apply 270B (2026-10-08) — RPC baru `get_my_permissions()`, B2-FULL batch 1 (fondasi additive `session.permissions`)**
+
+```
+[PRE ] get_my_permissions TIDAK ADA (0 baris pg_proc) · registry 194 / max 269 · Functions 656
+[APPLY] DITERAPKAN + terdaftar + checksum terverifikasi (1020ms) · checksum 5f432438bbb4bf68e2680ce0b4751a572525de6be3938288c359e975d7bdca14
+[POST] lang=sql · vol=s · secdef=true · proconfig ["search_path=public, extensions"] · ret text[]
+[POST] proacl {postgres,authenticated,service_role} · authenticated=true · anon=false · service_role=true
+[POST] registry 195 baris / max(version)=270 (checksum cocok file) · Functions 657
+[C1  ] NRP100 admin_pusat → 47 permission (auth_id 023d3e58…)
+[C2  ] NRP101 admin_hrd → 41 permission (auth_id 5774af60…)
+[C3  ] NRP002 worker → 14 permission (auth_id 55f100d8…)
+[C4  ] Owner → 74 permission (bypass authz_is_owner, auth_id a8a77284…)
+[C5  ] anon (SET LOCAL ROLE) → 42501 permission denied for function get_my_permissions
+[C6  ] UUID nol (auth.uid NULL) → [] array kosong TANPA error (fail-safe)
+[SIM ] simulasi pra-apply 6/6 + attrs/ACL PASS · rollback Functions 656→656 + fungsi hilang + registry 194/269 tak tersentuh · dry-run wrapper EXIT 0 (checksum identik)
+[P4  ] file migrasi TANPA BEGIN/COMMIT · rollback file BEGIN+COMMIT (pola 268)
+[ZERO] fungsi BARU 0 pemanggil — nol dampak sampai 270C mengisikannya ke session
+```
+
 **Pelajaran proses baru (2026-10-05, dari 267)**
 
 > **P15 — wildcard `_` yang lolos review.** `LIKE 'admin_%'` "terlihat sama" dengan

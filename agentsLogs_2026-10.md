@@ -1069,3 +1069,32 @@ Perubahan netral **dan** dibuktikan byte-exact pada 4 identitas (2 admin, 1 work
 - **Dampak lintas-page: worker → admin → dashboard → owner.** Worker: lewat RPC langsung kini `{"ok":false}` (memang tujuan fix); via UI tidak berubah (tidak pernah memanggil RPC ini). Admin non-pusat (hrd/operasional/mill/…): kehilangan akses matrix via RPC langsung — konsisten `RoleMatrixPage` yang memang di-guard `admin_pusat`. Dashboard/Owner: tidak terdampak (tidak ada konsumen RPC ini di route itu; owner tetap lewat bypass `authz_is_owner()`). `src/` tidak disentuh → build/type tidak berubah.
 - **Work Queue**: **P1-F14-X → CLOSED**. Item baru **P1-F14-AA** (P1): kelas `admin_get_*` tanpa `authz_check_admin` (≥9 kandidat dari FASE C batch 269: `admin_get_assets/budget/divisions/employee_stats/…`) — audit + gate per fungsi, sprint terpisah. Tidak disentuh di 269: P2-F14-Y, P3-F14-Z, P2-F14-W.
 - **Berkas**: `supabase/migrations/269_fix14_admin_get_role_matrix_gate.sql` (sha256 `832a3419…`), `supabase/scripts/rollback/269_rollback.sql` (sha256 `f28a9131…`); docs sync 5 file (ARCHITECTURE §7.4 194/max 269 + Fact 269; FIX14 blok `### 269` + §13; FORENSIC-INDEX X CLOSED + P1-F14-AA + blok bukti; CONSTANTS 194/269; AGENTS §5.8).
+
+## [2026-10-08] Batch 270B CLOSED — B2-FULL batch 1: RPC baru `get_my_permissions()` (fondasi additive `session.permissions`, H-a)
+
+**Ringkasan**: migrasi `270_fix14_get_my_permissions_rpc.sql` DITERAPKAN + terdaftar + checksum terverifikasi (1020ms) lewat `apply-migration.mjs --apply`; registry **195** baris / `max(version)=270`, checksum `5f432438bbb4bf68e2680ce0b4751a572525de6be3938288c359e975d7bdca14` cocok file, `Functions` **656 → 657**. Ini batch pertama sprint **B2-FULL** (refactor RoleGuard + session contract + useAdminAuth + App.tsx → gate permission-based end-to-end) — keputusan user kombinasi #2: additive-first (270B-E) · sumber permissions **H-a** (RPC baru) · peta route→permission **K1** (file kode `src/lib/route-permissions.ts` di 270D) · **E2** (`allowedRoles` dipertahankan defense-in-depth).
+
+**Isi fungsi**: `get_my_permissions() RETURNS text[]` — LANGUAGE sql, STABLE, SECURITY DEFINER, `SET search_path = public, extensions`. Cabang owner (`authz_is_owner()`) → `array_agg` semua 74 permission; cabang normal → join chain **identik** `authz_has_permission` (`user_role_assignments → role_permission_sets → permission_set_items`) dengan `authz_current_nrp()`; `COALESCE(..., ARRAY[]::text[])` → user tanpa assignment / auth.uid NULL = `[]` (fail-safe, bukan error). Grant: `REVOKE PUBLIC + anon`, `GRANT authenticated + service_role` (fail-closed — pelajaran P10/P12).
+
+**Gate post-apply 6/6 PASS** (`.agents/logs/fix14-270b-postapply.log`, semua dalam transaksi + ROLLBACK):
+
+| Kasus | Hasil |
+|---|---|
+| C1 NRP100 (admin_pusat) | **47** permission |
+| C2 NRP101 (admin_hrd) | **41** permission |
+| C3 NRP002 (worker) | **14** permission |
+| C4 Owner | **74** (bypass semua) |
+| C5 Anon (`SET LOCAL ROLE anon`) | **42501** `permission denied for function get_my_permissions` |
+| C6 UUID nol (auth.uid NULL) | **`[]`** tanpa error |
+
+Verifikasi B3-B6: registry baris 270 checksum cocok · attrs live `sql·s·true·[search_path=public, extensions]·text[]` · proacl `{postgres,authenticated,service_role}` (authenticated=true, **anon=false**, service_role=true) · registry `195/270` · Functions `657`.
+
+**Gate lain**: `check:types` **EXIT 0**. `npm test` pre-sync: 1 failure = `doc-claims-vs-live` (4 drift: ARCHITECTURE §7.4 Functions/Migrations, §7.1 diagram functions, FuturePlans §1.3 Total Functions) → **diselesaikan oleh sync docs ini** (rerun di FASE G). `verify:artifacts` pre-sync: 2 drift ekspektasi (dok 656/194 vs live 657/195) — disync di entri ini.
+
+**Simulasi pra-apply** (FASE E batch 270B, 1 transaksi + ROLLBACK): 6/6 PASS identik dengan post-apply + 11 check attrs/ACL; rollback → Functions 656→656, fungsi hilang, registry 194/269 tak tersentuh; dry-run wrapper EXIT 0 dengan checksum identik. File migrasi **TANPA BEGIN/COMMIT (P4)**; `270_rollback.sql` = `BEGIN; DROP FUNCTION IF EXISTS; COMMIT;` (pola 268) + catatan DELETE registry bila perlu.
+
+**Dampak lintas-page: worker → admin → dashboard → owner — TIDAK BERUBAH (additive; fungsi baru, belum dipanggil).** 0 pemanggil di `src/`/`supabase/functions/`; `src/`, `tests/`, `supabase/functions/` tidak disentuh sama sekali; tidak ada fungsi existing diubah; session/guard lama tidak memanggil RPC ini → behavior 4 page identik byte. Fungsi baru baru dikonsumsi di **270C** (`initSession` + `setSession`).
+
+**Work Queue**: tidak ada item baru (P1-F14-AA tetap OPEN — 270B hanya fondasi; gate per-RPC tetap sprint 270D/F2). B2-FULL: **270B ✅** → 270C → 270D → 270E.
+
+**Berkas**: `supabase/migrations/270_fix14_get_my_permissions_rpc.sql` (sha256 `5f432438…`), `supabase/scripts/rollback/270_rollback.sql` (sha256 `96baf5a2…`); docs sync 6 file (ARCHITECTURE §7.1+§7.4 195/max 270 + Fact 270; FuturePlans §1.3 ~657; FIX14 blok `### 270B` + §13; FORENSIC-INDEX blok bukti 270B; CONSTANTS 195/max 270 + max(version)=270; AGENTS §5.8).

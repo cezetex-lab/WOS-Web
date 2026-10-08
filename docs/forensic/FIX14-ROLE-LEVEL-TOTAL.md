@@ -1347,6 +1347,74 @@ Regression:
 
 CI: hijau (types/lint/test/build) di HEAD setelah eksekusi.
 
+### 270B — B2-FULL batch 1: RPC BARU `get_my_permissions()` (fondasi additive `session.permissions`)
+
+Applied 2026-10-08 (registry **195** / `max(version)=270`, checksum
+`5f432438bbb4bf68e2680ce0b4751a572525de6be3938288c359e975d7bdca14`, 1020ms).
+
+**Konteks (sprint P1-F14-AA → B2-FULL).** Investigasi 270A memetakan 42 RPC
+`admin_get_*` (28 bocor) + 35 route admin tanpa guard; akar masalahnya guard
+role-string di klien tidak punya dasar permission. Keputusan user: strategi
+**additive-first** (270B-E), sumber permissions = **H-a** (RPC baru, bukan
+extend `get_current_user_context` — G3 aman), peta route→permission = **K1**
+(`src/lib/route-permissions.ts`, dibuat di 270D), `allowedRoles` = **E2**
+(dipertahankan sbg defense-in-depth).
+
+**Isi — fungsi BARU, additive murni (tidak menyentuh fungsi existing):**
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_my_permissions()
+RETURNS text[] LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, extensions AS $function$
+  SELECT CASE
+    WHEN public.authz_is_owner() THEN
+      (SELECT array_agg(DISTINCT permission_code ORDER BY permission_code)
+       FROM permission_set_items)          -- owner: semua 74
+    ELSE COALESCE(
+      (SELECT array_agg(DISTINCT psi.permission_code ORDER BY psi.permission_code)
+       FROM user_role_assignments ura
+       JOIN role_permission_sets rps ON rps.role_code = ura.role_code
+       JOIN permission_set_items psi ON psi.permission_set = rps.permission_set
+       WHERE ura.nrp = public.authz_current_nrp()),
+      ARRAY[]::text[])                     -- tanpa assignment: kosong, bukan error
+  END;
+$function$;
+-- REVOKE PUBLIC + anon; GRANT authenticated + service_role (fail-closed)
+```
+
+Join chain = **identik** dengan `authz_has_permission` (live, FASE B); owner
+bypass via `authz_is_owner()` = pola 263/269. Return `text[]` (bukan Set) —
+JSON-serializable ke sessionStorage.
+
+**Gate post-apply 6/6** (`.agents/logs/fix14-270b-postapply.log`):
+
+| Kasus | Hasil |
+|---|---|
+| NRP100 (admin_pusat) | **47** permission |
+| NRP101 (admin_hrd) | **41** permission |
+| NRP002 (worker) | **14** permission |
+| Owner (`system_owner_identity`) | **74** (bypass semua) |
+| Anon (`SET LOCAL ROLE anon`) | **42501** `permission denied for function get_my_permissions` |
+| UUID nol (auth.uid NULL) | **`[]`** tanpa error (fail-safe) |
+
+**Attrs/ACL live**: lang=sql · vol=s · secdef=true ·
+proconfig `["search_path=public, extensions"]` · ret `text[]` ·
+proacl `{postgres,authenticated,service_role}` (authenticated=true,
+anon=false, service_role=true). Registry `195/270` checksum cocok file;
+Functions **656 → 657**.
+
+**Simulasi pra-apply** (FASE E, 1 transaksi + ROLLBACK): 6 kasus PASS +
+attrs/ACL PASS; rollback → Functions 656→656, fungsi hilang, registry
+194/269 tak tersentuh. Dry-run wrapper EXIT 0 (checksum sama).
+
+**Sifat**: fungsi BARU, 0 pemanggil — nol dampak ke 4 page sampai 270C
+mengisikannya ke session. File migrasi TANPA BEGIN/COMMIT (P4); rollback
+`BEGIN; DROP FUNCTION IF EXISTS; COMMIT;` (pola 268).
+
+Lanjutan: **270C** (session contract aditif — `types/index.ts` +
+`supabase-browser.ts` + `RoleGuard.tsx` + `useAdminAuth.ts` + test) →
+**270D** (50 call site + RG1) → **270E** (deprecate + fail-closed + docs).
+
 ### 2026-10-03 — Batch 263 CLOSED (P2-F14-N) + grant restoration
 
 Keputusan: **Opsi 1** (rewire + `GRANT EXECUTE` dalam satu migrasi `263`), bukan dipisah
@@ -1363,6 +1431,7 @@ rollback byte-identik. 4 item Work Queue didaftarkan: **P2-F14-O** (wrapper
 untuk memetakan caller).
 
 ## §13 Riwayat keputusan
+- 2026-10-08: **batch 270B CLOSED — B2-FULL batch 1 (fondasi additive)** — migrasi `270` (RPC BARU `get_my_permissions()` → `text[]`, STABLE SECURITY DEFINER, owner bypass `authz_is_owner()` → 74, join chain identik `authz_has_permission`, fallback `ARRAY[]::text[]`, GRANT `authenticated`+`service_role` tanpa `anon`) DITERAPKAN + terdaftar; registry **195** baris / `max=270`, checksum `5f432438…`, `Functions` **656 → 657**. Gate post-apply **6/6**: 47/41/14/74 + anon **42501** + UUID nol `[]`; simulasi pra-apply 6/6 + rollback (656→656) + dry-run EXIT 0. Keputusan user (kombinasi #2): **additive-first** · **H-a** (RPC baru, bukan extend `get_current_user_context`) · **K1** (peta route→permission = file kode `src/lib/route-permissions.ts` di 270D, bukan kolom DB) · **E2** (`allowedRoles` dipertahankan sbg defense-in-depth, bukan dihapus di 270E). Zero breaking: fungsi baru tanpa pemanggil.
 - 2026-10-07: **batch 269 CLOSED — follow-up P1-F14-X** — migrasi `269` (authz gate `admin_get_role_matrix()`: X1 custom EXISTS `user_role_assignments.role_code='admin_pusat'` + owner bypass `authz_is_owner()`) DITERAPKAN + terdaftar; registry **194** baris / `max=269`, checksum `832a3419…`. Gate post-apply **8/8** (3 positif 17 baris byte-identik `b4a6c150…`; 5 negatif `{"ok":false}`); oid **298139 preserved**; attrs + ACL preserved; simulasi pra-apply 14/14 + rollback byte-identik. Keputusan: alternatif `authz_check_admin('employee.view_all')` **DITOLAK** (permission = [admin_pusat, admin_hrd] → loloskan admin_hrd). Item baru **P1-F14-AA** (kelas `admin_get_*` tanpa gate — temuan FASE C batch 269).
 
 
