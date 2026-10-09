@@ -132,6 +132,11 @@ tanggal run — jangan drift-check ketat.
   jalur normal satu Fase-1; kalau user ingin aman, registry bisa di-split jadi
   "DB-live claims" (10 jenis) + "repo-file claims" (6 jenis) di Fase-2.
 
+## 6a. Referensi desain Fase-2
+
+- **Design doc**: `docs/forensic/NUMERIC-GUARD-DESIGN.md` (Fase-2 — registry + meta-guard
+  numeric claims; design-only, belum implementasi).
+
 ## 6b. Rencana Fase-2 (keputusan user 2026-10-09 — BELUM diimplementasi)
 
 - **Split 2 sub-registry**: (1) **DB-live claims** (~10 jenis: tables, functions, overloads,
