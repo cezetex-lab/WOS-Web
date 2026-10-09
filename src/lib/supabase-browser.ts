@@ -228,6 +228,13 @@ export async function initSession(): Promise<UserSession | null> {
     if (session) {
       const { data, error } = await supabase.rpc('get_current_user_context');
       if (!error && data) {
+        // 270C: fetch permission sesi (aditif). Gagal/rusak → biarkan `undefined`
+        // supaya guard fallback ke allowedRoles (non-breaking untuk sesi lama).
+        let permissions: string[] | undefined;
+        try {
+          const { data: perms, error: permsErr } = await supabase.rpc('get_my_permissions');
+          if (!permsErr && Array.isArray(perms)) permissions = perms;
+        } catch { /* keep undefined */ }
         const ctx: UserSession = {
           nrp: data.nrp,
           nama: data.nama,
@@ -236,6 +243,7 @@ export async function initSession(): Promise<UserSession | null> {
           business_unit_id: data.business_unit_id,
           is_owner: data.is_owner || data.role === 'owner',
           email: data.email,
+          permissions,
         };
         setSession(ctx);
         return ctx;

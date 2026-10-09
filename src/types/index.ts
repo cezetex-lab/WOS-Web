@@ -19,6 +19,14 @@ export interface UserSession {
   entry?: 'admin' | 'worker' | 'dashboard' | 'owner';
   tier?: number;
   expires_at?: string;
+  /**
+   * 270C — permission milik sesi ini (dari RPC `get_my_permissions`).
+   * `undefined` = belum fetch / fetch gagal / sesi lama (8 jam masih beredar)
+   *   → guard FALLBACK ke `allowedRoles` (fail-open sementara 270C–D).
+   * `[]`      = fetch sukses tapi kosong → FAIL-CLOSED saat guard diset `permission`.
+   * `string[]`= fetch sukses → guard memakai permissions (dual-accept).
+   */
+  permissions?: string[];
 }
 
 export interface AuthUser {

@@ -10,6 +10,10 @@ import { getSession } from '@/lib/supabase-browser';
  *     Sesi hanya valid bila session.entry === entry (isolasi 3 page:
  *     login via tab lain TIDAK bisa pindah page tanpa login ulang).
  *   redirectTo: string — where to redirect if unauthorized (default: '/')
+ *   permission: string — 270C: permission yang diminta (mis. 'employee.view_all').
+ *     Bila sesi PUNYA `permissions` (fetch sukses), guard memakai permissions
+ *     (fail-closed: [] = ditolak) menggantikan allowedRoles. Bila sesi TIDAK
+ *     punya `permissions` (sesi lama / fetch gagal) → fallback ke allowedRoles.
  *
  * Usage:
  *   <RoleGuard allowedRoles={['admin_pusat']} entry="admin">
@@ -21,9 +25,9 @@ import { getSession } from '@/lib/supabase-browser';
  *   </RoleGuard>
  */
 
-interface RoleGuardProps { children?: React.ReactNode; allowedRoles?: string[]; entry?: string | null; redirectTo?: string; }
+interface RoleGuardProps { children?: React.ReactNode; allowedRoles?: string[]; entry?: string | null; redirectTo?: string; permission?: string; }
 
-export default function RoleGuard({ children, allowedRoles = [], entry = null, redirectTo = '/' }: RoleGuardProps) {
+export default function RoleGuard({ children, allowedRoles = [], entry = null, redirectTo = '/', permission }: RoleGuardProps) {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -57,6 +61,10 @@ export default function RoleGuard({ children, allowedRoles = [], entry = null, r
         if (!cancelled) {
           if (isOwner) {
             setAuthorized(true);
+          } else if (permission && s.permissions !== undefined) {
+            // 270C: permissions ADA → pakai permissions, fail-closed.
+            if (s.permissions.includes(permission)) setAuthorized(true);
+            else navigate(redirectTo, { replace: true });
           } else if (allowedRoles.length === 0) {
             // eslint-disable-next-line no-console -- fail-closed: dev-time diagnostic, stripped in prod
             console.error('[RoleGuard] allowedRoles kosong — akses ditolak (fail-closed)');
@@ -78,7 +86,7 @@ export default function RoleGuard({ children, allowedRoles = [], entry = null, r
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate, redirectTo, entry, JSON.stringify(allowedRoles)]);
+  }, [navigate, redirectTo, entry, permission, JSON.stringify(allowedRoles)]);
 
   if (checking) {
     return (

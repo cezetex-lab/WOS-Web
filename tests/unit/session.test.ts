@@ -132,4 +132,36 @@ describe('Session Management', () => {
     expect(() => getSession()).not.toThrow();
     expect(getSession()).toBeNull();
   });
+
+  // ── 270C: kontrak aditif `UserSession.permissions` ──────────────
+
+  it('270C: setSession mempertahankan permissions (deep-equal [a,b])', async () => {
+    const { setSession, getSession } = await import('../../src/lib/supabase-browser.js');
+
+    setSession({
+      nrp: 'NRP001', nama: 'Test User', role: 'worker', role_level: 1,
+      business_unit_id: 'BU-HQ', permissions: ['a', 'b'],
+    });
+
+    expect(getSession()?.permissions).toEqual(['a', 'b']);
+  });
+
+  it('270C: setSession tanpa permissions → getSession().permissions === undefined', async () => {
+    const { setSession, getSession } = await import('../../src/lib/supabase-browser.js');
+
+    setSession({ nrp: 'NRP001', nama: 'Test User', role: 'worker', role_level: 1, business_unit_id: 'BU-HQ' });
+
+    expect(getSession()?.permissions).toBeUndefined();
+  });
+
+  it('270C: setSession permissions=[] → deep-equal [] (fail-closed, bukan undefined)', async () => {
+    const { setSession, getSession } = await import('../../src/lib/supabase-browser.js');
+
+    setSession({
+      nrp: 'NRP001', nama: 'Test User', role: 'worker', role_level: 1,
+      business_unit_id: 'BU-HQ', permissions: [],
+    });
+
+    expect(getSession()?.permissions).toEqual([]);
+  });
 });
