@@ -288,8 +288,26 @@ bukan konversi latin1 seluruh berkas karena kedua file berencoding CAMPURAN) →
 
 **Melengkapi P18** (§0.18 — verifikasi HEAD sebelum git HEAD-op) dan **P19**
 (anti-meta-script: task sederhana = edit langsung, bukan bikin helper/generator; aturan ini
-berlaku sejak sesi 2026-10-10 tetapi **belum punya sub-bab sendiri**) — satu kelas yang sama:
+berlaku sejak sesi 2026-10-10 dan kini punya rumah permanen di §0.20) — satu kelas yang sama:
 **jangan percaya state/guard tanpa bukti empiris.**
+
+
+
+## 0.20 ANTI-META-SCRIPT (P19)
+
+**Aturan keras.** DILARANG membuat helper/generator/build script untuk task yang bisa
+diselesaikan dengan edit langsung file target (<5 file, <50 baris edit).
+
+Kalau tergoda bikin tooling sendiri untuk task sederhana → STOP, lapor.
+
+**Preseden:** sesi 2026-10-10 — helper Cline membuat `build-surgical.mjs` +
+`edit-registry-surgical.mjs` untuk task "edit 4 claimPattern di 1 JSON", lalu masuk
+rabbit hole (error koma → debug → error baru). Task selesai dalam 1 edit langsung
+setelah pindah helper (Freebuff).
+
+**Melengkapi P18** (§0.18) + **P20** (§0.19) sebagai trilogi
+"jangan tambah kompleksitas untuk task sederhana / jangan percaya tanpa
+bukti empiris".
 
 ## 5.8 STATE OPEN — WORK QUEUE: Temuan Audit SQL (WAJIB DISELESAIKAN)
 
@@ -349,8 +367,7 @@ berlaku sejak sesi 2026-10-10 tetapi **belum punya sub-bab sendiri**) — satu k
 
 | **P2-F14-AF** | P2 | AGENTS.md **mixed-file** (klaim hidup §5.8 OPEN + rekaman waktu blok `> CLOSED`/`> Dipangkas` bercampur). Mengeluarkan dari archive tanpa scan-mode = 13 drift palsu (angka historis 185/187/260 dst vs live 195/270). | Audit Fase-4b 2026-10-10: 30 baris klaim-angka-live di §5.8; estimasi 39/86 = 45% campuran. Estimasi drift palsu bila keluar archive: ±13. | Scan-mode guard yang skip baris di blok blockquote (`> CLOSED`, `> Dipangkas`, `> Bukti-WQ`) — AGENTS.md boleh keluar dari archive. Uji: scan AGENTS.md → hanya §5.8 OPEN yang di-drift-check. | ⚠ **NEW** (2026-10-10, Fase-4b) |
 | **P2-F14-AG** | P2 | 4 file campuran (bukan arsip, bukan hidup): TESTING_GUIDE (pola `; N berkas` false-positive di baris 39), FIX14-ROLE-LEVEL-TOTAL, FORENSIC-INDEX, AGENTS.md (overlap AF). Prioritas rendah — tidak ada drift hari ini. | Audit Fase-4b: 4/20 file archive masuk kategori (c). TESTING_GUIDE:39 `…; 5 berkas…` di-match pola generik. | Persempit pola generik (`; (\d+) berkas` → butuh konteks), lalu evaluasi file mana yang bisa keluar. | ⚠ **NEW** (2026-10-10, Fase-4b) |
-| **P3-F14-AI** | P3 | Backtick markdown hilang di DR line: `` `supabase/baseline/README.md` `` → `supabase/baseline/README.md` (kosmetik, dari fix 327ea9b). | Diff 327ea9b: DR line terhapus backtick-nya. | ✔ **DONE** — backtick dipulihkan pada baris 83 `DISASTER_RECOVERY.md`: `supabase/baseline/README.md` kembali jadi code-span. Di-bundle dengan `P2-F14-AJ` (1 sentuhan). | ✔ **CLOSED** (2026-10-10, Fase-4b-3) |
-| **P2-F14-AJ** | P2 | 2 file teks tracked menyimpan **byte invalid UTF-8 di HEAD**: `DISASTER_RECOVERY.md` (byte `0x97` = CP1252 em-dash, baris 83) + `.env.example`. Setiap editor lossy (`str_replace`, write) membaca sebagai UTF-8 lalu **menulis ulang seluruh berkas** → byte itu jadi `U+FFFD` (`EF BF BD`) **diam-diam**, merusak konten tanpa error. | Ketahuan 2026-10-10 saat L7 P2-F14-AH: `str_replace` pada DR.md memicu `0x97`→`U+FFFD`; dipulihkan byte-eksak via `git checkout --` **setelah** verifikasi §0.18 (`i/lf w/crlf attr=text=auto eol=crlf`, `core.autocrlf=false` → cacat pre-existing, bukan efek edit angka). **Pola BERULANG**, bukan insiden tunggal: sudah 2× sebelumnya — `agentsLogs_2026-09.md:1201` (`.gitignore`) dan `:3232` (`.env.example`, pelajaran "append tidak boleh lewat read-rewrite"). Scan seluruh tracked: **hanya 2 file teks non-UTF8** (8 PNG wajar). Belum ada guard encoding (`scripts/` hanya `repair-text-encoding.ts` = alat perbaikan, bukan guard; 0 script `package.json`). | ✔ **DONE.** (a) Guard `npm run verify:encoding` (`scripts/verify-text-encoding.mjs` + `verify-text-encoding.d.mts` + `tests/unit/text-encoding-guard.test.ts` 9/9; di-wire ke `package.json` + CI step setelah `Verify numeric claims`) **terbukti MERAH** pada tree normalis: `DRIFT .env.example offset 0x10 byte 0x97` + `DRIFT DISASTER_RECOVERY.md offset 0x119f byte 0x97`, `EXIT_ENCODING=1`. (b) Normalisasi byte-level (Buffer.replace `0x97`→`E2 80 94`, BUKAN editor lossy) → **HIJAU** `0 file non-UTF8 · 542 file teks dicek`, `EXIT_ENCODING=0`; `sisa0x97=0`, CRLF utuh (DR 109 / env 27), **31 sekuens UTF-8 lama tidak tersentuh**. **Pelajaran:** kedua file berencoding CAMPURAN (UTF-8 + 5 byte CP1252), jadi konversi latin1 seluruh berkas akan merusak sekuens yang sudah benar. | ✔ **CLOSED** (2026-10-10, Fase-4b-3) |
+
 
 > **CLOSED 2026-10-02 — P1-F14-K, P2-F14-H, P2-F14-I** (Fix #14 §9 blocker, migrasi 257/258/259/260 DITERAPKAN; registry 185 baris, `max(version)=260`; bukti di `agentsLogs_2026-10.md` entri 2026-10-02 + `docs/forensic/FORENSIC-INDEX.md`). Ringkasan: **K** trigger audit `user_role_assignments` terpasang via `_generic_audit_trigger_fixed`, uji INSERT → `audit_log` 582→583 dengan `actor` terisi; **H** `authz_in_scope` cabang `TEAM` `manager_nrp` → `atasan_nrp`, smoke tidak crash; **I** `admin_produksi` dicabut dari CHECK `user_roles_role_check` (uji negatif `23514`) + whitelist `is_admin_or_owner` + 3 `role_permission_sets` (items tetap 93) → **0 di kelima tempat**. Sisa satu-satunya: whitelist `admin_set_employee_role` = item **P2-F14-F** (masih OPEN). **P2-F14-J** (rename NRP001 → `'ceo'`) masih OPEN, target §10.
 >
