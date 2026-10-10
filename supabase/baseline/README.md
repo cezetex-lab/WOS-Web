@@ -21,7 +21,7 @@
 Rantai migrasi **sudah** diperbaiki sampai replay bersih 157/157, jadi ia bukan lagi rusak.
 Tapi ia tetap bukan jalur terbaik untuk instalasi: ia membawa data demo, 77 nomor versi kosong,
 dan tidak memuat objek yang selama ini hanya hidup di DB live. Baseline adalah potret apa adanya
-dari DB live, termasuk 208 tabel, 549 fungsi, 223 policy, 27 trigger, 285 partisi, 4 cron job.
+dari DB live, termasuk 209 tabel, 657 fungsi, 225 policy, 27 trigger, 5 cron job. Diverifikasi 2026-10-10.
 
 ## 2. Prasyarat
 
