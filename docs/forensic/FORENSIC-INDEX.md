@@ -39,6 +39,12 @@ Sisa: tidak ada.
   duplikat klaim migrasi Fix #4/#5 di file ini (179/254), total batch audit 88/122, snapshot supabase/baseline/*.md.
 - Aturan: fix apa pun yang menambah migrasi/test/angka dokumen WAJIB cek + perbarui file itu.
 
+## ✅ Fase-3 Level B CLOSED (commit d48169e, CI #59, 2026-10-09)
+
+Status: CLOSED. Registry angka (scripts/numeric-claims-registry.json: 19 entry, 0 duplikat, semua extractor valid) + meta-guard verify:numeric (scan semua .md tracked, exit 0/1/2) diterapkan. Snapshot marker kanonik `[snapshot:<hash>]` (contoh: `[snapshot:7ada2d0]`) diterapkan ke 4 baris kutipan historis. 10 file, 880+/12-. verify:numeric 0 drift (sebelumnya 7 → 0 setelah 2a+2b+2c). Registry = data statis (tanpa Function/eval/string-code); SQL OK; kode JS = dilarang. Harness B2 fix: spawnSync + stderr + timeout 30s; 9/9 PASS. Fase-4 = verify:numeric masuk CI + cleanup guard lama + evaluasi AGENTS.md archive (campuran — R8). Angka dokumen sinkron (ARCHITECTURE:216/51/8; SECURITY:30 → 198/198; CONSTANTS:29 → 198/28). R8 dikoreksi: 19 entry (bukan 17 — desain §2.3 benar); SECURITY.md dikeluarkan dari archiveFiles (kontradiksi Fase-1 — file aktif); line shift DESIGN 214→225 dikonfirmasi (§5.x snapshot). G7 lintas-page: worker→admin→dashboard→owner = 0 perubahan runtime.
+
+Bukti gate @ d48169e: verify:numeric 0 drift + 4 skip; verify:artifacts 0; verify:test-count 28/198; vitest 9/9; check:types 0; build 0; lint 0; `git rev-parse HEAD = d48169e...`; push `Everything up-to-date`; status kosong.
+
 ## Fix #14 — Peta Role/Level/Login (🟡 INVESTIGASI 2/3 — B1 DB live + B2 code src/, 2026-09-30)
 
 - File: [`docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md`](FIX14-ROLE-LEVEL-TOTAL.md) — single source of truth Fix #14 (B1 §1–§4 diisi; §5–§6 menunggu B2 code read; §7–§11 menunggu B3 rencana).

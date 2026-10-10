@@ -1,6 +1,6 @@
-# NUMERIC-CLAIMS-INVENTORY — Fase-1 Level B
+# NUMERIC-CLAIMS-INVENTORY — Fase-1 Level B (+ Fase-3 CLOSED @ d48169e)
 
-> **Status: Fase-1 DI-APPROVE user (2026-10-09) — di-commit; 3 kasus (e) PENDING Fase-2.**
+> **Status: Fase-1 DI-APPROVE user (2026-10-09) — di-commit; Fase-3 CLOSED (commit d48169e, CI #59, 2026-10-09) — registry 19 entry, meta-guard 0 drift + 4 snapshot skip.** 3 kasus (e) PENDING Fase-2 (ambig — belum diputus user). Mode: READ-ONLY (kecuali update angka saat live berubah secara sah).
 > Baseline: `7ada2d0` (270C CLOSED, CI #56 hijau). Ditulis: 2026-10-09. Mode: READ-ONLY.
 > Data mentah: `.agents/reports/numeric-claims-raw.txt` (gitignored, dihasilkan
 > `.agents/scripts/scan-numeric-claims.mjs` — dedup per `file:line`, satu jenis per baris,
