@@ -1,0 +1,303 @@
+{
+  "version": 2,
+  "generatedBy": "Fase-3 Level B - refactor ke shape design doc §2.2 (keputusan user PARTIAL-RECOVER 2026-10-09)",
+  "notes": "DATA STATIS murni: tanpa logika runtime, tanpa kode JS string (anti-pattern sesi Solar Pro dihapus). SQL db-live identik metodologi doc-claims-vs-live/verify:artifacts. Extractor repo-file = nama fungsi di scripts/numeric-extractors.mjs (bukan kode string). archiveFiles = file .md yang TIDAK di-cross-check (arsip/kutipan historis, design §3).",
+  "archiveFiles": [
+    "agentsLogs.md",
+    "agentsLogs_2026-09.md",
+    "agentsLogs_2026-09-25.md",
+    "agentsLogs_2026-10.md",
+    "AGENTS.md",
+    "OPEN_WORK.md",
+    "MIGRATION_GUIDE.md",
+    "ENVIRONMENT_TRAPS.md",
+    "TESTING_GUIDE.md",
+    "DISASTER_RECOVERY.md",
+    "FuturePlans.md",
+    ".agents/skills/agent-browser/SKILL.md",
+    "docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md",
+    "docs/forensic/FORENSIC-INDEX.md",
+    "supabase/baseline/README.md",
+    "supabase/baseline/rehearse-new-company.md",
+    "supabase/baseline/replay-baseline.md",
+    "supabase/baseline/replay-chain.md",
+    "supabase/baseline/verify-install-e2e.md",
+    "supabase/scripts/migrasi-region-sg-plan.md"
+  ],
+  "entries": [
+    {
+      "id": "tables",
+      "label": "Tabel public (non-partisi)",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\| Tables \\| (\\d+) \\|", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='public' AND c.relkind IN ('r','p') AND NOT c.relispartition" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["verify:artifacts", "doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "functions",
+      "label": "Fungsi public",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\| Functions \\| (\\d+)", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='public'" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["verify:artifacts", "doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "overloads",
+      "label": "Overload fungsi (proname > 1)",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\| Functions \\| \\d+ \\| (\\d+) overloads", "group": 1 },
+        { "regex": "\\(\\+(\\d+) overloads\\)", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM (SELECT proname FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='public' GROUP BY proname HAVING count(*)>1) t" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "migrations-tracked",
+      "label": "Migrations tracked (schema_migrations)",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\| Migrations tracked \\| (\\d+)", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM schema_migrations" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["verify:artifacts", "doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "max-version",
+      "label": "max(version) migrasi",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\(max (\\d+)\\)", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT coalesce(max(version::int),0)::int n FROM schema_migrations" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["verify:artifacts"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "rls-policies",
+      "label": "RLS policies",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "All tables \\((\\d+)\\)", "group": 1 },
+        { "regex": "\\| RLS policies \\| (\\d+) \\(10 belum FORCE\\)", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM pg_policies WHERE schemaname='public'" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["verify:artifacts", "doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "no-force-rls",
+      "label": "Tabel RLS belum FORCE",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "(\\d+) (?:tabel )?belum FORCE", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='public' AND c.relkind='r' AND c.relrowsecurity AND NOT c.relforcerowsecurity" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["verify:artifacts", "doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "anon-grants",
+      "label": "anon/PUBLIC EXECUTE grants",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\| anon\\/PUBLIC grants \\| (\\d+) \\|", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='public' AND has_function_privilege('anon',p.oid,'EXECUTE')" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["verify:artifacts", "doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "cron-jobs",
+      "label": "pg_cron jobs",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\| pg_cron jobs \\| (\\d+) \\|", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM cron.job" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["verify:artifacts", "doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "search-path-violations",
+      "label": "SECDEF search_path violations",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\| SECDEF search_path \\| (\\d+) violations? \\|", "group": 1 },
+        { "regex": "\\| SECDEF search_path violations \\| (\\d+) \\|", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='public' AND p.prosecdef AND (p.proconfig IS NULL OR NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) x WHERE x LIKE 'search_path=%'))" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "audit-chain-rows",
+      "label": "Audit chain rows (counter naik)",
+      "modes": ["gte"],
+      "claimPatterns": [
+        { "regex": "\\| Audit chain \\| (\\d+) rows \\|", "group": 1 },
+        { "regex": "\\| Audit chain rows \\| (\\d+) \\|", "group": 1 }
+      ],
+      "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM audit_log" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-guarded",
+      "existingGuard": ["doc-claims-vs-live (mode >=)"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": true, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "rollback-scripts",
+      "label": "Rollback scripts (.sql)",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\| Rollback scripts \\| (\\d+) \\|", "group": 1 }
+      ],
+      "source": { "type": "fs-walk", "extractorName": "rollback-scripts" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-unguarded",
+      "existingGuard": [],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": false, "needGit": false, "needFilesystem": true }
+    },
+    {
+      "id": "migration-folder-count",
+      "label": "Jumlah file migrasi di folder",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\| Jumlah file migrasi \\| (\\d+) \\|", "group": 1 },
+        { "regex": "supabase\\/migrations\\/[^\\n]*?\\((\\d+) berkas\\)", "group": 1 }
+      ],
+      "source": { "type": "fs-walk", "extractorName": "migration-folder-count" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-unguarded",
+      "existingGuard": [],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": false, "needGit": false, "needFilesystem": true }
+    },
+    {
+      "id": "ts-total",
+      "label": "TS total (src + tests + config)",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "(\\d+) file TS total \\(", "group": 1 },
+        { "regex": "\\| file TS total \\| (\\d+)", "group": 1 }
+      ],
+      "source": { "type": "git-ls-files", "extractorName": "ts-total" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-unguarded",
+      "existingGuard": ["verify:artifacts", "doc-claims-vs-live"],
+      "verifyAfter": "git-add",
+      "runIf": { "needDb": false, "needGit": true, "needFilesystem": false }
+    },
+    {
+      "id": "unit-total",
+      "label": "Total test vitest",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "\\|\\s*Unit tests\\s*\\|\\s*[^|]*?(\\d+)\\s+test total", "group": 1 },
+        { "regex": "\\| Unit tests \\| (\\d+) total", "group": 1 }
+      ],
+      "source": { "type": "fs-walk", "extractorName": "unit-total" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-unguarded",
+      "existingGuard": ["verify:test-count", "doc-claims-vs-live"],
+      "verifyAfter": "post-test",
+      "runIf": { "needDb": false, "needGit": false, "needFilesystem": true }
+    },
+    {
+      "id": "unit-files",
+      "label": "Berkas test vitest",
+      "modes": ["eq"],
+      "claimPatterns": [
+        { "regex": "vitest \\((\\d+) berkas", "group": 1 },
+        { "regex": "; (\\d+) berkas", "group": 1 }
+      ],
+      "source": { "type": "fs-walk", "extractorName": "unit-files" },
+      "scope": { "scanAllTracked": true },
+      "category": "live-unguarded",
+      "existingGuard": ["verify:test-count"],
+      "verifyAfter": "post-test",
+      "runIf": { "needDb": false, "needGit": false, "needFilesystem": true }
+    },
+    {
+      "id": "e2e-result",
+      "label": "Hasil E2E (snapshot external)",
+      "modes": ["skip"],
+      "claimPatterns": [
+        { "regex": "E2E[^|]*(\\d+)/(\\d+)\\s*passed", "group": 1 }
+      ],
+      "source": { "type": "external-snapshot" },
+      "scope": { "scanAllTracked": true },
+      "category": "external-snapshot",
+      "existingGuard": [],
+      "verifyAfter": "post-test",
+      "runIf": { "needDb": false, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "lint-errors",
+      "label": "Lint errors (snapshot external)",
+      "modes": ["skip"],
+      "claimPatterns": [
+        { "regex": "lint\\s*\\d+\\s*error", "group": 0 }
+      ],
+      "source": { "type": "external-snapshot" },
+      "scope": { "scanAllTracked": true },
+      "category": "external-snapshot",
+      "existingGuard": [],
+      "verifyAfter": "post-test",
+      "runIf": { "needDb": false, "needGit": false, "needFilesystem": false }
+    },
+    {
+      "id": "bundle-size",
+      "label": "Ukuran bundle (snapshot external)",
+      "modes": ["skip"],
+      "claimPatterns": [
+        { "regex": "(\\d+(?:\\.\\d+)?)\\s*kB", "group": 1 }
+      ],
+      "source": { "type": "external-snapshot" },
+      "scope": { "scanAllTracked": true },
+      "category": "external-snapshot",
+      "existingGuard": [],
+      "verifyAfter": "post-test",
+      "runIf": { "needDb": false, "needGit": false, "needFilesystem": false }
+    }
+  ]
+}

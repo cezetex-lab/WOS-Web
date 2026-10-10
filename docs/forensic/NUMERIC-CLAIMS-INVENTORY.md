@@ -13,7 +13,7 @@
   `.agents/skills/agent-browser/SKILL.md` — dua terakhir ada di `git ls-files` walau
   `.agents/` di-gitignore, karena memang pernah ter-track).
 - **141 klaim** terdeteksi scanner kanonik + **5 klaim tambahan** teridentifikasi manual
-  (pola noun-first seperti `| Tables | 209 |`, `supabase/migrations/` `(157 berkas)`,
+  (pola noun-first seperti `| Tables | 209 |`, `supabase/migrations/` `(157 berkas)`, [snapshot:7ada2d0]
   `FORENSIC-INDEX` duplikat) = **146 klaim** di file status. < 200 (lolos ambang).
 - **20 jenis** pola mentah scanner — **tepat di ambang STOP (>20)**; jenis yang benar-benar
   butuh registry (turunan live, kategori a+b+d) = **~16**. Rekomendasi: terima sebagai satu
@@ -43,7 +43,7 @@
 | 5 | Functions | ARCHITECTURE.md:132, 73; FuturePlans.md:41 | 657 | `pg_proc` | keduanya | (a) |
 | 6 | Overloads | ARCHITECTURE.md:132; FuturePlans.md:44 | 19 | `pg_proc HAVING count>1` | `doc-claims` | (a) |
 | 7 | Migrations tracked | ARCHITECTURE.md:133 | 195 | `schema_migrations` count | `verify:artifacts` + `doc-claims` | (a) |
-| 8 | max(version) | ARCHITECTURE §7.5 (via `verify:artifacts`) | 270 | `schema_migrations MAX(version)` | `verify:artifacts` | (a); duplikat FORENSIC-INDEX:68-69 (max 254) -> (e) |
+| 8 | max(version) | ARCHITECTURE §7.5 (via `verify:artifacts`) | 270 | `schema_migrations MAX(version)` | `verify:artifacts` | (a); duplikat FORENSIC-INDEX:68-69 (max 254) [snapshot:7ada2d0] -> (e) |
 | 9 | RLS policies | ARCHITECTURE.md:134 | 225 | `pg_policies` | keduanya | (a) |
 | 10 | Tabel belum FORCE | ARCHITECTURE.md:134 | 10 | `pg_class.reloverowsec` | keduanya | (a) |
 | 11 | anon/PUBLIC grants | ARCHITECTURE.md:136 | 130 | `pg_proc.proacl` | keduanya | (a) |

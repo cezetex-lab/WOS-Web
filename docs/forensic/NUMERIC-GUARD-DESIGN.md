@@ -206,12 +206,23 @@ Catatan: doc-claims-vs-live.test.ts adalah guard di dalam suite uji yang benar-b
 DB — itu kepercayaan tinggi; meta-guard baru TIDAK menggantikan validasi itu, tapi melengkapi
 dengan coverage 20 jenis dan cross-file.
 
+### 5.x Snapshot marker (mekanisme resmi, Fase-3)
+
+Baris kutipan historis (angka yang benar pada baseline-nya tapi basi terhadap live
+saat ini) dilindungi dengan marker kanonik `[snapshot:<baseline-hash>]` — mis.
+`[snapshot:7ada2d0]`. Scanner `verify:numeric` me-skip setiap baris ber-marker
+(reported sebagai SKIPPED, bukan silent) karena meng-update angkanya akan memalsukan
+catatan forensik. Marker menyertakan hash baseline agar bisa di-grep dan dicek ke
+`git log` (auditability). Baris ber-marker tetap di-drift-check file-nya (file TIDAK
+di-archive — koreksi #2), hanya baris itu yang skip. Lihat §6.1/§6.2 untuk 3 baris
+pertama yang memakai mekanisme ini.
+
 ## 6. 3 edge case Fase-1 (L6)
 
 ### 6.1 5 klaim manual yang lolos scanner kanonik
 Pola noun-first yang tidak tertangkap regex awal:
 - `| Tables | 209 |`
-- `supabase/migrations/` `(157 berkas)`
+- `supabase/migrations/` `(157 berkas)` [snapshot:7ada2d0]
 - `FORENSIC-INDEX` klaim duplikat
 - dll (lihat NUMERIC-CLAIMS-INVENTORY.md baris yang tidak tangkap)
 Desain: claimPatterns di registry wajib menangkap JSON-nya (multi-regex atau "noun-first" parser
