@@ -246,6 +246,22 @@ Operasi berikut WAJIB dry-run dulu, STOP, tunggu approval user:
 
 **Pelanggaran = revert + catat di log sebagai insiden.**
 
+## 0.18 GIT HEAD-OPERATION PROTOCOL (P18)
+
+Sebelum perintah git yang MENGUBAH HEAD (`reset`, `rebase`, `merge`, `revert`, `restore`,
+`checkout <path>`), WAJIB jalankan 4 perintah verifikasi dulu dan paste output:
+  1. git rev-parse HEAD
+  2. git log -3 --oneline
+  3. git rev-parse <target>     (target = HEAD~1, origin/branch, dll)
+  4. git status --short
+
+Konfirmasi: target = commit yang diharapkan. Tidak cocok → STOP.
+DILARANG memberi/menjalankan git HEAD-op berdasarkan asumsi state dari laporan
+sebelumnya. Pelanggaran = insiden (contoh: 2026-10-10 — `git reset --soft HEAD~1`
+tanpa verifikasi → local kehilangan 86f0fbe; dipulihkan via fast-forward origin).
+Melengkapi P14-ext (gate setelah `git add`) sebagai kelas "jangan percaya state
+tanpa bukti".
+
 ## 5.8 STATE OPEN — WORK QUEUE: Temuan Audit SQL (WAJIB DISELESAIKAN)
 
 > **Sumber:** audit menyeluruh 2026-09-17 — 150+ migrasi diparsing lalu **setiap temuan
@@ -301,6 +317,11 @@ Operasi berikut WAJIB dry-run dulu, STOP, tunggu approval user:
 | **P2-F14-W** | P2 | **Guard P15 belum ada** — wildcard `_` di `LIKE 'admin_%'` lolos review berbulan-bulan (tuntas 267) tapi **tidak ada gerbang** yang mencegah pola polos ditulis ulang di migrasi berikutnya. Catatan P15 hanya dokumen, bukan test. | 2 fungsi OTP memakai `LIKE 'admin_%'` polos sampai 267; nol test menyentuh pola ini. Kelas bug yang sama juga muncul di 263 (kanon `admin\_%`) — jadi ini pola berulang, bukan insiden tunggal. | Unit test baru (mis. `tests/unit/db-like-wildcard-role-guard.test.ts`) yang membaca `pg_proc.prosrc` semua fungsi `public`, menolak `LIKE '<prefix>_%'` **unescaped** pada whitelist role, dan membuktikan dirinya **MERAH** pada prosrc pra-267 (guard yang diam = guard palsu). | ⚠ **NEW** (2026-10-07) — mengubah P15 dari catatan menjadi gerbang |
 | **P2-F14-AE** | P2 | Guard verify terkait (`verify:test-count`, `doc-claims-vs-live`) **membaca `.vitest/test-result.json` (cache)**, bukan menjalankan vitest sendiri. JSON basi (mis. dari run lama) → guard **hijau palsu** di lokal. Di CI selalu segar (step `Unit test` menulis JSON lebih dulu), jadi dampaknya lokal-only. | Fase-4a 2026-10-10: run penuh **pertama hijau** walau suite sudah **201**, karena `doc-claims-vs-live` membaca JSON **198** yang baru ditulis di AKHIR run (bukan selama run); run **kedua baru MERAH** — `SECURITY.md §3.10 stale — dokumen=198, suite=201`. Tidak ada guard yang memvalidasi mtime/kesegaran JSON. | Guard membandingkan `mtime` `.vitest/test-result.json` vs berkas test terbaru; basi → **WARN atau fail eksplisit** (tidak boleh diam). Uji: pin JSON lama → guard **MERAH**. | ⚠ **NEW** (2026-10-10, temuan Fase-4a) |
 
+
+| **P2-F14-AF** | P2 | AGENTS.md **mixed-file** (klaim hidup §5.8 OPEN + rekaman waktu blok `> CLOSED`/`> Dipangkas` bercampur). Mengeluarkan dari archive tanpa scan-mode = 13 drift palsu (angka historis 185/187/260 dst vs live 195/270). | Audit Fase-4b 2026-10-10: 30 baris klaim-angka-live di §5.8; estimasi 39/86 = 45% campuran. Estimasi drift palsu bila keluar archive: ±13. | Scan-mode guard yang skip baris di blok blockquote (`> CLOSED`, `> Dipangkas`, `> Bukti-WQ`) — AGENTS.md boleh keluar dari archive. Uji: scan AGENTS.md → hanya §5.8 OPEN yang di-drift-check. | ⚠ **NEW** (2026-10-10, Fase-4b) |
+| **P2-F14-AG** | P2 | 4 file campuran (bukan arsip, bukan hidup): TESTING_GUIDE (pola `; N berkas` false-positive di baris 39), FIX14-ROLE-LEVEL-TOTAL, FORENSIC-INDEX, AGENTS.md (overlap AF). Prioritas rendah — tidak ada drift hari ini. | Audit Fase-4b: 4/20 file archive masuk kategori (c). TESTING_GUIDE:39 `…; 5 berkas…` di-match pola generik. | Persempit pola generik (`; (\d+) berkas` → butuh konteks), lalu evaluasi file mana yang bisa keluar. | ⚠ **NEW** (2026-10-10, Fase-4b) |
+| **P2-F14-AH** | P2 | Guard registry hanya menangani extractor scalar; pola **prosa** multi-value (mis. "N tabel, N fungsi, N policy, N trigger, N cron job" di DISASTER_RECOVERY.md:81 + baseline/README.md:24) tidak bisa ditangkap. Kedua file tetap di archive sampai ini selesai. | Fase-4b-1: fix 2 klaim prosa manual (327ea9b). Registry reverted dari entry invalid `prose-dr-snapshots` (source.type "file-system" tidak ada di enum) → arsitektur salah. | Tambah extractor multi-value (return object) + entry registry baru. Uji: claim prosa → drift-check aktif, 0 false-positive di tabel markdown §5.8. | ⚠ **NEW** (2026-10-10, Fase-4b-1) |
+| **P3-F14-AI** | P3 | Backtick markdown hilang di DR line: `` `supabase/baseline/README.md` `` → `supabase/baseline/README.md` (kosmetik, dari fix 327ea9b). | Diff 327ea9b: DR line terhapus backtick-nya. | Kembalikan backtick. Tidak ada dampak fungsional. | ⚠ **NEW** (2026-10-10, Fase-4b-1) |
 
 > **CLOSED 2026-10-02 — P1-F14-K, P2-F14-H, P2-F14-I** (Fix #14 §9 blocker, migrasi 257/258/259/260 DITERAPKAN; registry 185 baris, `max(version)=260`; bukti di `agentsLogs_2026-10.md` entri 2026-10-02 + `docs/forensic/FORENSIC-INDEX.md`). Ringkasan: **K** trigger audit `user_role_assignments` terpasang via `_generic_audit_trigger_fixed`, uji INSERT → `audit_log` 582→583 dengan `actor` terisi; **H** `authz_in_scope` cabang `TEAM` `manager_nrp` → `atasan_nrp`, smoke tidak crash; **I** `admin_produksi` dicabut dari CHECK `user_roles_role_check` (uji negatif `23514`) + whitelist `is_admin_or_owner` + 3 `role_permission_sets` (items tetap 93) → **0 di kelima tempat**. Sisa satu-satunya: whitelist `admin_set_employee_role` = item **P2-F14-F** (masih OPEN). **P2-F14-J** (rename NRP001 → `'ceo'`) masih OPEN, target §10.
 >
