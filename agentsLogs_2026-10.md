@@ -1170,3 +1170,27 @@ e631cb2 HEAD@{3}: reset: moving to HEAD~1
 - **Proteksi:** protokol §0.18 (4 verifikasi + STOP pada ketidakcocokan target) sudah tertulis di `AGENTS.md` sebagai kasus uji insiden ini; lint commit: **single-file add** (`agentsLogs_2026-10.md`), **clean commit**, **tanpa amend/force push** (`git status --short` bersih sebelum push).
 - **Lesson:** state dari laporan/commit sebelumnya tidak boleh dipercaya untuk operasi yang mengubah HEAD; selalu verifikasi target secara langsung (P14-ext + P18).
 - --- Insiden P18 tercatat (reflog proof, 0 data loss, 2026-10-10) ---
+## [2026-10-10] P2-F14-AH CLOSED — claimPattern prosa + keluarkan DR+README dari archive
+
+- **Status: CLOSED (kode/docs), CI BELUM diverifikasi.** Commit `c04cb53` sudah ter-push ke `origin/migrasi-vite` (`0aaafed..c04cb53`), tapi helper tanpa `gh`/token sehingga **status CI untuk commit itu belum dicek** — syarat DONE penuh (§0.16) menunggu CI hijau.
+- **Commit:** `c04cb53ef9624c6325496f03ad284ce21c28e55d` — `fix(scripts): claimPattern prosa + keluarkan DR+README dari archive (P2-F14-AH CLOSED)` (**2 file, `+9/−7`**). Tanpa amend, tanpa force.
+- **Isi perubahan** (`scripts/numeric-claims-registry.json`):
+  - **4 `claimPattern` prosa full-tuple** ditambahkan ke **4 entry yang sudah ada** — `tables`, `functions`, `rls-policies`, `cron-jobs` — **bukan** extractor/entry baru. Keempatnya memakai query `db-live` yang sudah ada → **tanpa sumber nilai baru**. (Keputusan ini menyimpang dari DoD lama yang menulis "extractor multi-value + entry registry baru"; lebih baik karena menambah 1 regex, bukan 1 extractor + 1 entry + 1 query baru.)
+  - Pola (varian `group` per entry): `\b(\d+)\s+tabel,\s+\d+\s+fungsi,\s+\d+\s+policy,\s+\d+\s+trigger,\s+\d+\s+cron job`.
+  - **`archiveFiles` 20 → 18**: `DISASTER_RECOVERY.md` + `supabase/baseline/README.md` **keluar** → keduanya kini ikut di-cross-check guard.
+- **Bukti guard naik:** `36 → 44 klaim dicek` = **+8 tepat** (4 pola × 2 file), **0 drift**. Kenaikan yang tepat +8 membuktikan **tidak ada klaim lain** di kedua file itu yang tersingkap saat dikeluarkan dari arsip.
+- **Bukti MERAH (guard yang diam = guard palsu):**
+```
+DRIFT tables                   claim=999 live=209 DISASTER_RECOVERY.md:81
+=== RINGKASAN: 1 drift, 6 warning, 44 klaim dicek ===
+verify:numeric GAGAL — 1 klaim angka tidak sinkron dengan live.
+EXIT_RED=1
+```
+  Restore `999` → `209` → `=== RINGKASAN: 0 drift, 6 warning, 44 klaim dicek ===`, `EXIT_GREEN=0`.
+- **Insiden ditemukan saat L7 → Work Queue `P2-F14-AJ`.** Setelah drift di-restore, `git diff DISASTER_RECOVERY.md` **tidak kosong**: HEAD menyimpan byte `0x97` (CP1252 em-dash, **invalid UTF-8**) di baris 83, sedangkan working tree kini `U+FFFD` (`EF BF BD`). Akar: `str_replace` membaca berkas sebagai UTF-8 lossy lalu **menulis ulang seluruh isinya**. Cacat **pre-existing** (`git ls-files --eol` → `i/lf w/crlf attr=text=auto eol=crlf`, `core.autocrlf=false`) — **bukan** efek edit angka. Dipulihkan **byte-eksak** via `git checkout -- DISASTER_RECOVERY.md` **setelah** verifikasi §0.18/P18 (HEAD, `log -3`, origin, status = `0aaafed` semua). Bukti pulih: bytes `... 69 6e 73 74 61 6c 61 73 69 20 97 20 6c 69 68 61 74 ...`, diff kosong.
+- **Pola BERULANG, bukan insiden tunggal** (alasan jadi item Work Queue, bukan sekadar catatan): `agentsLogs_2026-09.md:1201` (`.gitignore` byte `0x97` → `U+FFFD`) dan `:3232` (`.env.example` byte `0x97`, dipulihkan via `git checkout --`, pelajaran: *append ke berkas yang encoding-nya belum terbukti UTF-8 tidak boleh lewat read-rewrite*). Scan ulang seluruh tracked: **hanya 2 file teks non-UTF8** — `DISASTER_RECOVERY.md` + `.env.example` (8 sisanya PNG, wajar). Belum ada guard encoding permanen (`scripts/` hanya punya `repair-text-encoding.ts` = alat perbaikan, bukan guard; tidak ada script `package.json` yang sesuai).
+- **Gate (output mentah, exit via `PIPESTATUS`):** `verify:numeric` **0 drift** (44 klaim, 6 WARN, 4 snapshot skip) · `verify:artifacts` **0 drift** · `verify:test-count` **0 drift** · `check:types` **EXIT 0** → `RINGKASAN EXIT: 0 0 0 0`. `lint`/`build` **tidak dijalankan** (brief: docs/data-only; `git diff` membuktikan **0 file TS/TSX** berubah). Non-ASCII: 9 baris added, **0 karakter asing baru** (`→ — ✔` disengaja); registry CRLF utuh (`bareLF=0`).
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Yang berubah hanya **data registry guard CI** + baris Work Queue; `src/`, `tests/`, `supabase/`, `package.json`, `.github/` tidak tersentuh → 0 perubahan runtime di keempat page.
+- **Work Queue:** `P2-F14-AH` → **✔ CLOSED** (2026-10-10, Fase-4b-2). Item **BARU `P2-F14-AJ`** (2 file non-UTF8 → guard pre-commit + normalisasi **di-bundle** dengan `P3-F14-AI`; keputusan user **Opsi B** = tidak normalisasi sekarang, accepted-risk + guard).
+- **Berkas:** `scripts/numeric-claims-registry.json` (6 hunk = 4 claimPattern + 2 baris `archiveFiles`), `AGENTS.md` (baris `P2-F14-AH` → CLOSED + baris baru `P2-F14-AJ`), log ini. Tidak ada perubahan DB/migrasi/RPC/`package.json`.
+- --- P2-F14-AH CLOSED (commit c04cb53, origin/migrasi-vite, 2026-10-10) ---
