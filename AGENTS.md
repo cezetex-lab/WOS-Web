@@ -262,6 +262,35 @@ tanpa verifikasi → local kehilangan 86f0fbe; dipulihkan via fast-forward origi
 Melengkapi P14-ext (gate setelah `git add`) sebagai kelas "jangan percaya state
 tanpa bukti".
 
+## 0.19 GUARD-SEBELUM-NORMALISASI (P20)
+
+**Aturan keras.** Kalau menemukan file dengan masalah **encoding/format/konten** yang perlu
+diperbaiki, **JANGAN langsung normalisasi**. Urutan yang benar:
+
+1. **Bangun GUARD-nya dulu.**
+2. **Buktikan guard MERAH pada tree yang masih rusak** (output mentah + exit code).
+3. **Baru normalisasi** file-nya.
+4. **Buktikan guard HIJAU** sesudahnya.
+
+**Kenapa (akar logika):** guard yang dibuat *setelah* file sudah bersih **tidak akan pernah
+punya kesempatan terbukti merah** — dan guard yang belum pernah merah **tidak bisa dibedakan
+dari guard palsu**. Itu kelas bug yang Level B berantas: guard diam = guard tidak menjalankan
+kerjaannya. Membalik urutannya berarti **menghapus bukti kebalikan di detik yang sama file itu
+diperbaiki**.
+
+**Preseden (2026-10-10, bundle `P3-F14-AI` + `P2-F14-AJ`):** `verify:encoding` dibangun
+lebih dulu → **A5 MERAH** pada `DISASTER_RECOVERY.md` + `.env.example`
+(`DRIFT ... byte 0x97`, exit 1) → **baru** byte-replace selektif (`0x97` → `E2 80 94`,
+bukan konversi latin1 seluruh berkas karena kedua file berencoding CAMPURAN) → **B4 HIJAU**
+(`0 file non-UTF8`, exit 0). RED proof itu **dibekukan di commit message `98ee0fc` dan
+`agentsLogs_2026-10.md`**, bukan di CI — GitHub Actions default-nya **1 run per push event**
+(`github.sha` = tip), jadi dua commit yang di-push atomik memicu satu run di `ee6dd9d`.
+
+**Melengkapi P18** (§0.18 — verifikasi HEAD sebelum git HEAD-op) dan **P19**
+(anti-meta-script: task sederhana = edit langsung, bukan bikin helper/generator; aturan ini
+berlaku sejak sesi 2026-10-10 tetapi **belum punya sub-bab sendiri**) — satu kelas yang sama:
+**jangan percaya state/guard tanpa bukti empiris.**
+
 ## 5.8 STATE OPEN — WORK QUEUE: Temuan Audit SQL (WAJIB DISELESAIKAN)
 
 > **Sumber:** audit menyeluruh 2026-09-17 — 150+ migrasi diparsing lalu **setiap temuan
