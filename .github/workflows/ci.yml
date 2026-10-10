@@ -81,6 +81,15 @@ jobs:
           DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: npm run verify:artifacts
 
+      - name: Verify numeric claims (Fase-3 Level B)
+        # Registry 19 entry (db-live/query + repo-file extractor + external-snapshot/WARN)
+        # + meta-guard verify:numeric. Snapshot marker [snapshot:<hash>] melindungi
+        # kutipan historis (4 skip: INVENTORY:16 + 46 + DESIGN:225 x2 entry). Exit 0/1/2.
+        # Mode DB penuh (DATABASE_URL) sama seperti verify:artifacts.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run verify:numeric
+
       - name: Unit test
         # `continue-on-error` DIHAPUS (Batch Fix #2): P1-56-01 sudah tertutup —
         # ARCHITECTURE.md §7.3/§7.4 sinkron dengan live. Kegagalan unit test
