@@ -1194,3 +1194,39 @@ EXIT_RED=1
 - **Work Queue:** `P2-F14-AH` → **✔ CLOSED** (2026-10-10, Fase-4b-2). Item **BARU `P2-F14-AJ`** (2 file non-UTF8 → guard pre-commit + normalisasi **di-bundle** dengan `P3-F14-AI`; keputusan user **Opsi B** = tidak normalisasi sekarang, accepted-risk + guard).
 - **Berkas:** `scripts/numeric-claims-registry.json` (6 hunk = 4 claimPattern + 2 baris `archiveFiles`), `AGENTS.md` (baris `P2-F14-AH` → CLOSED + baris baru `P2-F14-AJ`), log ini. Tidak ada perubahan DB/migrasi/RPC/`package.json`.
 - --- P2-F14-AH CLOSED (commit c04cb53, origin/migrasi-vite, 2026-10-10) ---
+## [2026-10-10] P3-F14-AI + P2-F14-AJ CLOSED (bundle) — guard encoding + normalisasi UTF-8
+
+- **Status: CLOSED (kode/docs), CI BELUM diverifikasi** — 2 commit sudah ter-push; helper tanpa `gh`/token, jadi status CI **belum dicek**. Syarat DONE penuh (§0.16) menunggu CI hijau.
+- **2 commit** (dipisah agar audit trail bersih):
+  - `98ee0fc` — **guard + test + wiring**: 5 file, `431+/1−` → `scripts/verify-text-encoding.mjs`, `scripts/verify-text-encoding.d.mts`, `tests/unit/text-encoding-guard.test.ts`, `.github/workflows/ci.yml` (step `Verify text encoding` setelah `Verify numeric claims`), `package.json` (`verify:encoding`).
+  - **commit ini** — **normalisasi + close**: `DISASTER_RECOVERY.md`, `.env.example`, `AGENTS.md`, `ARCHITECTURE.md`, `SECURITY.md`, `docs/forensic/CONSTANTS-INVENTORY.md`, log ini.
+- **Kenapa guard dulu, normalisasi kemudian (keputusan user):** guard yang dibuat **setelah** file bersih tidak akan pernah teruji MERAH — itu guard palsu. Urutan ini membekukan bukti kebalikannya.
+- **Bukti MERAH (A5, tree normalis, output mentah):**
+```
+DRIFT .env.example          offset 0x10    byte 0x97 — bukan UTF-8 valid
+DRIFT DISASTER_RECOVERY.md  offset 0x119f  byte 0x97 — bukan UTF-8 valid
+=== RINGKASAN: 2 file non-UTF8 · 542 file teks dicek · 9 biner (ekstensi) · 0 biner (NUL) · 0 hilang ===
+verify:encoding GAGAL — 2 file teks bukan UTF-8 valid.
+EXIT_ENCODING=1
+```
+  ⚠️ **Konsekuensi yang disengaja:** CI pada commit `98ee0fc` **MERAH** di step encoding, karena kedua file itu belum dinormalisasi. Itu RED proof yang dibekukan di history — bukan regresi. Commit kedua mengembalikannya hijau.
+- **Bukti HIJAU (B4, sesudah normalisasi):**
+```
+=== RINGKASAN: 0 file non-UTF8 · 542 file teks dicek · 9 biner (ekstensi) · 0 biner (NUL) · 0 hilang ===
+verify:encoding OK — semua file teks UTF-8 valid.
+EXIT_ENCODING=0
+```
+- **Normalisasi byte-level (BUKAN editor lossy).** 5 byte `0x97` diganti `E2 80 94` (U+2014) lewat Buffer: `DISASTER_RECOVERY.md` 1 byte (+2), `.env.example` 4 byte (+8). Verifikasi: `sisa0x97=0`, `utf8Valid=true`, **CRLF utuh** (DR 109 / env 27), dan diff minimal (`4/4` + `1/1`).
+- **Temuan penting — kedua file berencoding CAMPURAN.** `DISASTER_RECOVERY.md` memuat **31 sekuens UTF-8 multi-byte yang sudah benar** (`E2 80 94` em-dash ×12, `C2 A7` § ×6, dll) berdampingan dengan 1 byte CP1252 liar; `.env.example` memuat 1 sekuens benar + 4 byte liar. Karena itu **konversi latin1 seluruh berkas akan MERUSAK sekuens yang sudah benar** (double-encode) — pendekatan yang benar adalah penggantian byte selektif. `scripts/repair-text-encoding.ts` tidak relevan: alat itu khusus ekor UTF-16/NULL.
+- **Trap false-positive yang dikunci oleh test:** `E2 82 97` adalah **UTF-8 VALID** (U+2097). Guard yang memindai "apakah ada byte `0x97`?" akan **salah** pada sekuens sah ini — karena itu guard harus DECODE (`TextDecoder(fatal)`), bukan scan byte. Ada test khusus untuk ini.
+- **Test: 9 test** (`text-encoding-guard.test.ts`) — fixture temp, bukan berkas repo, supaya tidak basi setelah normalisasi: file bersih · byte 0x97 (offset tepat) · PNG di-skip · NUL jaring pengaman · multi-file · trap `E2 82 97` · source guard (tanpa shell/`process.platform`/`Function`/`eval`) · wiring `package.json` · wiring CI.
+- **K1 — klarifikasi angka (drift PRE-EXISTING = TIDAK ADA).** Live = **29 berkas / 210 total / 206 passed / 4 todo**; dokumen sebelumnya 28/201. Delta `210 − 201 = 9` **persis** jumlah test file baru (9) — dibuktikan dari `.vitest/test-result.json` per-file, bukan asumsi. Jadi bukan drift lama yang kebetulan ketahuan.
+- **Sinkron dokumen (keputusan user Opsi 1 — perluas scope).** Menambah 1 file test otomatis mengubah `unit-files` 28→29 dan `unit-total` 201→210; ketiga dokumen ini **bukan** `archiveFiles` jadi guard selalu mengeceknya (pelajaran **P14-ext-2**). Disinkronkan: `ARCHITECTURE.md` §7.5 · `SECURITY.md` §3.10 · `docs/forensic/CONSTANTS-INVENTORY.md`:29 + :50.
+- **P3-F14-AI ikut selesai** dalam sentuhan yang sama: backtick dipulihkan di baris 83 DR → ``lihat `supabase/baseline/README.md`.``
+- **Gate final (semua output mentah, exit via `PIPESTATUS`):** vitest **29 berkas / 206 passed + 4 todo (210)** EXIT 0 · `verify:encoding` **0 file non-UTF8** · `verify:numeric` **0 drift** (44 klaim) · `verify:test-count` **0 drift** · `verify:artifacts` **0 drift** · `check:types` **EXIT 0**.
+- **Keterbatasan yang jujur dicatat:** satu kali `doc-claims-vs-live` gagal 1 test saat berjalan bersama 2 guard lain, tetapi **tidak reproduksi** pada 3 percobaan berikutnya (per-file 5/5, dan kombinasi 26/26 dua kali dengan urutan berbeda). Diduga kontesensi DB saat paralel — **belum dikonfirmasi**, bukan dianggap selesai.
+- **Pelajaran proses P20 (usulan) — guard sebelum normalisasi.** Urutan yang benar untuk kelas "perbaikan yang menghapus bukti": (1) bangun guard, (2) **buktikan MERAH pada kondisi rusak**, (3) baru perbaiki, (4) buktikan HIJAU. Membalik urutannya menghasilkan guard yang tidak pernah teruji — persis kesalahan yang membuat 3 insiden `0x97` lolos berbulan-bulan.
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Yang berubah hanya tooling guard CI, test, dan angka dokumen; `src/`, `supabase/` tidak tersentuh → 0 perubahan runtime di keempat page.
+- **Work Queue:** `P3-F14-AI` → **✔ CLOSED** · `P2-F14-AJ` → **✔ CLOSED** · `P2-F14-AH` → **dihapus dari §5.8** (sudah DONE + tercatat di entri sebelumnya, syarat §0.12 terpenuhi).
+- **Berkas:** 11 file (3 baru + 8 dimodifikasi) + log ini. Tidak ada perubahan DB/migrasi/RPC.
+- --- P3-F14-AI + P2-F14-AJ CLOSED (commits 98ee0fc + commit ini, origin/migrasi-vite, 2026-10-10) ---

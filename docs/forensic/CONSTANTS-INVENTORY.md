@@ -25,8 +25,8 @@ Metode: `git grep -E` (rg rusak di lingkungan kerja ini) + pembacaan kode guard.
 | ARCHITECTURE.md:136 (§7.4) | anon/PUBLIC grants | 130 | `verify:artifacts` + `doc-claims-vs-live` | TANPA filter `prokind` — metodologi kedua guard wajib identik (catatan di dalam guard) |
 | ARCHITECTURE.md:137 (§7.4) | pg_cron jobs | 5 | `verify:artifacts` + `doc-claims-vs-live` | |
 | ARCHITECTURE.md:138 (§7.4) | Audit chain rows | 526 | `doc-claims-vs-live` (mode `>=`) saja | snapshot 2026-09-26; verify:artifacts SENGAJA tidak hard-compare (baris bertambah tiap hari) |
-| ARCHITECTURE.md:122 (§7.3) | file TS total | 216 (157 src + 51 tests + 8 config) | `verify:artifacts` + `doc-claims-vs-live` | basis `git ls-files` (berkas ter-track), bukan disk. Update Fase-3 Level B 2026-10-09 (214 STALE → 216 live, +numeric-claims-guard.test.ts & 270C) |
-| ARCHITECTURE.md:145 (§7.5) | Unit tests | 201 total — 197 auto + 4 `it.todo`; 28 berkas | `verify:test-count` (+ `doc-claims-vs-live` untuk baris .ts/.tsx) | yang dijaga TOTAL, bukan `passed` (beda antar environment). Update Fase-3 Level B 2026-10-09 (173/26 STALE → 198/28 live, +B2 8 test +marker 1 test); Fase-4a 2026-10-10 +3 test regresi korpus `.md` cross-platform (198 → 201) |
+| ARCHITECTURE.md:122 (§7.3) | file TS total | 217 (157 src + 52 tests + 8 config) | `verify:artifacts` + `doc-claims-vs-live` | basis `git ls-files` (berkas ter-track), bukan disk. Update Fase-3 Level B 2026-10-09 (214 STALE → 216 live, +numeric-claims-guard.test.ts & 270C) |
+| ARCHITECTURE.md:145 (§7.5) | Unit tests | 210 total — 206 auto + 4 `it.todo`; 29 berkas | `verify:test-count` (+ `doc-claims-vs-live` untuk baris .ts/.tsx) | yang dijaga TOTAL, bukan `passed` (beda antar environment). Update Fase-3 Level B 2026-10-09 (173/26 STALE → 198/28 live, +B2 8 test +marker 1 test); Fase-4a 2026-10-10 +3 test regresi korpus `.md` cross-platform (198 → 201); Fase-4b-3 2026-10-10 +9 test guard encoding (201 → 210) |
 
 ### 1.2 FuturePlans.md — DIJAGA guard
 
@@ -47,7 +47,7 @@ Plus 9 klaim kapabilitas (`CAPABILITIES`): exists/absent + `mustNotSay` (payroll
 | Work Queue `P1-POST-HARDENING-AUDIT` tahap 1 (BARU 2026-10-03) | Fungsi `public` tanpa `EXECUTE` untuk `authenticated` | **46** | **TIDAK ADA guard** (rencana guard baru `scripts/verify-*`). `verify:artifacts` hanya menghitung policy, tidak pernah membandingkan `proacl` fungsi vs policy yang memanggilnya — itulah akar kelas bug "mati senyap" |
 | SECURITY.md:61 | Rollback scripts | 18 scripts (183–214) | tidak ada guard yang baca SECURITY.md |
 | SECURITY.md:30 (§3.10) | unit count gate | ~~119/119~~ → ~~174/174~~ → ~~189/189~~ → ~~197/197~~ → **201/201 · 4 todo** (fixed 2026-10-10, pasca Fase-4a +3 test regresi korpus `.md` cross-platform; sebelum itu 198/198 @ 2026-10-09 pasca Fase-3 snapshot-marker +1 test; sebelumnya B2 numeric-guard +8 test; sebelumnya pasca 270C; sebelumnya 2026-09-30 B0.5) | semula tanpa guard; kini dijaga test baru di `doc-claims-vs-live` (total via `.vitest/test-result.json`; pola "unit N/N" jadi canary — lihat §2 catatan) |
-| ARCHITECTURE.md:145 (§7.5) | Unit tests (duplikat aktif) | 201 total — 197 auto + 4 `it.todo`; 28 berkas | `verify:test-count` | sinkron Fase-4a 2026-10-10 |
+| ARCHITECTURE.md:145 (§7.5) | Unit tests (duplikat aktif) | 210 total — 206 auto + 4 `it.todo`; 29 berkas | `verify:test-count` | sinkron Fase-4b-3 2026-10-10 |
 | SECURITY.md:52/56/57 | nomor migrasi referensi | 141; 141, 220; 141, 215 | idem — berubah saat migrasi baru tanpa peringatan |
 | ARCHITECTURE.md:118–119 | rentang fase | 141–153; 154–168 | histori fase; relatif stabil |
 | docs/forensic/FORENSIC-INDEX.md:68–69 | duplikat klaim migrasi Fix #4/#5 | 251/252/253; 254; 179 baris; max(version)=254 | TIDAK dijaga di file ini — hanya ARCHITECTURE.md yang dijaga; FORENSIC-INDEX bisa menyimpang diam-diam |

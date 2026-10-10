@@ -27,7 +27,7 @@
 9. Branding (nama/logo) = konfigurasi OWNER (`branding` table + `update_branding` owner-only).
    **Jangan hardcode di JS.** UI: tab 🎨 Branding OwnerDashboard.
 10. Verifikasi gate sebelum commit: `npm run check:types` (0 error), `npm run lint` (0 error),
-    `npm test` (unit 201/201 · 4 todo), `npm run build` (EXIT 0), secret scan. Untuk perubahan
+    `npm test` (unit 210/210 · 4 todo), `npm run build` (EXIT 0), secret scan. Untuk perubahan
     fungsional, tambah smoke lintas-page (§0.5 G6).
 11. **TypeScript wajib untuk SEMUA kode** (aturan keras): `src/`, `tests/`, dan file konfigurasi
     (`vite/vitest/playwright/tailwind/postcss/eslint.config.ts`) harus `.ts`/`.tsx`/`.config.ts`.

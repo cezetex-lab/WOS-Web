@@ -80,7 +80,7 @@ Kalau proyek butuh itu, itu keputusan berbayar dan di luar cakupan repo ini.
 Langkah 2 memakai **baseline** (bukan `supabase/migrations/`) karena baseline
 adalah potret DB live: 209 tabel, 657 fungsi, 225 policy, 27 trigger, 5 cron job. Diverifikasi 2026-10-10.
 Rantai migrasi adalah histori + gerbang regresi,
-bukan jalur instalasi — lihat supabase/baseline/README.md.
+bukan jalur instalasi â€” lihat `supabase/baseline/README.md`.
 
 ### 9.5 Pemantauan
 
