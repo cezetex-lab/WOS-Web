@@ -12,12 +12,10 @@
     "MIGRATION_GUIDE.md",
     "ENVIRONMENT_TRAPS.md",
     "TESTING_GUIDE.md",
-    "DISASTER_RECOVERY.md",
     "FuturePlans.md",
     ".agents/skills/agent-browser/SKILL.md",
     "docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md",
     "docs/forensic/FORENSIC-INDEX.md",
-    "supabase/baseline/README.md",
     "supabase/baseline/rehearse-new-company.md",
     "supabase/baseline/replay-baseline.md",
     "supabase/baseline/replay-chain.md",
@@ -30,7 +28,8 @@
       "label": "Tabel public (non-partisi)",
       "modes": ["eq"],
       "claimPatterns": [
-        { "regex": "\\| Tables \\| (\\d+) \\|", "group": 1 }
+        { "regex": "\\| Tables \\| (\\d+) \\|", "group": 1 },
+        { "regex": "\\b(\\d+)\\s+tabel,\\s+\\d+\\s+fungsi,\\s+\\d+\\s+policy,\\s+\\d+\\s+trigger,\\s+\\d+\\s+cron job", "group": 1 }
       ],
       "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='public' AND c.relkind IN ('r','p') AND NOT c.relispartition" },
       "scope": { "scanAllTracked": true },
@@ -44,7 +43,8 @@
       "label": "Fungsi public",
       "modes": ["eq"],
       "claimPatterns": [
-        { "regex": "\\| Functions \\| (\\d+)", "group": 1 }
+        { "regex": "\\| Functions \\| (\\d+)", "group": 1 },
+        { "regex": "\\b\\d+\\s+tabel,\\s+(\\d+)\\s+fungsi,\\s+\\d+\\s+policy,\\s+\\d+\\s+trigger,\\s+\\d+\\s+cron job", "group": 1 }
       ],
       "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='public'" },
       "scope": { "scanAllTracked": true },
@@ -102,7 +102,8 @@
       "modes": ["eq"],
       "claimPatterns": [
         { "regex": "All tables \\((\\d+)\\)", "group": 1 },
-        { "regex": "\\| RLS policies \\| (\\d+) \\(10 belum FORCE\\)", "group": 1 }
+        { "regex": "\\| RLS policies \\| (\\d+) \\(10 belum FORCE\\)", "group": 1 },
+        { "regex": "\\b\\d+\\s+tabel,\\s+\\d+\\s+fungsi,\\s+(\\d+)\\s+policy,\\s+\\d+\\s+trigger,\\s+\\d+\\s+cron job", "group": 1 }
       ],
       "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM pg_policies WHERE schemaname='public'" },
       "scope": { "scanAllTracked": true },
@@ -144,7 +145,8 @@
       "label": "pg_cron jobs",
       "modes": ["eq"],
       "claimPatterns": [
-        { "regex": "\\| pg_cron jobs \\| (\\d+) \\|", "group": 1 }
+        { "regex": "\\| pg_cron jobs \\| (\\d+) \\|", "group": 1 },
+        { "regex": "\\b\\d+\\s+tabel,\\s+\\d+\\s+fungsi,\\s+\\d+\\s+policy,\\s+\\d+\\s+trigger,\\s+(\\d+)\\s+cron job", "group": 1 }
       ],
       "source": { "type": "db-live", "query": "SELECT count(*)::int n FROM cron.job" },
       "scope": { "scanAllTracked": true },
