@@ -90,6 +90,14 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run verify:numeric
 
+      - name: Verify text encoding
+        # P2-F14-AJ: berkas teks yang bukan UTF-8 valid (byte CP1252 0x97) dirusak
+        # DIAM-DIAM oleh editor lossy -> U+FFFD (sudah 3x: .gitignore, .env.example,
+        # DISASTER_RECOVERY.md). Guard ini menolak kondisi itu, exit 1.
+        # Urutan penting: guard dibangun SEBELUM normalisasi supaya terbukti MERAH —
+        # guard yang dibuat setelah file bersih tidak akan pernah teruji (guard palsu).
+        run: npm run verify:encoding
+
       - name: Unit test
         # `continue-on-error` DIHAPUS (Batch Fix #2): P1-56-01 sudah tertutup —
         # ARCHITECTURE.md §7.3/§7.4 sinkron dengan live. Kegagalan unit test

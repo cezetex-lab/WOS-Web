@@ -31,7 +31,8 @@
     "db:refresh-checksums": "node supabase/scripts/refresh-migration-checksums.mjs",
     "db:seed-test": "node supabase/scripts/seed-test-workers.mjs --apply && npm run smoke:ops01 -- --headless",
     "smoke:ops01": "node scripts/run-ops01-smoke.ts",
-    "verify:numeric": "node scripts/verify-numeric-claims.mjs"
+    "verify:numeric": "node scripts/verify-numeric-claims.mjs",
+    "verify:encoding": "node scripts/verify-text-encoding.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
