@@ -1135,3 +1135,38 @@ Verifikasi B3-B6: registry baris 270 checksum cocok · attrs live `sql·s·true�
 - **Dampak lintas-page (G7): worker → admin → dashboard → owner = 0 perubahan runtime.** Yang berubah hanya tooling guard + test + angka dokumen; `src/`, `supabase/`, `package.json`, `.github/workflows/` **tidak disentuh**; tidak ada RPC/migrasi/DB.
 - **Commit:** `49c3efc` (5 file, `159+/10−`) — `fix(scripts): korpus verify:numeric tanpa shell — 12 berkas .md nested luput di CI`. Entri log ini di-commit terpisah.
 - **Temuan turunan (BELUM jadi item Work Queue — butuh keputusan user karena prioritas di-set user, §0.13):** `verify:test-count` + `doc-claims-vs-live` membaca `.vitest/test-result.json` (cache lokal). Bila JSON basi, drift angka test **tersembunyi** dan guard tampak hijau. Opsi: (a) verifikasi `mtime` JSON vs `mtime` berkas test terbaru → WARN bila basi; (b) pindahkan pembacaan angka ke satu sumber kanonik; (c) biarkan (CI selalu menulis JSON sebelum `verify:test-count`, jadi CI aman — hanya lokal yang bisa tertipu).
+
+## [2026-10-10] Fase-4b CLOSED — audit 20 berkas arsip + koreksi klaim angka live + 4 item Work Queue + §0.18 P18
+
+- **Status: CLOSED.** Audit arsip 20 berkas + validasi klaim angka live + perbaikan drift + penandaan 4 item Work Queue + protokol §0.18 P18. Dua commit ter-push ke `origin/migrasi-vite` (`327ea9b` + `4e65961`).
+- **Audit 20 berkas arsip:** `scripts/numeric-claims-registry.json` memuat **20 entry `archiveFiles`** (4 `agentsLogs*`, AGENTS.md, OPEN_WORK.md, MIGRATION_GUIDE.md, ENVIRONMENT_TRAPS.md, TESTING_GUIDE.md, DISASTER_RECOVERY.md, FuturePlans.md, .agents/skills/agent-browser/SKILL.md, docs/forensic/FIX14-ROLE-LEVEL-TOTAL.md, docs/forensic/FORENSIC-INDEX.md, supabase/baseline/README.md, rehearse-new-company.md, replay-baseline.md, replay-chain.md, verify-install-e2e.md, supabase/scripts/migrasi-region-sg-plan.md) dipindai READ-ONLY oleh `.agents/scripts/audit-archivefiles-fase4b.mjs` (tidak menulis apa pun ke registry/filesystem). Hasil klasifikasi: 16 arsip murni — aman dikeluarkan dari drift-check; **4 file CAMPURAN** (klaim hidup bercampur rekaman historis → false-positive); dan 1 file campuran dengan klaim prosa multi-value yang tidak tertangkap extractor scalar.
+- **File campuran → Work Queue:** **P2-F14-AF** (AGENTS.md mixed-file → perlu scan-mode guard yang skip baris blockquote `> CLOSED`/`> Dipangkas`); **P2-F14-AG** (persempit pola generik `; N berkas` yang false-positive di `TESTING_GUIDE.md`:39; FIX14-ROLE-LEVEL-TOTAL, FORENSIC-INDEX, AGENTS.md overlap AF).
+- **Klaim angka live — perbaikan (327ea9b):** `DISASTER_RECOVERY.md`:78 + `supabase/baseline/README.md`:21 — angka DB live **209 tabel, 657 fungsi, 225 policy, 27 trigger, 5 cron job** (Diverifikasi 2026-10-10), menggantikan snapshot 208/549/223/27/285/4 yang basi. Catatan: perbaikan sebelumnya (`0daed7b`, "koreksi 4 klaim DB live basi…") dibuang lewat `git reset --soft HEAD~1` (masuk insiden P18 — entri kedua), dipulihkan via fast-forward `origin/migrasi-vite`; perbaikan final ditulis ulang sebagai `327ea9b` (2 file, angka 2026-10-10) dan jadi satu-satunya versi.
+- **Work Queue §5.8 (4e65961):** item baru **P2-F14-AF**, **P2-F14-AG**, **P2-F14-AH**, **P3-F14-AI** (backtick hilang di DR — efek samping 327ea9b, kosmetik). Semua ⚠ **NEW** (2026-10-10).
+- **§0.18 P18 (4e65961):** menambahkan `GIT HEAD-OPERATION PROTOCOL` ke AGENTS.md — verifikasi 4 perintah wajib (`git rev-parse HEAD`, `git log -3 --oneline`, `git rev-parse <target>`, `git status --short`) sebelum `reset/rebase/merge/revert/restore/checkout <path>`; root cause = insiden 2026-10-10 yang dicatat di entri kedua.
+- **Registry:** 19 entry (`scripts/numeric-claims-registry.json`): 11 live-guarded, 5 live-unguarded, 3 external-snapshot.
+- **Komunitas (2):** `327ea9b` (2 file, 4+/4−) + `4e65961` (AGENTS.md +21 baris: §0.18 + tabel 4 item Work Queue).
+- **Berkas yang berubah:** `agentsLogs_2026-10.md` (baris ini), `AGENTS.md`, `DISASTER_RECOVERY.md`, `supabase/baseline/README.md`.
+- **Dampak lintas-page (G7):** worker → admin → dashboard → owner = 0 (hanya dokumentasi + tooling CI).
+- **Work Queue status:** **P2-F14-AH** → P2, rekomendasi **Fase-4c** (extractor multi-value + entry registry baru; blocker untuk memindahkan 2 dokumen dari arsip). **P2-F14-AF/AG** → P2 (Fase-4c), **P3-F14-AI** → P3 (kembalikan backtick, non-blocking).
+- **Next:** Fase-4c — extractor multi-value untuk klaim prosa (P2-F14-AH).
+- --- Fase-4b CLOSED (commits 327ea9b + 4e65961, origin/migrasi-vite, 2026-10-10) ---
+
+## [2026-10-10] Insiden proses — git HEAD-op tanpa verifikasi (P18 genesis)
+
+- **Status: CLOSED.** AI Core menjalankan `git reset --soft HEAD~1` tanpa memverifikasi target HEAD (protokol §0.18 belum ditulis) → `HEAD` bergeser **86f0fbe → e631cb2**; tip cabang kehilangan commit `86f0fbe` (P2-F14-AE, hasil push sesi sebelumnya ke `origin/migrasi-vite`) serta 1 commit di atasnya (`0daed7b`, "koreksi 4 klaim DB live basi…"). Pulih via `git merge origin/migrasi-vite` (**Fast-forward**) → HEAD = `86f0fbe`; dilanjutkan `327ea9b` + `4e65961`. **0 kehilangan data** — setiap commit tersimpan di reflog dan tip cabang kembali utuh.
+- **Bukti (git reflog, mentah):**
+```
+4e65961 HEAD@{0}: commit: docs(agents): P18 + 4 Work Queue (AF/AG/AH/AI) dari Fase-4b
+327ea9b HEAD@{1}: commit: fix(docs): koreksi klaim DB live basi DR + baseline/README
+86f0fbe HEAD@{2}: merge origin/migrasi-vite: Fast-forward
+e631cb2 HEAD@{3}: reset: moving to HEAD~1
+86f0fbe HEAD@{4}: reset: moving to HEAD~1
+0daed7b HEAD@{5}: commit: fix(docs): koreksi 4 klaim DB live basi di DISASTER_RECOVERY + baseline/README
+86f0fbe HEAD@{6}: commit: docs(agents): P2-F14-AE — guard verify baca cache JSON basi (temuan Fase-4a)
+```
+- **Akar:** `reset --soft HEAD~1` dijalankan pada HEAD = `86f0fbe` tanpa `git rev-parse <target>` / `git log -3 --oneline` / `git status --short` terlebih dahulu (P18). Tidak ada yang di-push saat insiden; origin tetap aman, recovery via fast-forward memulihkan tip dari branch yang sudah ada di remote.
+- **Efek samping:** commit `0daed7b` (di atas `86f0fbe`) ikut terhapus dari tip dan kini **dangling** (hanya tersisa di reflog — bukan objek hilang, `git reflog` memulihkannya bila perlu). Perbaikan DB live yang ia bawa ditulis ulang sebagai `327ea9b` (angka 209/657/225/27/5, diverifikasi 2026-10-10) dan jadi versi final.
+- **Proteksi:** protokol §0.18 (4 verifikasi + STOP pada ketidakcocokan target) sudah tertulis di `AGENTS.md` sebagai kasus uji insiden ini; lint commit: **single-file add** (`agentsLogs_2026-10.md`), **clean commit**, **tanpa amend/force push** (`git status --short` bersih sebelum push).
+- **Lesson:** state dari laporan/commit sebelumnya tidak boleh dipercaya untuk operasi yang mengubah HEAD; selalu verifikasi target secara langsung (P14-ext + P18).
+- --- Insiden P18 tercatat (reflog proof, 0 data loss, 2026-10-10) ---
