@@ -11,7 +11,14 @@
  *
  * CARA KERJA:
  *   - Load registry (default scripts/numeric-claims-registry.json; --registry=<path> override).
- *   - Scan file .md: `git ls-files *.md` (atau --files=a.md,b.md untuk fixture/test).
+ *   - Scan file .md: `git ls-files '*.md'` TANPA shell (atau --files=a.md,b.md untuk fixture/test).
+ *     FIX 2026-10-10 (cross-platform): korpus dibangun lewat execFileSync('git',['ls-files','*.md'])
+ *     — sebelumnya `execSync('git ls-files *.md', { shell })` punya branch platform
+ *     (`cmd.exe` vs `/bin/sh`). Di POSIX, `/bin/sh` meng-expand `*.md` LEBIH DULU sehingga
+ *     git menerima 14 path eksplisit root-only → 12 berkas .md nested (antara lain
+ *     docs/forensic/CONSTANTS-INVENTORY.md) TIDAK PERNAH dipindai di CI, sementara di
+ *     Windows git menerima pathspec `*.md` dan mengembalikan 26. Tanpa shell, git yang
+ *     menangani globbing → hasil identik lintas platform (Windows/Linux/macOS).
  *   - archiveFiles (registry top-level) = file yang TIDAK di-cross-check (arsip, design §3).
  *   - Per entry:
  *       * live-guarded/live-unguarded → ekstrak nilai live (SQL / extractor), cross-check
@@ -33,7 +40,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import pg from 'pg';
 import dotenv from 'dotenv';
 import { extractors } from './numeric-extractors.mjs';
@@ -122,11 +129,20 @@ async function main() {
   if (FILES_OVERRIDE) {
     corpus = FILES_OVERRIDE;
   } else {
-    const SHELL = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
+    // FIX 2026-10-10: TANPA shell — lihat header. execFileSync mencegah ekspansi glob
+    // oleh shell (penyebab korpus 14 vs 26 antar platform).
     try {
-      corpus = execSync('git ls-files *.md', { encoding: 'utf8', shell: SHELL }).trim().split('\n').filter(Boolean);
+      corpus = execFileSync('git', ['ls-files', '*.md'], { encoding: 'utf8' })
+        .trim()
+        .split('\n')
+        .filter(Boolean);
     } catch (e) {
       console.error(`${W.fail}FATAL${W.off} git ls-files '*.md' gagal: ${e.message}`);
+      process.exit(2);
+    }
+    // Anti-hijau-palsu: korpus kosong = guard tidak memeriksa apa pun.
+    if (corpus.length === 0) {
+      console.error(`${W.fail}FATAL${W.off} korpus .md kosong — tidak ada berkas untuk dipindai (guard akan hijau palsu).`);
       process.exit(2);
     }
   }
