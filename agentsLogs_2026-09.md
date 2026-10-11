@@ -198,7 +198,7 @@ Tanpa perbaikan ini, instalasi di perusahaan baru tidak mungkin jalan.
   tetap terbuka.
 - Commit â†’ push â†’ deploy BELUM dijalankan untuk batch ini (aturan Â§0.3), menunggu perintah user.
 ## [2026-09-16] Worker Profile: 14 kolom baru + RPC get_worker_profile/worker_update_profile â€” DONE
-- Status: DONE â€” frontend commit `5102f64` â†’ push â†’ deploy production `insightwos-3xiqo8p64` â— Ready
+- Status: DONE — frontend commit `5102f64` → push → deploy production `insightwos-3xiqo8p64` ● Ready
   (alias https://insightwos.vercel.app HTTP 200, CSP bersih tanpa `connect-src` Upstash).
   Migration 222 di-apply via SQL Editor; `GRANT EXECUTE ... TO authenticated` sudah termigrasi
   (baris 79 + 150-152 pada file migration) â†’ tidak perlu grant terpisah.
@@ -246,7 +246,7 @@ Tanpa perbaikan ini, instalasi di perusahaan baru tidak mungkin jalan.
 
 ## [2026-09-16] Pre-existing lint cleanup: 12 warnings â†’ 0 (react-hooks/exhaustive-deps) â€” DONE
 - Status: DONE â€” commit â†’ push â†’ deploy production selesai.
-- Commit: `20929bb` (12 file, +10/âˆ’153) â€” deploy: production `insightwos-pwvpzwktn` â— Ready 19s
+- Commit: `20929bb` (12 file, +10/−153) — deploy: production `insightwos-pwvpzwktn` ● Ready 19s
   (alias https://insightwos.vercel.app HTTP 200)
 - Ringkasan:
   1. **12 pre-existing `react-hooks/exhaustive-deps` warnings di-clear.** `eslint src/` sekarang
@@ -298,7 +298,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-16] Kontrak `rpc()` jujur: kegagalan jadi `RpcError` bertipe, bukan di-cast `as T` (L1 upppp.txt) â€” DONE
 - Status: DONE
-- Commit: `6bf86f3` (16 file, +256/âˆ’84) â€” deploy: production `insightwos-7bjvcpsxk` â— Ready
+- Commit: `6bf86f3` (16 file, +256/−84) — deploy: production `insightwos-7bjvcpsxk` ● Ready
   (alias https://insightwos.vercel.app HTTP 200). Perubahan ini frontend-only â€” tidak ada
   perubahan edge.
 - Ringkasan:
@@ -345,7 +345,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 ## [2026-09-16] Sesi fail-closed + edge tidak lagi mengembalikan password (S6/S7/L4/S9 upppp.txt) â€” DONE
 - Status: DONE
 - Commit: `3a537b6` (15 file, +362/âˆ’107) â€” deploy: **frontend** production
-  `insightwos-j0m8dogko` â— Ready (alias https://insightwos.vercel.app HTTP 200) + **edge**
+  `insightwos-j0m8dogko` ● Ready (alias https://insightwos.vercel.app HTTP 200) + **edge**
   `worker-auth-sync` di-redeploy ke project `verwobaejumvpagwynae`.
 - Ringkasan:
   1. **S6 â€” token & password tidak lagi menyentuh client.** Field `token` DIHAPUS dari `UserSession`
@@ -371,7 +371,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
   (probe aman dengan kredensial palsu): body kosong â†’ `400 {"ok":false,"msg":"nrp, nik, dan
   password wajib diisi"}`; kredensial palsu â†’ `401 {"ok":false,"msg":"Kredensial tidak valid."}`
   â€” kedua respons tidak memuat field password apa pun. CATATAN: run E2E pertama sempat gagal
-  1 test + 5 flaky (`concurrent-session` â€œmultiple tabsâ€ â†’ tab baru mendarat di halaman login).
+  1 test + 5 flaky (`concurrent-session` “multiple tabs” → tab baru mendarat di halaman login).
   Akarnya di MOCK, bukan kode produksi: `supabase.auth.setSession()` men-DECODE `access_token`
   sebagai JWT dan membaca klaim `exp`, sedangkan mock mengirim string sembarang â†’ sesi tak pernah
   tersimpan di localStorage sehingga tab baru (sessionStorage kosong) tidak punya apa pun untuk boot.
@@ -388,13 +388,13 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-16] Cross-check audit `Readme/upppp.txt` â†’ sisa OPEN masuk AGENTS.md Â§5.6 + perbaikan 7 error `tsc` yang tertinggal â€” DONE (commit `81a5bf5` + push + deploy production)
 - Status: DONE â€” commit â†’ push â†’ deploy production selesai. Gate dijalankan ulang pada tree yang SAMA sebelum commit (Â§0.8 terpenuhi).
-- Commit: `81a5bf5` (25 file, +212/âˆ’72) â€” deploy: production `insightwos-lo3gcmyg9-cezetex-lab.vercel.app` â— Ready, alias https://insightwos.vercel.app HTTP 200.
+- Commit: `81a5bf5` (25 file, +212/−72) — deploy: production `insightwos-lo3gcmyg9-cezetex-lab.vercel.app` ● Ready, alias https://insightwos.vercel.app HTTP 200.
 - Ringkasan:
   1. **Working tree ditemukan RUSAK.** `tsc --noEmit` = **7 error** sisa kerja audit yang belum selesai: `requireNrp` dipanggil tanpa import di `TrainingForm.tsx`, `WorkerOvertime.tsx`, `CompensationIntel.tsx`, `WorkerPayroll.tsx`, `Worker.tsx`; `React` UMD di `src/main.tsx`. Semua diperbaiki (import `requireNrp` + `import React`); ternary sia-sia di `DetailPageFactory.tsx:113` (`typeof window !== 'undefined' ? requireNrp() : requireNrp()`) dibersihkan jadi `requireNrp()`.
   2. **Cross-check `upppp.txt` ke kode live.** DONE terverifikasi: S1 (`script-src` tanpa `unsafe-inline`/`unsafe-eval`, 2 inline script â†’ modul TS `error-suppressor.ts`/`register-sw.ts`), S2 (`img-src` eksplisit), S3 (`connect-src` vercel/fonts dibuang), S5, S8 (RoleGuard fail-closed), S10 (`check_login_lockout` + edge `hit_rate_limit` benar-benar dipakai), U4 (`DataTable` bersama â‰¥10 page), identitas hardcoded `'NRP001'` = 0 di `src/`.
   3. **OPEN ditulis ke `AGENTS.md` Â§5.6.** P1: S6 (token + `temp_password` melintas client), S7/L4 (expiry default-open), S9 (bypass sesi legacy), L1 (kontrak `rpc()` menelan error), S4 (CSP Upstash â€” sengaja dipertahankan Â§5.5, wajib dihapus saat cache-tier jalan). P2: L2/U6 (tanggal date-only UTC), L3 (belum ada `isAdminRole()`, `role === 'admin'` di â‰¥10 file), U2/L5 (`useRpcQuery`), L6, L7, U1 (Zod dead code), U3/U5, S11 (DOMPurify `ALLOWED_TAGS`), cleanup komentar. Roadmap: F1â€“F4.
   4. **Koreksi dokumen.** Baris Â§7.3 mengklaim `connect-src alive-robin` sudah dihapus (TIDAK benar â€” masih ada) dan "âœ… DONE, 0 error" (padahal uncommitted + 7 error) â†’ diubah jadi ðŸŸ¡ PARTIAL + rujukan Â§5.6. Jumlah file TS dikoreksi 154 â†’ **156** (132 `.tsx` + 24 `.ts`). Aturan kerja baru **Â§0.8**: klaim DONE wajib ter-commit + gate dijalankan ulang pada tree saat itu; masih di working tree = PARTIAL.
-- Bukti: `npx tsc --noEmit` **0 error**; `npm run lint` **0 error** (41 warning); `npm run build` **EXIT 0** (31.76s); `npx vitest run --no-file-parallelism` **100/100 tests, 14 file**. Run `npm test` pertama flake vitest worker-boot (38 passed, 11 error "Timeout waiting for worker to respond") â€” pola beban mesin yang sudah dikenal, bukan kegagalan logika (lolos instan saat dijalankan ulang terisolasi). **DEPLOY terverifikasi live:** production `insightwos-lo3gcmyg9` â— Ready (created 2026-09-16 14:15 WIB, alias HTTP 200); `curl -sI https://insightwos.vercel.app` â†’ CSP prod `script-src 'self' https://*.posthog.com` (TANPA `unsafe-inline`/`unsafe-eval`), `img-src 'self' data: blob: https://verwobaejumvpagwynae.supabase.co` (bukan wildcard `https:`), `connect-src` tanpa vercel.com/fonts, dan HTML hanya punya **1 `<script>` eksternal** (`/assets/index-*.js`) â€” 0 inline script â†’ kode commit `81a5bf5` benar-benar sudah live.
+- Bukti: `npx tsc --noEmit` **0 error**; `npm run lint` **0 error** (41 warning); `npm run build` **EXIT 0** (31.76s); `npx vitest run --no-file-parallelism` **100/100 tests, 14 file**. Run `npm test` pertama flake vitest worker-boot (38 passed, 11 error "Timeout waiting for worker to respond") — pola beban mesin yang sudah dikenal, bukan kegagalan logika (lolos instan saat dijalankan ulang terisolasi). **DEPLOY terverifikasi live:** production `insightwos-lo3gcmyg9` ● Ready (created 2026-09-16 14:15 WIB, alias HTTP 200); `curl -sI https://insightwos.vercel.app` → CSP prod `script-src 'self' https://*.posthog.com` (TANPA `unsafe-inline`/`unsafe-eval`), `img-src 'self' data: blob: https://verwobaejumvpagwynae.supabase.co` (bukan wildcard `https:`), `connect-src` tanpa vercel.com/fonts, dan HTML hanya punya **1 `<script>` eksternal** (`/assets/index-*.js`) — 0 inline script → kode commit `81a5bf5` benar-benar sudah live.
 - Dampak lintas-page: worker â†’ admin â†’ dashboard â†’ owner â€” perbaikan `requireNrp` menyentuh komponen lintas-page: `Worker.tsx` (worker), `TrainingForm`/`WorkerOvertime`/`WorkerPayroll`/`CompensationIntel` (input worker), `DetailPageFactory` (factory bersama admin+dashboard+owner). Perbaikan ini memulihkan kompilasi tipe untuk KEEMPAT page (build gagal total bila dibiarkan) sehingga tidak ada page yang tertinggal rusak. Tidak ada perubahan kontrak RPC/menu/route/authz/types bersama â†’ **tidak ada perubahan perilaku** di admin/dashboard/owner selain hilangnya risiko crash render.
 
 ---
@@ -402,7 +402,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 ## [2026-09-15] KEPUTUSAN USER â€” Upstash tetap + catatan keamanan CSP + migrasi region ke Singapore â€” DECIDED (open items di AGENTS.md Â§5.5)
 - Status: DECIDED (eksekusi nanti; state open ada di AGENTS.md Â§5.5)
 - Commit: `968c74b` (deploy: docs-only â€” build tidak berubah, production masih
-  `insightwos-5hyrbs2vv` â— Ready; catatan: baris env var di entri ini hanya NAMA variabel,
+  `insightwos-5hyrbs2vv` ● Ready; catatan: baris env var di entri ini hanya NAMA variabel,
   bukan nilai rahasia)
 - Ringkasan: Setelah analisa kecocokan stack (Supabase + Vercel + Upstash), user memutuskan:
   1. **Upstash Redis TETAP** di stack â€” jangan hapus `@upstash/redis`, edge `cache-service`,
@@ -423,7 +423,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-15] Deploy fix â€” `typescript-eslint` dihapus (peer range excl. TS 7 memblokir `npm ci` di Vercel) â€” DONE
 - Status: DONE
-- Commit: `e978f3e` (deploy: production `insightwos-5hyrbs2vv-cezetex-lab.vercel.app` â— Ready 29s,
+- Commit: `e978f3e` (deploy: production `insightwos-5hyrbs2vv-cezetex-lab.vercel.app` ● Ready 29s,
   alias https://insightwos.vercel.app HTTP 200)
 - Ringkasan: `vercel --prod` gagal `npm install`. Di-reproduksi lokal via `npm ci` clean-dir:
   ERESOLVE â€” `typescript-eslint@8.70.0` peer `typescript >=4.8.4 <6.1.0` vs proyek TS `^7.0.2`
@@ -432,7 +432,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
   terinstal lokal karena node_modules sudah ada. Dihapus dari `package.json` + regenerasi
   `package-lock.json`; `npm ci` clean-dir kini sukses.
 - Bukti: `npm ci` (dir bersih) EXIT 0 â†’ gate tsc 0 error / lint 0 error / vitest 100/100 /
-  build EXIT 0 â†’ deploy Vercel â— Ready, prod alias 200.
+  build EXIT 0 → deploy Vercel ● Ready, prod alias 200.
 - Dampak lintas-page: worker â†’ admin â†’ dashboard â†’ owner â€” tidak ada perubahan kode runtime
   (devDependency tak terpakai saja); bundle identik, ke-4 page tidak berubah perilaku.
 
@@ -440,7 +440,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-15] TypeScript Migration â€” Phase 3: `tests/` + config â†’ TS, gate tsc diperluas â€” DONE
 - Status: DONE
-- Commit: `eebc2b0` (deploy: production `insightwos-5hyrbs2vv-cezetex-lab.vercel.app` â— Ready,
+- Commit: `eebc2b0` (deploy: production `insightwos-5hyrbs2vv-cezetex-lab.vercel.app` ● Ready,
   alias https://insightwos.vercel.app HTTP 200; follow-up dep fix `e978f3e`)
 - Ringkasan: Sisa file non-TS dimigrasikan (32 file, `git mv` agar history utuh):
   1. **Config (6)**: `vite.config.js`, `vitest.config.js`, `tailwind.config.js`,
@@ -459,7 +459,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
      (pola lama repo) + tsc sebagai pemilik kebenaran tipe.
 - Bukti: `npx tsc --noEmit` = 0 error (src+tests+config, 188 file TS), `npm run lint` = 0 error
   (38 warning lama non-blocking), `vitest` 14/14 file hijau (100/100 test), `vite build` EXIT 0,
-  Playwright E2E **51 passed / 13 skipped** (identik pra-migrasi, 0 regresi), deploy Vercel â— Ready.
+  Playwright E2E **51 passed / 13 skipped** (identik pra-migrasi, 0 regresi), deploy Vercel ● Ready.
 - Dampak lintas-page: worker â†’ admin â†’ dashboard â†’ owner â€” 1 perubahan menyentuh kode bersama:
   `src/lib/validation/schemas.ts` (`/^[\d\-\+\s]+$/` â†’ `/^[\d+\s-]+$/`, arti char-class identik)
   dipakai form Worker & Admin â†’ diverifikasi ulang via tsc + unit test + build; sisanya
@@ -467,7 +467,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-15] LIVE DB â€” registrasi migration 220 + repair checksum 219 + verifikasi audit chain â€” DONE
 - Status: DONE
-- Commit: `eebc2b0` (deploy: production â— Ready â€” bookkeeping/metrik terbawa di AGENTS.md + log ini)
+- Commit: `eebc2b0` (deploy: production ● Ready — bookkeeping/metrik terbawa di AGENTS.md + log ini)
 - Ringkasan: Migration checker melaporkan `220_audit_hash_chain.sql` UNAPPLIED padahal objeknya
   sudah ada di DB live (kolom `prev_hash`/`row_hash`, trigger `trg_audit_hash_chain`,
   `audit_log_hash_chain()`, `verify_audit_chain()`) â€” jadi masalahnya **bookkeeping**, bukan schema.
@@ -487,7 +487,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
 
 ## [2026-09-15] AGENTS.md â€” aturan TS diperluas + Â§0.5 GOLDEN RULES (keterkaitan 4 page) â€” DONE
 - Status: DONE
-- Commit: `eebc2b0` (deploy: production â— Ready)
+- Commit: `eebc2b0` (deploy: production ● Ready)
 - Ringkasan:
   1. **Â§3.11 (diperluas)**: TypeScript wajib untuk SEMUA kode â€” `src/`, `tests/`, dan config
      (`*.config.ts`). Dilarang membuat `.js`/`.jsx` baru; `allowJs: false` membuat file JS
@@ -543,7 +543,7 @@ selesai dari AGENTS.md versi lama + runbook + commit `49a2e9a` s/d HEAD. Riwayat
   4. âœ… Role change â†’ permissions (`role-change.spec.js`)
   5. âœ… Concurrent session limit (`concurrent-session.spec.js`)
   6. âœ… Dashboard rendering (`full-sweep.spec.js`, `tab-click-test.spec.js`)
-  7. âŒ **PWA offline mode** â€” belum ada spec
+  7. ❌ **PWA offline mode** — belum ada spec
 - Bukti: 51/64 tests passed, 13 skipped (live-backend credentials required)
 
 ## [2026-09-15] Phase 2 helper fix â€” OwnerDashboard `\n` corruption â€” DONE
@@ -914,7 +914,7 @@ via auth_id) Â· owner privilege escalation via `owner_*` (cek is_owner) Â· `
 - pg_cron: âœ… 6 active jobs (migration 212)
 - anon grants: âœ… 140 â†’ 129 (remaining: ~120 pgvector internals + login-flow functions)
 - 8 SECDEF search_path: âœ… 0 violations (migration 207)
-- update_task_status overload: âš ï¸ 2 overloads (int + text) â€” both active, serve different ID types
+- update_task_status overload: ⚠️ 2 overloads (int + text) — both active, serve different ID types
   (text from task board, int from legacy). Rule Â§6.4 applies to NEW overloads, not existing.
 - Â§3.3 "0 pelanggaran" claim: âœ… now accurate post-207
 
@@ -1031,13 +1031,13 @@ via auth_id) Â· owner privilege escalation via `owner_*` (cek is_owner) Â· `
   - `useState({})` â†’ `useState<Record<string, any>>({})` (8 file), ~30 peta status literal (`STATUS_CONFIG`, `SHIFT_COLORS`, â€¦) dianotasi `Record<string, â€¦>`, ~60 callback implicit-`any` diberi tipe eksplisit
 - **2 bug runtime nyata yang terbongkar compiler:**
   1. `toast(...)` dipanggil sebagai fungsi di `SafetyK3.tsx`, `FacilityRequest.tsx`, `HarvestRecord.tsx` â€” padahal `useToast()` mengembalikan objek `{success, error, â€¦}` â†’ `toast is not a function` saat runtime (sisa kerja Tahap 5.5 dead-forms). Diganti `toast.error(...)` / `toast.success(...)` sesuai 15 call-site lain.
-  2. `Home.tsx` rusak encoding akibat codemod rename â€” bukan cuma komentar: **string yang dirender** pun jadi mojibake (tombol kembali tampil sampah, bukan `â†`; emoji `ðŸ”‘ ðŸ“ ðŸ” ðŸ” ðŸ“¤` dan semua `â€”` hancur), plus **newline hilang di 3 tempat** sehingga baris komentar tergabung. Dipulihkan byte-exact dari blob pra-rename `2ccaa95^:src/pages/Home.jsx` (terverifikasi identik dengan HEAD). Mojibake em-dash di `OwnerDashboard.tsx` (sudah ter-commit) ikut dibersihkan. Scan seluruh repo: 0 mojibake / 0 C1-control / 0 komentar tergabung.
+  2. `Home.tsx` rusak encoding akibat codemod rename — bukan cuma komentar: **string yang dirender** pun jadi mojibake (tombol kembali tampil sampah, bukan `←`; emoji `🔑 📝 🔍 🔐 📤` dan semua `—` hancur), plus **newline hilang di 3 tempat** sehingga baris komentar tergabung. Dipulihkan byte-exact dari blob pra-rename `2ccaa95^:src/pages/Home.jsx` (terverifikasi identik dengan HEAD). Mojibake em-dash di `OwnerDashboard.tsx` (sudah ter-commit) ikut dibersihkan. Scan seluruh repo: 0 mojibake / 0 C1-control / 0 komentar tergabung.
 - Lint: **0 error** (buang direktif `@typescript-eslint/no-explicit-any` yang basi â€” plugin-nya tidak dimuat di config Babel-parser saat ini, jadi direktifnya sendiri yang jadi error â€” dan bereskan irregular whitespace).
 - E2E Playwright: **51 passed / 0 failed** (sebelumnya 9 gagal). Akar 6 kegagalan admin/dashboard: mock TIDAK pernah meng-intersep edge `password-reset`, sehingga login menembus edge produksi yang rate-limiter-nya menjawab "Terlalu banyak request OTP". Ditambah route mock `password-reset` (`login_otp` â†’ `dev_code`, `verify_login_otp`), handler RPC `verify_admin_otp`, dan `loginAsAdmin` kini menjalankan alur 2 langkah password â†’ OTP yang sebenarnya.
 
 ## [2026-09-16] S4 CSP Upstash removal + L7 provisioning failure notification â€” DONE
 - Status: DONE
-- Commit: `d45f0f9` (2 file, +15/âˆ’4) â€” deploy: production `insightwos-5fdd8rj0x` â— Ready
+- Commit: `d45f0f9` (2 file, +15/−4) — deploy: production `insightwos-5fdd8rj0x` ● Ready
   (alias https://insightwos.vercel.app HTTP 200). Frontend-only â€” tidak ada perubahan edge/DB.
 - Ringkasan:
   1. **S4 â€” CSP `connect-src` dibersihkan.** `https://alive-robin-191313.upstash.io` dihapus dari
@@ -1078,7 +1078,7 @@ via auth_id) Â· owner privilege escalation via `owner_*` (cek is_owner) Â· `
 
 ## [2026-09-16] Batch audit fix: S11 DOMPurify + L3 isAdminRole + L6 columnLabel + L2/U6 parseDateOnly â€” DONE
 - Status: DONE
-- Commit: `a738139` (16 files, +170/âˆ’31) â€” deploy: production `insightwos-pc6u0n7a3` â— Ready
+- Commit: `a738139` (16 files, +170/−31) — deploy: production `insightwos-pc6u0n7a3` ● Ready
   (alias https://insightwos.vercel.app HTTP 200). Frontend-only â€” no edge changes.
 - Ringkasan:
   1. **S11 â€” DOMPurify hardening** (`ChatCopilot.tsx`): `PURIFY_CONFIG` konstan dengan
@@ -1104,7 +1104,7 @@ via auth_id) Â· owner privilege escalation via `owner_*` (cek is_owner) Â· `
 
 ## [2026-09-16] P2 Audit Batch: L7 + U2/L5 + U1 + U3/U5 â€” DONE
 - Status: DONE
-- Commit: `e819067` (21 file) â€” deploy: production `insightwos-6b9679eag` â— Ready, alias https://insightwos.vercel.app HTTP 200.
+- Commit: `e819067` (21 file) — deploy: production `insightwos-6b9679eag` ● Ready, alias https://insightwos.vercel.app HTTP 200.
 - Ringkasan:
   1. **L7 â€” alert() â†’ toast.warning().** `Home.tsx`: 3x `alert('Peringatan: Auth sync gagal...')` diganti `toast.warning('Auth sync gagal â€” beberapa fitur mungkin terbatas...')`. User kini melihat toast non-fatal; redirect login tidak diblokir.
   2. **U2/L5 â€” `useRpcQuery` hook.** Hook baru (`src/hooks/useRpcQuery.ts`, 82 baris): cancelled-flag cleanup, `isRpcError()` guard, satu generic `<R>`. 9 page dimigrasi dari boilerplate `useState`+`useEffect`+`useCallback`+`rpc()` repetitive: WorkerAttendance, WorkerPayroll, WorkerLearning, ForumDiskusi, AdminAttendance, WhistleblowingPage (Ã—1 RPC), WorkerLeave, Employees, RecruitmentDashboard (Ã—2 RPC). Kpi.tsx sengaja tidak dimigrasi (5 RPC + normalisasi duck-typing 50+ baris â€” tidak cocok untuk generic hook).
