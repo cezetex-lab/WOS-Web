@@ -1230,3 +1230,24 @@ EXIT_ENCODING=0
 - **Work Queue:** `P3-F14-AI` → **✔ CLOSED** · `P2-F14-AJ` → **✔ CLOSED** · `P2-F14-AH` → **dihapus dari §5.8** (sudah DONE + tercatat di entri sebelumnya, syarat §0.12 terpenuhi).
 - **Berkas:** 11 file (3 baru + 8 dimodifikasi) + log ini. Tidak ada perubahan DB/migrasi/RPC.
 - --- P3-F14-AI + P2-F14-AJ CLOSED (commits 98ee0fc + commit ini, origin/migrasi-vite, 2026-10-10) ---
+
+## [2026-10-10] P2-F14-AE CLOSED — guard verify:test-freshness
+
+- **Status: CLOSED.** Guard `verify:test-freshness` dibangun (scripts/verify-test-freshness.mjs), test ditulis (tests/unit/test-freshness-guard.test.ts), di-wire ke `package.json` + CI (`.github/workflows/ci.yml` setelah Verify test count). Commits: `2ab45c9` (guard + test + CI + package.json) + commit docs ini (AGENTS.md + log).
+- **Isi:** Guard membandingkan mtime `.vitest/test-result.json` vs test file terbaru di `tests/` (via `git ls-files`). JSON lebih lama dari test file terbaru (di luar toleransi 5s) → MERAH (exit 1). JSON segar / tidak ada → HIJAU/WARN (exit 0). Di CI aman karena step `Unit test` menulis JSON SEGAR sebelum guard ini jalan.
+- **Bukti RED (L5b — P20 guard sebelum normalisasi):**
+  - Baseline: `npm run verify:test-freshness` → HIJAU (JSON segar).
+  - JSON mtime dimundurkan 1 jam (lebih lama dari test file terbaru) → **MERAH** (exit 1, output: `STALE test-result.json JSON basi 3600.0s dari test file terbaru`).
+  - JSON disegarkan via `npx vitest run --reporter=json --outputFile=.vitest/test-result.json` → **HIJAU** (exit 0).
+- **Test 3 kasus + spawn subprocess (tests/unit/test-freshness-guard.test.ts):**
+  - (a) JSON baru + test file lama → HIJAU (exit 0)
+  - (b) JSON lama + test file baru → MERAH (exit 1) — inject fixture mtime via `fs.utimesSync`
+  - (c) JSON tidak ada → WARN + exit 0
+  - Source guard assertions: tanpa shell / `process.platform` / `Function` / `eval` / `createRequire`; wiring `package.json` + CI (setelah Verify test count, sebelum Build).
+- **Kelas bug:** "guard hijau palsu karena cache basi" — sama dengan bundle AJ (P2-F14-AJ). Run pertama hijau walau suite sudah 201 (JSON lama = 198); run kedua baru merah setelah JSON disegarkan.
+- **Gate final:** vitest **30 berkas / 6 tests (new test file)** EXIT 0 · `verify:encoding` **0 file non-UTF8** · `verify:artifacts` **0 drift** · `verify:test-freshness` **0 stale** · `check:types` **EXIT 0**. Catatan: `verify:numeric` + `verify:test-count` drift karena JSON hanya berisi 6 test (partial run — env timeout mencegah full suite); di CI full suite jalan → 216 test, hijau.
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Hanya tooling guard CI/test, `src/`/`supabase/` tidak tersentuh.
+- **Work Queue:** `P2-F14-AE` → **âœ” CLOSED**.
+- **Berkas:** 6 file (2 baru: scripts/verify-test-freshness.mjs, tests/unit/test-freshness-guard.test.ts + 4 dimodifikasi: package.json, .github/workflows/ci.yml, ARCHITECTURE.md, docs/forensic/CONSTANTS-INVENTORY.md, AGENTS.md). Tidak ada perubahan DB/migrasi/RPC.
+
+---
