@@ -357,6 +357,45 @@ test = **HIJAU PALSU**; guard diperkuat dengan COMPLETENESS (`testResults.length
 cek 3 dimensi di atas. Kalau ada dimensi yang tidak relevan untuk artefak itu, **catat alasannya**
 di komentar guard — jangan diam-diam melewatkannya.
 
+## 0.25 BYTE-LEVEL EDIT DI WINDOWS = WAJIB SCRIPT .MJS (P26)
+
+**Aturan keras.** Setiap edit file byte-level (replace byte, hapus kontrol-char, normalisasi
+escape) di Windows PowerShell WAJIB memakai script `.mjs` terpisah di `.agents/scripts/`,
+ditulis via `safe-file-writer.ts` (§0.11).
+
+**DILARANG `node -e` untuk kasus ini.** Alasan nyata: backtick (`) adalah karakter escape di
+PowerShell — `` `t `` dikonsumsi sebagai TAB (0x09) sebelum sampai ke Node, sehingga pola regex
+di dalam script ter-mangle diam-diam. Terbukti di batch cleanup agentsLogs (2026-10-11):
+attempt #1 via `node -e` gagal match, working tree tersisa state intermediate (4 backslash
+terhapus, 2 TAB tertinggal) dan wajib dilaporkan STOP sebelum attempt #2 via script `.mjs`
+byte-exact sukses.
+
+**Guard wajib di dalam setiap script byte-exact:**
+1. assert pattern count == ekspektasi (gagal → exit 1, JANGAN tulis file)
+2. assert byte-count delta == ekspektasi
+3. apply replacement dari index belakang ke depan
+
+**Idempoten:** jalankan 2× pada file yang sudah bersih → no-op, exit 0.
+
+## 0.26 LIVE-DATA-FIRST UNTUK FAKTA, BUKAN UNTUK KEPUTUSAN BISNIS (P27)
+
+**Aturan keras.** Pertanyaan FAKTUAL tentang state sistem (isi DB, schema, RLS, jumlah rows,
+checksum migrasi applied, CI status, issue tracker, runtime error) WAJIB dicek live via MCP
+dulu SEBELUM inferensi dari git history / teks / asumsi.
+
+**MCP yang aktif:** Supabase (DB), Linear (issues), Sentry (runtime).
+
+**MCP = read-only mutlak:** SELECT / view / RPC read-only boleh; DDL/DML/mutation DILARANG.
+
+**Batas kepemilikan.** MCP terhubung ke AI Core, bukan helper. Kalau pertanyaan faktual muncul
+saat helper eksekusi → helper STOP, eskalasi ke AI Core, AI Core cek live, hasil di-ground-kan
+balik ke helper.
+
+**PENGECUALIAN:** keputusan bisnis (role/level Fix #14, prioritas produk, kebijakan, scope)
+tetap USER yang tentukan. Bukan AI Core, bukan MCP.
+
+**Kalau MCP down / scope di luar MCP** → STOP dan lapor. DILARANG tebak.
+
 ## 5.8 STATE OPEN — WORK QUEUE: Temuan Audit SQL (WAJIB DISELESAIKAN)
 
 > **Sumber:** audit menyeluruh 2026-09-17 — 150+ migrasi diparsing lalu **setiap temuan
@@ -415,6 +454,7 @@ di komentar guard — jangan diam-diam melewatkannya.
 | **P2-F14-AF** | P2 | AGENTS.md **mixed-file** (klaim hidup §5.8 OPEN + rekaman waktu blok `> CLOSED`/`> Dipangkas` bercampur). Mengeluarkan dari archive tanpa scan-mode = 13 drift palsu (angka historis 185/187/260 dst vs live 195/270). | Audit Fase-4b 2026-10-10: 30 baris klaim-angka-live di §5.8; estimasi 39/86 = 45% campuran. Estimasi drift palsu bila keluar archive: ±13. | Scan-mode guard yang skip baris di blok blockquote (`> CLOSED`, `> Dipangkas`, `> Bukti-WQ`) — AGENTS.md boleh keluar dari archive. Uji: scan AGENTS.md → hanya §5.8 OPEN yang di-drift-check. | ⚠ **NEW** (2026-10-10, Fase-4b) |
 | **P2-F14-AG** | P2 | 4 file campuran (bukan arsip, bukan hidup): TESTING_GUIDE (pola `; N berkas` false-positive di baris 39), FIX14-ROLE-LEVEL-TOTAL, FORENSIC-INDEX, AGENTS.md (overlap AF). Prioritas rendah — tidak ada drift hari ini. | Audit Fase-4b: 4/20 file archive masuk kategori (c). TESTING_GUIDE:39 `…; 5 berkas…` di-match pola generik. | Persempit pola generik (`; (\d+) berkas` → butuh konteks), lalu evaluasi file mana yang bisa keluar. | ⚠ **NEW** (2026-10-10, Fase-4b) |
 | **P2-F14-AK** | P2 | Lint `.mjs` pre-existing: `scripts/*.mjs` di luar scope `npm run lint` (`eslint src/ tests/`) dan `eslint.config.ts` tidak punya global Node → **33 error `no-undef`** (`process`/`console`) sudah ada di HEAD, bukan regresi batch §0.24. Menghambat cek lint file-spesifik `.mjs` (§0.21 P21 cakupannya `.ts`/`.tsx`). | `npx eslint scripts/verify-test-freshness.mjs` → **42 error** sesudah modif, **33 error** pada salinan HEAD (kelas sama); semua `scripts/*.mjs` memakai `process`/`console`. | Tambah override di `eslint.config.ts` untuk `scripts/**/*.mjs` yang mendefinisikan global Node (`process`, `console`), **atau** pindahkan guard ke `.ts`. Uji: `npx eslint scripts/` → **EXIT 0**. | ⚠ **NEW** (2026-10-11, temuan batch freshness) |
+| **P2-F14-AN** | P2 | Aktivasi & audit MCP (Supabase/Linear/Sentry) sebagai sumber fakta live — inventarisasi pertanyaan yang selama ini dijawab via inferensi teks; register kontrak read-only; definisikan fallback saat MCP down | Bukti: handoff Bagian 10 (MCP terhubung, belum dipakai) + arahan user 2026-10-11 | DoD: kontrak MCP read-only terdokumentasi di AGENTS.md + 1 contoh cross-check live berhasil dijalankan | ⚠ **NEW** (2026-10-11) |
 
 
 > **CLOSED 2026-10-02 — P1-F14-K, P2-F14-H, P2-F14-I** (Fix #14 §9 blocker, migrasi 257/258/259/260 DITERAPKAN; registry 185 baris, `max(version)=260`; bukti di `agentsLogs_2026-10.md` entri 2026-10-02 + `docs/forensic/FORENSIC-INDEX.md`). Ringkasan: **K** trigger audit `user_role_assignments` terpasang via `_generic_audit_trigger_fixed`, uji INSERT → `audit_log` 582→583 dengan `actor` terisi; **H** `authz_in_scope` cabang `TEAM` `manager_nrp` → `atasan_nrp`, smoke tidak crash; **I** `admin_produksi` dicabut dari CHECK `user_roles_role_check` (uji negatif `23514`) + whitelist `is_admin_or_owner` + 3 `role_permission_sets` (items tetap 93) → **0 di kelima tempat**. Sisa satu-satunya: whitelist `admin_set_employee_role` = item **P2-F14-F** (masih OPEN). **P2-F14-J** (rename NRP001 → `'ceo'`) masih OPEN, target §10.
