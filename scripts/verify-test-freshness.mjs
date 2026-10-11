@@ -16,14 +16,27 @@
  *   2. Walk tests/ via git ls-files, filter .test.ts / .test.tsx.
  *   3. Cari mtime terbaru dari semua test file.
  *   4. Bandingkan: json_mtime < test_mtime - TOLERANCE → MERAH (exit 1).
- *      json_mtime >= test_mtime - TOLERANCE → HIJAU (exit 0).
- *   5. Toleransi default 5 detik untuk hindari false-positive flake I/O.
+ *      json_mtime >= test_mtime - TOLERANCE → lanjut langkah 5.
+ *   5. KELENGKAPAN (blind spot 2026-10-11): mtime segar TIDAK menjamin isi JSON
+ *      lengkap. Run parsial (mis. 1 berkas / 6 test) yang mtime-nya lebih baru
+ *      dari test file tetap HIJAU di langkah 4 — padahal guard lain
+ *      (verify:test-count, doc-claims-vs-live) membaca JSON itu sebagai sumber
+ *      angka dan jadi hijau palsu. Jadi: jumlah berkas di JSON (`testResults`)
+ *      WAJIB sama dengan jumlah berkas test yang diperiksa. Beda → MERAH (exit 1).
+ *   6. Toleransi default 5 detik untuk hindari false-positive flake I/O.
+ *
+ * JEBAKAN VITEST (jangan dipakai): field `numTotalTestSuites` BUKAN jumlah berkas
+ *   — di vitest ia menghitung describe-block (terbukti 2026-10-11: 91 untuk 30
+ *   berkas). Proksi kelengkapan yang benar adalah panjang array `testResults`
+ *   (satu entri per berkas test yang diproses). 91 juga berbeda tiap suite baru,
+ *   sedangkan jumlah berkas stabil. Karena itu kode ini sengaja TIDAK menyentuh
+ *   `numTotalTestSuites` sama sekali — ditegakkan oleh test di tests/unit/.
  *
  * PEMAKAIAN
  *   npm run verify:test-freshness
  *   node scripts/verify-test-freshness.mjs [--json <path>] [--tolerance <seconds>] [--offline]
  *
- * Exit 0 = segar (atau tidak ada JSON / offline), 1 = basi (stale), 2 = error.
+ * Exit 0 = segar + lengkap (atau tidak ada JSON / offline), 1 = basi ATAU tidak lengkap, 2 = error.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -60,6 +73,22 @@ function listTrackedTestFiles() {
   } catch (e) {
     console.error(`${W.fail}FATAL${W.off} git ls-files tests/ gagal: ${e.message}`);
     process.exit(2);
+  }
+}
+
+/**
+ * Jumlah berkas test yang tercatat DI DALAM JSON = panjang `testResults`
+ * (satu entri per berkas test yang diproses vitest).
+ * Kembalikan null kalau JSON tidak terbaca / tidak punya array itu.
+ */
+function readJsonTestFileCount(jsonPath) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    if (!Array.isArray(parsed.testResults)) return null;
+    return parsed.testResults.length;
+  } catch {
+    // JSON rusak / hilang di tengah jalan → diperlakukan sebagai "tidak lengkap".
+    return null;
   }
 }
 
@@ -141,10 +170,45 @@ function main() {
     process.exit(1);
   }
 
-  // JSON segar atau sama (dalam toleransi) → HIJAU
+  // JSON segar atau sama (dalam toleransi) → lanjut cek KELENGKAPAN
   console.log(`  ${W.pass}OK${W.off}    ${'test-result.json'.padEnd(18)} JSON segar (selisih ${diffMs >= 0 ? '+' : ''}${(diffMs / 1000).toFixed(1)}s)`);
+
+  // 5. Kelengkapan: mtime segar tidak berarti isi JSON lengkap.
+  const jsonFileCount = readJsonTestFileCount(JSON_PATH);
+  const expectedFileCount = testFiles.length;
+  console.log(
+    `  Berkas di JSON: ${jsonFileCount === null ? 'N/A' : jsonFileCount} (diharapkan ${expectedFileCount})`
+  );
+
+  if (jsonFileCount === null) {
+    console.error(
+      `${W.fail}FATAL${W.off} ${JSON_PATH} tidak punya array "testResults" — skema JSON tidak dikenal.`
+    );
+    process.exit(2);
+  }
+
+  if (jsonFileCount !== expectedFileCount) {
+    // JSON tidak mewakili korpus test → guard lain akan hijau palsu (MERAH).
+    const sebab =
+      jsonFileCount < expectedFileCount
+        ? `run PARSIAL: JSON hanya memuat ${jsonFileCount} dari ${expectedFileCount} berkas test (tidak lengkap)`
+        : `JSON memuat ${jsonFileCount} berkas, lebih banyak dari ${expectedFileCount} berkas test yang diperiksa`;
+    console.log(`\n  ${W.fail}INCOMPLETE${W.off} ${'test-result.json'.padEnd(12)} ${sebab}`);
+    console.log(
+      `\n  ${W.dim}Perbaiki:${W.off} jalankan SUITE PENUH — npx vitest run --reporter=json --outputFile=.vitest/test-result.json`
+    );
+    console.log(`\n=== RINGKASAN: 0 stale, 1 incomplete ===\n`);
+    console.error(
+      `${W.fail}verify:test-freshness GAGAL${W.off} — JSON segar tapi TIDAK LENGKAP (isinnya bukan seluruh korpus test).`
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `  ${W.pass}OK${W.off}    ${'test-result.json'.padEnd(18)} lengkap (${jsonFileCount}/${expectedFileCount} berkas)`
+  );
   console.log(`\n=== RINGKASAN: 0 stale, 0 warning ===\n`);
-  console.log(`${W.pass}verify:test-freshness OK${W.off} — JSON segar.`);
+  console.log(`${W.pass}verify:test-freshness OK${W.off} — JSON segar + lengkap.`);
   process.exit(0);
 }
 
@@ -154,4 +218,4 @@ const DIRECT_RUN = Boolean(
 );
 if (DIRECT_RUN) main();
 
-export { listTrackedTestFiles, getNewestMtime, main };
+export { listTrackedTestFiles, getNewestMtime, readJsonTestFileCount, main };

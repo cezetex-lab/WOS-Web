@@ -11,6 +11,13 @@
  * repo — supaya tidak basi setelah B5/C5 refresh JSON. (Kalau test meng-assert kondisi
  * repo saat ini, ia akan merah sendiri setelah JSON disegarkan: itu test yang salah,
  * bukan guard yang rusak.)
+ *
+ * BLIND SPOT 2026-10-11 (ditutup di sini): mtime segar BUKAN jaminan isi JSON lengkap. Run parsial
+ * (1 berkas / 6 test) yang mtime-nya lebih baru tetap HIJAU, padahal verify:test-count
+ * dan doc-claims-vs-live membaca JSON itu → 2 gate merah di sesi berikutnya. Guard kini
+ * juga membandingkan jumlah berkas di JSON (`testResults`) dengan korpus test.
+ * JEBAKAN: `numTotalTestSuites` di vitest = jumlah DESCRIBE-BLOCK (91 untuk 30 berkas),
+ * bukan jumlah berkas — test di bawah menegakkan guard TIDAK memakainya.
  */
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
@@ -31,7 +38,38 @@ function withTmp<T>(fn: (dir: string) => T): T {
   }
 }
 
-/** Jalankan CLI guard; kembalikan exit code (0 segar, 1 stale). */
+/** Bentuk JSON vitest minimal, dengan `testResults` sepanjang jumlah berkas yang diminta. */
+function jsonFixture(fileCount: number): string {
+  const testResults = Array.from({ length: fileCount }, (_, i) => ({ name: `file-${i}.test.ts` }));
+  return (
+    JSON.stringify({
+      numTotalTests: fileCount,
+      numPassedTests: fileCount,
+      numFailedTests: 0,
+      numPendingTests: 0,
+      numTodoTests: 0,
+      testResults,
+      success: true,
+    }) + '\n'
+  );
+}
+
+/**
+ * Buat berkas test palsu (isi tidak dijalankan) dan kembalikan path-nya.
+ * mtime-nya digeser 10 detik ke BELAKANG supaya cek mtime deterministik saat
+ * `--tolerance=0`: tanpa itu, berkas yang lahir ~0,4 ms SETELAH JSON dianggap
+ * "lebih baru" dan memicu STALE palsu — race presisi utimesSync, bukan logika guard.
+ */
+function writeFakeTestFile(dir: string, rel: string): string {
+  const p = path.join(dir, rel);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, 'import { it } from "vitest"; it("x", () => {});\n', 'utf8');
+  const past = (Date.now() - 10000) / 1000;
+  fs.utimesSync(p, past, past);
+  return p;
+}
+
+/** Jalankan CLI guard; kembalikan exit code (0 segar+lengkap, 1 stale/incomplete). */
 function runGuard(jsonPath: string, testFiles: string[]): number {
   try {
     const args = [GUARD, `--json=${jsonPath}`, `--tolerance=0`];
@@ -57,8 +95,8 @@ describe('test-freshness-guard — unit', () => {
       const testMtime = Date.now() - 10000; // 10 detik lalu
       fs.utimesSync(testPath, testMtime / 1000, testMtime / 1000);
       
-      // Tulis JSON KEMUDIAN (mtime baru)
-      fs.writeFileSync(jsonPath, '{"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"testResults":[],"success":true}\n', 'utf8');
+      // Tulis JSON KEMUDIAN (mtime baru) — lengkap: 1 berkas di JSON, 1 berkas diperiksa
+      fs.writeFileSync(jsonPath, jsonFixture(1), 'utf8');
       const jsonMtime = Date.now();
       fs.utimesSync(jsonPath, jsonMtime / 1000, jsonMtime / 1000);
       
@@ -74,7 +112,7 @@ describe('test-freshness-guard — unit', () => {
       fs.mkdirSync(path.dirname(testPath), { recursive: true });
       
       // Tulis JSON DULU (mtime lama)
-      fs.writeFileSync(jsonPath, '{"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"testResults":[],"success":true}\n', 'utf8');
+      fs.writeFileSync(jsonPath, jsonFixture(1), 'utf8');
       const jsonMtime = Date.now() - 10000; // 10 detik lalu
       fs.utimesSync(jsonPath, jsonMtime / 1000, jsonMtime / 1000);
       
@@ -99,6 +137,35 @@ describe('test-freshness-guard — unit', () => {
       expect(runGuard(jsonPath, [testPath])).toBe(0);
     });
   });
+
+  it('(d) JSON segar + LENGKAP (semua berkas ada di JSON) → HIJAU (exit 0)', () => {
+    withTmp((dir) => {
+      const jsonPath = path.join(dir, 'test-result.json');
+      const testPaths = ['d1', 'd2', 'd3'].map((n) => writeFakeTestFile(dir, `tests/unit/${n}.test.ts`));
+
+      // 3 berkas test di JSON, 3 berkas diperiksa → lengkap
+      fs.writeFileSync(jsonPath, jsonFixture(3), 'utf8');
+      const now = Date.now();
+      fs.utimesSync(jsonPath, now / 1000, now / 1000);
+
+      expect(runGuard(jsonPath, testPaths)).toBe(0);
+    });
+  });
+
+  it('(e) JSON segar tapi PARSIAL (1 berkas dari 3) → MERAH (exit 1) — blind spot 2026-10-11', () => {
+    withTmp((dir) => {
+      const jsonPath = path.join(dir, 'test-result.json');
+      const testPaths = ['e1', 'e2', 'e3'].map((n) => writeFakeTestFile(dir, `tests/unit/${n}.test.ts`));
+
+      // JSON dari run parsial: mtime SEGAR, tapi hanya 1 berkas dari 3.
+      // Di guard lama (hanya mtime) ini HIJAU — hijau palsu yang menutupi run parsial.
+      fs.writeFileSync(jsonPath, jsonFixture(1), 'utf8');
+      const now = Date.now();
+      fs.utimesSync(jsonPath, now / 1000, now / 1000);
+
+      expect(runGuard(jsonPath, testPaths)).toBe(1);
+    });
+  });
 });
 
 describe('test-freshness-guard — source guard', () => {
@@ -121,6 +188,17 @@ describe('test-freshness-guard — source guard', () => {
     // Anti hijau-palsu: korpus kosong harus FATAL, bukan exit 0.
     expect(code).toMatch(/korpus kosong/);
     expect(code).toMatch(/process\.exit\(2\)/);
+
+    // Kelengkapan (blind spot 2026-10-11): mtime segar bukan berarti isi lengkap.
+    // Guard WAJIB membandingkan jumlah berkas di JSON dengan korpus test.
+    expect(code).toMatch(/readJsonTestFileCount/);
+    expect(code).toMatch(/testResults/);
+    expect(code).toMatch(/INCOMPLETE/);
+    expect(code).toMatch(/jsonFileCount !== expectedFileCount/);
+
+    // JEBAKAN vitest: `numTotalTestSuites` = jumlah describe-block (91 untuk 30 berkas),
+    // bukan jumlah berkas → DILARANG dipakai sebagai proksi kelengkapan.
+    expect(code).not.toMatch(/numTotalTestSuites/);
   });
 
   it('wired ke package.json sebagai verify:test-freshness', () => {
