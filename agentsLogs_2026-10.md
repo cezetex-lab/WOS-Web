@@ -1251,3 +1251,22 @@ EXIT_ENCODING=0
 - **Berkas:** 6 file (2 baru: scripts/verify-test-freshness.mjs, tests/unit/test-freshness-guard.test.ts + 4 dimodifikasi: package.json, .github/workflows/ci.yml, ARCHITECTURE.md, docs/forensic/CONSTANTS-INVENTORY.md, AGENTS.md). Tidak ada perubahan DB/migrasi/RPC.
 
 ---
+---
+
+## [2026-10-11] P2-F14-AE CLOSED — guard verify:test-freshness + P21/P22/P23 registered
+
+- **Status: CLOSED.** Guard \erify:test-freshness\ dibangun (scripts/verify-test-freshness.mjs), test ditulis (tests/unit/test-freshness-guard.test.ts), di-wire ke \package.json\ + CI (\.github/workflows/ci.yml\ setelah Verify test count). Commits: \2ab45c9\ (guard+test) · \78584b9\ (docs close) · \76031f\ (fix lint #72) · \424ea6d\ (docs) · \0bbc88\ (ts-total sync #73/#74) · \19b6cb8\ (§7.5 sync #75).
+- **Isi:** Guard membandingkan mtime \.vitest/test-result.json\ vs test file terbaru di \	ests/\ (via \git ls-files\). JSON lebih lama dari test file terbaru (di luar toleransi 5s) → MERAH (exit 1). JSON segar / tidak ada → HIJAU/WARN (exit 0). Di CI aman karena step \Unit test\ menulis JSON SEGAR sebelum guard ini jalan.
+- **RED proof:** JSON mtime dimundurkan 1 jam → MERAH; JSON disegarkan → HIJAU.
+- **Test 6 kasus** (\	ests/unit/test-freshness-guard.test.ts\): (a) JSON baru + test file lama → HIJAU; (b) JSON lama + test file baru → MERAH; (c) JSON tidak ada → WARN + exit 0; (d) source guard lint: tanpa shell / \process.platform\ / \Function\ / \eval\ / \createRequire\; (e) wiring \package.json\; (f) wiring CI (setelah Verify test count, sebelum Build).
+- **Insiden berantai CI #72–#75 (3 kelas bug dari 1 batch):**
+    - #72 — no-useless-escape (lint) → fix \76031f\ → **P21** (lint file-spesifik sebelum commit)
+    - #73/#74 — ts-total 217→218 CONSTANTS:28 → fix \0bbc88\ → **P22** (ts-total dual-sync)
+    - #75 — §7.5 src breakdown 158→157 (.ts 26→25) → fix \19b6cb8\ → **P23** (src breakdown dual-sync)
+    - #76 — HIJAU
+- **Pelajaran permanen (P21+P22+P23)** terdaftar di §0.21/§0.22/§0.23 AGENTS.md.
+- **Dampak lintas-page (G7):** worker → admin → dashboard → owner = tidak berubah (hanya tooling guard CI/test).
+- **Work Queue:** \P2-F14-AE\ → **âœ” CLOSED** (REMOVED from §5.8 per §0.12).
+- **Berkas:** 6 file (2 baru + 4 dimodifikasi). Tidak ada perubahan DB/migrasi/RPC.
+
+---
