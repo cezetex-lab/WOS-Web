@@ -25,7 +25,7 @@ Metode: `git grep -E` (rg rusak di lingkungan kerja ini) + pembacaan kode guard.
 | ARCHITECTURE.md:136 (§7.4) | anon/PUBLIC grants | 130 | `verify:artifacts` + `doc-claims-vs-live` | TANPA filter `prokind` — metodologi kedua guard wajib identik (catatan di dalam guard) |
 | ARCHITECTURE.md:137 (§7.4) | pg_cron jobs | 5 | `verify:artifacts` + `doc-claims-vs-live` | |
 | ARCHITECTURE.md:138 (§7.4) | Audit chain rows | 526 | `doc-claims-vs-live` (mode `>=`) saja | snapshot 2026-09-26; verify:artifacts SENGAJA tidak hard-compare (baris bertambah tiap hari) |
-| ARCHITECTURE.md:122 (§7.3) | file TS total | 217 (157 src + 52 tests + 8 config) | `verify:artifacts` + `doc-claims-vs-live` | basis `git ls-files` (berkas ter-track), bukan disk. Update Fase-3 Level B 2026-10-09 (214 STALE → 216 live, +numeric-claims-guard.test.ts & 270C) |
+| ARCHITECTURE.md:122 (§7.3) | file TS total | 218 (157 src + 53 tests + 8 config) | `verify:artifacts` + `doc-claims-vs-live` | basis `git ls-files` (berkas ter-track), bukan disk. Update Fase-3 Level B 2026-10-09 (214 STALE → 216 live, +numeric-claims-guard.test.ts & 270C); **P2-F14-AE 2026-10-10 +1 file test-freshness-guard.test.ts (216 → 218)** |
 | ARCHITECTURE.md:145 (§7.5) | Unit tests | 216 total — 212 auto + 4 `it.todo`; 30 berkas | `verify:test-count` (+ `doc-claims-vs-live` untuk baris .ts/.tsx) | yang dijaga TOTAL, bukan `passed` (beda antar environment). Update Fase-3 Level B 2026-10-09 (173/26 STALE → 198/28 live, +B2 8 test +marker 1 test); Fase-4a 2026-10-10 +3 test regresi korpus `.md` cross-platform (198 → 201); Fase-4b-3 2026-10-10 +9 test guard encoding (201 → 210); **P2-F14-AE 2026-10-10 +6 test freshness guard (210 → 216)** |
 
 ### 1.2 FuturePlans.md — DIJAGA guard
