@@ -130,6 +130,12 @@ jobs:
         # menutup lubang itu — pola Akar A yang sama.
         run: npm run verify:test-count
 
+      - name: Verify test freshness
+        # P2-F14-AE: guard kesegaran .vitest/test-result.json.
+        # Di CI aman — step "Unit test" menulis JSON SEGAR sebelum ini.
+        # Di lokal: JSON basi → MERAH. Kelas bug sama bundle AJ (hijau palsu cache).
+        run: npm run verify:test-freshness
+
       - name: Build
         run: npm run build
 
