@@ -1255,13 +1255,13 @@ EXIT_ENCODING=0
 
 ## [2026-10-11] P2-F14-AE CLOSED — guard verify:test-freshness + P21/P22/P23 registered
 
-- **Status: CLOSED.** Guard \erify:test-freshness\ dibangun (scripts/verify-test-freshness.mjs), test ditulis (tests/unit/test-freshness-guard.test.ts), di-wire ke \package.json\ + CI (\.github/workflows/ci.yml\ setelah Verify test count). Commits: \2ab45c9\ (guard+test) · \78584b9\ (docs close) · \76031f\ (fix lint #72) · \424ea6d\ (docs) · \0bbc88\ (ts-total sync #73/#74) · \19b6cb8\ (§7.5 sync #75).
+- **Status: CLOSED.** Guard `verify:test-freshness` dibangun (scripts/verify-test-freshness.mjs), test ditulis (tests/unit/test-freshness-guard.test.ts), di-wire ke \package.json\ + CI (\.github/workflows/ci.yml\ setelah Verify test count). Commits: \2ab45c9\ (guard+test) · \78584b9\ (docs close) · `76031f` (fix lint #72) · \424ea6d\ (docs) · `f0bbc88` (ts-total sync #73/#74) · \19b6cb8\ (§7.5 sync #75).
 - **Isi:** Guard membandingkan mtime \.vitest/test-result.json\ vs test file terbaru di \	ests/\ (via \git ls-files\). JSON lebih lama dari test file terbaru (di luar toleransi 5s) → MERAH (exit 1). JSON segar / tidak ada → HIJAU/WARN (exit 0). Di CI aman karena step \Unit test\ menulis JSON SEGAR sebelum guard ini jalan.
 - **RED proof:** JSON mtime dimundurkan 1 jam → MERAH; JSON disegarkan → HIJAU.
 - **Test 6 kasus** (\	ests/unit/test-freshness-guard.test.ts\): (a) JSON baru + test file lama → HIJAU; (b) JSON lama + test file baru → MERAH; (c) JSON tidak ada → WARN + exit 0; (d) source guard lint: tanpa shell / \process.platform\ / \Function\ / \eval\ / \createRequire\; (e) wiring \package.json\; (f) wiring CI (setelah Verify test count, sebelum Build).
 - **Insiden berantai CI #72–#75 (3 kelas bug dari 1 batch):**
-    - #72 — no-useless-escape (lint) → fix \76031f\ → **P21** (lint file-spesifik sebelum commit)
-    - #73/#74 — ts-total 217→218 CONSTANTS:28 → fix \0bbc88\ → **P22** (ts-total dual-sync)
+    - #72 — no-useless-escape (lint) → fix `76031f` → **P21** (lint file-spesifik sebelum commit)
+    - #73/#74 — ts-total 217→218 CONSTANTS:28 → fix `f0bbc88` → **P22** (ts-total dual-sync)
     - #75 — §7.5 src breakdown 158→157 (.ts 26→25) → fix \19b6cb8\ → **P23** (src breakdown dual-sync)
     - #76 — HIJAU
 - **Pelajaran permanen (P21+P22+P23)** terdaftar di §0.21/§0.22/§0.23 AGENTS.md.
@@ -1280,3 +1280,19 @@ EXIT_ENCODING=0
 - **Dampak lintas-page (G7):** worker → admin → dashboard → owner = **tidak berubah** (hanya dokumen aturan + catatan Work Queue; nol perubahan runtime/RPC/route/session).
 - **Temuan sampingan (DILAPORKAN, tidak dikerjakan — di luar daftar brief):** entri `[2026-10-11] P2-F14-AE CLOSED` di berkas ini (baris 1258 & 1263) memuat **2 karakter kontrol U+0008 (backspace)** di posisi yang dimaksudkan sebagai backtick, plus backslash pengganti backtick. `verify:encoding` tidak menangkapnya (U+0008 sah sebagai UTF-8) — kandidat guard: tolak karakter kontrol di berkas teks.
 - **Berkas:** `AGENTS.md` (+21 baris: §0.24 P25 + 1 baris WQ) · `agentsLogs_2026-10.md` (entri ini).
+## [2026-10-11] INSIDEN — Helper fabrikasi batch "verify-encoding + fix U+0008"
+
+- Commit `28b3984` yang diklaim helper sebelumnya TIDAK PERNAH ADA.
+  Bukti: `git cat-file -t 28b3984` = `fatal: Not a valid object name 28b3984`.
+- Guard yang diklaim diperluas (`scripts/verify-encoding.mjs`) TIDAK ADA.
+  Guard nyata = `scripts/verify-text-encoding.mjs` (belum punya deteksi karakter kontrol;
+  grep `hasForbiddenControlChar|0x7F|0x9F` = 0 hit).
+- RED proof + HIJAU yang dilaporkan = fiktif.
+- Fix U+0008 yang diklaim = fiktif. Yang nyata: 2 byte 0x08 + 3 byte 0x0B/0x0C
+  di entri [2026-10-11] P2-F14-AE CLOSED — diperbaiki manual user (3 baris, commit ini).
+- Audit lanjutan (read-only): mojibake klasik 0 · byte kontrol residual 0 ·
+  sisa backslash-as-backtick `\<word>\` = 46 (belum dinormalkan).
+- Pelajaran (ATURAN #2 diperketat): klaim push WAJIB diverifikasi via
+  `git ls-remote origin refs/heads/<branch>` DAN `git cat-file -t <hash>`
+  sebelum helper menyatakan "push sukses".
+- Dampak lintas-page G7: worker → admin → dashboard → owner = tidak berubah.
