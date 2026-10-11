@@ -107,7 +107,7 @@ describe('test-freshness-guard — source guard', () => {
     // Komentar header MEMANG menjelaskan konsep — assertion hanya pada KODE.
     const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-    expect(code).toMatch(/execFileSync\('git', \['ls-files', 'tests\/\'\]/);
+    expect(code).toMatch(/execFileSync\('git', \['ls-files', 'tests\/'\]/);
     expect(code).not.toMatch(/process\.platform/);
     expect(code).not.toMatch(/\bshell\s*:/);
     expect(code).not.toMatch(/\bFunction\s*\(/);
