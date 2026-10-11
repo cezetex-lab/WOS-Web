@@ -1270,3 +1270,13 @@ EXIT_ENCODING=0
 - **Berkas:** 6 file (2 baru + 4 dimodifikasi). Tidak ada perubahan DB/migrasi/RPC.
 
 ---
+
+## [2026-10-11] §0.24/P25 + WQ P2-F14-AK — cache-artifact verification (3 dimensi)
+
+- **Status:** docs-only, 1 commit, 2 berkas (`AGENTS.md` + `agentsLogs_2026-10.md`). Tanpa perubahan kode, DB, migrasi, RPC, route, atau session.
+- **Konteks:** batch guard `verify:test-freshness` (commit `aa620c8`, CI #82) membuka blind spot: guard hanya cek FRESHNESS (`mtime`) → JSON dari run parsial (1 berkas / 6 test) yang `mtime`-nya lebih baru dari berkas test = **HIJAU PALSU**, padahal `verify:test-count` + `doc-claims-vs-live` membacanya sebagai sumber angka (dua gate merah di sesi itu).
+- **(a) §0.24 P25 — CACHE-ARTIFACT VERIFICATION:** aturan keras baru. Setiap guard yang membaca cache/artefak turunan WAJIB mendefinisikan cara cek **3 dimensi**: FRESHNESS (`mtime` cache >= `mtime` sumber) · COMPLETENESS (jumlah entri cache == jumlah sumber; mis. `testResults.length` == jumlah berkas test) · SCHEMA (field/versi wajib ada → kalau tidak, FATAL exit 2, jangan menebak). Guard yang hanya cek 1 dari 3 = hijau palsu. Dimensi yang tidak relevan wajib dicatat alasannya di komentar guard.
+- **(b) WQ P2-F14-AK (P2, ⚠ NEW, belum dieksekusi — sengaja):** lint `.mjs` pre-existing, **33 error `no-undef`** (`process`/`console`) sudah ada di HEAD karena `scripts/*.mjs` di luar scope `npm run lint` (`eslint src/ tests/`) dan `eslint.config.ts` tak punya global Node.
+- **Dampak lintas-page (G7):** worker → admin → dashboard → owner = **tidak berubah** (hanya dokumen aturan + catatan Work Queue; nol perubahan runtime/RPC/route/session).
+- **Temuan sampingan (DILAPORKAN, tidak dikerjakan — di luar daftar brief):** entri `[2026-10-11] P2-F14-AE CLOSED` di berkas ini (baris 1258 & 1263) memuat **2 karakter kontrol U+0008 (backspace)** di posisi yang dimaksudkan sebagai backtick, plus backslash pengganti backtick. `verify:encoding` tidak menangkapnya (U+0008 sah sebagai UTF-8) — kandidat guard: tolak karakter kontrol di berkas teks.
+- **Berkas:** `AGENTS.md` (+21 baris: §0.24 P25 + 1 baris WQ) · `agentsLogs_2026-10.md` (entri ini).
