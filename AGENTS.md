@@ -396,6 +396,27 @@ tetap USER yang tentukan. Bukan AI Core, bukan MCP.
 
 **Kalau MCP down / scope di luar MCP** → STOP dan lapor. DILARANG tebak.
 
+## 0.27 LAPORAN WAJIB PASTE OUTPUT MENTAH UTUH, DILARANG MERINGKAS (P28)
+
+**Aturan keras.** Setiap output terminal dari perintah yang dijalankan WAJIB dipaste
+APA ADANYA (UTUH) di laporan. DILARANG mengganti output dengan ringkasan / tabel
+ikhtisar / "(sisanya mirip)".
+
+Ringkasan / tabel / highlight BOLEH ditambahkan SETELAH output mentah utuh, sebagai
+komentar. Bukan sebagai pengganti.
+
+**Alasan:** ringkasan bisa menyembunyikan anomali. Tiga insiden terbukti di sesi 2026-10-11:
+(a) re-paste output setelah state berubah (batch P26/P27),
+(b) 18/20 entry mapping C1 diringkas (discovery C1),
+(c) 12/20 hunk diff diringkas (apply fix C1).
+
+**Output panjang:** kalau output sangat panjang (>500 baris), potongan BOLEH dipecah menjadi
+beberapa blok paste berurutan — tapi TIDAK BOLEH ada baris yang dihilangkan. Kalau terpaksa
+(batas tool), helper WAJIB menulis eksplisit: "OUTPUT DIPOTONG DI SINI — minta user buka
+terminal untuk verifikasi" + paste sisanya di pesan terpisah.
+
+Berlaku untuk SEMUA laporan, termasuk RED/GREEN proof test dan output guard.
+
 ## 5.8 STATE OPEN — WORK QUEUE: Temuan Audit SQL (WAJIB DISELESAIKAN)
 
 > **Sumber:** audit menyeluruh 2026-09-17 — 150+ migrasi diparsing lalu **setiap temuan
