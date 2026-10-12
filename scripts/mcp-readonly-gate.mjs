@@ -16,6 +16,12 @@
  *   exit 1 — MERAH,  ada tool kategori B ATAU dump kosong (fail-closed)
  *   exit 2 — usage,  tanpa argumen / file tak terbaca / JSON rusak
  *
+ * Bentuk dump yang dikenali (PENTING — lihat baris toolName/detect):
+ *   search_mcp_tools asli mengembalikan [{ server, tool, readOnly, destructive }]
+ *   — nama tool ada di field `tool`, connector di `server`. Bentuk itu wajib
+ *   didukung, kalau tidak semua entri jatuh ke `<tanpa-nama>` dan gate berbunyi
+ *   MERAH pada dump yang sebetulnya bersih (false alarm).
+ *
  * Tanpa dependensi, tanpa jaringan, tanpa memanggil MCP.
  * Node 20+.
  */
@@ -156,8 +162,18 @@ function extractTools(input) {
 function toolName(tool) {
   if (typeof tool === 'string') return tool;
   if (!tool || typeof tool !== 'object') return null;
-  const raw = tool.name ?? tool.toolName ?? tool.id;
+  // `tool` = field nama pada keluaran asli search_mcp_tools ({ server, tool, ... }).
+  // Menghilangkan salah satu urutan ini mengubah dump valid jadi <tanpa-nama>.
+  const raw = tool.name ?? tool.tool ?? tool.toolName ?? tool.id;
   return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+}
+
+/** Connector sebuah entri: field `server` pada keluaran asli, kalau tidak ada pakai kunci bucket. */
+function toolConnector(connector, tool) {
+  if (tool && typeof tool === 'object' && typeof tool.server === 'string' && tool.server.trim()) {
+    return tool.server.trim();
+  }
+  return connector;
 }
 
 /**
@@ -242,7 +258,7 @@ function main() {
 
   const hits = [];
   for (const { connector, tool } of entries) {
-    const hit = detect(connector, tool);
+    const hit = detect(toolConnector(connector, tool), tool);
     if (hit) hits.push(hit);
   }
 

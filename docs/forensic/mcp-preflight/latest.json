@@ -1,0 +1,45 @@
+{
+  "_meta": {
+    "schema": 1,
+    "captured_at": "2026-10-12",
+    "source": "search_mcp_tools",
+    "scope": "supabase",
+    "connectors": ["supabase"],
+    "method": "8 query berbeda; saturasi dibuktikan lewat dua jalur: gabungan 8 query + aritmetika 8 hasil + more:21 = 29 nama distinct",
+    "catatan": "Deskripsi dan inputSchema sengaja dihilangkan — gate hanya butuh nama + readOnly/destructive. Sentry dan linear BELUM dienumerasi di dump ini; jangan membaca dump ini sebagai bukti keduanya bersih.",
+    "verdict_ekspektasi": "MERAH — 11 tool mutasi Supabase masih ter-expose (P2-F14-AO, mode read-only konektor belum aktif)"
+  },
+  "supabase": {
+    "tools": [
+      { "server": "supabase", "tool": "list_projects", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "list_tables", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "list_extensions", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "list_migrations", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "get_project", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "query_logs", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "get_advisors", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "search_docs", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "list_edge_functions", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "get_edge_function", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "list_branches", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "list_organizations", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "get_organization", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "get_project_url", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "get_publishable_keys", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "generate_typescript_types", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "get_cost", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "confirm_cost", "readOnly": true, "destructive": false },
+      { "server": "supabase", "tool": "apply_migration", "readOnly": false, "destructive": true },
+      { "server": "supabase", "tool": "execute_sql", "readOnly": false, "destructive": true },
+      { "server": "supabase", "tool": "create_branch", "readOnly": false, "destructive": false },
+      { "server": "supabase", "tool": "rebase_branch", "readOnly": false, "destructive": true },
+      { "server": "supabase", "tool": "merge_branch", "readOnly": false, "destructive": true },
+      { "server": "supabase", "tool": "reset_branch", "readOnly": false, "destructive": true },
+      { "server": "supabase", "tool": "delete_branch", "readOnly": false, "destructive": true },
+      { "server": "supabase", "tool": "create_project", "readOnly": false, "destructive": false },
+      { "server": "supabase", "tool": "pause_project", "readOnly": false, "destructive": false },
+      { "server": "supabase", "tool": "restore_project", "readOnly": false, "destructive": false },
+      { "server": "supabase", "tool": "deploy_edge_function", "readOnly": false, "destructive": true }
+    ]
+  }
+}

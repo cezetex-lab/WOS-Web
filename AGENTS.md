@@ -577,10 +577,19 @@ Sebelum memanggil tool MCP apa pun di sesi apa pun, lakukan:
 4. Jika exit != 0 → STOP. Jangan panggil tool MCP apa pun di sesi ini.
    Laporkan nama tool yang bocor ke Work Queue.
 5. Jika exit 0 → lanjut dengan allowlist §0.28.1 saja.
+6. Perbarui dump ter-track `docs/forensic/mcp-preflight/latest.json` lalu
+   commit. Guard `tests/unit/mcp-readonly-gate.test.ts` MERAH bila berkas
+   itu hilang — jadi pre-flight tidak bisa dilewatkan diam-diam.
 
-Gate ini tidak menggantikan mode read-only konektor (§0.28.5 alternatif
-resmi); ia lapis kedua yang berlaku saat setelan klien belum bisa
-dijamin.
+**Status: SATU-SATUNYA PERTAHANAN (bukan lapis kedua).** Mode read-only
+konektor §0.28.5 diverifikasi 2026-10-12 TIDAK tersedia: tidak ada setelan
+atau tool-filter klien di Freebuff, dan `project.json`, `state.json`, serta
+`desktop-v2.db` tidak memuat kunci MCP apa pun. Jalur akar masalah yang
+tersisa di sisi server: Supabase MCP menerima parameter `read_only=true`
+pada URL-nya (`mcp.supabase.com/mcp?read_only=true&project_ref=…`) —
+mengaktifkannya di pengaturan connector menutup akar masalah. Sampai itu
+dilakukan, gate inilah satu-satunya penghalang; ia tidak menggantikan mode
+read-only kalau suatu saat tersedia, ia menutup ruang di antaranya.
 
 ## 5.8 STATE OPEN — WORK QUEUE: Temuan Audit SQL (WAJIB DISELESAIKAN)
 
