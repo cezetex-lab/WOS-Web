@@ -2,6 +2,9 @@
   "_meta": {
     "schema": 1,
     "captured_at": "2026-10-12",
+    "connector_state": "disabled",
+    "disabled_at": "2026-10-12",
+    "disabled_reason": "User disable ketiga konektor MCP di UI Freebuff",
     "source": "search_mcp_tools",
     "scope": "supabase",
     "connectors": ["supabase"],

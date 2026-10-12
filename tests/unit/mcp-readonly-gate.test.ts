@@ -32,7 +32,10 @@
  *   mutasi Supabase dan gate-nya MERAH — itu FAKTA, dibuktikan Test E di bawah,
  *   dan dijadikan merah-alami bukan kegagalan test melainkan kondisi yang harus
  *   tetap terbuka di Work Queue (P2-F14-AO). Kalau ada yang menutup P2-F14-AO
- *   padahal dump masih merah, Test E berteriak.
+ *   padahal dump masih merah TANPA jalur sah (lihat `verdictAoClosed`:
+ *   `_meta.connector_state === "disabled"` + frasa bukti "konektor dimatikan"
+ *   di baris dokumen), Test E berteriak. Test G membuktikan state "disabled"
+ *   saja — tanpa bukti di dokumen — TIDAK cukup untuk menutup item.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -72,6 +75,78 @@ function runGateOnDump(obj: unknown): GateRun {
 /** Bentuk asli `search_mcp_tools`: [{ server, tool, readOnly, destructive }]. */
 const RO = (server: string, tool: string) => ({ server, tool, readOnly: true, destructive: false });
 const MUT = (server: string, tool: string) => ({ server, tool, readOnly: false, destructive: true });
+
+/** Kolom Bukti baris tabel Work Queue §5.8: `| ID | Prio | Masalah | Bukti | DoD | Status |`.
+ *  Split '|' → [0]='' [1]=ID [2]=Prio [3]=Masalah [4]=Bukti [5]=DoD [6]=Status [7]=''.
+ *  HANYA kolom Bukti yang dihitung — kolom Status sengaja TIDAK di-union: frasa
+ *  bukti wajib hidup di kolom Bukti, bukan berpindah antar kolom sesuai kenyamanan. */
+function kolomBukti(row: string): string {
+  return row.split('|')[4] ?? '';
+}
+
+interface AoVerdict {
+  allowed: boolean;
+  reason: string;
+}
+
+/**
+ * Aturan pasangan dump pre-flight ↔ baris Work Queue P2-F14-AO
+ * (satu sumber kebenaran untuk Test E dan Test G):
+ *
+ *  - dump bersih (gate exit 0)      → baris WAJIB CLOSED (Work Queue basi kalau tidak);
+ *  - dump merah (gate exit 1) + baris terbuka → sah, konsisten;
+ *  - dump merah + baris CLOSED      → HANYA sah jika KEDUANYA terpenuhi:
+ *      (1) `_meta.connector_state === "disabled"` — field eksplisit pada JSON
+ *          hasil parse; string-match kata "disabled" di teks sembarang TIDAK dihitung;
+ *      (2) kolom Bukti baris memuat frasa bukti "konektor dimatikan".
+ *    Selain itu = MERAH ("centang hijau yang membuka pintu").
+ *
+ * Kolom Status TIDAK di-union: frasa bukti wajib hidup di kolom Bukti
+ * (keputusan 2026-10-12 — sebelumnya guard juga membaca Status karena frasa
+ * itu sempat hanya ada di sana; kini frasa sudah dipindah ke kolom Bukti).
+ */
+function verdictAoClosed(
+  row: string,
+  meta: Record<string, unknown> | undefined,
+  gateStatus: number | null,
+): AoVerdict {
+  const closed = /✅|CLOSED/iu.test(row);
+
+  if (gateStatus === 0) {
+    return closed
+      ? { allowed: true, reason: 'dump bersih + baris CLOSED' }
+      : {
+          allowed: false,
+          reason: 'dump sudah bersih tapi P2-F14-AO masih terbuka — Work Queue basi',
+        };
+  }
+
+  if (!closed) {
+    return { allowed: true, reason: 'dump merah + baris terbuka — konsisten' };
+  }
+
+  if (meta?.connector_state !== 'disabled') {
+    return {
+      allowed: false,
+      reason:
+        'P2-F14-AO ditutup padahal dump pre-flight masih memuat tool mutasi dan ' +
+        '_meta.connector_state bukan "disabled" — persis "centang hijau yang membuka pintu" ' +
+        'yang jadi alasan item ini ada',
+    };
+  }
+
+  if (!/konektor dimatikan/iu.test(kolomBukti(row))) {
+    return {
+      allowed: false,
+      reason:
+        'connector_state="disabled" tapi kolom Bukti baris P2-F14-AO tidak memuat frasa bukti ' +
+        '"konektor dimatikan" — state dump saja tanpa bukti dokumen ' +
+        'tidak cukup untuk menutup item',
+    };
+  }
+
+  return { allowed: true, reason: 'connector_state="disabled" + frasa bukti di dokumen' };
+}
 
 describe('§0.28.8 enforcement — dump pre-flight wajib ada', () => {
   it('Test A — dump pre-flight ter-track ada; tanpa itu pre-flight bisa dilewatkan diam-diam', () => {
@@ -169,29 +244,86 @@ describe('§0.28.8 enforcement — kontrak gate', () => {
 });
 
 describe('§0.28.8 enforcement — dokumen ↔ realita', () => {
-  it('Test E — verdict dump merah WAJIB berpasangan dengan Work Queue yang masih terbuka', () => {
+  it('Test E — verdict dump ↔ Work Queue: CLOSED hanya sah lewat dump bersih ATAU (disabled + bukti dokumen)', () => {
     const run = runGate([DUMP]);
+    const dump = JSON.parse(fs.readFileSync(DUMP, 'utf8')) as Record<string, unknown>;
+    const meta = dump._meta as Record<string, unknown> | undefined;
     const agents = fs.readFileSync(AGENTS, 'utf8');
     const row = /^\| \*\*P2-F14-AO\*\*.*$/mu.exec(agents)?.[0] ?? '';
 
     expect(row, 'baris P2-F14-AO hilang dari tabel Work Queue §5.8 AGENTS.md').not.toBe('');
 
-    if (run.status === 0) {
-      // Dump bersih: exposure sudah tertutup. Baris harus sudah ditutup juga.
-      expect(row, 'dump sudah bersih tapi P2-F14-AO masih terbuka — Work Queue basi').toMatch(
-        /✅|CLOSED/iu,
-      );
-      return;
-    }
+    // Gate exit 2 = usage/JSON rusak; atas file ter-track yang valid itu mustahil,
+    // tapi kalau terjadi jangan biarkan verdictAoClosed memakainya sebagai "merah".
+    expect(run.status, `gate atas dump ter-track tidak boleh exit 2:\n${run.out}`).not.toBe(2);
 
-    // Dump merah: exposure masih nyata. Barisnya HARUS terbuka, jangan ditutup
-    // sebelum bukti ulang membuktikan konektor bersih.
-    expect(run.status, `gate atas dump ter-track harus exit 1:\n${run.out}`).toBe(1);
+    const verdict = verdictAoClosed(row, meta, run.status);
     expect(
-      row,
-      'P2-F14-AO ditutup padahal dump pre-flight masih memuat tool mutasi — ' +
-        'persis "centang hijau yang membuka pintu" yang jadi alasan item ini ada',
-    ).not.toMatch(/✅|CLOSED/iu);
+      verdict.allowed,
+      `${verdict.reason} (gate exit=${run.status})\n${run.out}`,
+    ).toBe(true);
+
+    // Skenario regresi: dump merah + CLOSED tanpa jalur sah — dipaksa merah.
+    const sintetis = verdictAoClosed(row, { ...meta, connector_state: undefined }, run.status);
+    expect(
+      sintetis.allowed,
+      'regresi: CLOSED tanpa _meta.connector_state="disabled" harus MERAH',
+    ).toBe(false);
+  });
+
+  it("Test G — connector_state \"disabled\" TANPA frasa bukti di kolom Bukti → CLOSED tetap MERAH", () => {
+    // Membuktikan state di dump tidak bisa dipakai sendirian: kolom Bukti baris
+    // disintetis TANPA frasa "konektor dimatikan", dengan connector_state="disabled"
+    // → tetap ditolak. Kolom Status DIBIARKAN masih memuat frasa ( "(2026-10-12,
+    // konektor dimatikan)" ) — jadi kalau verdictAoClosed masih membaca Status
+    // (union), test ini akan gagal di kontrol: fixture justru diizinkan CLOSED.
+    // Kehijauan test ini = bukti Status TIDAK di-union.
+    const run = runGate([DUMP]);
+    const dump = JSON.parse(fs.readFileSync(DUMP, 'utf8')) as Record<string, unknown>;
+    const meta = dump._meta as Record<string, unknown> | undefined;
+    expect(
+      meta?.connector_state,
+      'dump ter-track harus berisi _meta.connector_state="disabled" (fixture Test G)',
+    ).toBe('disabled');
+
+    const agents = fs.readFileSync(AGENTS, 'utf8');
+    const realRow = /^\| \*\*P2-F14-AO\*\*.*$/mu.exec(agents)?.[0] ?? '';
+    expect(realRow, 'baris P2-F14-AO hilang dari tabel Work Queue §5.8 AGENTS.md').not.toBe('');
+
+    // Sintesis baris: hapus frasa bukti HANYA dari kolom Bukti (index 4);
+    // kolom lain (termasuk Status) dibiarkan utuh.
+    const cells = realRow.split('|');
+    expect(cells[4], 'sanity: kolom Bukti baris AO harus memuat frasa bukti').toMatch(
+      /konektor dimatikan/iu,
+    );
+    cells[4] = (cells[4] ?? '').replace(/konektor dimatikan/giu, 'konektor NONAKTIF');
+    const rowBuktiTanpaFrasa = cells.join('|');
+
+    expect(rowBuktiTanpaFrasa, 'sanity: fixture harus tetap CLOSED').toMatch(/✅|CLOSED/iu);
+    expect(
+      cells[4],
+      'sanity: kolom Bukti fixture harus tanpa frasa (yang dicek hanya kolom Bukti)',
+    ).not.toMatch(/konektor dimatikan/iu);
+    // Status masih memuat frasa — sengaja, membuktikan Status tidak di-union.
+    expect(rowBuktiTanpaFrasa, 'sanity: kolom Status fixture MASIH memuat frasa').toMatch(
+      /CLOSED[^|]*konektor dimatikan/iu,
+    );
+
+    const verdict = verdictAoClosed(rowBuktiTanpaFrasa, meta, run.status);
+    expect(
+      verdict.allowed,
+      'Test G: connector_state="disabled" saja tanpa frasa bukti di kolom Bukti HARUS tetap merah',
+    ).toBe(false);
+    expect(verdict.reason).toContain('konektor dimatikan');
+
+    // Kontrol positif: baris asli (Bukti berfrasa) + state disabled → sah.
+    // Tanpa ini, Test G akan lolos juga kalau verdictAoClosed salah menolak
+    // baris yang benar (guard yang selalu merah = guard rusak).
+    const kontrol = verdictAoClosed(realRow, meta, run.status);
+    expect(
+      kontrol.allowed,
+      `kontrol positif Test G gagal: baris asli + state disabled seharusnya sah (${kontrol.reason})`,
+    ).toBe(true);
   });
 
   it('Test F — §0.28.8 tetap ada dan tetap menunjuk gate + dump ter-track', () => {
