@@ -1595,3 +1595,52 @@ Ulangan pasca-append dan pasca-`git add` dijalankan pada sesi yang sama; output 
 - **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Flip ini murni perubahan status Work Queue di `AGENTS.md` + entri log; nol perubahan kode, nol perubahan RPC/route/session/UI/DB. Suite a11y 6/6 hanya membuktikan keempat halaman tidak regresi.
 - **Work Queue:** P2-F14-R → ✅ CLOSED (2026-10-14, keputusan owner).
 - **Berkas:** `AGENTS.md` (1 baris §5.8) · `agentsLogs_2026-10.md` (entri ini).
+## [2026-10-14] Dua temuan observasi: DOC guard self-dependency (RED proof) + akar flaky DB-live (timeout 5s) — daftar P2-F14-AS + P2-F14-AT
+
+- **Status:** docs-only. **2 file** (`AGENTS.md` + `agentsLogs_2026-10.md`). Tanpa perubahan kode. Entri ini menutup hasil dua sesi observasi sebelumnya (repro flaky + pembuktian DOC guard) menjadi item Work Queue bernomor.
+- **Konteks instrumentasi:** commit `d534d75` memasang `scripts/run-vitest-with-log.mjs` (`npm run verify:test-logged`) — wrapper yang men-tee stdout+stderr ke `.agents/logs/vitest-<ISO>-<pid>.log` dan menduplikasi `.vitest/test-result.json` ke nama unik `vitest-<ISO>-exit<KODE>.json`. Alat observasi, bukan fix; punya RED proof (file temp `tmp-intentional-fail.test.ts` → exit 1, artefak memuat trace) dan GREEN proof (exit 0, 31 berkas/228 test) sendiri. `.agents/logs/` gitignored (`.gitignore:81`) → artefak tidak ikut commit, tersimpan lokal.
+
+### Temuan 1 — P2-F14-AT: DOC guard membaca JSON run sebelumnya (RED proof terkontrol)
+
+Baseline hijau (228), lalu `.vitest/test-result.json` di-tamper **hanya** `numTotalTests` 228 → 226, lalu `npx vitest run tests/unit/doc-claims-vs-live.test.ts`:
+
+```
+AssertionError: SECURITY.md §3.10 stale — update ke unit 226/226 (dokumen=228, suite=226).: expected 228 to be 226
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+DOC_TAMPER_EXIT=1
+```
+
+Angka `suite=226` mustahil berasal dari run in-process (yang hanya menjalankan 1 file test) — itu nilai dari JSON sisa run sebelumnya. Arah berlawanan teruji juga: restore dari salinan baseline (sha256 identik `7d8a02c0f9345bbf0a27962d2af8478b2f7fea092a0e57bba6abe1d6ce4b740e`, `cmp` byte-identik) → guard kembali hijau 5/5. Korelasi penuh: JSON 228 → hijau (termasuk saat suite sendiri gagal 2 test — DOC kebal terhadap kegagalan, hanya mengukur angka); JSON 226 → merah dengan saran yang justru menurunkan klaim dokumen. Baseline: `.agents/logs/doc-guard-baseline.json`.
+
+### Temuan 2 — P2-F14-AS: akar flaky DB-live = timeout 5s default vitest (trace utuh tertangkap)
+
+Full suite RUN1 sesi korelasi gagal dengan **2 test DB-live**, dan trace-nya kini tersimpan utuh (instrumen `d534d75` bekerja — trace kelas ini sebelumnya hilang tertimpa):
+
+```
+=== tests/unit/db-audit-trail.test.ts
+TEST: P1-13-01: audit_log mencatat aktor verify_audit_chain() mode strict → 0 issue
+DURASI: 5014.27ms
+Error: STACK_TRACE_ERROR
+    at task (file:///.../vitest/runner/dist/chunk-artifact.js:1784:27)
+    ... at D:/0insightWOS/WOS-Web/tests/unit/db-audit-trail.test.ts:50:3
+=== tests/unit/db-password-reset-channel.test.ts
+TEST: P1-74-01: email unik di employees_core constraint employees_core_email_unique ada dan bertipe UNIQUE
+DURASI: 5019.43ms
+Error: STACK_TRACE_ERROR
+    ... at D:/0insightWOS/WOS-Web/tests/unit/db-password-reset-channel.test.ts:73:3
+```
+
+Kedua durasi ~5,0s = **timeout test default vitest**; `tests/helpers/db.ts` (dibaca, tidak diubah) memakai `pg` Client ke Supabase remote **tanpa timeout eksplisit** → saat beberapa file test DB jalan paralel, query melewati 5s dan vitest membatalkan test (error ter-report di level runner, sehingga stack selalu tipis). Bukan shared state / order dependency: isolasi 3× lulus, 13 run suite penuh sebelumnya hijau. Run berikutnya (RUN2, RUN3) hijau — konsisten dengan sifat flaky.
+
+### Daftar item Work Queue
+
+| ID | Isi |
+|---|---|
+| **P2-F14-AS** | ⚠ NEW — flaky DB-live timeout 5s; DoD: keputusan desain (timeout/pool/paralelisme, tanpa retry) + fix dengan RED/GREEN proof + audit `db-*.test.ts` lain |
+| **P2-F14-AT** | ⚠ NEW — DOC guard self-dependency pada JSON sisa; DoD: keputusan desain (apa yang mau diukur) + guard tanpa ketergantungan JSON sisa + RED/GREEN proof termasuk saat JSON dirusak |
+
+Urutan eksekusi berikutnya (keputusan user): **AS dulu** (akar sempit, bukti lengkap), baru **AT** (butuh keputusan desain).
+
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Perubahan murni dokumen: 2 baris Work Queue + entri log; nol perubahan kode, RPC, route, session, UI, atau DB. Temuan punya dampak ke workflow pengembangan (keandalan gate test), bukan ke perilaku aplikasi.
+- **Berkas:** `AGENTS.md` (§5.8, +2 baris) · `agentsLogs_2026-10.md` (entri ini).
