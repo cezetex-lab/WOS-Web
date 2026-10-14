@@ -23,7 +23,6 @@ import type {
   CurrentUserContext,
   ModuleRoute,
   Branding,
-  WorkerStatus,
   WorkerNarrative,
   Announcement,
   PayrollRow,
@@ -80,11 +79,6 @@ export function rpcGetEnabledModules(params: {
 /** Get branding */
 export function rpcGetBranding(): Promise<Branding | RpcError> {
   return rpc<Branding>('get_branding');
-}
-
-/** Get worker status */
-export function rpcGetWorkerStatus(): Promise<WorkerStatus | RpcError> {
-  return rpc<WorkerStatus>('get_worker_status');
 }
 
 /** Get worker narrative */
