@@ -1644,3 +1644,69 @@ Urutan eksekusi berikutnya (keputusan user): **AS dulu** (akar sempit, bukti len
 
 - **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Perubahan murni dokumen: 2 baris Work Queue + entri log; nol perubahan kode, RPC, route, session, UI, atau DB. Temuan punya dampak ke workflow pengembangan (keandalan gate test), bukan ke perilaku aplikasi.
 - **Berkas:** `AGENTS.md` (§5.8, +2 baris) · `agentsLogs_2026-10.md` (entri ini).
+## [2026-10-14] P2-F14-AS CLOSED — pool singleton + timeout eksplisit di tests/helpers/db.ts (flaky 5s timeout paralel)
+
+- **Status:** kode (**6 file** di `tests/`) + docs. Commit fix **`53cf090`**. Scope sesuai persetujuan user (perluasan setelah STOP di awal: RED stress 10× tidak reproduce + fix butuh file di luar scope awal).
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Perubahan murni berkas test (`tests/helpers/db.ts` + 5 file `db-*.test.ts`); nol perubahan `src/`, `supabase/`, `.env.local`, `package.json`, RPC, route, session, UI, atau DB.
+
+### 1. Investigasi awal (temuan, termasuk 2 koreksi klaim awal)
+
+- **(a)** `tests/helpers/db.ts` **tidak pernah connect** (import `Client` hanya untuk type `assertObjectExists`). Yang membuat koneksi = `withDb`/`inRolledBackTx` **lokal copy-paste di 4 dari 5** file `db-*`: `new Client` **per panggilan** (per test), `finally c.end()`, tanpa pool, tanpa afterAll.
+- **(b)** Timeout eksplisit **NOL** di seluruh `tests/` (hanya argumen `it(name, fn, timeout)` di 3 file non-DB). pg **8.23.0** mendukung semua kandidat safety net (diverifikasi ke source): `statement_timeout` (`client.js:558`), `query_timeout` (`client.js:702`), pg-pool `connectionTimeoutMillis` (`index.js:206,225`), `idleTimeoutMillis` (`:98`), `allowExitOnIdle` (`:92,417`).
+- **(c)** 5 file DB-live: `db-audit-trail` (korban :50), `db-password-reset-channel` (korban :73), `db-constraint-guard` (rentan — solo 2673ms untuk 1 test), `db-security-and-partition-guard` (query regex-scan pg_proc), `db-security-anon-access` (HTTP PostgREST, `fetch` tanpa timeout — kelas serupa, tanpa pg).
+- **(d)** `vitest.config.ts`: `pool: 'threads'`, `maxWorkers: min(2, cores-1)` per project (2 project) → 2 worker node — konsisten dengan trace (2 file timeout bersamaan). `testTimeout` tidak di-set → default **5000ms**.
+- **Koreksi jujur (dilaporkan ke user sebelum fix):** (1) klaim awal "db-constraint-guard import `withDb` rusak" = salah baca — file itu punya `withDb` lokal sendiri; (2) klaim "vitest.config.ts hanya 10 baris tanpa pool" = salah — config memuat pool/projects/maxWorkers. Akar kelas flaky tetap sama (Client per-call tanpa timeout).
+- **Verifikasi prinsip:** runner vitest `chunk-artifact.js:1804-1806` — opsi suite **mewariskan** `timeout` ke semua test di dalamnya (`describe(name, { timeout: 15000 }, fn)` sah).
+
+### 2. RED proof terkontrol (Syarat 1 persetujuan)
+
+Env var temp `WOS_DB_TEST_DELAY_MS` (delay per panggilan `withDb`) dipasang di helper + dipanggil di 2 korban; jalankan **satu kali**:
+
+```
+WOS_DB_TEST_DELAY_MS=6000 npm run verify:test-logged → RED_EXIT=1
+ Test Files  2 failed | 29 passed (31)
+      Tests  11 failed | 213 passed | 4 todo (228)
+Error: Test timed out in 5000ms.
+```
+Dari artefak `vitest-2026-10-14T13-44-36-782Z-exit1.json` (`numFailedTests: 11, success: false`) — **11 timeout di persis dua korban historis**, durasi 5004–5020ms (db-audit-trail: 7 test) dan 5007–5018ms (db-password-reset-channel: 4 test), semuanya `STACK_TRACE_ERROR` — kelas identik dengan trace historis 5014/5019ms. Kode temp + env var **dihapus** setelah RED: `grep -rn "WOS_DB_TEST_DELAY_MS|dbTestQueryDelay" tests/` → **0 sisa**, `git status` kosong sebelum fix mulai.
+
+### 3. Fix (commit `53cf090`, 6 file, +100/−102)
+
+- `tests/helpers/db.ts`: **pool singleton** per worker thread — `max: 4`, `connectionTimeoutMillis: 10000`, `query_timeout: 15000` (klien), `statement_timeout: 15000` (server), `idleTimeoutMillis: 30000`, `allowExitOnIdle: true`, handler `pool.on('error')` ber-log (bukan diam). Export **`withDb`** + **`inRolledBackTx`** bersama (parameter `ClientBase`).
+- `db-audit-trail`, `db-password-reset-channel`, `db-constraint-guard`, `db-security-and-partition-guard`: hapus `withDb`/`inRolledBackTx` lokal + import `Client`; pakai helper bersama.
+- Suite **`{ timeout: 15000 }`** di semua describe DB-live (3 + 2 + 2 + 1 + 1 describe; describe sumber-edge non-DB di password-reset tetap default).
+- **Probe pembuktian** (file temp, dihapus setelah): test tidur **8017ms** di describe `{ timeout: 15000 }` → `PROBE_EXIT=0` — suite timeout **terbukti aktif** (mustahil lulus pada default 5s). Guard diam ≠ guard palsu.
+- **Tanpa** retry, skip, `it.only`, atau try/catch penelan timeout — timeout tetap GAGAL.
+
+### 4. GREEN proof — 10× full suite berturut (`npm run verify:test-logged`)
+
+```
+GREEN_RUN01 exit=0 durasi=72s    GREEN_RUN06 exit=0 durasi=66s
+GREEN_RUN02 exit=0 durasi=66s    GREEN_RUN07 exit=0 durasi=66s
+GREEN_RUN03 exit=0 durasi=69s    GREEN_RUN08 exit=0 durasi=65s
+GREEN_RUN04 exit=0 durasi=66s    GREEN_RUN09 exit=0 durasi=64s
+GREEN_RUN05 exit=0 durasi=65s    GREEN_RUN10 exit=0 durasi=57s
+```
+Semua run: `Test Files  31 passed (31)`; `grep -l "timed out" .agents/logs/green-run-*.log` → **0 file**; JSON run terakhir (`vitest-2026-10-14T14-07-15-941Z-exit0.json`): `numTotalTests: 228 numPassed: 224 numFailed: 0 success: true`, DOC §3.10 `passed`. Tidak ada regen JSON di antara run (wrapper yang menangani).
+
+### 5. Guard db-constraint-guard (Syarat 2 persetujuan)
+
+File guard **tidak diubah** (hanya koneksi pindah ke helper bersama; asersi, pola query, dan `it.todo` utuh):
+- PRA-fix: `npx vitest run tests/unit/db-constraint-guard.test.ts` → `1 passed | 4 todo`, **2680ms**, `EXIT=0`
+- PASCA-fix: idem → `1 passed | 4 todo`, **2411ms**, `EXIT=0`
+
+### 6. Gate & guard
+
+`check:types` (tsc) **EXIT 0**; `npx eslint` 6 file yang diubah **EXIT 0** (§0.21). 7 guard **dua putaran** (pra-git-add & pasca-git-add), keduanya:
+
+```
+GUARD-PUTARAN-1: ENC=0 NUM=0 TC=0 ART=0 TF=0 WQ=0 DOC=0
+GUARD-PUTARAN-2: ENC=0 NUM=0 TC=0 ART=0 TF=0 WQ=0 DOC=0
+```
+Kedua putaran identik — semua guard hijau penuh. Secret scan staged: 0.
+
+### 7. Catatan jujur
+
+- Durasi run GREEN (57–72s) lebih tinggi dari stress sesi observasi (36–64s) — kemungkinan beban mesin saat loop background; tidak ada timeout/kegagalan, dan pool justru memangkas handshake per test.
+- `.agents/logs/` tetap gitignored — RED/GREEN artefak tersimpan lokal.
+- P2-F14-AT (DOC guard self-dependency) **belum** dikerjakan — tetap NEW, urutan berikutnya menunggu keputusan desain.
