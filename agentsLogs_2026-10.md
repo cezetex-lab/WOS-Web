@@ -1526,3 +1526,72 @@ DOC=0
   - **owner** → **terdampak lewat migrasi 271**: login owner kini `cezetex@gmail.com` (dual source dicatat P2-F14-AQ OPEN); fix a11y OwnerLogin menyentuh render halaman login owner. Sesi 2026-10-14 (env + log + docs + JSON) = **tidak ada perubahan runtime sama sekali**.
 - **Work Queue:** P1-F14-D → ✅ CLOSED · P2-F14-O → ✅ CLOSED · P2-F14-P → ✅ CLOSED · P2-F14-R tetap ⚠ NEW (ditahan) · P2-F14-AR + P2-F14-AQ tetap OPEN.
 - **Berkas sesi 2026-10-14:** `AGENTS.md` (flip D + catatan tahan R) · `agentsLogs_2026-10.md` (3 entri ini) · `.vitest/test-result.json` (regen, hijau) · `SECURITY.md` · `ARCHITECTURE.md` · `docs/forensic/CONSTANTS-INVENTORY.md` (koreksi 226 → 228). `.env.local` diperbaiki tapi gitignored (tidak ikut commit). Tidak ada `.ts`/`.tsx` berubah di sesi ini → P21/P22/P23 tidak berlaku.
+## [2026-10-14] P2-F14-R flip ke CLOSED (keputusan owner) — lanjutan entri hutang proses
+
+- **Status:** docs-only. **2 file** (`AGENTS.md` + `agentsLogs_2026-10.md`). Tanpa perubahan `src/`, `tests/`, `supabase/`, `.env.local`, dan tanpa perubahan kode apa pun.
+- **Keputusan owner:** flip **P2-F14-R → ✅ CLOSED**. Sebelumnya item ditahan ("DITAHAN, flip butuh keputusan user") pada commit `4b5351d`.
+- **Dasar (DoD):**
+  1. Suite a11y **6/6 PASS, EXIT 0** — dua kali: pada sesi hutang proses (bukti di entri `2026-10-14` sebelumnya) dan **run ulang saat flip ini** (raw di bawah).
+  2. Fix kode ter-commit `1847af2` — `htmlFor` + `id` pada input Email dan Password `OwnerLogin.tsx` (raw di bawah).
+- **Caveat jujur (sama dengan catatan di AGENTS.md):** suite a11y **tidak memindai `OwnerLogin.tsx` dalam state valid** — halaman itu hanya ter-scan saat redirect (storageState basi). Karena itu klaim entri ini **BUKAN** "violation axe hilang"; fix diverifikasi lewat **inspeksi kode**, dan 6/6 membuktikan **tidak ada regresi**. Violation `label` critical asli (2026-10-03, log `fix14-d4-a11y.log`) terjadi di alur state basi.
+
+### Bukti mentah (§0.27)
+
+**B1 — `npm run test:a11y` saat flip (2026-10-14 18:12 SEAST):**
+
+```
+Running 6 tests using 1 worker
+
+[login] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 1 [chromium] › tests\a11y\accessibility.spec.ts:80:3 › Login page (/) › a11y: 0 violation critical/serious (14.9s)
+[worker] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 2 [chromium] › tests\a11y\accessibility.spec.ts:89:3 › Worker page (/worker) › a11y: storageState worker -> scan /worker (12.4s)
+[admin] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 3 [chromium] › tests\a11y\accessibility.spec.ts:97:3 › Admin page (/admin) › a11y: storageState admin -> scan /admin (5.6s)
+[dashboard] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 4 [chromium] › tests\a11y\accessibility.spec.ts:105:3 › Dashboard page (/dashboard) › a11y: storageState admin -> scan /dashboard (6.8s)
+[owner] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 5 [chromium] › tests\a11y\accessibility.spec.ts:113:3 › Owner page (/owner/dashboard) › a11y: storageState owner -> scan /owner/dashboard (5.8s)
+[owner-config] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 6 [chromium] › tests\a11y\accessibility.spec.ts:121:3 › Owner Config page (/owner/dashboard/config) › a11y: storageState owner -> scan /owner/dashboard/config (5.5s)
+
+  6 passed (52.8s)
+A11Y_EXIT=0
+```
+
+**B2 — inspeksi kode fix `1847af2` (`src/pages/OwnerLogin.tsx:62-67`):**
+
+```
+            <label htmlFor="owner-email" className="block text-gray-400 text-sm mb-2">Email</label>
+            <input id="owner-email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="..." required />
+            <label htmlFor="owner-password" className="block text-gray-400 text-sm mb-2">Password</label>
+            <input id="owner-password" type="password" value={password} onChange={e => setPassword(e.target.value)} className="..." required />
+```
+
+**B3 — diff AGENTS.md (satu baris, `git diff -- AGENTS.md`):**
+
+```
+-| **P2-F14-R** | ... | ⚠ **NEW** (2026-10-03; fix ter-commit `1847af2` + suite a11y 6/6 pada 2026-10-14 — DITAHAN, flip butuh keputusan user) |
++| **P2-F14-R** | ... | ✅ **CLOSED** (2026-10-14, keputusan owner) — DoD: suite a11y **6/6 PASS, EXIT 0** (bukti mentah di entri log `2026-10-14` hutang proses) + inspeksi kode fix `1847af2` (`htmlFor`/`id` baris 62-67 `OwnerLogin.tsx`, Email dan Password). Catatan jujur: suite a11y **tidak memindai OwnerLogin dalam state valid** ... fix diverifikasi lewat kode, suite 6/6 = bukti tidak ada regresi |
+```
+
+**B4 — regen JSON + 7 guard sesi flip (exit code asli, dijalankan SEBELUM append entri ini):**
+
+```
+VITEST_EXIT=0
+testResults: 31 numTotal: 228 passed: 224 failed: 0 success: true
+ENC=0
+NUM=0
+TC=0
+ART=0
+TF=0
+WQ=0
+DOC=0
+===GATE PRA-ADD: ENC=0 NUM=0 TC=0 ART=0 TF=0 WQ=0 DOC=0
+```
+
+Ulangan pasca-append dan pasca-`git add` dijalankan pada sesi yang sama; output mentah tiap guard tersimpan di `.agents/logs/{enc,num,tc,art,tf,wq,doc}-f14r.log` dan dilaporkan mentah ke user.
+
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Flip ini murni perubahan status Work Queue di `AGENTS.md` + entri log; nol perubahan kode, nol perubahan RPC/route/session/UI/DB. Suite a11y 6/6 hanya membuktikan keempat halaman tidak regresi.
+- **Work Queue:** P2-F14-R → ✅ CLOSED (2026-10-14, keputusan owner).
+- **Berkas:** `AGENTS.md` (1 baris §5.8) · `agentsLogs_2026-10.md` (entri ini).
