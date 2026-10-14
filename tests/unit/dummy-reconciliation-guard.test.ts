@@ -15,7 +15,6 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Client } from 'pg';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const WORKER_NRPS = Array.from({ length: 10 }, (_, index) => `NRP${String(index + 1).padStart(3, '0')}`);
@@ -53,24 +52,15 @@ interface PasswordRow {
   reset_required: boolean | null;
 }
 
-// `readDatabaseUrl()` sekarang datang dari `tests/helpers/db` (Fix #3 residual):
-// membaca `process.env.DATABASE_URL` DULU, baru fallback ke `.env.local`. Versi
-// lama hanya bisa melihat `.env.local`, jadi test ini selalu skip di CI.
-import { readDatabaseUrl } from '../helpers/db';
+// `readDatabaseUrl()` + `withDb` datang dari `tests/helpers/db` (Fix #3 residual +
+// P2-F14-AU): membaca `process.env` DULU lalu fallback `.env.local`, dan koneksi
+// memakai pool bersama ber-timeout eksplisit — menggantikan pg.Client per-test
+// yang membuat suite flaky saat paralel (kelas P2-F14-AS).
+import { readDatabaseUrl, withDb } from '../helpers/db';
 
 const DATABASE_URL = readDatabaseUrl();
 
-async function withDb<T>(fn: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
-
-describe.skipIf(!DATABASE_URL)('penjaga rekonsiliasi data dummy (live DB, read-only)', () => {
+describe.skipIf(!DATABASE_URL)('penjaga rekonsiliasi data dummy (live DB, read-only)', { timeout: 15000 }, () => {
   it('NRP001–NRP010: email unik, divisi/site sesuai BU, dan reset_required=false', async () => {
     const data = await withDb(async (client) => {
       const workers = (

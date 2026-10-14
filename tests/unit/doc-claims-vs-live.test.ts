@@ -23,7 +23,6 @@ import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Client } from 'pg';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 
@@ -41,7 +40,7 @@ function grab(md: string, pattern: RegExp, group = 1): number | undefined {
 // membaca `process.env.DATABASE_URL` DULU, baru fallback ke `.env.local`. Sebelum
 // ini fungsi identik diduplikasi lokal di 3+ file dan hanya bisa melihat `.env.local`,
 // sehingga test-nya tetap skip di CI walaupun secret-nya sudah diset.
-import { readDatabaseUrl } from '../helpers/db';
+import { readDatabaseUrl, withDb } from '../helpers/db';
 
 interface Claim {
   /** Nama manusia untuk pesan gagal. */
@@ -182,14 +181,8 @@ describe.skipIf(!DB_URL)('angka dokumen vs DB live', () => {
       'FuturePlans.md': readDoc('FuturePlans.md'),
     };
 
-    const client = new Client({
-      connectionString: DB_URL,
-      ssl: { rejectUnauthorized: false },
-    });
-    await client.connect();
-
     const drift: string[] = [];
-    try {
+    await withDb(async (client) => {
       for (const claim of DB_CLAIMS) {
         const claimed = grab(docs[claim.doc], claim.pattern, claim.group ?? 1);
         if (claimed === undefined) {
@@ -204,9 +197,7 @@ describe.skipIf(!DB_URL)('angka dokumen vs DB live', () => {
           drift.push(`${claim.label}: dokumen=${claimed} tapi live=${live} (harus ${op})`);
         }
       }
-    } finally {
-      await client.end();
-    }
+    });
 
     expect(
       drift,
@@ -429,11 +420,8 @@ const CAPABILITIES: CapabilityClaim[] = [
 describe.skipIf(!DB_URL)('kapabilitas roadmap FuturePlans vs DB live', () => {
   it('setiap kapabilitas yang diklaim ada / belum ada cocok dengan kenyataan', async () => {
     const future = readDoc('FuturePlans.md');
-    const client = new Client({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } });
-    await client.connect();
-
     const drift: string[] = [];
-    try {
+    await withDb(async (client) => {
       const tables = new Set(
         (
           await client.query<{ table_name: string }>(
@@ -476,9 +464,7 @@ describe.skipIf(!DB_URL)('kapabilitas roadmap FuturePlans vs DB live', () => {
           }
         }
       }
-    } finally {
-      await client.end();
-    }
+    });
 
     expect(
       drift,
