@@ -1296,3 +1296,233 @@ EXIT_ENCODING=0
   `git ls-remote origin refs/heads/<branch>` DAN `git cat-file -t <hash>`
   sebelum helper menyatakan "push sukses".
 - Dampak lintas-page G7: worker → admin → dashboard → owner = tidak berubah.
+## [2026-10-12] MCP read_only=true + kontrak §0.28 + pre-flight gate §0.28.8 — P2-F14-AO ditutup, §0.27/P28 didaftarkan
+
+- **Status:** docs + tooling. 6 commit (fakta dari `git log`, raw di bawah). Tidak ada perubahan `src/`, `supabase/functions/`, atau perilaku runtime. Entri ini menutup pelanggaran §0.4 untuk tanggal 2026-10-12 (dicatat 2026-10-14 pada sesi "hutang proses").
+- **Commit (raw, `git log --since="2026-10-12 00:00" --until="2026-10-13 00:00"`):**
+
+```
+ac75652 10-12 21:49 MCP: catat hasil read_only=true pada Supabase-2 (P2-F14-AO)
+34cdb4e 10-12 20:12 MCP: tutup P2-F14-AO — state "konektor dimatikan" + guard ketat
+95d6c3f 10-12 18:33 MCP: enforcement mekanis §0.28.8 + guard mcp-readonly-gate (P2-F14-AO)
+9c692ae 10-12 17:21 MCP: kontrak read-only §0.28 + gate pre-flight §0.28.8 (P2-F14-AO)
+0575587 10-12 07:01 docs(agents): register P28 — laporan wajib paste output mentah UTUH, dilarang meringkas
+f342415 10-12 06:39 fix(log): restore 20 baris bersih dari blob 455c28e~1 — hapus 23 C1 artefak modularize-docs.ts
+```
+
+- **Isi kerja:**
+  - §0.28 (kontrak MCP read-only mengikat): allowlist tool §0.28.1, validator SQL §0.28.3, enforcement §0.28.4, kredensial/role §0.28.5, baseline bukti §0.28.6, aturan agen §0.28.7.
+  - §0.28.8 pre-flight wajib + `scripts/mcp-readonly-gate.mjs` (gate) + `docs/forensic/mcp-preflight/latest.json` (dump ter-track) + `tests/unit/mcp-readonly-gate.test.ts`. Guard `tests/unit/mcp-readonly-gate.test.ts` MERAH bila dump hilang → pre-flight tidak bisa dilewatkan diam-diam.
+  - §0.27/P28 (`0575587`): laporan wajib paste output terminal UTUH, dilarang mengganti dengan ringkasan.
+  - `f342415`: perbaikan korupsi log lama — restore 20 baris bersih dari blob `455c28e~1`, hapus 23 artefak C1 `modularize-docs.ts`.
+- **Re-verifikasi gate hari ini (raw, sesi 2026-10-14):**
+
+```
+$ node scripts/mcp-readonly-gate.mjs docs/forensic/mcp-preflight/latest.json
+OK — 12 tool read-only, 0 mutasi
+MCP_GATE_EXIT=0
+```
+
+- **P2-F14-AO → CLOSED:** re-enable konektor Supabase dengan `read_only=true` → **12 tool read-only, 0 mutasi**, `execute_sql` ikut tersembunyi (MCP tidak bisa SELECT; query DB live lewat jalur lain = `DATABASE_URL` + `db-select.mjs`). Mode read-only klien sampai saat itu belum tersedia; gate §0.28.8 tetap dipertahankan sebagai satu-satunya penghalang + dead-man switch untuk re-enable.
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Semua perubahan 10-12 berupa dokumen aturan + tooling guard; nol perubahan RPC/route/session/UI.
+- **Berkas:** `AGENTS.md` (§0.27, §0.28, §0.28.8, Work Queue) · `scripts/mcp-readonly-gate.mjs` · `tests/unit/mcp-readonly-gate.test.ts` · `docs/forensic/mcp-preflight/latest.json` · `agentsLogs_2026-10.md` (entri ini).
+
+## [2026-10-13] Re-verifikasi live F05-01/02/03 (jalur DATABASE_URL) + P3-F04-01 ditutup known-unexplained
+
+- **Status:** docs-only. 2 commit. Jalur non-MCP dipakai karena `read_only=true` menyembunyikan `execute_sql` — probe memakai `DATABASE_URL` (`.env.local`) + `db-select.mjs`, read-only.
+- **Commit (raw):**
+
+```
+12ed451 10-13 18:27 Work Queue: tutup P3-F04-01 sebagai CLOSED known-unexplained
+d0e97c7 10-13 18:21 Work Queue: bukti re-verifikasi F05-01/02/03 via DATABASE_URL - P1-F05-01: prosrc masih stub, dependency ke P2-F14-P - P1-F05-02: dua skema hash masih hidup + 3 temuan baru (min length 6 vs 8, actor tidak tercatat, kolom audit janggal) - P2-F05-03: 9 .internal + 8 .com (live 2026-10-13) Jalur non-MCP (DATABASE_URL + db-select.mjs) dipakai karena read_only=true menyembunyikan execute_sql. Refs: P1-F05-01, P1-F05-02, P2-F05-03
+```
+
+- **Temuan (live 2026-10-13, tetap OPEN — bukan klaim penyelesaian):**
+  - **P1-F05-01** — `admin_get_employees()` masih stub: `prosrc` = `RETURN jsonb_build_object('ok', TRUE, 'msg', 'RPC executed with role check.')`, panjang 225 byte, **0 `SELECT`**. Dependency keputusan P2-F14-P (siapa boleh lihat semua karyawan).
+  - **P1-F05-02** — dua skema hash masih hidup: `reset_password` pakai `digest(sha256)+salt`; `change_password` & `admin_reset_worker_password` pakai `crypt(..., gen_salt('bf'))`. 3 temuan baru: min length beda (6 vs 8); `change_password` tidak mengisi kolom `actor`; `reset_password` menulis string `'SUCCESS'` ke kolom kedua `audit_log`.
+  - **P2-F05-03** — `split_part(email,'@',2)` live: `insightwos.internal` **9** · `insightwos.com` **8**.
+- **P3-F04-01 → CLOSED (known-unexplained, 2026-10-13):** overload `verify_audit_chain(integer, integer)` (OID 298611) hilang setelah migrasi 252 tanpa ada `DROP FUNCTION` di file mana pun; `grep verify_audit_chain src/` = 0 hit; dampak nol. Aktor DDL tidak teridentifikasi (15 hari, akses log Supabase sudah tidak tersedia); investigasi lanjut tidak proporsional.
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Docs-only (AGENTS.md §5.8); nol perubahan kode/DB.
+- **Berkas:** `AGENTS.md` (bukti re-verifikasi + flip F04-01) · `agentsLogs_2026-10.md` (entri ini).
+
+## [2026-10-14] Hutang log 18 commit ditutup — owner transfer 271 · view_all 272 · flip P1-F14-D · cleanup P2-F14-O · P2-F14-P ditutup · P2-F14-AR didaftarkan · sesi: env duplikat diperbaiki + a11y 6/6 (P2-F14-R ditahan)
+
+- **Status:** menutup pelanggaran §0.4. **Fakta: 18 commit** (bukan "14" seperti disebut brief user) tanggal 10-12/13/14 berjalan tanpa entri log. 6 di antaranya dicatat di entri `2026-10-12`, 2 di entri `2026-10-13`, 10 dicatat di entri ini + sesi 2026-10-14 di bawah.
+- **Commit 2026-10-14 (raw, `git log --since="2026-10-14 00:00"`):**
+
+```
+78d5d83 10-14 10:50 Work Queue: P2-F14-AR — tambah DoD permission sempit HRD
+c0920e2 10-14 10:42 Work Queue: tambah P2-F14-AR + tutup P2-F14-P
+fc7d19c 10-14 10:37 docs: sinkron angka registry 196->197, max-version 271->272
+4285238 10-14 10:36 rbac: cabut employee.view_all dari hrd_ops (272)
+f9ae831 10-14 09:48 cleanup: hapus tipe WorkerStatus orphan (koreksi F14-O)
+cdb70c1 10-14 09:28 cleanup: hapus wrapper dead code rpcGetWorkerStatus (P2-F14-O)
+1847af2 10-14 09:16 a11y: OwnerLogin label htmlFor+id (F14-R)
+b0d4e2f 10-14 09:15 docs: P1-F14-D turun P1->P3 (god-mode by design)
+9897686 10-14 08:26 docs: sinkron angka registry 195->196, max-version 270->271
+e5ba006 10-14 08:26 owner: transfer ke cezetex@gmail.com + catat dual source (P2-F14-AQ)
+```
+
+- **Stat kunci (raw, `git show --stat`):**
+
+```
+---e5ba006 owner: transfer ke cezetex@gmail.com + catat dual source (P2-F14-AQ)---
+ AGENTS.md                                        |  1 +
+ supabase/migrations/271_owner_email_transfer.sql | 44 ++++++++++++++++++++++++
+ supabase/scripts/rollback/271_rollback.sql       | 16 +++++++++
+ 3 files changed, 61 insertions(+)
+---4285238 rbac: cabut employee.view_all dari hrd_ops (272)---
+ supabase/migrations/272_revoke_hrd_view_all.sql  | 26 +++++++++++++++++++++++++
+ supabase/scripts/rollback/272_rollback.sql       | 13 +++++++++
+ 2 files changed, 39 insertions(+)
+---1847af2 a11y: OwnerLogin label htmlFor+id (F14-R)---
+ src/pages/OwnerLogin.tsx | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+---cdb70c1 cleanup: hapus wrapper dead code rpcGetWorkerStatus (P2-F14-O)---
+ AGENTS.md               | 2 +-
+ src/lib/supabase-rpc.ts | 6 ------
+ 2 files changed, 1 insertion(+), 7 deletions(-)
+---f9ae831 cleanup: hapus tipe WorkerStatus orphan (koreksi F14-O)---
+ AGENTS.md          | 2 +-
+ src/types/index.ts | 9 ---------
+ 2 files changed, 1 insertion(+), 10 deletions(-)
+```
+
+- **Isi per item:**
+  - **P2-F14-AQ** (`e5ba006` + migrasi 271, sudah diterapkan ke live sebelum sesi ini) — transfer owner ke `cezetex@gmail.com`; dual source of truth (`system_owner_identity.owner_email` vs `company_config['owner_email']`) dicatat sebagai item OPEN baru. Registry sinkron 195→196, max 270→271 (`9897686`).
+  - **P1-F14-D** (`b0d4e2f`) — klasifikasi turun P1→P3; **sesi 2026-10-14 di-flip ✅ CLOSED** dengan cabang DoD "god-mode by design" (keputusan user 2026-10-13): `proacl` hanya `postgres`+`service_role`, `anon`/`authenticated` tanpa `EXECUTE`, 0 pemanggil di `src/`.
+  - **P2-F14-R** (`1847af2`) — fix a11y ter-commit. Bukti kode (raw, sesi 2026-10-14):
+
+```
+            <label htmlFor="owner-email" className="block text-gray-400 text-sm mb-2">Email</label>
+            <input id="owner-email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="..." required />
+            <label htmlFor="owner-password" className="block text-gray-400 text-sm mb-2">Password</label>
+            <input id="owner-password" type="password" value={password} onChange={e => setPassword(e.target.value)} className="..." required />
+```
+
+  - **P2-F14-O** (`cdb70c1` + `f9ae831`) — wrapper `rpcGetWorkerStatus` (dead code, 0 pemanggil) dan tipe `WorkerStatus` (orphan) dihapus; ✅ CLOSED.
+  - **P2-F14-P** (`4285238` + `c0920e2`) — keputusan user: `employee.view_all` hanya LV5 (`admin_pusat`) + owner; migrasi 272 mencabut `employee.view_all` dari `hrd_ops` (admin_hrd/NRP101 kini false). Hierarki berjenjang dipisah ke item baru **P2-F14-AR** (`c0920e2` + `78d5d83`, `hr_org` 0 baris, `level_jabatan` 0/17). Registry sinkron 196→197, max 271→272 (`fc7d19c`).
+
+### Sesi 2026-10-14 (setelah HEAD `78d5d83`) — eksekusi handoff "hutang proses" (tanpa flip F14-R, keputusan user)
+
+1. **Fix duplikat `.env.local` (blokir regen auth).** Baris 33–35 (`# Owner (old/lama)` + `E2E_OWNER_EMAIL=owner@insightwos.com` + PASS) dihapus lewat script guarded `.agents/scripts/fix-env-dup.mjs` (§0.25/P26 — bukan `node -e`, bukan redirection shell). Raw:
+
+```
+$ node .agents/scripts/fix-env-dup.mjs
+OK: blok lama dihapus. byte before=2745 after=2661 delta=84
+Sisa: E2E_OWNER_EMAIL x1, E2E_OWNER_PASS x1
+RUN1_EXIT=0
+$ node .agents/scripts/fix-env-dup.mjs   (uji idempoten)
+FATAL: pattern ditemukan 0x (ekspektasi 1). TIDAK menulis file.
+RUN2_EXIT=1
+$ grep -n "E2E_OWNER\|Owner" .env.local
+29:# Owner (GOD)
+30:E2E_OWNER_EMAIL=cezetex@gmail.com
+31:E2E_OWNER_PASS=<MASKED>
+```
+
+  Akar masalah: dua blok `E2E_OWNER_*` (baris 30/31 = `cezetex`, baris 34/35 = `owner@insightwos.com`) dibaca berlawanan — `setup-auth-state.cjs` LAST-WINS (pakai email lama) vs `dotenv`/vite/playwright FIRST-WINS (pakai email baru). Kontrak live `owner_login` menuntut `p_email == get_owner_email()` = `cezetex@gmail.com` → login `owner@insightwos.com` selalu `ok:false`.
+
+2. **Regen storageState — OWNER KINI OK (raw):**
+
+```
+HTTP=200
+akun ok: worker=NRP002 admin=pusat@insightwos.com owner=cezetex@gmail.com admin-mill=NRP105 (password tidak dicetak)
+worker OK → .agents\logs\auth-worker.json (3573 byte)
+admin OK → .agents\logs\auth-admin.json (3405 byte)
+owner OK → .agents\logs\auth-owner.json (3350 byte)
+admin-mill OK → .agents\logs\auth-admin-mill.json (3411 byte)
+STAGE C LANGKAH 1 SELESAI: storageState terbentuk (worker/admin/owner/admin-mill).
+SETUP_EXIT=0
+```
+
+  (Sebelumnya `SETUP_EXIT=1` dengan `FATAL: page.waitForURL: Timeout 30000ms exceeded` — gagal di tahap owner.)
+
+3. **`npm run test:a11y` — 6/6 PASS (raw utuh):**
+
+```
+Running 6 tests using 1 worker
+
+[login] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 1 [chromium] › tests\a11y\accessibility.spec.ts:80:3 › Login page (/) › a11y: 0 violation critical/serious (6.1s)
+[worker] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 2 [chromium] › tests\a11y\accessibility.spec.ts:89:3 › Worker page (/worker) › a11y: storageState worker -> scan /worker (7.9s)
+[admin] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 3 [chromium] › tests\a11y\accessibility.spec.ts:97:3 › Admin page (/admin) › a11y: storageState admin -> scan /admin (9.5s)
+[dashboard] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 4 [chromium] › tests\a11y\accessibility.spec.ts:105:3 › Dashboard page (/dashboard) › a11y: storageState admin -> scan /dashboard (9.1s)
+[owner] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 5 [chromium] › tests\a11y\accessibility.spec.ts:113:3 › Owner page (/owner/dashboard) › a11y: storageState owner -> scan /owner/dashboard (6.4s)
+[owner-config] OK — 0 critical/serious. Total violation (semua impact): 0
+  ok 6 [chromium] › tests\a11y\accessibility.spec.ts:121:3 › Owner Config page (/owner/dashboard/config) › a11y: storageState owner -> scan /owner/dashboard/config (5.8s)
+
+  6 passed (47.1s)
+A11Y_EXIT=0
+```
+
+  **Catatan jujur:** suite a11y tidak memindai `OwnerLogin.tsx` saat storageState VALID (halaman itu hanya ter-scan saat redirect, yaitu saat state basi). Jadi 6/6 = DoD yang diminta, tapi bukti spesifik fix F14-R = inspeksi kode baris `htmlFor`/`id` di atas, bukan violation axe yang hilang.
+
+4. **P2-F14-R TIDAK di-flip (keputusan user: "Eksekusi tanpa F14-R").** Baris Work Queue diperbarui: `⚠ NEW (2026-10-03; fix ter-commit 1847af2 + suite a11y 6/6 pada 2026-10-14 — DITAHAN, flip butuh keputusan user)`. Alasan tahan: user memilih jalur tanpa flip; butuh keputusan eksplisit sebelum menutup item.
+
+5. **Regen `.vitest/test-result.json` — 3 run, 2 merah yang dijelaskan lalu hijau:**
+   - Run 1 (`VITEST_EXIT=1`): 1 gagal `tests/unit/db-audit-trail.test.ts` (`STACK_TRACE_ERROR`) — **flaky**, karena saat diisolasi `npx vitest run tests/unit/db-audit-trail.test.ts` → **10/10 passed, SINGLE_EXIT=0** (test DB-live, tiap test koneksi terpisah; penuh parallel).
+   - Run 2 (`VITEST_EXIT=1`): 1 gagal `tests/unit/doc-claims-vs-live.test.ts` — `SECURITY.md §3.10 stale — update ke unit 228/228 (dokumen=226, suite=228)`. **Akar nyata:** `mcp-readonly-gate.test.ts` berisi **10 test** di tree, dokumen mencatat 8 (218 → 225 = +7, → 226 = +1 Test G) — dokumen stale, bukan suite yang salah. Diperbaiki di dokumen (bukan dengan mengubah test): `SECURITY.md:30` (226/226 → 228/228), `ARCHITECTURE.md:145` (226 → 228 test total + catatan koreksi), `docs/forensic/CONSTANTS-INVENTORY.md:29` + `:50` (226 → 228 + catatan koreksi).
+   - Run 3 (raw): `VITEST_EXIT=0` · `testResults: 31 numTotal: 228 passed: 224 failed: 0 success: true` (4 sisanya `it.todo`).
+
+6. **7 jalur guard — semua EXIT 0 (raw ringkasan; daftar per-file lengkap di log `.agents/logs/`):**
+
+```
+verify:encoding OK — semua file teks UTF-8 valid.
+=== RINGKASAN: 0 file non-UTF8 · 553 file teks dicek · 10 biner (ekstensi) · 0 biner (NUL) · 0 hilang ===
+ENC=0
+
+=== verify:numeric — meta-guard klaim angka (registry 19 entry) ===
+  OK    unit-total               228 ARCHITECTURE.md:145
+  OK    unit-total               228 docs/forensic/CONSTANTS-INVENTORY.md:29
+  OK    unit-files               31 ARCHITECTURE.md:145
+  OK    migrations-tracked       197 ARCHITECTURE.md:133
+  OK    max-version              272 docs/forensic/CONSTANTS-INVENTORY.md:21
+=== RINGKASAN: 0 drift, 6 warning, 44 klaim dicek ===
+NUM=0
+
+=== verify:test-count — ARCHITECTURE.md §7.5 vs suite aktual ===
+  OK    test files         31
+  OK    total tests        228
+  OK    passed+pending+failed+todo 228
+  OK    failed tests       0
+=== RINGKASAN: 0 drift, 0 warning ===
+TC=0
+
+=== verify:artifacts — cek artefak turunan (doc vs live) ===
+  OK    Tables               209
+  OK    Functions            657
+  OK    Migrations tracked   197
+  OK    RLS policies         225
+  OK    No-FORCE RLS         10
+  OK    anon grants          130
+  OK    pg_cron jobs         5
+  OK    TS total             219
+  OK    migration rows       197
+  OK    max(version)         272
+  WARN  baseline commit 2026-09-24T19:14:47+07:00; regenerasi = Fix #9 (di luar scope batch ini)
+=== RINGKASAN: 0 drift, 1 warning ===
+ART=0
+
+=== verify:test-freshness ===
+  OK    test-result.json   JSON segar (selisih -158602.4s)
+  Berkas di JSON: 31 (diharapkan 31)
+  OK    test-result.json   lengkap (31/31 berkas)
+=== RINGKASAN: 0 stale, 0 warning ===
+TF=0
+WQ=0
+DOC=0
+===RINGKASAN EXIT: ENC=0 NUM=0 TC=0 ART=0 TF=0 WQ=0 DOC=0
+```
+
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner.**
+  - **worker** → runtime tidak berubah oleh 18 commit (tidak ada RPC/route/session worker yang disentuh; `get_worker_status` tetap dipanggil Worker.tsx langsung).
+  - **admin** → **terdampak lewat migrasi 272**: `admin_hrd` (NRP101) kehilangan `employee.view_all` (keputusan user: view_all hanya LV5+owner) — halaman Employees untuk HRD kini mengikuti scope bukan semua karyawan; sisa pemegang `admin_pusat_all` + owner. Cleanup F14-O tidak berdampak (dead code).
+  - **dashboard** → tidak berubah (tidak ada panggilan RPC/authz yang disentuh).
+  - **owner** → **terdampak lewat migrasi 271**: login owner kini `cezetex@gmail.com` (dual source dicatat P2-F14-AQ OPEN); fix a11y OwnerLogin menyentuh render halaman login owner. Sesi 2026-10-14 (env + log + docs + JSON) = **tidak ada perubahan runtime sama sekali**.
+- **Work Queue:** P1-F14-D → ✅ CLOSED · P2-F14-O → ✅ CLOSED · P2-F14-P → ✅ CLOSED · P2-F14-R tetap ⚠ NEW (ditahan) · P2-F14-AR + P2-F14-AQ tetap OPEN.
+- **Berkas sesi 2026-10-14:** `AGENTS.md` (flip D + catatan tahan R) · `agentsLogs_2026-10.md` (3 entri ini) · `.vitest/test-result.json` (regen, hijau) · `SECURITY.md` · `ARCHITECTURE.md` · `docs/forensic/CONSTANTS-INVENTORY.md` (koreksi 226 → 228). `.env.local` diperbaiki tapi gitignored (tidak ikut commit). Tidak ada `.ts`/`.tsx` berubah di sesi ini → P21/P22/P23 tidak berlaku.
