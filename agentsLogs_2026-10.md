@@ -1765,3 +1765,131 @@ Secret scan staged: 0. Putaran docs (setelah update baris CLOSED) dijalankan lag
 - Subprocess sync (`spawnSync`/`execFileSync` tanpa opsi timeout di 5 file guard) **tidak** dikerjakan: kelas berbeda dari flaky 5s (sync-blocking lokal, bukan koneksi eksternal per-test), sesuai keputusan user — hanya observasi.
 - `doc-claims-vs-live` sudah punya `it(..., 60_000)` sebelum migrasi, jadi pindah pool murni konsistensi + kecepatan, bukan perbaikan flaky.
 - `.agents/logs/` tetap gitignored — RED/GREEN artefak tersimpan lokal.
+## [2026-10-14] P2-F14-AV CLOSED — guard verify:no-local-db-client (anti koneksi DB lokal per-test)
+
+- **Status:** guard baru (**1 file script**, 261 baris) + `package.json` (tambahan 1 script) + docs. Commit guard **`99ea614`**. Alasan: item AS/AU memberantas pola `pg.Client` per-test tanpa timeout dari file test, tapi tidak ada gerbang yang mencegahnya muncul lagi — kelas §0.19 (guard yang membuat perbaikan bertahan).
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Perubahan murni `scripts/verify-no-local-db-client.mjs` (baru) + `package.json` (1 baris script) + dokumen (`AGENTS.md`, `agentsLogs_2026-10.md`); nol perubahan `src/`, `supabase/`, `.env.local`, `tests/` (semua file test + `tests/helpers/db.ts` tidak disentuh), RPC, route, session, menu, design system, atau DB.
+
+### 1. Cek awal — guard serupa tidak ada
+
+```
+Get-ChildItem scripts\verify-*.mjs → verify-backup-artifact.mjs verify-derived-artifacts.mjs verify-numeric-claims.mjs verify-test-count.mjs verify-test-freshness.mjs verify-text-encoding.mjs
+Select-String scripts\*.mjs, .agents\scripts\*.mjs -Pattern 'no-local-db-client','local-db' → 0 hit guard (pola 'new Client' yang muncul hanya di probe .agents/scripts — bukan guard)
+```
+
+Tidak ada agregator `verify-*.mjs` pemanggil banyak guard (tiap guard berdiri sendiri; `ci.yml` memanggil per-step) → sesuai instruksi **tidak** dibuat agregator baru, `ci.yml` tidak disentuh (di luar scope).
+
+### 2. Guard (commit `99ea614`, 2 file, +263/−1)
+
+`scripts/verify-no-local-db-client.mjs` — deteksi per baris (parsing sederhana, tanpa regex rapuh): komentar blok/baris di-strip (pola `://` URL tidak dianggap komentar), whitespace dinormalkan (`new  Client (` → `new Client(`), import multi-baris diakumulasi sampai `from 'pg'`/`;`. Definisi pelanggaran:
+
+1. `new Client(` / `new Pool(` di `tests/` — kecuali `tests/helpers/db.ts`
+2. import bernama `{ Client }` / `{ Pool }` dari `'pg'` — kecuali `tests/helpers/db.ts`
+
+Scan default `tests/`; menerima arg path (file/dir) untuk audit terarah. Exit 1 bila ada pelanggaran, 0 bila bersih. `package.json`: script `verify:no-local-db-client`.
+
+### 3. RED proof (§0.19) — file sementara di root, langsung dihapus
+
+RED-1 (varian instansiasi — persis seperti diminta: satu `new Client({})` polos):
+
+```
+=== verify:no-local-db-client — P2-F14-AV (anti koneksi DB lokal per-test) ===
+
+  scope : red-proof-p2-f14-av.ts
+  PELANGGARAN red-proof-p2-f14-av.ts:2
+              isi: new Client({});
+              new Client( — koneksi lokal per-test (hanya tests/helpers/db.ts yang diizinkan)
+
+=== RINGKASAN: 1 pelanggaran, 0 celah diketahui (1 file dicek, 0 diizinkan) ===
+EXITCODE=1
+
+[stderr]
+verify:no-local-db-client GAGAL — ada pola koneksi lokal per-test (new Client/new Pool/import {Client,Pool} dari 'pg'). Pindahkan ke withDb bersama (tests/helpers/db.ts).
+```
+
+RED-2 (varian import — detektor kedua juga wajib terbukti merah):
+
+```
+=== verify:no-local-db-client — P2-F14-AV (anti koneksi DB lokal per-test) ===
+
+  scope : red-proof-p2-f14-av.ts
+  PELANGGARAN red-proof-p2-f14-av.ts:2
+              isi: import { Client } from 'pg';
+              import { Client } dari 'pg' — koneksi lokal per-test (hanya tests/helpers/db.ts yang diizinkan)
+
+=== RINGKASAN: 1 pelanggaran, 0 celah diketahui (1 file dicek, 0 diizinkan) ===
+EXITCODE=1
+```
+
+File dihapus → `git status --short` hanya `?? scripts/verify-no-local-db-client.mjs` (tree kembali bersih, file RED tidak tersisa). Urutan jujur: RED-1 pertama dijalankan dengan wording stderr lama ("…di tests/") → wording diperbaiki → RED-1 **dijalankan ulang pada kode final** (output di atas) → RED-2. Catatan: RED memakai arg path (file root di luar `tests/`) — scan default tidak bisa dibuktikan merah tanpa menyentuh `tests/` yang dilarang; kepatuhan scope scan default dibuktikan terpisah oleh GREEN.
+
+### 4. GREEN proof — scan default `tests/` (jalur `npm run verify:no-local-db-client`)
+
+```
+=== verify:no-local-db-client — P2-F14-AV (anti koneksi DB lokal per-test) ===
+
+  scope : tests/
+  CELAH     tests/e2e/worker-profile-smoke.spec.ts:171
+              isi: new pg.Client({
+              new pg.Client( — bentuk member (celah diketahui, lihat header guard)
+  SKIP  tests/helpers/db.ts — diizinkan (rumah pool bersama, fix P2-F14-AS)
+  CELAH     tests/performance/api-bench.ts:13
+              isi: const client = new pg.Client({ connectionString: CONN, ssl: { rejectUnauthorized: false } });
+              new pg.Client( — bentuk member (celah diketahui, lihat header guard)
+
+=== RINGKASAN: 0 pelanggaran, 2 celah diketahui (53 file dicek, 1 diizinkan) ===
+catatan celah = bentuk member new pg.Client(/new pg.Pool( — WARN saja, exit code tidak dipengaruhi.
+verify:no-local-db-client OK — tidak ada new Client/new Pool/import {Client,Pool} dari 'pg' di luar tests/helpers/db.ts.
+
+EXIT-NEW=0
+```
+
+### 5. Celah jujur (perkerasan = butuh keputusan user)
+
+Bentuk member `new pg.Client(` **tidak termasuk** definisi formal AV (definisi = `new Client(` literal + import bernama `{Client}`/`{Pool}`). Ada 2 pre-existing di `tests/`:
+
+| File:baris | Konteks | Kenapa bukan FAIL |
+|---|---|---|
+| `tests/e2e/worker-profile-smoke.spec.ts:171` | Playwright smoke OPS-01 — koneksi dibuat per-test | Playwright punya test-timeout runner sendiri; bukan kelas vitest 5s |
+| `tests/performance/api-bench.ts:13` | CLI bench — 1 koneksi per run | Bukan per-test; dijalankan manual `node tests/performance/api-bench.ts` |
+
+Keduanya tampil sebagai **WARN tiap run** (terlihat, tidak diam). Perkerasan jadi FAIL menambahkan bentuk member ke definisi + mengecualikan 2 file itu eksplisit — `tests/` = luar scope sesi ini → didaftarkan sebagai **butuh keputusan user** di baris Work Queue.
+
+### 6. Gate & guard — 7 guard dua putaran
+
+Dua command vitest guard (`npx vitest run tests/unit/work-queue-consistency.test.ts` / `.../doc-claims-vs-live.test.ts`) **timeout 30s limit tool** (overhead npx cold-start di shell tool) → tidak di-retry buta (§0.15); dijalankan ulang lewat wrapper `verify:test-logged` yang di-**spawn detached** lalu di-poll sampai `[run-vitest-with-log] exit`. Putaran 1 (setelah edit kode, sebelum commit `99ea614`) & putaran 2 (setelah tulis docs + `git add`, sebelum commit docs):
+
+```
+GUARD-AV-PUTARAN-1: ENC=0 NUM=0 TC=0 TF=0 ART=0 WQ=0 DOC=0 (+ NEW guard=0)
+GUARD-AV-PUTARAN-2: ENC=0 NUM=0 TC=0 TF=0 ART=0 WQ=0 DOC=0 (+ NEW guard=0)
+```
+
+Bukti WQ/DOC (output utuh wrapper `vitest-2026-10-14T15-41-49-360Z-29056.log`):
+
+```
+ RUN  v4.1.11  D:/0insightWOS/WOS-Web
+ ✓  node tests/unit/work-queue-consistency.test.ts (4 tests) 640ms
+ ✓  node tests/unit/doc-claims-vs-live.test.ts (5 tests) 4638ms
+      ✓ setiap klaim cocok dengan hasil query 4028ms
+      ✓ setiap kapabilitas yang diklaim ada / belum ada cocok dengan kenyataan 596ms
+ Test Files  2 passed (2)
+      Tests  9 passed (9)
+   Duration  9.05s (transform 737ms, setup 0ms, import 1.87s, tests 5.28s, environment 1ms)
+[run-vitest-with-log] json : D:\0insightWOS\WOS-Web\.agents\logs\vitest-2026-10-14T15-41-49-360Z-exit0.json
+[run-vitest-with-log] exit : 0
+```
+
+**Ketulusan cache (§0.24):** wrapper menulis JSON **parsial** (2 file) ke `.vitest/test-result.json` → JSON di-backup dulu (`.agents/logs/test-result-backup-putaran1.json`, 75.535 byte) dan **dipulihkan persis setelah run** (`Length 75535`, `LastWriteTime 22:14:08` utuh) supaya TC/TF putaran 2 tetap menilai artefak full-suite yang sah — bukan run parsial. Run parsial tetap tersimpan terpisah sebagai `vitest-2026-10-14T15-41-49-360Z-exit0.json` (nama `exit0`, non-STALE).
+
+Insiden kecil yang jujur dicatat: `git add` pertama **gagal** (`index.lock` transient) → secret scan pertama **vakum** (diff kosong, bukan "0 hit sah"). Diverifikasi: tidak ada proses git aktif + lock hilang sendiri → add ulang → secret scan sah **0 hit** pada konten staged penuh (2 file, +263/−1) → commit `99ea614`.
+
+### 7. Catatan jujur
+
+- `.agents/logs/` tetap gitignored — log wrapper, JSON `exit0`, dan backup cache tersimpan lokal saja, tidak ikut commit.
+- File RED proof dibuat di **root** sesuai instruksi tugas (pintasan karena `tests/` dilarang disentuh), hidup beberapa detik, lalu dihapus — `git status` membuktikan tidak tersisa di tree.
+- Guard ini **tidak** menangkap instansiasi multi-baris (`new\nClient(`) atau destructuring `const { Client } = pg` tanpa instansiasi — batas sadar dari desain "parsing per baris"; pola khas tetap `new Client(`/`import { Client }`.
+- Wording stderr guard diperbaiki sekali setelah RED-1 pertama (frasa "di tests/" menyesatkan saat scan arg path) → RED-1 diulang pada kode final sebelum GREEN.
+- Percobaan pertama putaran 2 memakai `2>$null` pada `npm run` → Windows PowerShell 5.1 melempar `NativeCommandError` (npm menulis `npm notice` ke stderr) dan marker `EXIT-*` tidak tercetak — itu **kegagalan mekanis shell, bukan guard merah**; diulang dengan pola putaran 1 tanpa redirect → semua guard keluar `EXIT=0`.
+
+
+
