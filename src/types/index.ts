@@ -197,15 +197,6 @@ export interface DashboardStats {
   retiring_soon: number;
 }
 
-// ─── Worker Status ────────────────────────────────────────────
-
-export interface WorkerStatus {
-  attendance_hadir: number;
-  attendance_total: number;
-  pending_requests: number;
-  unread_notifications: number;
-}
-
 export interface WorkerNarrative {
   sapaan: string;
   analisis: string;
