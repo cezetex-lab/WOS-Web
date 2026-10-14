@@ -17,7 +17,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { Client } from 'pg';
+import { Pool, type ClientBase } from 'pg';
 import { expect } from 'vitest';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -46,6 +46,77 @@ export function readDatabaseUrl(): string | undefined {
 
 export function hasDb(): boolean {
   return readDatabaseUrl() !== undefined;
+}
+
+/**
+ * Pool koneksi BERSAMA untuk semua test DB-live (P2-F14-AS).
+ *
+ * SEBELUM: setiap test membuat `new Client` + connect + end — handshake TLS ke
+ * Supabase remote diulang per test, tanpa timeout di mana pun. Saat dua file
+ * test DB berjalan paralel (2 worker threads vitest), query melebihi timeout
+ * default 5s → flaky "Test timed out in 5000ms" (trace
+ * `.agents/logs/vitest-2026-10-14T12-38-07-689Z-exit1.json`: 5014ms & 5019ms;
+ * RED proof terkontrol `vitest-2026-10-14T13-44-36-782Z-exit1.json`: 11 timeout).
+ *
+ * Sekarang: satu pool per worker thread (module registry per thread), maks 4
+ * koneksi, timeout eksplisit di tiga lapis:
+ *   - connectionTimeoutMillis 10s — gagal jelas & cepat kalau pool kehabisan koneksi
+ *   - query_timeout 15s — sisi klien (pg melempar TimeoutError)
+ *   - statement_timeout 15s — dikirim ke server sebagai parameter koneksi
+ * `allowExitOnIdle: true` supaya koneksi idle ditutup dan thread vitest bisa
+ * exit tanpa gantung. Tanpa retry, tanpa skip, tanpa menelan error: timeout
+ * tetap GAGAL — batas ini ruang gerak, bukan jaring pengaman hijau-palsu.
+ */
+let sharedPool: Pool | undefined;
+
+function dbPool(): Pool {
+  if (!sharedPool) {
+    const connectionString = readDatabaseUrl();
+    if (!connectionString) {
+      throw new Error('DATABASE_URL tidak tersedia — test DB seharusnya di-skip via hasDb()');
+    }
+    sharedPool = new Pool({
+      connectionString,
+      ssl: { rejectUnauthorized: false },
+      max: 4,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
+      allowExitOnIdle: true,
+      query_timeout: 15000,
+      statement_timeout: 15000,
+    });
+    // Koneksi idle yang diputus server melempar 'error' di level pool; tanpa
+    // handler ini worker vitest crash. Log supaya tetap terlihat, bukan diam.
+    sharedPool.on('error', (err) => {
+      console.error('[tests/helpers/db] idle pool client error:', err.message);
+    });
+  }
+  return sharedPool;
+}
+
+/** Jalankan fn dengan koneksi dari pool bersama; selalu release di akhir. */
+export async function withDb<T>(fn: (client: ClientBase) => Promise<T>): Promise<T> {
+  const client = await dbPool().connect();
+  try {
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}
+
+/** Transaksi yang selalu ROLLBACK, untuk test yang menulis. */
+export async function inRolledBackTx<T>(fn: (client: ClientBase) => Promise<T>): Promise<T> {
+  const client = await dbPool().connect();
+  try {
+    await client.query('BEGIN');
+    try {
+      return await fn(client);
+    } finally {
+      await client.query('ROLLBACK');
+    }
+  } finally {
+    client.release();
+  }
 }
 
 /** URL + anon key PostgREST — untuk membuktikan anon benar-benar ditolak. */
@@ -116,7 +187,7 @@ export async function anonFetch(
  * untuk mendeteksi objek hilang TANPA error — persis yang diminta audit di
  * FORENSIC-RAW-batch-08: "Guard tidak pernah fail-fast saat target tidak ada".
  */
-export async function assertObjectExists(client: Client, objectName: string): Promise<void> {
+export async function assertObjectExists(client: ClientBase, objectName: string): Promise<void> {
   const r = await client.query<{ t: string | null }>(`select to_regclass($1)::text as t`, [
     objectName,
   ]);

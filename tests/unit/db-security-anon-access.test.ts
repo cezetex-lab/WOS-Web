@@ -37,7 +37,7 @@ import {
   assertAnonCannotWrite,
 } from '../helpers/db';
 
-describe.skipIf(!anonEnvReady())('P1-58-02: anon tidak boleh menyentuh data sensitif', () => {
+describe.skipIf(!anonEnvReady())('P1-58-02: anon tidak boleh menyentuh data sensitif', { timeout: 15000 }, () => {
   it('employees_master (view P0-01-01) tidak terbaca anon', async () => {
     await assertAnonCannotRead('employees_master');
   });

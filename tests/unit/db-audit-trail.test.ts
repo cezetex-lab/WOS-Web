@@ -15,38 +15,12 @@
  * Semua test memakai transaksi + ROLLBACK. Tidak ada data yang tertinggal.
  */
 import { describe, expect, it } from 'vitest';
-import { Client } from 'pg';
-import { hasDb, readDatabaseUrl } from '../helpers/db';
+// Koneksi test memakai pool bersama dari `tests/helpers/db` (P2-F14-AS):
+// pool singleton + timeout eksplisit, menggantikan pg.Client per-test yang
+// membuat suite flaky saat paralel. `inRolledBackTx` tetap transaksi + ROLLBACK.
+import { hasDb, inRolledBackTx, withDb } from '../helpers/db';
 
-const DATABASE_URL = readDatabaseUrl();
-
-async function withDb<T>(fn: (c: Client) => Promise<T>): Promise<T> {
-  const c = new Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  await c.connect();
-  try {
-    return await fn(c);
-  } finally {
-    await c.end();
-  }
-}
-
-/** Transaksi yang selalu ROLLBACK, untuk test yang menulis. */
-async function inRolledBackTx<T>(fn: (c: Client) => Promise<T>): Promise<T> {
-  const c = new Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  await c.connect();
-  try {
-    await c.query('BEGIN');
-    try {
-      return await fn(c);
-    } finally {
-      await c.query('ROLLBACK');
-    }
-  } finally {
-    await c.end();
-  }
-}
-
-describe.skipIf(!hasDb())('P1-13-01: audit_log mencatat aktor', () => {
+describe.skipIf(!hasDb())('P1-13-01: audit_log mencatat aktor', { timeout: 15000 }, () => {
   it('verify_audit_chain() mode strict → 0 issue', async () => {
     const r = await withDb((c) => c.query(`select count(*)::int n from verify_audit_chain()`));
     expect(
@@ -96,7 +70,7 @@ describe.skipIf(!hasDb())('P1-13-01: audit_log mencatat aktor', () => {
   });
 });
 
-describe.skipIf(!hasDb())('P1-63-01: satu perubahan = satu baris audit', () => {
+describe.skipIf(!hasDb())('P1-63-01: satu perubahan = satu baris audit', { timeout: 15000 }, () => {
   it('trigger spesialis sudah dimatikan (konsolidasi)', async () => {
     const r = await withDb((c) =>
       c.query(
@@ -158,7 +132,7 @@ describe.skipIf(!hasDb())('P1-63-01: satu perubahan = satu baris audit', () => {
   });
 });
 
-describe.skipIf(!hasDb())('P2-13-01: retensi audit_log', () => {
+describe.skipIf(!hasDb())('P2-13-01: retensi audit_log', { timeout: 15000 }, () => {
   it('cron cleanup-audit-log terdaftar', async () => {
     const r = await withDb((c) =>
       c.query(`select count(*)::int n from cron.job where jobname = 'cleanup-audit-log'`),

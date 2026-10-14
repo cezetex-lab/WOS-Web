@@ -28,20 +28,10 @@
  * kebalikan dari yang kita mau, dan mudah terlupa. `it.todo` tidak punya jebak itu.
  */
 import { describe, it, expect } from 'vitest';
-import { Client } from 'pg';
-import { readDatabaseUrl, hasDb } from '../helpers/db';
-
-const DATABASE_URL = readDatabaseUrl();
-
-async function withDb<T>(fn: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
+// Koneksi test memakai pool bersama dari `tests/helpers/db` (P2-F14-AS):
+// pool singleton + timeout eksplisit, menggantikan pg.Client per-test yang
+// membuat suite flaky saat paralel.
+import { hasDb, withDb } from '../helpers/db';
 
 /** Ambil constraint CHECK/UNIQUE untuk satu tabel. */
 async function constraintsFor(table: string) {
@@ -58,7 +48,7 @@ async function constraintsFor(table: string) {
   });
 }
 
-describe.skipIf(!hasDb())('P1-58-01: constraint yang ADA harus tetap ada', () => {
+describe.skipIf(!hasDb())('P1-58-01: constraint yang ADA harus tetap ada', { timeout: 15000 }, () => {
   it('employees_core punya CHECK pada nik (format + not-null)', async () => {
     // Hilangnya dua CHECK ini berarti NIK boleh null/kosong — identitas karyawan
     // runtuh dan login berbasis NIK bisa menabrak data rusak.
@@ -72,7 +62,7 @@ describe.skipIf(!hasDb())('P1-58-01: constraint yang ADA harus tetap ada', () =>
   });
 });
 
-describe.skipIf(!hasDb())('P1-58-01: constraint yang BELUM ADA (menunggu Fix #6)', () => {
+describe.skipIf(!hasDb())('P1-58-01: constraint yang BELUM ADA (menunggu Fix #6)', { timeout: 15000 }, () => {
   it.todo('hr_payroll punya CHECK nilai (P1-27-01) — belum ada, menunggu Fix #6');
   it.todo('hr_leave punya UNIQUE yang relevan (P1-27-02) — belum ada, menunggu Fix #6');
   it.todo('hr_attendance punya UNIQUE(nrp, date) (P1-27-03) — belum ada, menunggu Fix #6');

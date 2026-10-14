@@ -35,41 +35,16 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Client } from 'pg';
-import { hasDb, readDatabaseUrl } from '../helpers/db';
+// Koneksi test memakai pool bersama dari `tests/helpers/db` (P2-F14-AS):
+// pool singleton + timeout eksplisit, menggantikan pg.Client per-test yang
+// membuat suite flaky saat paralel.
+import { hasDb, inRolledBackTx, withDb } from '../helpers/db';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const EDGE_SRC = path.join(ROOT, 'supabase', 'functions', 'password-reset', 'index.ts');
 
-const DATABASE_URL = readDatabaseUrl();
 
-async function withDb<T>(fn: (c: Client) => Promise<T>): Promise<T> {
-  const c = new Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  await c.connect();
-  try {
-    return await fn(c);
-  } finally {
-    await c.end();
-  }
-}
-
-/** Transaksi yang selalu ROLLBACK, untuk test yang menulis. */
-async function inRolledBackTx<T>(fn: (c: Client) => Promise<T>): Promise<T> {
-  const c = new Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  await c.connect();
-  try {
-    await c.query('BEGIN');
-    try {
-      return await fn(c);
-    } finally {
-      await c.query('ROLLBACK');
-    }
-  } finally {
-    await c.end();
-  }
-}
-
-describe.skipIf(!hasDb())('P1-74-01: email unik di employees_core', () => {
+describe.skipIf(!hasDb())('P1-74-01: email unik di employees_core', { timeout: 15000 }, () => {
   it('constraint employees_core_email_unique ada dan bertipe UNIQUE', async () => {
     const r = await withDb((c) =>
       c.query(
@@ -134,7 +109,7 @@ describe.skipIf(!hasDb())('P1-74-01: email unik di employees_core', () => {
   });
 });
 
-describe.skipIf(!hasDb())('P1-46-01: kanal reset password di public.settings', () => {
+describe.skipIf(!hasDb())('P1-46-01: kanal reset password di public.settings', { timeout: 15000 }, () => {
   it('setting password_reset_channel ada dan berisi kanal yang dikenal', async () => {
     const r = await withDb((c) =>
       c.query<{ value: string }>(

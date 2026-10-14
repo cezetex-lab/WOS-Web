@@ -24,8 +24,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { Client } from 'pg';
-import { hasDb, readDatabaseUrl, assertObjectExists } from '../helpers/db';
+import { hasDb, assertObjectExists, withDb } from '../helpers/db';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -50,27 +49,16 @@ const PRE_AUTH_WHITELIST = [
 /** Pola isi badan fungsi yang menandakan RPC tersebut menulis data. */
 const WRITE_PATTERN = '(^|[^a-z_])(insert\\s+into|update\\s+[a-z_"]|delete\\s+from|truncate\\s|alter\\s+table|drop\\s+table)';
 
-// `readDatabaseUrl()` + `hasDb()` sekarang datang dari `tests/helpers/db` (Fix #3).
-// Helper itu membaca `process.env` DULU lalu fallback ke `.env.local`, sehingga
-// test ini bisa juga jalan di CI kalau secret-nya diset.
-const DATABASE_URL = readDatabaseUrl();
-
 /**
- * P1-72-01: `assertObjectExists` (fail-fast via `to_regclass`) sekarang hidup di
+ * P1-72-01: `assertObjectExists` (fail-fast via `to_regclass`) hidup di
  * `tests/helpers/db` supaya bisa dipakai bersama guard lain.
+ *
+ * Koneksi test memakai pool bersama `withDb` dari helper yang sama (P2-F14-AS):
+ * pool singleton + timeout eksplisit, menggantikan pg.Client per-test yang
+ * membuat suite flaky saat paralel.
  */
 
-async function withDb<T>(fn: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
-
-describe.skipIf(!hasDb())('penjaga DB live', () => {
+describe.skipIf(!hasDb())('penjaga DB live', { timeout: 15000 }, () => {
   it('tidak ada RPC penulis yang terjangkau anon/PUBLIC (kecuali alur login)', async () => {
     const rows = await withDb(async (client) => {
       // P1-72-01: fail-fast kalau tabel yang dijaga hilang — tanpa ini guard
