@@ -59,12 +59,12 @@ export default function OwnerLogin() {
             </div>
           )}
           <div>
-            <label className="block text-gray-400 text-sm mb-2">Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50" required />
+            <label htmlFor="owner-email" className="block text-gray-400 text-sm mb-2">Email</label>
+            <input id="owner-email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50" required />
           </div>
           <div>
-            <label className="block text-gray-400 text-sm mb-2">Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Masukkan password" required />
+            <label htmlFor="owner-password" className="block text-gray-400 text-sm mb-2">Password</label>
+            <input id="owner-password" type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Masukkan password" required />
           </div>
           <button type="submit" disabled={loading} className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-lg hover:from-amber-600 hover:to-orange-700 transition-all disabled:opacity-50">
             {loading ? 'Memverifikasi...' : 'Masuk sebagai Owner'}
