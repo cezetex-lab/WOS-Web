@@ -1710,3 +1710,58 @@ Kedua putaran identik — semua guard hijau penuh. Secret scan staged: 0.
 - Durasi run GREEN (57–72s) lebih tinggi dari stress sesi observasi (36–64s) — kemungkinan beban mesin saat loop background; tidak ada timeout/kegagalan, dan pool justru memangkas handshake per test.
 - `.agents/logs/` tetap gitignored — RED/GREEN artefak tersimpan lokal.
 - P2-F14-AT (DOC guard self-dependency) **belum** dikerjakan — tetap NEW, urutan berikutnya menunggu keputusan desain.
+## [2026-10-14] P2-F14-AU CLOSED — migrasi dummy-reconciliation-guard + doc-claims ke withDb bersama (lanjutan kelas flaky AS)
+
+- **Status:** kode (**2 file test**) + docs. Commit fix **`6c941c4`**. Latar: audit flaky kelas P2-F14-AS di sesi observasi sebelumnya menemukan `dummy-reconciliation-guard.test.ts` masih memakai pola lama; user menyetujui migrasi + bonus konsistensi `doc-claims-vs-live.test.ts` (subprocess sync **tidak** disertakan — kelas berbeda, risiko rendah, dicatat sebagai observasi saja).
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Perubahan murni 2 berkas test; nol perubahan `src/`, `supabase/`, `.env.local`, `package.json`, `vitest.config.ts`, **`tests/helpers/db.ts`** (fix AS dibiarkan final), RPC, route, session, UI, atau DB.
+
+### 1. RED proof terkontrol
+
+Kode temp (delay per panggilan `withDb` membaca `WOS_DB_TEST_DELAY_MS`) dipasang **hanya** di `dummy-reconciliation-guard.test.ts` (helper dilarang disentuh), jalankan satu kali:
+
+```
+WOS_DB_TEST_DELAY_MS=6000 npm run verify:test-logged → RED_EXIT=1
+ FAIL   node  tests/unit/dummy-reconciliation-guard.test.ts > penjaga rekonsiliasi data dummy (live DB, read-only) > NRP001–NRP010: email unik, divisi/site sesuai BU, dan reset_required=false
+Error: Test timed out in 5000ms.
+ ❯ tests/unit/dummy-reconciliation-guard.test.ts:75:3
+ Test Files  1 failed | 30 passed (31)
+      Tests  1 failed | 223 passed | 4 todo (228)
+```
+Artefak `vitest-2026-10-14T14-48-09-821Z-exit1.json`: `numFailedTests: 1`, gagal `durasi=5033ms | Error: STACK_TRACE_ERROR` — kelas identik korban AS (5014/5019ms). Kode temp **dihapus** setelah RED: `grep -rn "WOS_DB_TEST_DELAY_MS" tests/` → **0 sisa** (`GREP_EXIT=1`).
+
+### 2. Fix (commit `6c941c4`, 2 file, +11/−35)
+
+- `tests/unit/dummy-reconciliation-guard.test.ts`: hapus `withDb` lokal (pg.Client per-test) + `import { Client } from 'pg'`; import `withDb` dari `tests/helpers/db`; describe dapat `{ timeout: 15000 }`. Body test tidak berubah.
+- `tests/unit/doc-claims-vs-live.test.ts`: 2× blok `new Client` + `connect`/`end` (try/finally) diganti `await withDb(async (client) => { … })` — drift di-capture via closure, body query tidak diubah; `import { Client }` dihapus. **Logika baca `.vitest/test-result.json` (P2-F14-AT) tidak tersentuh**; `execFileSync('git', ['ls-files','-z'])` baris 230 tidak diubah (subprocess di luar scope).
+- `grep -rn "new Client" tests/unit/` → **EXIT 1 (0 kemunculan)** — sisa `new Pool` hanya di `tests/helpers/db.ts` (memang rumah pool).
+
+### 3. GREEN proof — 10× full suite berturut (`npm run verify:test-logged`)
+
+```
+GREEN_AU_RUN01 exit=0 durasi=59s    GREEN_AU_RUN06 exit=0 durasi=60s
+GREEN_AU_RUN02 exit=0 durasi=59s    GREEN_AU_RUN07 exit=0 durasi=54s
+GREEN_AU_RUN03 exit=0 durasi=65s    GREEN_AU_RUN08 exit=0 durasi=54s
+GREEN_AU_RUN04 exit=0 durasi=58s    GREEN_AU_RUN09 exit=0 durasi=72s
+GREEN_AU_RUN05 exit=0 durasi=57s    GREEN_AU_RUN10 exit=0 durasi=61s
+```
+Semua run `Test Files  31 passed (31)`; `grep -l "timed out" green-au-run-*.log` → **0 file**; JSON terakhir `vitest-2026-10-14T15-03-34-432Z-exit0.json`: `numTotalTests: 228 numPassed: 224 numFailed: 0 success: true`. Tidak ada regen JSON di antara run.
+
+### 4. Efek samping terukur (bonus)
+
+Migrasi ke pool justru **mempercepat** kedua file (handshake TLS per-test tergantikan koneksi tersambung): `dummy-reconciliation-guard` **2912ms → 1329ms**; `doc-claims-vs-live` total test DB **~6246ms → 3136ms**.
+
+### 5. Gate & guard
+
+`check:types` (tsc) **EXIT 0**; `npx eslint` 2 file yang diubah **EXIT 0** (§0.21). 7 guard **2 putaran** (pra-git-add & pasca-git-add), keduanya:
+
+```
+GUARD-AU-PUTARAN-1: ENC=0 NUM=0 TC=0 ART=0 TF=0 WQ=0 DOC=0
+GUARD-AU-PUTARAN-2: ENC=0 NUM=0 TC=0 ART=0 TF=0 WQ=0 DOC=0
+```
+Secret scan staged: 0. Putaran docs (setelah update baris CLOSED) dijalankan lagi sebelum commit dokumen.
+
+### 6. Catatan jujur
+
+- Subprocess sync (`spawnSync`/`execFileSync` tanpa opsi timeout di 5 file guard) **tidak** dikerjakan: kelas berbeda dari flaky 5s (sync-blocking lokal, bukan koneksi eksternal per-test), sesuai keputusan user — hanya observasi.
+- `doc-claims-vs-live` sudah punya `it(..., 60_000)` sebelum migrasi, jadi pindah pool murni konsistensi + kecepatan, bukan perbaikan flaky.
+- `.agents/logs/` tetap gitignored — RED/GREEN artefak tersimpan lokal.
