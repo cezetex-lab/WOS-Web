@@ -2153,3 +2153,32 @@ WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vit
 - **Sub-item baru di §5.8**: `P2-F14-AX` (6 fungsi rusak SQL), `P2-F14-AY` (17 fungsi tanpa gate; blocker peta route→permission sprint 270D), `P2-F14-AZ` (LIMIT no-op di 26 fungsi agregat), `P3-F14-BA` (4 fungsi stub tanpa data), `P2-F14-BB` (konsumen tidak sinkron: ResetPassword vs 272, TimesheetManagement vs signature), `P3-F14-BC` (laporan audit wajib di-append ke log dalam sesi yang sama sebelum STOP).
 - **Artefak (gitignored, bukan bagian commit)**: `.agents/reports/p1-f14-aa-prosrc.json`, `.agents/logs/p1-f14-aa-inventory.json`, `.agents/logs/p1-f14-aa-prosrc-all.txt`, skrip `audit-f14aa-{probe,drift,counts,x}.mjs`.
 - **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH** — sesi ini docs-only: hanya `AGENTS.md` §5.8 + entri log ini; nol perubahan `src/`, `tests/`, `supabase/`, `.env.local`, `scripts/`, RPC, route, session, menu, design system, atau DB.
+## [2026-10-15] Batch 274 — P1-F14-AA Tahap 1 SELESAI: gate `admin_pusat` untuk 3 RPC `admin_get_*`
+
+**Scope berkas**: `supabase/migrations/274_gate_admin_get_three_rpcs.sql` (BARU) + `supabase/scripts/rollback/274_rollback.sql` (BARU); `AGENTS.md` §5.8 baris P1-F14-AA (Tahap 1 SELESAI, status TETAP ⚠ DECIDED); `ARCHITECTURE.md:133` (Migrations tracked 198 → 199, fact 271–274 ditambahkan); `docs/forensic/CONSTANTS-INVENTORY.md:21` (`198 (max 273)` → `199 (max 274)` + rantai 196–199); `SECURITY.md:43` (`supabase/migrations/` 198 → 199 berkas); entri log ini. `src/`, `tests/`, `.env.local`, `scripts/` TIDAK disentuh (probe sekali pakai `.agents/scripts/rollback274-proof.mjs` = gitignored).
+
+**Pola gate** — syarat IDENTIK 269 X1 (dibaca langsung dari `269_fix14_admin_get_role_matrix_gate.sql`): `EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat')` + owner bypass `authz_is_owner()`; penolakan mengikut brief langkah-3: `RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501'` (deviasi bentuk dari 269 yang memakai `RETURN jsonb {ok:false}` — syarat gate sama persis, konsumen admin tak terdampak karena lolos gate). Gate ditanam di awal blok `BEGIN` ketiga fungsi; body SQL asli, return shape, kolom, LIMIT, urutan, signature, `SET search_path`, dan ACL TIDAK disentuh.
+
+**RED proof (pra-apply — probe transaksi rollback, nol perubahan DB)**:
+- worker NRP002: `admin_get_audit_chain` → `{"ok":true,"dataLen":593}`; `admin_get_org_structure` → `dataLen:17`; `admin_get_divisions` → `dataLen:5` — kebocoran nyata terbukti runtime.
+- admin NRP100 baseline: identik 593/17/5 dengan itemKeys `["id","actor","action","detail","timestamp"]` / `["nrp","nama","level","atasan","divisi","posisi"]` / `["divisi","headcount"]`.
+
+**Apply**: `npm run db:migrate -- supabase/migrations/274_gate_admin_get_three_rpcs.sql --apply` → `DITERAPKAN + terdaftar + checksum terverifikasi` (718ms); registry **199** baris, `max(version)=274`; checksum registry `e6aebfb8bea1aae1efef214b9117adf5e42c20b36492aaf49281396408b7afb1` == sha256 file migrasi (identik).
+
+**GREEN proof (pasca-apply)**:
+- worker NRP002 → ketiga fungsi: `{"code":"42501","error":"Akses ditolak. Hanya admin_pusat."}` (3/3).
+- admin NRP100 → tetap `ok:true`, dataLen **593/17/5** + itemKeys identik baseline (shape sama, nol regresi).
+- katalog: oid **298110 / 298115 / 298131 preserved**; `provolatile=v`, `prosecdef=true`, `proconfig=["search_path=public, extensions"]`, ACL `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}` identik pra-274; md5 prosrc live == ekstraksi file (`1c45ea53f63d2f86302d4e4ede10e6be`, `9e6ea551e9dbbc844765059991cc0148`, `8fef6e458c5aa28acbaff7e649f7e13a`).
+
+**Rollback proof** (`.agents/scripts/rollback274-proof.mjs` — semua dalam SATU transaksi `BEGIN…ROLLBACK`, nol perubahan committed, **EXIT 0**):
+1. `274_rollback.sql` dieksekusi dalam tx (baris BEGIN/COMMIT file-nya di-strip) → md5 prosrc == pre-image **3/3** (`b94062fd53f623b4a8034d4bc0f2efc3`, `d871b2171734057ed1227e534a8640a5`, `d40ceb57595df6ace87d880d4f519915`).
+2. worker di dalam tx → `{"ok":true,"dataLen":593}` (gate hilang → gate = satu-satunya perubahan perilaku).
+3. isi 274 di-apply ulang dalam tx → md5 == post-gate; dijalankan LAGI (idempoten run #2) → `md5 identik run#1==run#2 : OK`.
+4. worker → `{"code":"42501",...}` lagi; `ROLLBACK` → koneksi BARU: md5 == post **3/3** + worker final 42501 → state committed utuh.
+
+**Owner bypass**: diverifikasi statis — `authz_is_owner()` adalah OR pertama di dalam syarat gate (pola 269; owner lewat `check_owner_identity()`, 0 baris `employees_core`). Probe owner runtime tidak tersedia di sesi ini.
+
+**Dampak lintas-page (G7): worker → admin → dashboard → owner** — **TIDAK BERUBAH** untuk admin_pusat/owner. Pemanggil ketiga RPC di `src/` (grep; nol hit di `supabase/functions/` + `tests/`): `features/governance/audit/AuditChainPage.tsx:25` (`admin_get_audit_chain`), `features/core/organization/OrgChart.tsx:37` + `OrgSubtree.tsx:34` (`admin_get_org_structure`), `features/core/organization/DivisionsManagement.tsx:34` (`admin_get_divisions`), `components/shared/DetailPageFactory.tsx:40-41,69` (org/divisions/chain) — keempat halaman memanggil `useAdminAuth(["admin_pusat"])` (grep persis), kontrak identik dengan gate → output admin byte-shape identik pra/pasca (593/17/5). Worker tidak pernah mengakses keempat halaman itu (guard UI, kini + gate DB defense-in-depth); Dashboard/Owner tidak memanggil ketiga RPC (nol pemanggil lain). Perubahan DB-only → tidak ada halaman yang berubah perilakunya untuk role yang berhak.
+
+**Gate sesi**: regen `.vitest/test-result.json` full suite **EXIT 0** (31 testFiles / 228 tests / 224 passed + 4 todo, `success:true`); guard putaran 1 (pra-git add) **ENC=0 NUM=0 TC=0 TF=0 ART=0 WQ_DOC=0**. Guard putaran 2 (pasca-git add) dijalankan setelah entri ini — wajib hijau sebelum commit; output mentah kedua putaran di laporan sesi (§0.27).
+
