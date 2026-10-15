@@ -18,7 +18,7 @@
  *   DivisionsManagement -> /admin/divisions
  *
  * IDENTITAS SKENARIO A — kegagalan run pertama (2026-10-15) TERDIAGNOSIS bukan
- * regresi 274: `.agents/logs/auth-admin.json` berisi `hrd@insightwos.com`
+ * regresi 274: `.agents/logs/auth-admin-hrd.json` berisi `hrd@insightwos.com`
  * (NRP101, `admin_hrd`) → `useAdminAuth(["admin_pusat"])` redirect ke Home
  * admin. Kontrak halaman butuh `admin_pusat`, jadi skenario A login LIVE
  * sebagai `ADMIN_ACCOUNTS.pusat` (E2E_ADMIN_PUSAT_*) — pola persis

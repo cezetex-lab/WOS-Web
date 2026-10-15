@@ -31,7 +31,7 @@ const ROUTES: RouteRow[] = JSON.parse(
 
 const AUTH = {
   worker: path.join(ROOT, '.agents', 'logs', 'auth-worker.json'),
-  admin: path.join(ROOT, '.agents', 'logs', 'auth-admin.json'),
+  admin: path.join(ROOT, '.agents', 'logs', 'auth-admin-hrd.json'),
   owner: path.join(ROOT, '.agents', 'logs', 'auth-owner.json'),
   'admin-mill': path.join(ROOT, '.agents', 'logs', 'auth-admin-mill.json'), // OPS-10
 };

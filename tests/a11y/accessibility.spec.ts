@@ -2,7 +2,7 @@
  * accessibility.spec.ts — FASE 3 Stage 1: a11y scan (axe-core) 6 halaman
  * (Login, Worker, Admin, Dashboard, Owner, Owner Config).
  *
- * Auth: storageState 1x per role (.agents/logs/auth-{worker,admin,owner}.json)
+ * Auth: storageState 1x per role (.agents/logs/auth-{worker,admin-hrd,owner}.json)
  * — prinsip OPS-08, tanpa OTP ulang di suite (0 OTP/run; limiter
  * `pwreset_login_otp` 3/NRP/15 menit tidak lagi tersentuh suite ini).
  * Generator: node .agents/scripts/setup-auth-state.cjs (butuh dev server jalan);
@@ -27,7 +27,7 @@ const BASE = process.env.TEST_BASE_URL || 'http://localhost:5173';
 
 const AUTH = {
   worker: path.join(ROOT, '.agents', 'logs', 'auth-worker.json'),
-  admin: path.join(ROOT, '.agents', 'logs', 'auth-admin.json'),
+  'admin-hrd': path.join(ROOT, '.agents', 'logs', 'auth-admin-hrd.json'),
   owner: path.join(ROOT, '.agents', 'logs', 'auth-owner.json'),
 };
 for (const [k, p] of Object.entries(AUTH)) {
@@ -93,7 +93,7 @@ test.describe('Worker page (/worker)', () => {
 });
 
 test.describe('Admin page (/admin)', () => {
-  test.use({ storageState: AUTH.admin });
+  test.use({ storageState: AUTH['admin-hrd'] });
   test('a11y: storageState admin -> scan /admin', async ({ page }, testInfo) => {
     await page.goto(BASE + '/admin');
     await scanAndAssert(page, testInfo, 'admin');
@@ -101,7 +101,7 @@ test.describe('Admin page (/admin)', () => {
 });
 
 test.describe('Dashboard page (/dashboard)', () => {
-  test.use({ storageState: AUTH.admin }); // dashboard login = kredensial admin (fallback, sama seperti sweep)
+  test.use({ storageState: AUTH['admin-hrd'] }); // dashboard login = kredensial admin (fallback, sama seperti sweep)
   test('a11y: storageState admin -> scan /dashboard', async ({ page }, testInfo) => {
     await page.goto(BASE + '/dashboard');
     await scanAndAssert(page, testInfo, 'dashboard');
