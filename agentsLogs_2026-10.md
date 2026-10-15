@@ -2182,3 +2182,30 @@ WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vit
 
 **Gate sesi**: regen `.vitest/test-result.json` full suite **EXIT 0** (31 testFiles / 228 tests / 224 passed + 4 todo, `success:true`); guard putaran 1 (pra-git add) **ENC=0 NUM=0 TC=0 TF=0 ART=0 WQ_DOC=0**. Guard putaran 2 (pasca-git add) dijalankan setelah entri ini — wajib hijau sebelum commit; output mentah kedua putaran di laporan sesi (§0.27).
 
+## [2026-10-15] Smoke test E2E 4 halaman admin ter-gate — verifikasi migrasi 274 (P1-F14-AA Tahap 1)
+
+**Scope berkas**: `tests/e2e/admin-gated-pages-smoke.spec.ts` (BARU, commit `4f51496`); `AGENTS.md` §5.8 baris P1-F14-AA (catatan smoke lulus, status TETAP ⚠ DECIDED); `ARCHITECTURE.md:122` ts-total 219 → **220** (157 src + **55** tests + 8 config); `docs/forensic/CONSTANTS-INVENTORY.md` baris ts-total sinkron; entri log ini. `src/`, `supabase/`, `.env.local`, `scripts/`, `.agents/scripts/` TIDAK disentuh.
+
+**Investigasi (sebelum menulis spec)**:
+- Spec untuk 4 halaman: **BELUM ADA** (`grep -rln "AuditChain|OrgChart|OrgSubtree|DivisionsManagement" tests/e2e/` = exit 1) → buat baru.
+- **Route asli diverifikasi ke `module_definitions` LIVE** (route di-mount dinamis `DynamicRoutes`, bukan hardcode). Ada **alias ganda** (6 baris, semua `is_active=true`): `AuditChainPage` → `/admin/chain` (admin_chain) **+** `/admin/audit-chain`; `OrgChart` → `/admin/org` (org_structure, dipakai `menu-builder:132`) **+** `/admin/org-chart`; `OrgSubtree` → `/admin/org-subtree`; `DivisionsManagement` → `/admin/divisions`. Path yang dipakai: yang menu/AdminRouteGuard (`/admin/chain`, `/admin/org`, `/admin/org-subtree`, `/admin/divisions`).
+- Storage state: `auth-admin.json` + `auth-worker.json` ADA (`.agents/logs/`, hasil `setup-auth-state.cjs` — tidak disentuh). Access token expired ~23 jam tapi refresh token bekerja (terbukti skenario B lulus dengan state lama).
+- Pola repo: `four-page-smoke`/`admin-payroll` (live login + `loginLiveAdmin` + OTP dev); dev server 5173 sudah jalan (reuseExistingServer).
+
+**Run #1 — 4 skenario A GAGAL, 4 skenario B LULUS. Diagnosa (bukan regresi 274):**
+- Output: navigasi ke route berhasil tapi subtitle tak muncul; accessibility snapshot menunjukkan halaman **Home admin** ("Selamat Datang, Admin").
+- Akar masalah: `auth-admin.json` = `hrd@insightwos.com` (NRP101, `user_role_assignments` = `admin_hrd`) → `useAdminAuth(["admin_pusat"])` redirect `/admin`. Kontrak halaman butuh **admin_pusat**; keempat module `is_active=true`, route valid, gate DB tak tersentuh (tak sampai RPC). Kegagalan = identitas storage state salah, BUKAN regresi 274 dan BUKAN kebocoran.
+
+**Fix (tanpa credential baru)**: skenario A `describe.serial` — login LIVE sekali sebagai `ADMIN_ACCOUNTS.pusat` (`E2E_ADMIN_PUSAT_*`, pola persis `admin-payroll.spec.ts`; kuota OTP 3/15 menit per NRP → login ONCE, storage state di-share ke 4 test). Skenario B tetap `storageState` worker.
+
+**Hasil run #2 — 9/9 PASS, PW_EXIT=0 (output mentah di laporan sesi)**:
+- **A1 audit `/admin/chain`**: `595 entri tercatat`, table rows > 0, tanpa "Akses ditolak" (baseline RED 593 → 595 = audit_log counter bertumbuh +2 dari sesi audit; shape/kontrak identik — bukan regresi).
+- **A2 org `/admin/org`**: `17 karyawan`, tree tampil, tanpa "Akses ditolak".
+- **A3 subtree `/admin/org-subtree`**: `17 node`, tree tampil, tanpa "Akses ditolak".
+- **A4 divisions `/admin/divisions`**: `5 divisi, 5 karyawan`, tanpa "Akses ditolak".
+- **B1–B4 worker (4 halaman)**: **redirect ke `/admin` di keempat halaman** (jalur `useAdminAuth` lapis UI) — **0 data di DOM** (595 entri / 17 nama / 17 node / 5 divisi tidak pernah ter-render); jika tetap di route, marker wajib "0 …"/empty state (guard kedua, tidak tercapai karena redirect menang).
+
+**Dampak lintas-page (G7): worker → admin → dashboard → owner** — **TIDAK BERUBAH** untuk role yang berhak: admin_pusat membuka 4 halaman dengan data identik pra-274 (593→595 hanya pertumbuhan baris audit_log harian). Worker/admin lain: gate fail-closed (UI redirect + DB 42501) — perilaku baru TIDAK merusak halaman mana pun; halaman Admin lain tidak memanggil ketiga RPC ini (grep pemanggil = 4 halaman + DetailPageFactory, sesi 274). Dashboard/Owner tidak terdampak (nol pemanggil). Tidak ada perubahan `src/` — murni verifikasi.
+
+**Gate sesi**: `npx eslint tests/e2e/admin-gated-pages-smoke.spec.ts` **EXIT 0** (P21); ts-total dual-sync **220** (extractor live `git ls-files`: 157+55+8; P22); unit-files **tetap 31** (Playwright di luar suite vitest — diverifikasi `unit-files()` = 31); regen `.vitest/test-result.json` full suite + guard dua putaran di bawah.
+
