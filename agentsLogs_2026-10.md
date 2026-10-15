@@ -2140,3 +2140,16 @@ WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vit
 - Artefak probe (RED, simulasi, post-apply, pre-image def) tersimpan di `.agents/logs/f0501-*.json|sql` — gitignored, bukti lokal.
 - `.env.local` tidak pernah dicetak; host DB ditampilkan tanpa kredensial.
 
+
+## [2026-10-15] P1-F14-AA — audit selesai (REKONSTRUKSI dari sesi 2026-10-14)
+
+> **Integritas (§6.8):** entri ini BUKAN log asli sesi audit. Laporan lengkap sesi audit 2026-10-14 tidak tersimpan di repo (sesi itu berstatus audit-only dan berhenti setelah laporan teks); rekonstruksi ini bersumber dari sesi tersebut dan artefak `.agents/` yang masih ada (gitignored).
+
+- **Work Queue**: `P1-F14-AA` **NEW → DECIDED** di `AGENTS.md` §5.8.
+- **Ringkas hasil audit**: 42/42 fungsi `admin_get_*` terinventaris dari katalog live (42 signature, 0 overload, 0 drift prosrc vs baseline+migrations); klasifikasi **5A/23B/11C/3D/0E** (A=CONFIRMED GAP, B=LIKELY GAP, C=NO GAP, D=NEEDS DECISION, E=NEEDS SAFE TEST PLAN).
+- **RED proof utama** (probe transaksi rollback, nol perubahan DB): worker NRP002 membaca **593 baris** `audit_log` lewat `admin_get_audit_chain` (LIMIT 50 ternyata no-op) dan **17 baris** PII organisasi lewat `admin_get_org_structure`; kontrol positif tetap bekerja (`admin_get_payroll` dan `admin_get_role_matrix` → `ok:false`, `admin_get_employees` → SQLSTATE 42501).
+- **Keputusan Tahap 1**: gate admin_pusat + owner bypass (pola batch 269) untuk 3 fungsi CONFIRMED GAP — `admin_get_audit_chain`, `admin_get_org_structure`, `admin_get_divisions` — akan dieksekusi sebagai **migrasi 274** (belum dikerjakan di sesi ini).
+- **Temuan prioritas AA-01…AA-05**: AA-01 `admin_get_audit_chain` · AA-02 `admin_get_org_structure` + `admin_get_divisions` + `admin_get_master_data` · AA-03 17 fungsi tanpa gate · AA-04 6 fungsi rusak SQL · AA-05 kontrak ACL vs konsumen (`admin_get_surveys`, `admin_get_estate_blocks`, `admin_get_payroll_secure`).
+- **Sub-item baru di §5.8**: `P2-F14-AX` (6 fungsi rusak SQL), `P2-F14-AY` (17 fungsi tanpa gate; blocker peta route→permission sprint 270D), `P2-F14-AZ` (LIMIT no-op di 26 fungsi agregat), `P3-F14-BA` (4 fungsi stub tanpa data), `P2-F14-BB` (konsumen tidak sinkron: ResetPassword vs 272, TimesheetManagement vs signature), `P3-F14-BC` (laporan audit wajib di-append ke log dalam sesi yang sama sebelum STOP).
+- **Artefak (gitignored, bukan bagian commit)**: `.agents/reports/p1-f14-aa-prosrc.json`, `.agents/logs/p1-f14-aa-inventory.json`, `.agents/logs/p1-f14-aa-prosrc-all.txt`, skrip `audit-f14aa-{probe,drift,counts,x}.mjs`.
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH** — sesi ini docs-only: hanya `AGENTS.md` §5.8 + entri log ini; nol perubahan `src/`, `tests/`, `supabase/`, `.env.local`, `scripts/`, RPC, route, session, menu, design system, atau DB.
