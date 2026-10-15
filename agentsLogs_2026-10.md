@@ -2209,3 +2209,29 @@ WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vit
 
 **Gate sesi**: `npx eslint tests/e2e/admin-gated-pages-smoke.spec.ts` **EXIT 0** (P21); ts-total dual-sync **220** (extractor live `git ls-files`: 157+55+8; P22); unit-files **tetap 31** (Playwright di luar suite vitest — diverifikasi `unit-files()` = 31); regen `.vitest/test-result.json` full suite + guard dua putaran di bawah.
 
+## [2026-10-15] P3-F14-BC + P3-F14-BD CLOSED — audit-only session logging rule §0.29 + misnomer auth-admin.json rename
+
+> **Status P3-F14-BC:** CLOSED. Aturan AGENTS.md §0 item 11 (line 64) — "Sesi mode audit-only wajib mencatat hasil ke `agentsLogs_YYYY-MM.md` sebelum STOP" — sudah ada sejak sesi sebelumnya. P3-F14-BC di §5.8 Work Queue (line 650) sudah ber-Status ✅ CLOSED (2026-10-15). Item ini hanya verifikasi + documentasi penutupan.
+> 
+> **Status P3-F14-BD:** CLOSED. Misnomer auth-admin.json berisi hrd@insightwos.com (admin_hrd) bukan admin_pusat — sudah di-rename ke auth-admin-hrd.json.
+>
+> **Bukti mentah (investigasi awal):**
+> - `setup-auth-state.cjs:22`: `'admin-hrd': path.join(ROOT, '.agents', 'logs', 'auth-admin-hrd.json')` — sudah renamed
+> - `setup-auth-state.cjs:143`: `OUT.admin` → `OUT['admin-hrd']` — BUG diperbaiki (OUT.admin tidak ada di object, hanya 'admin-hrd')
+> - `setup-auth-state.cjs:144`: console.log `OUT.admin` → `OUT['admin-hrd']` — diperbaiki
+> - `accessibility.spec.ts:30`: `'admin-hrd': ...auth-admin-hrd.json'` — sudah renamed
+> - `accessibility.spec.ts:96`: `AUTH.admin` → `AUTH['admin-hrd']` — BUG diperbaiki
+> - `accessibility.spec.ts:104`: `AUTH.admin` → `AUTH['admin-hrd']` — BUG diperbaiki
+> - `accessibility-full-sweep.spec.ts:34`: `admin: ...auth-admin-hrd.json'` — konsisten (key admin + path baru)
+> - `admin-gated-pages-smoke.spec.ts:21`: komentar `auth-admin.json` → `auth-admin-hrd.json` — diperbarui
+> - `auth-admin.json` content (field non-credential): email=`hrd@insightwos.com`, localStorage ada token Supabase — konfirmasi ini admin_hrd
+> - File `.agents/logs/auth-admin.json` dihapus (gitignored, aman)
+>
+> **File yang diubah:**
+> 1. `.agents/scripts/setup-auth-state.cjs` — line 12 (comment), line 143-144 (OUT.admin → OUT['admin-hrd'])
+> 2. `tests/a11y/accessibility.spec.ts` — line 5 (comment), line 96 (AUTH.admin → AUTH['admin-hrd']), line 104 (AUTH.admin → AUTH['admin-hrd'])
+> 3. `tests/e2e/admin-gated-pages-smoke.spec.ts` — line 21 (comment)
+> 4. `AGENTS.md` — §5.8 Work Queue: P3-F14-BC sudah ✅ CLOSED, P3-F14-BD ditambah ✅ CLOSED
+> 5. `agentsLogs_2026-10.md` — entri ini (append)
+>
+> **Dampak lintas-page (G7):** worker → admin → dashboard → owner = TIDAK BERUBAH — ini hanyа test infrastructure (storageState file naming + key reference fix), bukan runtime auth logic. File `auth-admin-hrd.json` adalah artefak test-only (.agents/logs/ gitignored), tidak tersentuh `src/`, `supabase/`, `.env.local`, `scripts/`, RPC, route, session contract, menu, design system, atau DB.
