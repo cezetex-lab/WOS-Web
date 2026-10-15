@@ -2036,3 +2036,107 @@ Sama seperti sesi AV: WQ+DOC dijalankan via wrapper `verify:test-logged` **spawn
 
 
 
+## [2026-10-15] P1-F05-01 CLOSED — admin_get_employees() kembalikan data karyawan nyata (migrasi 273)
+
+- **Status:** CLOSED. Commit migrasi **`e774e14`** (2 file SQL, +138). Dependency **P2-F14-P CLOSED** (keputusan `view_all` = hanya LV5+owner; HRD dicabut via 272) → gate fail-closed siap dipasang.
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH pada kode.** Perubahan = 1 fungsi DB publik + 5 file dokumentasi; nol perubahan `src/`, `supabase/` selain migrasi+rollback, `tests/`, `package.json`, atau `.env.local`. Perilaku halaman Employees/ResetPassword berubah dari **crash/kosong** menjadi data nyata (inilah fix-nya) — itu konsumen yang direparasi, bukan breaking change.
+
+### 1. Pra-pemeriksaan (live, read-only)
+
+- ID `⚠ NEW` di §5.8 (belum ditutup). Stub live: oid `298117`, 0-arg, `jsonb`, SECDEF, `proconfig search_path=public,extensions`, ACL `{postgres,authenticated,service_role}` (anon tidak ada), prosrc 225 byte, md5_prosrc `a6bc9972…`, md5_def `a0837809…` (399 byte).
+- Kontrak authz terverifikasi: `authz_check_admin(p_permission)` = owner bypass (`system_owner_identity`) + `authz_has_permission`. Pemegang `employee.view_all` pasca-272: **hanya `admin_pusat`** (set `admin_pusat_all`).
+- Konsumen aktual **2 file** (tiket menyebut 1): `Employees.tsx:67` — `useRpcQuery<Employee[]>` **tanpa select/ok-check** → hasil harus ARRAY LANGSUNG (objek `{ok:false}` → `.filter` crash); `ResetPassword.tsx:35` — array ATAU `.data`. `owner_get_employees` (pembanding) pakai `employees_master` + `COALESCE(jsonb_agg,'[]')`.
+- Data: `employees_master` 17 baris; mapping `jenis` ← `status_kerja_internal` (PKWT/PWTT), `status` = derive `is_active` (`status_kerja` NULL semua), `tanggal_habis` ← `contract_end_date`.
+- Sweep G3: pemanggil runtime hanya 2 (0-arg); preseden DROP+CREATE fungsi ini di migrasi 038/139; smoke baseline 175 memanggil 0-arg (tetap resolve via DEFAULT).
+
+### 2. RED proof (impersonasi JWT, tx ROLLBACK — nol tulis)
+
+```
+R1 NRP100 (admin_pusat, PUNYA view_all) : sqlstate=null isArray=false ok=true rows=null
+  raw: {"ok":true,"msg":"RPC executed with role check."}
+R2 NRP001 (admin_pusat via 262)        : sqlstate=null isArray=false ok=true rows=null
+R3 OWNER (bypass authz_check_admin)    : sqlstate=null isArray=false ok=true rows=null
+R4 NRP101 (admin_hrd, view_all DICABUT): sqlstate=null isArray=false ok=false rows=null
+  raw: {"ok":false,"msg":"Akses ditolak."}
+R5 NRP002 (worker)                     : sqlstate=null isArray=false ok=false rows=null
+R6 UUID nol (tanpa sesi)               : sqlstate=null isArray=false ok=false rows=null
+ASSERTIONS: RED_stub_holders_ok_tanpa_data=true · RED_stub_denied_okfalse_bukan_exception=true · RED_nol_data_karyawan=true
+VERDICT: RED TERBUKTI — stub tidak mengembalikan data; denial berupa {ok:false} (celah 273)
+```
+
+### 3. Migrasi 273 + rollback (commit `e774e14`)
+
+- `273_f0501_admin_get_employees_real.sql` (100 baris): `DROP FUNCTION IF EXISTS public.admin_get_employees()` → `CREATE FUNCTION public.admin_get_employees(p_search text DEFAULT NULL)` RETURNS jsonb, plpgsql, SECURITY DEFINER, `SET search_path TO 'public','extensions'`. Gate `IF NOT authz_check_admin('employee.view_all') THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'` (bukan `{ok:false}` — konsumen array akan crash). Sumber `employees_master`, 12 kolom (nrp/nik/nama/email/no_hp/divisi/jabatan/jenis/status/is_active/tanggal_masuk/tanggal_habis), `COALESCE(jsonb_agg,'[]')`, `ORDER BY nrp`, filter p_search (nama/nrp/email, mirror owner RPC). `REVOKE ALL … FROM PUBLIC, anon; GRANT … authenticated, service_role` + DO-block verifikasi (tepat 1 `p_search text`, 0 stub 0-arg).
+- `273_rollback.sql` (38 baris): DROP versi baru LEBIH DULU (urutan wajib — OR REPLACE 0-arg tidak bisa menimpa signature beda → stub jadi overload yatim), lalu pre-image **verbatim** (def 399 byte, md5 `a0837809…`) + restore ACL eksplisit (pelajaran P12).
+- Param optional `p_search` = mirror `owner_get_employees` + uji kasus kosong; pemanggil 0-arg lama tetap resolve (terbukti simulasi).
+
+### 4. Simulasi pra-apply (satu transaksi luar, ROLLBACK) — ALL PASS 19/19
+
+```
+F1 PRE : oid 298117, md5_def a0837809…, prosrc 225, acl {postgres,authenticated,service_role}
+F2 POST: oid 342065, args 'p_search text', md5_def 64fa5d3f…, def 1192, acl sama
+G1 NRP100 (admin_pusat)      : sqlstate=null isArray=true rows=17 firstNrp=NRP001 keys=12
+G2 NRP001 (admin_pusat/262)  : sqlstate=null isArray=true rows=17 firstNrp=NRP001
+G3 OWNER (bypass)            : sqlstate=null isArray=true rows=17 firstNrp=NRP001
+G4 NRP101 (admin_hrd) TOLAK  : sqlstate=42501
+G5 NRP002 (worker) TOLAK     : sqlstate=42501
+G6 UUID nol TOLAK            : sqlstate=42501
+G7 kasus kosong (p_search)   : sqlstate=null isArray=true rows=0
+F4 POST-ROLLBACK: oid 342066, md5_def a0837809… (byte-identik), args '', acl sama
+P9 AFTER (koneksi baru): oid 298117 kembali, md5_def a0837809…, registry 197/272, audit 593 — NOL RESIDU
+ASSERTIONS 19/19 true (F2_apply_changed, F2_signature_new_only, F2_rettype_jsonb, F2_prosecdef_proconfig,
+F2_acl_house, F2_oid_berubah_dokumentasi, G1/G2/G3 17 array, G_keys_kontrak_12, G_order_by_nrp,
+G4/G5/G6 42501, G7 kosong, F4 rollback byte-exact + acl/attrs + signature, P9_zero_residue)
+VERDICT: ALL PASS
+```
+
+### 5. STOP + apply + gate post-apply live (11/11)
+
+Commit-before-apply **di-STOP dulu** (§0.15): file 273 belum di-apply membuat `migration rows 198≠197` + `max(version) 273≠272` (ART) dan `migration-folder-count 197≠198` (NUM) merah → push ditolak branch protection. User pilih **Opsi A**: dry-run → APPROVE → apply. Dry-run: `checksum cce16515a03638282bb621841afc3d7ab6f175cf122e9269e3e6c8d788f3cf58`, status "belum terdaftar", EXIT 0. Target DB `aws-0-ap-northeast-1.pooler.supabase.com`; 0 dependensi katalog pada oid 298117 (DROP bersih, tanpa CASCADE). Verifikasi pra-apply terakhir (identitas DB PG 17.6, 272 terdaftar checksum `6d0f5631…` applied 2026-10-14T03:32:19Z, definisi stub + ACL **identik** pra-pemeriksaan, checksum file sama) → APPROVE.
+
+```
+apply: status: DITERAPKAN + terdaftar + checksum terverifikasi (685ms) · EXITCODE=0
+P1: reg {rows:198, max_ver:273} · row273 checksum cce16515… applied_at 2026-10-15T02:41:31.518Z · verify_ok true
+P2: oid 342067, args 'p_search text', ret jsonb, prosecdef true, proconfig {"search_path=public, extensions"},
+    acl {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}, overload_count 1
+P3a NRP100 (admin_pusat)      : sqlstate=null isArray=true rows=17 firstNrp=NRP001 keys=12
+P3b NRP001 (admin_pusat/262)  : sqlstate=null isArray=true rows=17 firstNrp=NRP001 keys=12
+P3c OWNER (bypass)            : sqlstate=null isArray=true rows=17 firstNrp=NRP001 keys=12
+P3d NRP101 (admin_hrd) TOLAK  : sqlstate=42501
+P3e NRP002 (worker) TOLAK     : sqlstate=42501
+P3f UUID nol TOLAK            : sqlstate=42501
+P3g kasus kosong              : sqlstate=null isArray=true rows=0
+ASSERTIONS 11/11 true → VERDICT: POST-APPLY HIJAU — live sesuai simulasi
+```
+
+### 6. Sinkronisasi dokumentasi
+
+- `ARCHITECTURE.md:133` (§7.4) `Migrations tracked 197 → 198`; `SECURITY.md:43` `supabase/migrations/ (197 berkas) → (198 berkas)`; `docs/forensic/CONSTANTS-INVENTORY.md:21` `Migrations tracked | 197 (max 272) → 198 (max 273)`. Klaim historis (NUMERIC-CLAIMS-INVENTORY:16, NUMERIC-GUARD-DESIGN:225 — "157 berkas" bersnapshot) tidak disentuh.
+- `Functions` 657 tetap (DROP+CREATE = net 0) → nol perubahan klaim fungsi/overload.
+
+### 7. Gate & guard — 7 guard dua putaran (semua EXIT 0)
+
+```
+GUARD-F0501-PUTARAN-1 (pasca-apply + docs sync, pra-git-add):
+  EXIT-ENC=0  EXIT-NUM=0  EXIT-TC=0  EXIT-TF=0  EXIT-ART=0  EXIT-NEW=0
+  NUM: migrations-tracked 198 · max-version 273 · migration-folder-count 198 (semua OK)
+  ART: migration rows 198 · max(version) 273 (semua OK) · 0 drift
+  WQ+DOC (wrapper, log vitest-2026-10-15T02-47-04-322Z-14756.log):
+    ✓ tests/unit/work-queue-consistency.test.ts · ✓ tests/unit/doc-claims-vs-live.test.ts
+    Test Files 2 passed (2) · [run-vitest-with-log] exit : 0
+
+GUARD-F0501-PUTARAN-2 (pasca git add docs):
+  EXIT-ENC=0  EXIT-NUM=0  EXIT-TC=0  EXIT-TF=0  EXIT-ART=0  EXIT-NEW=0  (+ WQ=0 DOC=0)
+```
+
+WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vitest run` langsung kena timeout 30s limit tool — §0.15, tidak retry buta); `.vitest/test-result.json` di-backup → dipulihkan persis (75535 byte, mtime 10/14 22:14:08) tiap run wrapper (§0.24 — TC/TF menilai artefak full-suite, bukan run parsial 2 file).
+
+### 8. Catatan jujur
+
+- **STOP wajib yang dipicu:** commit-before-apply membuat guard ART (2 drift) + NUM (1 drift) merah → push akan ditolak branch protection. Diselesaikan lewat Opsi A user: apply dulu, commit sesudah — invarian "repo files == live registry" dipulihkan.
+- **CRLF kosmetik:** md5_def live (`0c62dd2b…`, def 1227) ≠ simulasi (`64fa5d3f…`, def 1192) — simulasi menormalkan EOL (split/join LF) sementara wrapper apply mengeksekusi CRLF mentah (file 100 CRLF) → prosrc live mengandung CR. Nol dampak fungsional; checksum registry EOL-normalized by design (SQL-10) sehingga cocok. Assertion "md5_def==simulasi" di probe post-apply **dibuang** (invalid by construction) — kekuatan bukti = perilaku live 11/11.
+- **Bug probe saya sendiri:** `SAVEPOINT` tanpa transaksi luar → error "SAVEPOINT can only be used in transaction blocks" pada run pertama post-apply (registry+attrs sudah terverifikasi sebelum crash); diperbaiki ke BEGIN/ROLLBACK per panggilan, run ulang hijau. Nol efek pada live (crash sebelum set_config, catch ROLLBACK).
+- **Secret scan false positive:** pola `SERVICE_ROLE` (case-insensitive) cocok dengan baris `GRANT … service_role` pada file migrasi — bukan rahasia; pola `postgresql://`/JWT: 0 hit.
+- Artefak probe (RED, simulasi, post-apply, pre-image def) tersimpan di `.agents/logs/f0501-*.json|sql` — gitignored, bukti lokal.
+- `.env.local` tidak pernah dicetak; host DB ditampilkan tanpa kredensial.
+
