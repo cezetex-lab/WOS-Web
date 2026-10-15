@@ -1893,3 +1893,146 @@ Insiden kecil yang jujur dicatat: `git add` pertama **gagal** (`index.lock` tran
 
 
 
+## [2026-10-15] P2-F14-AW CLOSED — harden verify-no-local-db-client (member form + scope unit/integration)
+
+- **Status:** guard edit (1 file, +41/−47) + docs. Commit guard **`9f89411`**. Keputusan desain user: **(ii)** argumen path = force check apapun lokasinya; default scan = scope direktori `tests/unit/` + `tests/integration/` — `tests/e2e/`, `tests/a11y/`, `tests/performance/` keluar sepenuhnya (bukan WARN, bukan exempt; model eksekusinya beda).
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH.** Perubahan murni `scripts/verify-no-local-db-client.mjs` + dokumen (`AGENTS.md`, entri log ini); nol perubahan `src/`, `supabase/`, `.env.local`, `tests/` (semua file di bawahnya + `tests/helpers/db.ts` tidak disentuh), `package.json` (script `verify:no-local-db-client` sudah ada dari AV), RPC, route, session, menu, design system, atau DB.
+
+### 1. Baca guard pre-edit — (a) scope, (b) detektor member form
+
+**(a) Scope di-hardcode** sebagai satu string default (baris 56 lama): `const roots = argv.length > 0 ? argv : ['tests/'];` — `collect()` me-walk **seluruh pohon `tests/`** rekursif (hanya memotong `node_modules`/`dist`/`.git`/`.vitest` + filter ekstensi); tidak ada konsep scope direktori.
+
+**(b) Detektor member form di-skip** lewat rantai if/else-if di `scanFile()`: `new Client(`/`new Pool(` → `kind: 'violation'`, sedangkan `new pg.Client(`/`new pg.Pool(` → **`kind: 'warn'`** → main loop mencetak `CELAH` kuning + counter `warnings` yang **tidak menyentuh exit code**.
+
+### 2. RED pre-edit — celah direkam sebelum hardening (bukti "sebelum")
+
+```
+=== PRE-EDIT: guard AV (99ea614) vs file member form — dokumentasi celah ===
+
+=== verify:no-local-db-client — P2-F14-AV (anti koneksi DB lokal per-test) ===
+
+  scope : red-proof-aw-member-form.ts
+  CELAH     red-proof-aw-member-form.ts:1
+              isi: new pg.Client({})
+              new pg.Client( — bentuk member (celah diketahui, lihat header guard)
+
+=== RINGKASAN: 0 pelanggaran, 1 celah diketahui (1 file dicek, 0 diizinkan) ===
+catatan celah = bentuk member new pg.Client(/new pg.Pool( — WARN saja, exit code tidak dipengaruhi.
+EXITCODE=0
+```
+
+### 3. Redesain scope — keputusan desain (ii)
+
+Dipilih **(ii)** (konsisten + sederhana): **argumen path = force check** apapun lokasinya (audit terarah tetap boleh); **tanpa argumen = hanya scope direktori** `['tests/unit', 'tests/integration']` yang difilter `fs.existsSync` (integration ikut otomatis selama ada; hari ini berisi 1 file `.sql` yang tidak kena filter ekstensi, jadi 28 file scannable = tests/unit). `tests/e2e/`, `tests/a11y/`, `tests/performance/` keluar sepenuhnya — bukan exempt per-file, melainkan di luar scope.
+
+### 4. RED proof guard final (§0.19) — 4 run, SEMUA EXIT 1
+
+RED-1 — bentuk member `new pg.Client({})`:
+
+```
+=== RED-1: bentuk member new pg.Client ===
+
+=== verify:no-local-db-client — P2-F14-AV/AW (anti koneksi DB lokal per-test) ===
+
+  scope : red-proof-aw-member-form.ts
+  PELANGGARAN red-proof-aw-member-form.ts:1
+              isi: new pg.Client({})
+              new pg.Client( — bentuk member, koneksi lokal per-test (hanya tests/helpers/db.ts yang diizinkan)
+
+=== RINGKASAN: 1 pelanggaran (1 file dicek, 0 diizinkan) ===
+EXITCODE=1
+[stderr] verify:no-local-db-client GAGAL — ada pola koneksi lokal per-test (new Client/new Pool/new pg.Client/new pg.Pool/import {Client,Pool} dari 'pg'). Pindahkan ke withDb bersama (tests/helpers/db.ts).
+```
+
+RED-2 — bentuk member `new pg.Pool({})`:
+
+```
+=== RED-2: bentuk member new pg.Pool ===
+
+  scope : red-proof-aw-member-form-pool.ts
+  PELANGGARAN red-proof-aw-member-form-pool.ts:1
+              isi: new pg.Pool({})
+              new pg.Pool( — bentuk member, koneksi lokal per-test (hanya tests/helpers/db.ts yang diizinkan)
+
+=== RINGKASAN: 1 pelanggaran (1 file dicek, 0 diizinkan) ===
+EXITCODE=1
+```
+
+RED-3 — regression import form (detektor lama wajib tetap jalan):
+
+```
+=== RED-3: regression import form ===
+
+  scope : red-proof-aw-import.ts
+  PELANGGARAN red-proof-aw-import.ts:1
+              isi: import { Client } from 'pg';
+              import { Client } dari 'pg' — koneksi lokal per-test (hanya tests/helpers/db.ts yang diizinkan)
+
+=== RINGKASAN: 1 pelanggaran (1 file dicek, 0 diizinkan) ===
+EXITCODE=1
+```
+
+RED-4 — scope argumen (keputusan desain ii: path yang diberikan di-force check walau di luar scope direktori) — direktori root sementara `red-scope-e2e/` berisi `new Client({})`:
+
+```
+=== RED-4: scope argumen (keputusan desain ii) red-scope-e2e/ ===
+
+  scope : red-scope-e2e/
+  PELANGGARAN red-scope-e2e/red-proof.ts:1
+              isi: new Client({})
+              new Client( — koneksi lokal per-test (hanya tests/helpers/db.ts yang diizinkan)
+
+=== RINGKASAN: 1 pelanggaran (1 file dicek, 0 diizinkan) ===
+EXITCODE=1
+```
+
+Setelah RED terkumpul: 3 file root + direktori `red-scope-e2e/` **dihapus** → `git status --short` = hanya ` M scripts/verify-no-local-db-client.mjs`; pencarian sisa `red-*` = `TIDAK ADA sisa`.
+
+### 5. GREEN proof + verifikasi deteksi tests/unit
+
+```
+=== verify:no-local-db-client — P2-F14-AV/AW (anti koneksi DB lokal per-test) ===
+
+  scope : tests/unit, tests/integration
+
+=== RINGKASAN: 0 pelanggaran (28 file dicek, 0 diizinkan) ===
+verify:no-local-db-client OK — tidak ada new Client/new Pool/new pg.Client/new pg.Pool/import {Client,Pool} dari 'pg' di luar tests/helpers/db.ts.
+
+EXIT-NEW=0
+```
+
+Tidak ada lagi baris `CELAH` — 2 file e2e/perf kini keluar scope sepenuhnya (53 → 28 file dicek; 28 = `tests/unit/*.ts` — `tests/integration/` berisi 1 file `.sql` yang tidak kena filter ekstensi). Pengecekan tetap mendeteksi di tests/unit:
+
+```
+Select-String -Path tests\unit\*.test.ts -Pattern 'new pg\.(Client|Pool)\('
+  → 0 hit — tidak ada bentuk member di tests/unit/   (wajar: AU sudah migrasikan semua)
+```
+
+Kemampuan deteksi tests/unit TIDAK hilang: `scope : tests/unit, tests/integration` tercetak + 28 file ikut dicek + RED-4 membuktikan arg path apapun tetap di-force check.
+
+### 6. Gate & guard — 7 guard dua putaran
+
+```
+GUARD-AW-PUTARAN-1 (edit guard selesai, sebelum git add):
+  EXIT-ENC=0  EXIT-NUM=0  EXIT-TC=0  EXIT-TF=0  EXIT-ART=0  EXIT-NEW=0
+  WQ+DOC (wrapper, log vitest-2026-10-15T00-03-21-996Z-32424.log):
+    ✓ node tests/unit/work-queue-consistency.test.ts (4 tests) 511ms
+    ✓ node tests/unit/doc-claims-vs-live.test.ts (5 tests) 5290ms
+    Test Files  2 passed (2)      Tests  9 passed (9)
+    [run-vitest-with-log] exit : 0
+
+GUARD-AW-PUTARAN-2 (setelah tulis docs + git add, sebelum commit docs):
+  EXIT-ENC=0  EXIT-NUM=0  EXIT-TC=0  EXIT-TF=0  EXIT-ART=0  EXIT-NEW=0  (+ WQ=0 DOC=0)
+```
+
+Sama seperti sesi AV: WQ+DOC dijalankan via wrapper `verify:test-logged` **spawn detached + poll** (perintah `npx vitest run` langsung kena timeout 30s limit tool — tidak di-retry buta, §0.15); `.vitest/test-result.json` **di-backup lalu dipulihkan persis** tiap run wrapper (`Length 75535`, `LastWriteTime 10/14/2026 22:14:08` utuh) supaya TC/TF menilai artefak full-suite, bukan run parsial (2 file).
+
+### 7. Catatan jujur
+
+- RED proof memakai **file root sementara** (3 file + 1 direktori) — instruksi tugas; semuanya dihapus, `git status` membuktikan tidak tersisa. `tests/` tidak tersentuh sama sekali.
+- Urutan jujur: RED **pre-edit** (§2) sengaja direkam lebih dulu sebagai bukti "sebelum" — output-nya `CELAH` + EXIT 0 karena detektor member memang belum ada; RED **final** (§4) dijalankan setelah guard di-hardening. STOP condition "RED proof member form tidak mempicu EXIT 1" dievaluasi pada guard final → terpenuhi (EXIT 1).
+- `Select-String tests/unit` pola member = 0 hit membuktikan GREEN murni **bukan** karena tidak ada yang bisa ditangkap — memang tidak ada pelanggaran tersisa (hasil migrasi AU); detektor keabsahannya dibuktikan oleh RED-1/RED-2/RED-3 di file root.
+- Celah sadar (YAGNI, sengaja tidak dikejar — tercatat di header guard): instansiasi multi-baris `new\nClient(` / `new\npg.Client(`, dan destructuring `const { Client } = pg` tanpa instansiasi.
+
+
+
