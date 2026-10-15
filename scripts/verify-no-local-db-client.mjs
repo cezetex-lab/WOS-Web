@@ -1,35 +1,37 @@
 #!/usr/bin/env node
 /**
- * verify-no-local-db-client.mjs — P2-F14-AV: guard anti-koneksi-lokal (tests/).
+ * verify-no-local-db-client.mjs — P2-F14-AV + P2-F14-AW: guard anti-koneksi-lokal.
  *
  * KENAPA ADA
  *   P2-F14-AS/AU memberantas pola "pg.Client per-test tanpa timeout" dari file test
  *   (akar flaky DB-live: STACK_TRACE_ERROR durasi ~5000ms). Fix-nya benar, tapi tidak
  *   ada gerbang yang mencegah pola itu muncul lagi — developer baru menulis
- *   `new Client(...)` atau `import { Client } dari 'pg'` di tests/ → tidak ada yang
+ *   `new Client(...)` atau `import { Client } dari 'pg'` di scope → tidak ada yang
  *   menangkap. Guard yang diam = guard palsu (§0.19), jadi pola itu dijadikan exit code.
  *
- * DEFINISI PELANGGARAN (P2-F14-AV)
- *   1. `new Client(` atau `new Pool(` di tests/ — KECUALI tests/helpers/db.ts
- *      (rumah pool bersama, hasil fix P2-F14-AS).
- *   2. import bernama `{ Client }` / `{ Pool }` dari 'pg' di tests/ — KECUALI
+ * SCOPE — direktori, BUKAN exempt per-file (P2-F14-AW, keputusan desain user)
+ *   Scan default: tests/unit/ + tests/integration/ (selama ada) — kelas flaky vitest.
+ *   tests/e2e/, tests/a11y/, tests/performance/ KELUAR sepenuhnya dari scan
+ *   (bukan WARN, bukan exempt): model eksekusinya beda (Playwright punya
+ *   test-timeout runner sendiri; bench CLI = 1 koneksi per run), bukan kelas
+ *   flaky vitest 5s. Argumen path = force check apapun lokasinya (audit terarah).
+ *
+ * DEFINISI PELANGGARAN (P2-F14-AW: bentuk member ikut di-hardening)
+ *   1. `new Client(`, `new Pool(`, `new pg.Client(`, `new pg.Pool(` di scope —
+ *      KECUALI tests/helpers/db.ts (rumah pool bersama, hasil fix P2-F14-AS).
+ *   2. import bernama `{ Client }` / `{ Pool }` dari 'pg' di scope — KECUALI
  *      tests/helpers/db.ts.
  *   Deteksi per baris (parsing sederhana, tanpa regex rapuh): komentar blok/baris
  *   di-strip dulu, whitespace dinormalkan supaya `new  Client (` tetap ketahuan,
  *   import multi-baris diakumulasi sampai pernyataan lengkap (`from 'pg'` / `;`).
  *
- * CELAH YANG DISADARI (WARN — TIDAK mempengaruhi exit code)
- *   Bentuk member `new pg.Client(` / `new pg.Pool(` TIDAK termasuk definisi di atas.
- *   Saat guard ini dibuat ada 2 kemunculan pre-existing:
- *     tests/e2e/worker-profile-smoke.spec.ts:171  (Playwright — test-timeout runner sendiri)
- *     tests/performance/api-bench.ts:13           (CLI bench — 1 koneksi per run, bukan per-test)
- *   Keduanya di luar kelas flaky vitest 5s, jadi TIDAK dibuat pelanggaran keras.
- *   Tapi tiap run dilaporkan supaya tidak diam. Kalau nanti mau diperkeras: naikkan
- *   jadi FAIL + kecualikan 2 file itu eksplisit (butuh keputusan user — tests/ sakit).
+ * CELAH SADAR — sengaja TIDAK dikejar (YAGNI; menambah kompleksitas tanpa nilai)
+ *   - instansiasi multi-baris `new\nClient(` / `new\npg.Client(`
+ *   - destructuring `const { Client } = pg` tanpa instansiasi
  *
  * PEMAKAIAN
- *   node scripts/verify-no-local-db-client.mjs                # scan tests/ (default)
- *   node scripts/verify-no-local-db-client.mjs <path> [...]   # scan path tertentu (file/dir)
+ *   node scripts/verify-no-local-db-client.mjs                # scan tests/unit + tests/integration
+ *   node scripts/verify-no-local-db-client.mjs <path> [...]   # force check path tertentu (file/dir)
  *   npm run verify:no-local-db-client
  *
  * Exit 1 = ada pelanggaran, 0 = bersih.
@@ -52,8 +54,15 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.vitest']);
 /** Batas akumulasi statement import multi-baris sebelum dievaluasi/dibuang. */
 const IMPORT_MAX_LINES = 12;
 
+/**
+ * Scope default = direktori kelas flaky vitest (P2-F14-AW). tests/e2e, tests/a11y,
+ * tests/performance sengaja DI LUAR scan (bukan WARN, bukan exempt). tests/integration
+ * ikut otomatis selama direktorinya ada (filter di bawah membuang yang tidak ada).
+ */
+const DEFAULT_DIRS = ['tests/unit', 'tests/integration'].filter((d) => fs.existsSync(d));
 const argv = process.argv.slice(2);
-const roots = argv.length > 0 ? argv : ['tests/'];
+// Argumen path = force check apapun lokasinya (audit terarah); tanpa argumen = scope direktori.
+const roots = argv.length > 0 ? argv : DEFAULT_DIRS;
 
 function collect(p, out = []) {
   const st = fs.statSync(p, { throwIfNoEntry: false });
@@ -141,7 +150,7 @@ function scanFile(file) {
 
     const t = line.trim();
 
-    // 3) instansiasi — whitespace dinormalkan: `new  Client (` → `new Client(`
+    // 3) instansiasi — 4 bentuk (plain + member pg.); whitespace dinormalkan: `new  Client (` → `new Client(`
     const norm = t.replace(/\s+/g, ' ').replace(/\s+\(/g, '(');
     if (norm.includes('new Client(')) {
       hits.push({
@@ -160,16 +169,16 @@ function scanFile(file) {
     } else if (norm.includes('new pg.Client(')) {
       hits.push({
         line: i,
-        kind: 'warn',
+        kind: 'violation',
         raw: t,
-        why: 'new pg.Client( — bentuk member (celah diketahui, lihat header guard)',
+        why: 'new pg.Client( — bentuk member, koneksi lokal per-test (hanya tests/helpers/db.ts yang diizinkan)',
       });
     } else if (norm.includes('new pg.Pool(')) {
       hits.push({
         line: i,
-        kind: 'warn',
+        kind: 'violation',
         raw: t,
-        why: 'new pg.Pool( — bentuk member (celah diketahui, lihat header guard)',
+        why: 'new pg.Pool( — bentuk member, koneksi lokal per-test (hanya tests/helpers/db.ts yang diizinkan)',
       });
     }
 
@@ -197,7 +206,7 @@ function scanFile(file) {
 }
 
 console.log(
-  `\n=== verify:no-local-db-client — P2-F14-AV (anti koneksi DB lokal per-test) ===\n`,
+  `\n=== verify:no-local-db-client — P2-F14-AV/AW (anti koneksi DB lokal per-test) ===\n`,
 );
 console.log(`  scope : ${roots.join(', ')}`);
 
@@ -207,7 +216,6 @@ for (const r of roots) collect(r, files);
 let checked = 0;
 let allowedCount = 0;
 let violations = 0;
-let warnings = 0;
 
 for (const f of files) {
   const rel = path.relative(process.cwd(), f).split(path.sep).join('/');
@@ -220,41 +228,27 @@ for (const f of files) {
   const hits = scanFile(f);
   for (const h of hits) {
     const loc = `${rel}:${h.line + 1}`;
-    if (h.kind === 'violation') {
-      violations++;
-      console.log(`  ${W.fail}PELANGGARAN${W.off} ${loc}`);
-      console.log(`              isi: ${h.raw}`);
-      console.log(`              ${h.why}`);
-    } else {
-      warnings++;
-      console.log(`  ${W.warn}CELAH${W.off}     ${loc}`);
-      console.log(`              isi: ${h.raw}`);
-      console.log(`              ${h.why}`);
-    }
+    violations++;
+    console.log(`  ${W.fail}PELANGGARAN${W.off} ${loc}`);
+    console.log(`              isi: ${h.raw}`);
+    console.log(`              ${h.why}`);
   }
 }
 
 console.log(
-  `\n=== RINGKASAN: ${violations} pelanggaran, ${warnings} celah diketahui ` +
-    `(${checked} file dicek, ${allowedCount} diizinkan) ===`,
+  `\n=== RINGKASAN: ${violations} pelanggaran (${checked} file dicek, ${allowedCount} diizinkan) ===`,
 );
-if (warnings > 0) {
-  console.log(
-    `${W.warn}catatan${W.off} celah = bentuk member new pg.Client(/new pg.Pool( — WARN saja, ` +
-      `exit code tidak dipengaruhi.`,
-  );
-}
 if (violations > 0) {
   console.error(
     `${W.fail}verify:no-local-db-client GAGAL${W.off} — ada pola koneksi lokal per-test ` +
-      `(new Client/new Pool/import {Client,Pool} dari 'pg'). Pindahkan ke withDb bersama ` +
-      `(tests/helpers/db.ts).`,
+      `(new Client/new Pool/new pg.Client/new pg.Pool/import {Client,Pool} dari 'pg'). ` +
+      `Pindahkan ke withDb bersama (tests/helpers/db.ts).`,
   );
   process.exit(1);
 }
 console.log(
-  `${W.pass}verify:no-local-db-client OK${W.off} — tidak ada new Client/new Pool/import ` +
-    `{Client,Pool} dari 'pg' di luar tests/helpers/db.ts.\n`,
+  `${W.pass}verify:no-local-db-client OK${W.off} — tidak ada new Client/new Pool/` +
+    `new pg.Client/new pg.Pool/import {Client,Pool} dari 'pg' di luar tests/helpers/db.ts.\n`,
 );
 process.exit(0);
 
