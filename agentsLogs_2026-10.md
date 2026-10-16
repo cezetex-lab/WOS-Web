@@ -2361,3 +2361,81 @@ WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vit
 
 ### Catatan §0 item 11
 Entri log ditulis dalam sesi yang sama, sebelum STOP.
+## [2026-10-16] P2-F14-AX CLOSED — fix 6 admin_get_* rusak SQL + gate (migrasi 275, P1-F14-AA Tahap 2)
+
+> **Mode:** eksekusi (brief penuh, 12 langkah). **Commit kode migrasi `7505150`.**
+>
+> **Dampak lintas-page (G7): worker → admin → dashboard → owner**
+> - **admin**: 6 halaman konsumen berubah **dari error SQL ke berfungsi** (perubahan perilaku yang diinginkan): `/admin/master` + `/admin/master-data` (MasterDataPage), `/admin/timesheet` (TimesheetManagement), `/admin/attendance` (AdminAttendance), `/admin/integrations` (Integrations — tab Webhooks/SSO/Notifications/Logs) — semua kini `ok:true` untuk role yang berhak.
+> - **admin_finance + admin_operasional**: lolos gate `admin_get_timesheet` (NRP102/NRP103 OK — keputusan user, kontrak TimesheetPage); **admin_hrd (NRP101) 42501** (di luar kontrak halaman).
+> - **worker**: **fail-closed 42501×6** (sebelumnya: error SQL — fungsi terbuka tanpa gate, `has_function_privilege('authenticated')=true`).
+> - **dashboard/owner**: TIDAK BERUBAH — 0 konsumen di luar 6 halaman admin di atas (`git grep admin_get_{6}` = hanya `src/features/*` + `DetailPageFactory` yang tak dirender route); owner lolos gate lewat bypass `authz_is_owner()` (belum dipakai owner — tak ada halaman owner konsumen).
+
+### Pre-check (Langkah 1)
+```
+git status --short → (kosong)  STATUS_EXIT=0
+git rev-parse HEAD → 54f8d07cbda5b9f65db1204b87531aa0d36805ed  (=54f8d07 ✓)
+ls supabase/migrations/275* → No such file (LS275_EXIT=2) ✓
+registry → [{"n":199,"mx":274}] ✓
+migrasi 269 (3864 B) + 274 (5106 B) ada ✓
+```
+
+### Investigasi per fungsi (Langkah 2 — format brief)
+- **admin_get_master_data** — Definisi live md5 `ac61d594…` len 472 (utuh di `.agents/logs/ax-defs-live.log`). Error: `42703 ur.tier` (+ **2 error tersembunyi**: `o.divisi` — `hr_org` tanpa kolom divisi; `ur.created_at` — `user_roles` tanpa kolom waktu, baru ketahuan di GREEN). Skema: `user_roles` = nrp, role_level, scope_divisi, plan, role · `hr_org` = nrp, atasan_nrp, status, effective_from/to, created_at, updated_at. Konsumen: `MasterDataPage.tsx:29` (guard `useAdminAuth(["admin_pusat"])`:21, route `/admin/master`+`/admin/master-data`), `DetailPageFactory.tsx:42` (tak dirender route; `OrgChart:26` admin_pusat). Gate: **admin_pusat**. Fix (keputusan user): `ur.role_level`, `master_divisions.division_name` (48 rows — terkonfirmasi `information_schema`), hapus key `created_at` + ORDER BY `ur.role_level DESC, ur.nrp ASC`.
+- **admin_get_timesheet** — md5 `0386cea9…` len 533. Error `42703 a.check_in` (+ `a.check_out`, `a.status` tersembunyi). Skema `hr_attendance` = id, nrp, date, status_hadir, jam_masuk, menit_terlambat, jam_keluar, shift, menit_lembur, created_at, overtime_approved → `check_in`→`jam_masuk`, `check_out`→`jam_keluar`, `status`→`status_hadir` (kandidat tunggal). Konsumen: **`TimesheetPage.tsx:26` guard `useAdminAuth(["admin_pusat","admin_finance","admin_operasional"])` = MULTI-ROLE** → STOP, keputusan user 2026-10-16: **gate 3 role** `IN (...)` + owner bypass, mengikuti kontrak TimesheetPage; `AdminAttendance.tsx:6` + `TimesheetManagement.tsx:12` tanpa guard in-file (route `/admin/attendance`, `/admin/timesheet`) = **temuan terpisah (sub-item P2-F14-BH baru)**, tak diputuskan di sesi ini. Output key `check_in/check_out/status` dipertahankan via alias `AS`.
+- **admin_get_webhooks** — md5 `ce2eb056…` len 309. Error `42803 w.id GROUP BY`. `webhook_configs` = id, name, url, events, secret, active, last_triggered_at, created_at — semua kolom output ADA. Konsumen `Integrations.tsx:98` guard `admin_pusat` ✓. Fix: ORDER BY → subquery (pola `admin_get_timesheet`) — **tanpa tebakan**.
+- **admin_get_sso_providers** — md5 `2fe57152…` len 267. `42803 s.id`. `sso_providers` semua kolom output ADA. Konsumen `Integrations.tsx:100` admin_pusat ✓. Fix: subquery ✓.
+- **admin_get_external_notifications** — md5 `5b0cc42c…` len 308. `42803 e.id`. `external_notifications` semua kolom output ADA. Konsumen `Integrations.tsx:101` admin_pusat ✓. Fix: subquery ✓.
+- **admin_get_webhook_logs** — md5 `11555946…` len 356. Error `42703 l.webhook_id` (+ **3 tersembunyi**: `l.event`, `l.success`, `l.response_status`). `webhook_logs` = id, event_type, payload, target_url, status, response_code, created_at (0 rows — `status` tanpa sampel). Konsumen `Integrations.tsx:99` admin_pusat ✓; interface `WebhookLog` = {id, event, created_at, success, response_status} — **`webhook_id` tak dipakai**. Fix (keputusan user): `webhook_id`→`target_url`, `event`→`event_type`, `response_status`→`response_code` (integer = cocok kontrak TS), `success`→`COALESCE(response_code BETWEEN 200 AND 299, FALSE)` (dipilih di atas `status='SUCCESS'` karena 0 rows tanpa sampel).
+
+**3 fungsi lolos otomatis** (webhooks/sso/external — semua konsumen admin_pusat, fix subquery tanpa tebakan); **3 STOP** (multi-role timesheet, tebakan master_data, shape webhook_logs) → semua dijawab user (ask_questions), dicatat di header migrasi 275 sebagai **keputusan user 2026-10-16**.
+
+### RED proof (Langkah 4) — `.agents/logs/ax-red-20261016.log`, probe ROLLBACK 12/12
+```
+ADMIN_PUSAT admin_get_master_data => 42703: column ur.tier does not exist
+ADMIN_PUSAT admin_get_timesheet => 42703: column a.check_in does not exist
+ADMIN_PUSAT admin_get_webhooks => 42803: column "w.id" must appear in the GROUP BY clause...
+ADMIN_PUSAT admin_get_sso_providers => 42803: column "s.id" must appear...
+ADMIN_PUSAT admin_get_external_notifications => 42803: column "e.id" must appear...
+ADMIN_PUSAT admin_get_webhook_logs => 42703: column l.webhook_id does not exist
+WORKER (6 identik — error SQL, BUKAN 42501 = baseline tanpa gate terbukti)
+=== selesai: 12 error dari 12 panggilan ===
+```
+
+### Apply (Langkah 5) + patch
+- Apply pertama: `APPLY_EXIT=0`, checksum `f550011c…`, `DITERAPKAN + terdaftar + checksum terverifikasi (931ms)`, registry **200/275**.
+- GREEN pertama: **master_data masih merah** — `42703 ur.created_at` (error tersembunyi ke-3). **STOP → ask_questions** → keputusan user: hapus key `created_at`, ORDER BY `role_level DESC, nrp ASC`; jalur patch = **edit 275 + refresh checksum** (275 belum commit/push).
+- Patch dieksekusi ke live (`ax-run-sql.mjs commit` → `COMMIT OK`), lalu restamp resmi: `npm run db:migrate -- <275> --apply --restamp` → `RESTAMP : checksum diperbarui + diverifikasi`, checksum baru **`7e41ee63d6c1c7367d96d6fa74395f1def3cc643b97b9ea84017620077d855a3`**.
+- Verifikasi independent: `migrationChecksum(file)` == kolom registry == `7e41ee63…`, `verify_migration_checksum(...)` → `{ok:true}` ✓ (tanpa STOP).
+
+### GREEN proof (Langkah 6+7 final) — `.agents/logs/ax-green-final-20261016.log`
+```
+ADMIN_PUSAT admin_get_master_data => OK (2080 byte): {"ok":true,"roles":[{"nrp":"NRP001","role":"admin_pusat","tier":5},…]}
+ADMIN_PUSAT admin_get_timesheet/webhooks/sso/external/webhook_logs => OK: {"ok":true,"data":[]}
+WORKER semua 6 => 42501: Akses ditolak. Hanya admin_pusat[ / admin_finance, admin_operasional].
+=== selesai: 6 error dari 12 panggilan ===
+```
+Gate timesheet positif: NRP102 (admin_finance) OK · NRP103 (admin_operasional) OK · NRP101 (admin_hrd) **42501**.
+5 tabel target 0 rows (`webhook_configs`, `sso_providers`, `external_notifications`, `webhook_logs`, `hr_attendance`) → `data:[]` = benar (bukan bug SQL); `master_divisions` **48 rows** → sub-item "seeding BH" yang diusul user **TIDAK jadi** (bukan masalah).
+
+### Rollback proof (Langkah 7) — `.agents/logs/ax-rollback-proof2.log`, `RBP2_EXIT=0`
+- Dalam tx `BEGIN…ROLLBACK` (tidak pernah commit): isi `275_rollback.sql` dievaluasi → **pre-image md5 6/6 COCOK** (`ac61d594…`, `0386cea9…`, `ce2eb056…`, `2fe57152…`, `5b0cc42c…`, `11555946…`).
+- **12/12 probe menunjukkan error pra-275 asli** (42703/42803 per fungsi, admin + worker).
+- **Insiden bukti (diperbaiki, bukan di-skip):** run pertama hanya dapat `42703` untuk panggilan pertama lalu **`25P02 current transaction is aborted`** untuk 11 sisanya — artefak tx aborted, BUKTI TIDAK SAH (`RBP_EXIT=0` tapi 11 "PROBE-OK" palsu). Penyebab diperbaiki: **SAVEPOINT per probe** (`ROLLBACK TO SAVEPOINT probe`); `25P02` kini dihitung GAGAL. Run kedua: 12/12 error asli, `SEMUA ASSERT COCOK`.
+- Setelah tx: md5 **kembali POST utuh 6/6**. Re-apply 275 (`ax-run-sql commit` → COMMIT OK): **IDEMPOTEN 6/6 identik** (`master_data d658f876…` = post-patch final). Worker cek akhir: **42501 tetap**.
+
+### Registry sync (Langkah 8)
+- `ARCHITECTURE.md:133` — Migrations tracked **199 → 200** + Fact 275 (max 275, Functions tetap 657, checksum `7e41ee63…`).
+- `docs/forensic/CONSTANTS-INVENTORY.md:21` — **200 (max 275)** + riwayat `→ 200 (275 … P2-F14-AX CLOSED)`.
+- `SECURITY.md:43` — `supabase/migrations/` **199 → 200 berkas**.
+- `AGENTS.md §5.8` — **P2-F14-AX → ✅ CLOSED** (referensi commit `7505150`); **P1-F14-AA**: catatan **Tahap 2 SELESAI** disisipkan, **status TETAP ⚠ DECIDED** (AY/AZ/BA/BB/BF masih open).
+
+### Sub-item BARU dari sesi ini (§0.9 — temuan wajib jadi item)
+- **P2-F14-BH** — `AdminAttendance` + `TimesheetManagement` memanggil `admin_get_timesheet` **tanpa guard in-file** (`useAdminAuth`), mengandalkan gate DB saja (kini 3-role). (ID `BH` dipakai untuk ini; usulan "seeding master_divisions" BATAL — 48 rows, bukan masalah.)
+- **P2-F14-BI** — `MasterDataPage.tsx` membaca `result.data`, tapi RPC `admin_get_master_data` mengirim `{ok, roles, divisions}` → `setData([])` selalu — kontrak konsumen salah (kelas P2-F14-Y), pre-existing, di luar scope AX.
+
+### Pelajaran (diminta user untuk dicatat)
+**Audit per fungsi harus LOOP sampai nol error, bukan berhenti di error pertama.** Terbukti: `master_data` 3 error (tier → divisi → created_at), `webhook_logs` 4 (webhook_id → event → success → response_status) — audit lama hanya melihat permukaan. Probe kedua (post-patch) yang menemukan sisa = GREEN proof jadi "RED finder" kedua.
+
+### Catatan §0 item 11
+Entri log ditulis dalam sesi yang sama, sebelum STOP.
