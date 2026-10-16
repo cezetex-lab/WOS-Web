@@ -2559,3 +2559,45 @@ Sumber: `get_enabled_modules('admin')` sebagai **worker NRP002** (probe ROLLBACK
 
 ### Catatan §0 item 11
 Entri ditulis dalam sesi yang sama, sebelum STOP. Semua probe DB = transaksi ROLLBACK (nol perubahan).
+## [2026-10-16] Triage 32 route admin NONE — bucket P1/P2/P3/NO-RPC
+
+- **Status:** triage ✅ selesai (**audit-only** — nol perubahan kode) · sub-item baru **P1-F14-BM** (gate 26 route P1, urutan: RPC dulu) + **P2-F14-BN** (audit 28 RPC ungated-unknown) · **P2-F14-BL** di-update jadi umbrella triage
+- **Mode:** audit-only — file tracked hanya `AGENTS.md` + log ini. `src/`, `supabase/`, `.env.local`, `scripts/`, `.agents/scripts/` tidak disentuh.
+
+### Langkah 1 — Peta
+`.agents/logs/route-permission-map-final-2026-10-16.json` ADA: **97 total / 63 IN-FILE / 2 PARENT / 32 NONE** (dari sesi sweep commit `6311093`).
+
+### Langkah 2 — Scan RPC pola lengkap per file NONE
+Pola: `rpc('…')`, `.rpc('…')`, `fn: '…'`, helper `rpcGetXxx` (dipetakan via `supabase-rpc.ts` → 18 helper terpetakan, **0 tak terpetakan**). Scan ulang menemukan **2 DIFF vs JSON lama**: `/admin/facility` + `/admin/estate/facility` kehilangan `admin_get_facility_requests` di regex sweep pertama → scan ini dipakai sebagai sumber triage. Hasil: **union 33 RPC**, **4 route NO-RPC** (`/admin/estate/irrigation`, `/admin/estate/nursery`, `/admin/mfa`, `/admin/mining/emergency`).
+
+### Langkah 3 — Probe status gate (1 query batch, ROLLBACK, nol perubahan)
+`.agents/logs/triage-prosrc-20261016.log` — 33 RPC: `has_gate` = prosrc ILIKE `authz_*`/`42501`/`Akses ditolak` + `has_function_privilege`:
+```
+GATED (3): get_medical_checkup, get_worker_benefits, get_worker_payroll
+AY-UNGATED (1): admin_get_facility_requests  (ada di daftar 17 AY; probe gate=false — konsisten)
+ACL-CLOSED (1): create_facility_request  → exec(anon)=false, exec(authenticated)=FALSE → tak bisa dieksekusi oleh worker
+UNGATED-UNKNOWN (28): sisanya — gate=false, secdef=true (kecuali get_harvest_records + get_transport_DISPATCH = INVOKER), exec(anon)=false SEMUA
+TIDAK ADA DI LIVE: []
+```
+⚠ Kejujuran metode: `has_gate` = deteksi teks prosrc, **bukan audit runtime** — proteksi lain (RLS tabel sumber, data kosong) belum dicek → itu isi **P2-F14-BN**. Probe batch = 1 query (<5 menit) → tidak kena STOP ">5 menit per RPC"; **audit mendalam 28 RPC = 28 > 10 → STOP sesuai brief, sesi terpisah.**
+
+### Langkah 4–5 — Bucket + JSON
+```
+STATS={"total_none":32,"P1":26,"P2":0,"P3":2,"norpc":4}
+```
+- **P1 (26)** — route NONE + ≥1 RPC tanpa gate. Kritis: `/admin/performance-trend` (3 RPC), `/admin/forum` (3 RPC tulis+baca), `/admin/facility` + `/admin/estate/facility` (AY), 6 route mill, 8 route mining (safety/qhse/safety duplikat SafetyK3), career×2, estate blocks/harvest/transport, performance, succession.
+- **P2 (0)** — tak ada route MIXED (campuran gated+ungated).
+- **P3 (2)** — `/admin/compensation-intel` (`get_worker_payroll`+`get_worker_benefits` GATED), `/admin/estate/medical` (`get_medical_checkup` GATED) → worker buka → RPC tolak → kosong. Dampak kosmetik.
+- **NO-RPC (4)** — dead route kandidat: estate/irrigation, estate/nursery, mfa, mining/emergency.
+- Peta: `.agents/logs/route-none-triage-2026-10-16.json` (bucket + reason + status per RPC).
+
+### Langkah 6 — Sub-item §5.8
+- **P2-F14-BL** → di-update: DoD triage (a) P1 → BM, (b) P3 tunda, (c) NO-RPC = dead route.
+- **P1-F14-BM** (baru, P1): gate 26 route P1 — **urutan wajib: gate RPC dulu (AY + BN), route otomatis jadi P3; jangan tambal guard route dulu.**
+- **P2-F14-BN** (baru, P2): audit 28 RPC `UNGATED-UNKNOWN` (runtime probe per fungsi, pola AX) — sesi terpisah.
+
+### Dampak lintas-page (G7): worker → admin → dashboard → owner
+**TIDAK BERUBAH** — audit-only: nol perubahan `src/`, RPC, guard, atau build. Semua perilaku identik dengan tree `6311093`.
+
+### Catatan §0 item 11
+Entri ditulis dalam sesi yang sama, sebelum STOP. Semua probe = transaksi ROLLBACK (nol perubahan DB).
