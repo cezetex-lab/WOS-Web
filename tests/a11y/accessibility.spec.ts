@@ -5,7 +5,7 @@
  * Auth: storageState 1x per role (.agents/logs/auth-{worker,admin-hrd,owner}.json)
  * — prinsip OPS-08, tanpa OTP ulang di suite (0 OTP/run; limiter
  * `pwreset_login_otp` 3/NRP/15 menit tidak lagi tersentuh suite ini).
- * Generator: node .agents/scripts/setup-auth-state.cjs (butuh dev server jalan);
+ * Generator: node scripts/setup-auth-state.cjs (butuh dev server jalan);
  * kredensial E2E_* di .env.local hanya dipakai script generator itu, bukan di sini.
  *   TEST_BASE_URL — default http://localhost:5173
  */
@@ -32,7 +32,7 @@ const AUTH = {
 };
 for (const [k, p] of Object.entries(AUTH)) {
   if (!fs.existsSync(p)) {
-    throw new Error(`storageState ${k} hilang: ${p} — jalankan: node .agents/scripts/setup-auth-state.cjs`);
+    throw new Error(`storageState ${k} hilang: ${p} — jalankan: node scripts/setup-auth-state.cjs`);
   }
 }
 

@@ -21,7 +21,7 @@
  *   Divalidasi otomatis oleh assertOtpBudget() di bawah (fail-fast bila drift).
  *
  * KREDENSIAL: HANYA dari env (.env.local, gitignored). Tidak ada literal password di
- * repo — nilai di-seed oleh `.agents/scripts/seed-admin-otp-identities.mjs` yang membaca
+ * repo — nilai di-seed oleh `scripts/seed-admin-otp-identities.mjs` yang membaca
  * `supabase/akun/akun.txt`. Karena itu modul ini TIDAK melempar saat impor (suite
  * hermetic default tetap hijau); spec live memvalidasi lewat assertAccount().
  */
@@ -110,7 +110,7 @@ export function assertAccount(acct: LiveAccount, key: IdentityKey): void {
   if (!acct.email || !acct.pass) {
     throw new Error(
       `Kredensial identitas "${key}" belum ada di env (E2E_ADMIN_${ENV_SLUG[key]}_EMAIL/PASS). ` +
-        'Jalankan: node .agents/scripts/seed-admin-otp-identities.mjs',
+        'Jalankan: node scripts/seed-admin-otp-identities.mjs',
     );
   }
 }

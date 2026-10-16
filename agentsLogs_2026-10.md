@@ -2303,3 +2303,61 @@ WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vit
 >
 > **Catatan pemenuhan §0 item 11:** log ditulis dalam sesi yang sama, sebelum STOP — sesuai §0 item 11. Status P2-F14-BE di §5.8 TIDAK diubah (tetap ⚠ NEW) — menunggu keputusan user untuk pemindahan.
 
+## [2026-10-16] P2-F14-BE + P3-F14-BD CLOSED — pindahkan setup-auth-state + seed-admin-otp ke scripts/ tracked
+
+> **Mode:** eksekusi sesi lanjutan (Freebuff sempat restart di tengah sesi — copy + update referensi + §5.8 sudah ada di working tree, sesi ini melanjutkan verifikasi/repair/sisa).
+>
+> **Dampak lintas-page (G7): TIDAK BERUBAH** — nol perubahan `src/`, `supabase/`, route/menu/RPC; semua perubahan = 2 file pindah ke `scripts/` + 4 file referensi docs/test + entri log ini.
+
+### 1. Investigasi (sebelum eksekusi — tidak ada STOP)
+- `setup-auth-state.cjs` (185 baris): TANPA path absolut; `ROOT = path.resolve(__dirname, '..', '..')` (benar untuk `.agents/scripts/`); dependensi = `@playwright/test`, `.env.local`, `supabase/akun/akun.txt` (gitignored), output `.agents/logs/auth-*.json` — semua ROOT-relative, tidak ada dependensi lokal tak jelas di `.agents/scripts/`.
+- `seed-admin-otp-identities.mjs` (92 baris): dependensi = `.env.local` + `akun.txt` saja; idempoten (key sudah ada → dilewati); kredensial tidak pernah dicetak (hanya panjang nilai).
+- Anomali baris 109 TERKONFIRMASI: `console.log` mencetak literal `admin=pusat@insightwos.com` apa pun kondisinya, padahal login aktual dari `E2E_ADMIN_*` = `hrd@insightwos.com`.
+- `scripts/` dominan `.mjs` (11) + `.ts` (7); `.cjs` = hanya file ini — dipertahankan karena modulnya memang CommonJS (`require`).
+
+### 2. Koreksi sambil pindah (brief: "koreksi kecil sambil pindah")
+- `scripts/setup-auth-state.cjs:110`: `admin=${akun.admin.email}` (dari variabel, bukan literal) — terbukti run menampilkan `admin=hrd@insightwos.com`.
+- ROOT disesuaikan: `'..','..'` → `'..'` (kedua file — `scripts/` satu level dari root).
+- Header comment disesuaikan: `scripts/setup-auth-state.cjs` + output `auth-{worker,admin-hrd,owner,admin-mill}.json`.
+- eslint (file di luar scope `src/`+`tests/`, §0.21): **RED dulu** — `npx eslint scripts/setup-auth-state.cjs scripts/seed-admin-otp-identities.mjs` → **EXIT 1**, 1 error `no-redeclare` `2:40` (`require` sudah built-in global `.cjs`; header `/* global __dirname, process, console, require */` dari sesi lalu) → hapus `require` dari daftar `/* global */` → **EXIT 0** (file `.cjs`/`.mjs` tidak butuh `eslint-env` — cukup `/* global */`, config ESLint tidak diubah). Log: `.agents/logs/be-eslint-before-20261016.log` (RED) + `be-eslint-after-20261016.log` (GREEN).
+
+### 3. File dipindah (tracked, gitignored → scripts/)
+- `scripts/setup-auth-state.cjs` (9398 byte setelah koreksi) — `??` di git status.
+- `scripts/seed-admin-otp-identities.mjs` (3235 byte) — `??` di git status.
+
+### 4. Referensi diupdate (git grep penuh = 5 titik live)
+- `tests/a11y/accessibility.spec.ts:8` + `:35` → `node scripts/setup-auth-state.cjs`.
+- `tests/e2e/admin-gated-pages-smoke.spec.ts:28` → `scripts/setup-auth-state.cjs`.
+- `tests/e2e/helpers/live-accounts.ts:24` + `:113` → `scripts/seed-admin-otp-identities.mjs`.
+- `AGENTS.md` §5.8 baris BD/BE → CLOSED (lihat §5 di bawah). Sisa `.agents/scripts/` di AGENTS.md:654 = bukti historis insiden P3-F14-BF (bukan instruksi eksekusi) — sengaja dibiarkan.
+
+### 5. Verifikasi (output mentah di sesi ini)
+- Dev server `localhost:5173` → `HTTP_CODE=200`.
+- `node scripts/setup-auth-state.cjs` → **RUN_EXIT=0**:
+  ```
+  akun ok: worker=NRP002 admin=hrd@insightwos.com owner=cezetex@gmail.com admin-mill=NRP105 (password tidak dicetak)
+  worker OK → .agents\logs\auth-worker.json (3512 byte)
+  admin OK → .agents\logs\auth-admin-hrd.json (3470 byte
+  owner OK → .agents\logs\auth-owner.json (3350 byte)
+  admin-mill OK → .agents\logs\auth-admin-mill.json (3412 byte)
+  STAGE C LANGKAH 1 SELESAI: storageState terbentuk (worker/admin/owner/admin-mill).
+  ```
+  (catatan: baris admin memang tanpa `)` penutup — pre-existing, bukan regresi; tidak diubah di luar scope brief)
+- `npx eslint scripts/setup-auth-state.cjs scripts/seed-admin-otp-identities.mjs` → **ESLINT_EXIT=0**.
+- `npx tsc --noEmit` → **TSC_EXIT=0**, 0 baris error (log `.agents/logs/be-tsc-20261016.log`).
+
+### 6. File lama dihapus (setelah backup)
+- Backup: `.agents/logs/backup-2026-10-16/setup-auth-state.cjs` (9428 byte) + `seed-admin-otp-identities.mjs` (3219 byte).
+- `rm .agents/scripts/setup-auth-state.cjs .agents/scripts/seed-admin-otp-identities.mjs` → **RM_EXIT=0**; `ls` keduanya → `No such file or directory` (LS_EXIT=2 = terhapus, sesuai ekspektasi).
+
+### 7. §5.8 — status Work Queue
+- **P3-F14-BD** → ✅ **CLOSED** (2026-10-16): producer-side (`scripts/setup-auth-state.cjs`) kini tracked; konsumen rename sudah `d86483d`.
+- **P2-F14-BE** → ✅ **CLOSED** (2026-10-16): audit 510 file (`045225e`) → 2 TOOLING dipindah + referensi diupdate + lama dibackup/dihapus; **ditunda**: `ops11-regen-owner.cjs` (AMBIGUOUS — butuh keputusan user) + 12 DEAD (housekeeping lokal terpisah).
+
+### 8. Catatan tunda (bukan bagian DoD sesi ini)
+- `ops11-regen-owner.cjs` — AMBIGUOUS, menunggu keputusan user.
+- 12 file DEAD — housekeeping lokal terpisah.
+- `P2-F14-BF` (metode capture exit code) tetap ⚠ NEW — sesi ini memakai pola `echo "...EXIT=$?"` yang sah (exit code dari prosesnya sendiri, bukan `%ERRORLEVEL%` parse-time).
+
+### Catatan §0 item 11
+Entri log ditulis dalam sesi yang sama, sebelum STOP.

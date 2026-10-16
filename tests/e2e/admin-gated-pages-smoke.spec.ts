@@ -25,7 +25,7 @@
  * admin-payroll.spec.ts. Kuota OTP aplikasi 3/15 menit per NRP → login
  * DILAKUKAN SEKALI di test setup (describe.serial), state di-share ke 4 test.
  *
- * Storage state worker: hasil `setup-auth-state.cjs` (kredensial existing —
+ * Storage state worker: hasil `scripts/setup-auth-state.cjs` (kredensial existing —
  * TIDAK ada kredensial baru). Playwright DI LUAR suite vitest — tidak
  * mengubah hitungan .vitest/test-result.json.
  */
