@@ -2601,3 +2601,124 @@ STATS={"total_none":32,"P1":26,"P2":0,"P3":2,"norpc":4}
 
 ### Catatan §0 item 11
 Entri ditulis dalam sesi yang sama, sebelum STOP. Semua probe = transaksi ROLLBACK (nol perubahan DB).
+## [2026-10-16] P2-F14-BO CLOSED — fix flaky numeric-claims-guard.test.ts timeout
+
+**Scope:** test-only. File disentuh: `tests/unit/numeric-claims-guard.test.ts` (fix), `AGENTS.md` §5.8 (sub-item), `agentsLogs_2026-10.md` (entri ini). Dilarang disentuh semua dipatuhi: `src/`, `supabase/`, `.env.local`, `scripts/`, `.agents/scripts/`, `tests/helpers/db.ts` — **0 perubahan**.
+
+**Konteks:** guard putaran 1 sesi triage `7ecc67f` gagal `verify:test-logged` exit 1 — `numeric-claims-guard.test.ts` "timed out in 5000ms" di suite paralel; rerun standalone 12/12 PASS, test terberat 3917ms. Dugaan flaky under load, kelas sama P2-F14-AS (sumber beda: file-read/spawn, bukan DB).
+
+### 1. Investigasi (Langkah 1)
+
+Baca `tests/unit/numeric-claims-guard.test.ts` utuh (222 baris sebelum edit):
+
+- **12 `it()`** di 3 `describe`: registry loader (2), perilaku drift (7), regresi cross-platform (3).
+- **Tidak ada** timeout override di describe mana pun; semua default 5000ms.
+- Test terberat (verbose reporter standalone):
+
+```
+✓ registry corrupt (tanpa source) → guard exit 2 ... 463ms
+✓ registry NYATA (scripts/numeric-claims-registry.json) tervalidasi shape-nya ... 4347ms   ← TERBERAT (87% budget)
+✓ klaim live-unguarded TIDAK cocok live → exit 1 + DRIFT ... 606ms
+✓ klaim live-unguarded SINKRON dengan live → exit 0 ... 611ms
+✓ file dalam archiveFiles TIDAK di-drift-check ... 618ms
+✓ klaim external-snapshot → WARN ... 367ms
+✓ klaim ambiguous → WARN ... 462ms
+✓ mode gte ... 1125ms
+✓ baris ber-marker [snapshot:<hash>] di-skip ... 697ms
+✓ extractor repo-file mengembalikan number ... 911ms
+✓ korpus guard memuat .md NESTED ... 664ms
+✓ source guard tanpa branch platform-specific ... 11ms
+Tests  12 passed (12) · Duration 11.85s (tests 10.91s) · EXIT=0
+```
+
+- **Test terberat = "registry nyata tervalidasi shape-nya" (4347ms)** — spawn guard `verify-numeric-claims.mjs` dengan **registry penuh 195 entry**; bottleneck validasi+scan registry besar, bukan I/O besar (korpus cuma ARCHITECTURE.md di test ini).
+- `liveFromExtractor('unit-files')` dipanggil 5× tanpa cache (~600ms/spawn) — kandidat cache, TAPI bukan penyebab timeout (test terberat tidak memakainya).
+- File yang dibaca: registry JSON, ARCHITECTURE.md, `scripts/*.mjs`, walk `tests/**` — kecil. Tidak ada caching/mock yang bisa dipakai tanpa mengubah makna test (test harus menjalankan guard NYATA thd registry NYATA — keputusan user B2 di header file).
+
+### 2. RED proof (Langkah 2, §0.19)
+
+Full suite `npm run verify:test-logged` **10× berturut** pada tree TANPA fix:
+
+```
+RUN1_EXIT=0   (Duration 68.79s, 32 files / 230 tests)
+RUN2_EXIT=1   ← RED
+RUN3_EXIT=0
+RUN4_EXIT=0
+RUN5_EXIT=0
+RUN6_EXIT=0
+RUN7_EXIT=0
+RUN8_EXIT=0
+RUN9_EXIT=0
+RUN10_EXIT=0
+LOOP_DONE
+```
+
+**RED = 1 dari 10 gagal.** Error persis run 2 (`.agents/logs/bo-red-2of10.log`):
+
+```
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL   node  tests/unit/numeric-claims-guard.test.ts > verify:numeric registry loader > registry nyata (scripts/numeric-claims-registry.json) tervalidasi shape-nya
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/unit/numeric-claims-guard.test.ts:105:3
+
+ Test Files  1 failed | 31 passed (32)
+      Tests  1 failed | 229 passed | 4 todo (234)
+   Duration  64.71s
+[run-vitest-with-log] exit : 1
+```
+
+Test yang gagal **persis test terberat dari investigasi** → reproduksi flaky terkonfirmasi, RED sah.
+
+### 3. Fix (Langkah 3) — **Pilihan A** (timeout override describe 15000ms)
+
+Alasan pilih A (bukan B/C/D): bottleneck = biaya inheren menjalankan guard nyata thd registry 195 entry — **tidak bisa di-cache** tanpa mengubah makna test; optimasi cache `liveFromExtractor` hanya menolong test lain yang sudah jauh di bawah budget; sequential (C) tidak dibutuhkan (satu file, tak bereksklusif resource). 15000ms = 3.4× headroom dari 4347ms.
+
+Diff (`tests/unit/numeric-claims-guard.test.ts`, 2 hunk — komentar + argumen timeout):
+
+```diff
++/* P2-F14-BO (2026-10-16): timeout 15000ms khusus describe ini. Bukti RED:
++   suite penuh 10x -> run 2 gagal `Test timed out in 5000ms` pada test terberat
++   ("registry nyata tervalidasi shape-nya", standalone 4347ms = 87% budget).
++   Bottleneck = spawn guard verify-numeric-claims.mjs dengan registry penuh
++   (195 entry) — biaya inheren test, bukan drift. 15s = 3.4x headroom.
++   Test lain di file ini jauh di bawah budget; jangan naikkan timeout global. */
+-describe('verify:numeric registry loader', () => {
++describe('verify:numeric registry loader', () => {
+   ... (test ke-2 tidak diubah)
+-  });
+-});
++  });
++}, 15000); // P2-F14-BO: lihat komentar header describe
+```
+
+Tidak ada: retry, skip, it.only, timeout global vitest, penghapusan asersi. `npm run check:types` → **TSC_EXIT=0**.
+
+### 4. GREEN proof (Langkah 4)
+
+Full suite **10× berturut SETELAH fix**:
+
+```
+GREEN_RUN1_EXIT=0   (Duration 55.52s, 32 passed / 230 passed | 4 todo)
+GREEN_RUN2_EXIT=0
+GREEN_RUN3_EXIT=0
+GREEN_RUN4_EXIT=0
+GREEN_RUN5_EXIT=0
+GREEN_RUN6_EXIT=0
+GREEN_RUN7_EXIT=0
+GREEN_RUN8_EXIT=0
+GREEN_RUN9_EXIT=0
+GREEN_RUN10_EXIT=0
+GREEN_LOOP_DONE
+```
+
+Verifikasi lintas-log: `grep -c "timed out" .agents/logs/bo-green-*.log` → **0 di semua 10 file** (exit 1 = nihil, bukan miss); tiap run `Test Files 32 passed (32)` + `[run-vitest-with-log] exit : 0`.
+
+### 5. Sub-item §5.8
+
+`P2-F14-BO` ditambahkan setelah `P2-F14-BN` dengan Masalah/Bukti/DoD (RED 1/10 + GREEN 10×) → status **✅ CLOSED (2026-10-16)**.
+
+**G7: TIDAK BERUBAH** — test-only; 4 page (worker → admin → dashboard → owner) tidak terdampak, 0 perubahan kode produksi/RPC/route/guard DB.
+
+**Catatan §0 item 11:** sesi ini mengubah state repo (bukan audit-only) — bukti RED/GREEN di atas dijadikan bagian entri ini sebelum STOP.
