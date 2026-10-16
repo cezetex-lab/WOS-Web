@@ -2281,3 +2281,25 @@ WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vit
 >
 > **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH** — sesi ini docs-only: `AGENTS.md` §5.8 (1 baris BG) + entri log ini; nol perubahan `src/`, `supabase/`, `.env.local`, `tests/`, `scripts/` runtime, RPC, route, session, menu, design system, atau DB.
 
+
+## [2026-10-16] P2-F14-BE — audit .agents/scripts/ (audit-only)
+
+> **Ringkas hasil:** 510 file (**2488912 byte** ≈ 2,49 MB) → klasifikasi: **2 TOOLING-BERULANG** · **1 AMBIGUOUS** · **12 DEAD** · **495 SEKALI-PAKAI**.
+> - **TOOLING-BERULANG:** `setup-auth-state.cjs` (referensi live: `accessibility.spec.ts:8,35` + `admin-gated-pages-smoke.spec.ts:28` + AGENTS.md) dan `seed-admin-otp-identities.mjs` (referensi live: pesan error `tests/e2e/helpers/live-accounts.ts` → `Jalankan: node .agents/scripts/...`).
+> - **AMBIGUOUS:** `ops11-regen-owner.cjs` (regenerasi auth-owner; hanya disebut agentsLogs; butuh dev server + `akun.txt`) — butuh keputusan user.
+> - **DEAD (12):** `verify-test-freshness.mjs` + `numeric-extractors.mjs` (duplikat canonical tracked di `scripts/`), `verify-numeric-claims-OLD.mjs` (superseded), `w.js` (scrap 24 B), 5× `*.tmp`, 3× `*.content`.
+>
+> **Bukti mentah (perintah + output):**
+> - `Get-ChildItem .agents\scripts -File` → **510 file**; prefix dominan: `fix14` 140, `probe` 66, `audit` 25, `fix5` 18, `forensic`/`ops14` 14 — semua terikat tiket.
+> - `git grep` nama-file × tracked files → **45/510** pernah disebut; di luar `agentsLogs*` hanya **15** (`setup-auth-state` 3 file, `verify-test-freshness` 4 [dup scripts/], dst). Rincian `name|outside|logs` ada di artefak.
+> - Dependensi: `findstr .env.local|akun.txt|DATABASE_URL` → **862 baris di 350 file** (fix14 127, probe 49, audit 21) — mayoritas butuh env/DB lokal.
+> - **STOP check CI:** `Select-String .github\workflows\*.yml -Pattern '\.agents'` = **0 hit**; CI hanya jalan vitest (`ci.yml:124`), **tidak menjalankan E2E/Playwright** → CI tidak memakai script ini (STOP #2 tidak terpicu).
+> - **STOP check secret:** `SERVICE_ROLE` = semua hit nama role SQL/regex detektor; `eyJhbGciOi` = **8 hit, semuanya di dalam regex `reSecret/SECRET` (detektor)** — nol literal kredensial (STOP #4 tidak terpicu).
+> - **STOP check tulis ke src/supabase:** 255 baris `writeFile*` → **src/ = 0**; **supabase/ = 5 file** → **STOP #3 TERPICU**: `fix14-265i/266g/267g/268g-compose.mjs` (tulis `supabase/migrations/26x_*.sql` + rollback — komposer migrasi Fix #14, bukan tooling lokal biasa) + `gen-rollback.mjs` (tulis `supabase/migrations/rollback/251_rollback.sql`). Semua SEKALI-PAKAI & sudah terpakai; dicatat agar tidak dipindah buta ke `scripts/`.
+>
+> **Pointer tabel lengkap (510 baris: name/bytes/ext/mtime/ref/cls/basis):** `.agents/logs/p2-f14-be-inventory.json` (222841 byte, gitignored).
+>
+> **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH** — audit-only: nol perubahan file tracked selain entri log ini; tidak ada file dipindah; `src/`, `supabase/`, `.env.local`, `tests/`, `scripts/` tidak tersentuh.
+>
+> **Catatan pemenuhan §0 item 11:** log ditulis dalam sesi yang sama, sebelum STOP — sesuai §0 item 11. Status P2-F14-BE di §5.8 TIDAK diubah (tetap ⚠ NEW) — menunggu keputusan user untuk pemindahan.
+
