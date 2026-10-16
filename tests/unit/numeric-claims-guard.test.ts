@@ -91,6 +91,12 @@ function walkTestFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+/* P2-F14-BO (2026-10-16): timeout 15000ms khusus describe ini. Bukti RED:
+   suite penuh 10x -> run 2 gagal `Test timed out in 5000ms` pada test terberat
+   ("registry nyata tervalidasi shape-nya", standalone 4347ms = 87% budget).
+   Bottleneck = spawn guard verify-numeric-claims.mjs dengan registry penuh
+   (195 entry) — biaya inheren test, bukan drift. 15s = 3.4x headroom.
+   Test lain di file ini jauh di bawah budget; jangan naikkan timeout global. */
 describe('verify:numeric registry loader', () => {
   it('registry corrupt (tanpa source) → guard exit 2, bukan hijau diam', () => {
     const bad = writeFixture('reg-bad.json', JSON.stringify({
@@ -109,7 +115,7 @@ describe('verify:numeric registry loader', () => {
     expect([0, 1]).toContain(res.status); // valid = scan jalan (0 hijau / 1 drift)
     expect(res.stdout).not.toContain('tidak valid');
   });
-});
+}, 15000); // P2-F14-BO: lihat komentar header describe
 
 describe('verify:numeric perilaku terhadap drift (guard TIDAK DIAM)', () => {
   const entryUnitFiles = {
