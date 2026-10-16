@@ -2270,3 +2270,14 @@ WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vit
 >
 > **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH** — sesi ini docs-only: `AGENTS.md` §5.8 (baris BD → IN_PROGRESS + format item 11 + 2 baris baru BE/BF) + entri log ini; nol perubahan `src/`, `supabase/`, `.env.local`, `tests/`, `scripts/` runtime, RPC, route, session, menu, design system, atau DB. Artefak `auth-admin-hrd.json` = test-only (`.agents/logs/`, gitignored).
 
+
+## [2026-10-16] Koreksi judul commit ea18098 + sub-item BG (lanjutan verifikasi BD)
+
+> **Koreksi jujur — judul commit `ea18098` tidak lengkap.** Commit memuat `AGENTS.md` (rollback status P3-F14-BD ke ⚠ IN_PROGRESS + format §0 item 11 + sub-item baru P2-F14-BE/P3-F14-BF) **DAN** `agentsLogs_2026-10.md` (entri 2026-10-16 + fix Cyrillic `hanyа`→`hanya`), tapi judulnya hanya menyebut logs — akar: dua perintah `git add`+`git commit` dalam satu call PowerShell mengalami race (`git add` kedua terjadi sebelum commit pertama jalan → commit pertama melihat tree bersih, kedua file masuk di commit kedua). **Isi benar dan lengkap** (41 insertions, 3 deletions, kedua file); judul kurang akurat. **Tidak di-amend** karena commit sudah push (menghindari force-push); catatan ini menjadi riwayat jujurnya. Pelajaran proses: jalankan perintah git dependen secara terpisah, jangan dibatch dalam satu call.
+>
+> **Pelajaran PowerShell (terkait P3-F14-BF):** `*>` pada wrapper `cmd /c` **bukan redirect yang aman** — cmd.exe tidak mengenalinya; `*` bocor menjadi argumen vitest (`filter: *`) → `No test files found` → `.vitest/test-result.json` korup 0-test → kaskade `doc-claims-vs-live` FAIL (`dokumen=228, suite=0`) + 2 unhandled `Failed to start threads worker`. Untuk run berikutnya pakai `> file 2>&1` (cmd) atau `Tee-Object` (PowerShell), dan exit code via `$LASTEXITCODE` / `cmd /v:on` + `!ERRORLEVEL!`.
+>
+> **Item baru: P2-F14-BG** (§5.8) — `verify-backup-artifact` FAIL pada artefak `.agents/logs/backup_2026-09-27_06-33-30.sql.gz` (43776 B < 51200 B min; gzip header rusak). Guard bekerja benar; pertanyaan terbuka = sehat-tidaknya pipeline backup harian vs kasus tunggal artefak basi. Jangan hapus file sebelum investigasi.
+>
+> **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH** — sesi ini docs-only: `AGENTS.md` §5.8 (1 baris BG) + entri log ini; nol perubahan `src/`, `supabase/`, `.env.local`, `tests/`, `scripts/` runtime, RPC, route, session, menu, design system, atau DB.
+
