@@ -2520,3 +2520,42 @@ Entri log ditulis dalam sesi yang sama, sebelum STOP. RED proof MERAH dulu (§0.
 - **Koreksi pasca putaran guard 1:** suite penuh menemukan 1 drift tambahan — `SECURITY.md` §3.10 masih klaim `unit 228/228` (test `doc-claims-vs-live` MERAH: "update ke unit 234/234"). Diperbaiki penyebabnya (klaim → 234/234), bukan di-skip.
 - **Hasil akhir gate (tree ter-commit):** `check:types` EXIT 0 · eslint 4 file 0 error · suite **32/32 file, 230 passed + 4 todo, exit : 0** · guard **7/7**: encoding (0 non-UTF8) · numeric (**0 drift**, 45 klaim) · test-count · test-freshness · artifacts (0 drift) · no-local-db-client · test-logged.
 - **Commit:** `a228ff2` (9 file: 3 src + 1 test baru + 5 docs, +364/−62) → push `3f0fd58..a228ff2` → `ls-remote` = HEAD, `git status` kosong. Secret scan staged diff: 0 match `postgresql://|SERVICE_ROLE|\.env`. Scope terlarang (`supabase/`, `scripts/`, `.agents/scripts/`, `.env.local`) tidak tersentuh (diverifikasi via `git show --name-only`).
+## [2026-10-16] Sweep guard 99 route admin + tutup BB sisa
+
+- **Status:** Sweep ✅ selesai (audit, nol fix halaman) · BB 🟡 tetap PARTIAL (**BLOCKED-BY-BK** — keputusan user opsi 2) · sub-item baru **P2-F14-BK** (RPC sempit reset target) + **P2-F14-BL** (32 route NONE)
+- **Mode:** audit + docs saja — **tidak ada file `src/` yang diubah** (BB tidak difix sesuai keputusan; guard global `App.tsx`/`AdminRouteGuard.tsx` tidak disentuh; `supabase/`, `.env.local`, `scripts/`, `.agents/scripts/` tidak disentuh)
+
+### Langkah 1 — Investigasi BB (ResetPassword.tsx)
+- Guard: `useAdminAuth(["admin_pusat", "admin_hrd"])` (`ResetPassword.tsx:17`); panggil `rpc('admin_get_employees')` (`:35`); field dipakai: **nrp, nama, divisi, status** saja (respons RPC memuat juga email/no_hp/nik — tidak dirender).
+- Probe live ROLLBACK (`.agents/logs/bb-investigasi-20261016.log`):
+```
+NRP100 admin_get_employees => OK tipe=array len=17 sample={"nik":"3204000000000001","nrp":"NRP001","nama":"CEO InsightWOS","email":"ceo@insightwos.com",...}
+NRP101 admin_get_employees => 42501: Akses ditolak.
+NRP101 admin_reset_worker_password(NRP999) => OK {"ok":false,"msg":"Karyawan dengan NRP NRP999 tidak ditemukan"}
+=== role_page_access ===  []   (0 baris utk /admin/reset-password)
+```
+- `admin_reset_worker_password` gate = `authz_check_admin('employee.update')` → **HRD lolos gate reset**, tapi daftar target 42501 → halaman tak berfungsi utk HRD hari ini.
+- Kandidat RPC sempit: **tidak ada** — `admin_get_employees` full array (17 baris + PII), `admin_get_employee_stats` = agregat `{pkwt,pkwtt,total,active,expiring_soon}` (tanpa nama).
+- **Keputusan user (ask_questions, opsi 2):** pertahankan `admin_hrd` di guard + sub-item **P2-F14-BK** (`get_employee_reset_target`: kolom nrp/nama/divisi/status, gate sempit [admin_pusat, admin_hrd] + owner, tanpa view_all) = migrasi baru di luar brief. BB → **PARTIAL, BLOCKED-BY-BK**. RED proof BB = bukti 42501 di atas (tidak ada fix → tidak ada GREEN baru; dilarang ubah `admin_get_employees` — sudah di-gate 273).
+
+### Langkah 2 — Sweep guard (audit)
+Sumber: `get_enabled_modules('admin')` sebagai **worker NRP002** (probe ROLLBACK — 99 elemen; 2 duplikat identik → **97 unik**; `route_group=admin` di `module_definitions` = 103 rows / 99 unique). Klasifikasi per komponen via `route-config.ts` map + baca file:
+```
+{"total":97,"infile":63,"parent":2,"none":32,"nofile":0}
+```
+- **IN-FILE 63** — `useAdminAuth([...])`/permission di komponen (sampling: `LeaveManagement.tsx:8`, `Payroll.tsx:9` = import terkonfirmasi).
+- **PARENT 2** — `/admin` + `/dashboard`: `<Route>` eksak di `App.tsx` dibalut `RoleGuard` (satu-satunya guard parent yang nyata; sisanya jatuh ke `DynamicRoutes` **tanpa cek role** — terbukti P2-F14-BH).
+- **NONE 32** (daftar lengkap di JSON + `.agents/logs/sweep-guard-20261016.log`): 2 career + compensation-intel + 5 estate + facility + forum + mfa + 6 mill + 8 mining + performance + performance-trend + qhse + safety + succession. **Risiko per halaman = RPC-nya**, contoh paling nyata `/admin/compensation-intel` → `get_worker_payroll,get_worker_benefits` (ekspos tergantung gate DB RPC, belum diverifikasi per fungsi di sesi ini). Sampling 4 file NONE (`CareerDevelopment`, `PerformanceTrend`, `PackingLog`, +1) = **0 hit** `useAdminAuth`/`RoleGuard` → klasifikasi bukan false-negative.
+- **32 > 30 → STOP sesuai brief**: tidak ada fix massal; dicatat sebagai **P2-F14-BL**.
+
+### Langkah 3 — Peta route→permission
+`src/lib/route-permissions.ts` **BELUM ADA** (sprint 270D belum jalan; keputusan K1 2026-10-08 menargetkannya). **Keputusan user: opsi 1** — hasil sweep cukup sebagai JSON di `.agents/logs/` (jangan mendahului 270D bikin file src; jangan taruh di docs agar tak perlu pindah lagi):
+- **`.agents/logs/route-permission-map-final-2026-10-16.json`** (97 entri: route/component/file/guard/roles/sumber/rpcs + stats + note koreksi PARENT).
+- ⚠ `.agents/logs/` = gitignored → sesi AY/270D di mesin lain perlu regen (script-nya ada di sesi ini; peta bisa diulang dari probe yg sama).
+
+### Dampak lintas-page (G7): worker → admin → dashboard → owner
+- **Semua 4 page: TIDAK BERUBAH** — sesi ini murni audit + docs; 0 perubahan `src/`, 0 perubahan RPC, 0 perubahan guard. Perilaku worker/admin/dashboard/owner identik dengan tree `19ee74f`.
+- Guard yang BARU ditambahkan: **tidak ada** (BH sudah di sesi sebelumnya `a228ff2`; sesi ini tidak menambah guard apa pun).
+
+### Catatan §0 item 11
+Entri ditulis dalam sesi yang sama, sebelum STOP. Semua probe DB = transaksi ROLLBACK (nol perubahan).
