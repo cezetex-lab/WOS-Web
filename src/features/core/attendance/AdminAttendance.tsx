@@ -1,11 +1,44 @@
+// AdminAttendance.tsx — Dashboard kehadiran (route /admin/attendance).
+//
+// P2-F14-BH: guard in-file useAdminAuth 3-role = kontrak gate DB
+// admin_get_timesheet (migrasi 275) + role_page_access /admin/timesheet.
+// Parent guard TIDAK cukup: AdminRouteGuard dead code (0 import), DynamicRoutes
+// tanpa cek role — probe live 2026-10-16: worker NRP002 menerima 99 route admin
+// termasuk route ini.
+//
+// Kontrak LIVE admin_get_timesheet (275): {ok, data:[{nrp,date,check_in,
+// check_out,status,hours}]} — konsumen membaca r.data (P2-F14-BI sekelas).
 import { useRpcQuery } from '@/hooks/useRpcQuery';
+import useAdminAuth from '@/hooks/useAdminAuth';
 import { PageLayout, GlassCard, DataTable, MetricCard, LoadingSpinner, EmptyState } from '@/lib/design-system';
 
+/** Satu baris output admin_get_timesheet (alias AS dari jam_masuk/jam_keluar — 275). */
+export interface TimesheetRow {
+  nrp: string;
+  date: string;
+  check_in: string | null;
+  check_out: string | null;
+  status: string | null;
+  hours: number | null;
+}
+
+/** Ambil array `data` dari envelope {ok,data}; selain itu → []. */
+export function timesheetRows(raw: unknown): TimesheetRow[] {
+  const r = raw as { data?: TimesheetRow[] } | TimesheetRow[] | null;
+  if (Array.isArray(r)) return r;
+  return Array.isArray(r?.data) ? r.data : [];
+}
+
+const EMPTY: TimesheetRow[] = [];
+
 export default function AdminAttendance() {
-  const { data, isLoading: loading } = useRpcQuery<any[]>({
+  // P2-F14-BH: 3-role = kontrak TimesheetPage + gate DB 275 (owner/admin_pusat
+  // bypass di dalam hook).
+  useAdminAuth(['admin_pusat', 'admin_finance', 'admin_operasional']);
+  const { data, isLoading: loading } = useRpcQuery<TimesheetRow[]>({
     fn: 'admin_get_timesheet',
-    defaultValue: [],
-    select: (r) => Array.isArray(r) ? r : [],
+    defaultValue: EMPTY,
+    select: timesheetRows,
   });
   const stats = { total: data.length };
 
@@ -23,12 +56,13 @@ export default function AdminAttendance() {
         ) : (
           <DataTable data={data} columns={[
             { key: 'nrp', label: 'NRP' },
-            { key: 'nama', label: 'Nama' },
             { key: 'date', label: 'Tanggal' },
-            { key: 'clock_in', label: 'Masuk' },
-            { key: 'clock_out', label: 'Keluar' },
+            { key: 'check_in', label: 'Masuk' },
+            { key: 'check_out', label: 'Keluar' },
             { key: 'status', label: 'Status' },
-            { key: 'hours_worked', label: 'Jam Kerja' },
+            { key: 'hours', label: 'Jam Kerja' },
+            // TODO: kolom 'nama' (join employees_master) belum ada di output
+            // admin_get_timesheet — lihat P2-F14-BJ.
           ]} />
         )}
       </GlassCard>
