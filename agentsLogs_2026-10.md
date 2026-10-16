@@ -2234,4 +2234,39 @@ WQ+DOC via wrapper `verify:test-logged` spawn-detached + poll (perintah `npx vit
 > 4. `AGENTS.md` — §5.8 Work Queue: P3-F14-BC sudah ✅ CLOSED, P3-F14-BD ditambah ✅ CLOSED
 > 5. `agentsLogs_2026-10.md` — entri ini (append)
 >
-> **Dampak lintas-page (G7):** worker → admin → dashboard → owner = TIDAK BERUBAH — ini hanyа test infrastructure (storageState file naming + key reference fix), bukan runtime auth logic. File `auth-admin-hrd.json` adalah artefak test-only (.agents/logs/ gitignored), tidak tersentuh `src/`, `supabase/`, `.env.local`, `scripts/`, RPC, route, session contract, menu, design system, atau DB.
+> **Dampak lintas-page (G7):** worker → admin → dashboard → owner = TIDAK BERUBAH — ini hanya test infrastructure (storageState file naming + key reference fix), bukan runtime auth logic. File `auth-admin-hrd.json` adalah artefak test-only (.agents/logs/ gitignored), tidak tersentuh `src/`, `supabase/`, `.env.local`, `scripts/`, RPC, route, session contract, menu, design system, atau DB.
+
+## [2026-10-16] Verifikasi P3-F14-BD (lanjutan) — producer-side gitignored, BD mundur ke IN_PROGRESS + 3 koreksi + 2 sub-item baru
+
+> **Status P3-F14-BD: ⚠ IN_PROGRESS (mundur dari ✅ CLOSED).** Sesi verifikasi+koreksi (brief "STOP sebelum lanjut") menemukan gap producer-side: klaim CLOSED 2026-10-15 hanya mencakup sisi konsumen.
+>
+> **STOP #1 — producer-side tidak tracked (temuan utama):**
+> - `git check-ignore -v .agents/scripts/setup-auth-state.cjs` → `.gitignore:81:.agents/` — script generator storageState (9428 byte) gitignored.
+> - `git ls-files | findstr setup-auth` / `auth-state` → exit 1 (0 baris) — TIDAK ada salinan canonical tracked di `scripts/`, `tests/helpers/`, atau mana pun; 0 referensi di `.github/workflows/*`.
+> - `git show d86483d --stat` → hanya 3 file konsumen (`accessibility.spec.ts`, `accessibility-full-sweep.spec.ts`, `admin-gated-pages-smoke.spec.ts`) — fix producer (`setup-auth-state.cjs:12/143/144`) tidak bisa diverifikasi via git dan tak akan pernah ter-commit selama file tetap gitignored.
+> - Developer baru dengan fresh clone TIDAK bisa setup auth state — `accessibility.spec.ts:33-37` throw "storageState hilang". Butuh keputusan: pindahkan script ke `scripts/` tracked atau pola lain → didaftarkan sebagai **P2-F14-BE**.
+>
+> **Artefak rename baru terbentuk 2026-10-16 (bukan 2026-10-15):**
+> - Sebelum sesi ini: `.agents/logs/auth-admin-hrd.json` **TIDAK ADA** (hanya `auth-admin-finance.json` + `auth-admin-mill.json`) — rename 2026-10-15 belum end-to-end di sisi artefak.
+> - Regen via `node .agents/scripts/setup-auth-state.cjs` (dev server :5173 → `HTTP_CODE=200`): baris mentah `admin OK → .agents\logs\auth-admin-hrd.json (3405 byte`, final `STAGE C LANGKAH 1 SELESAI: storageState terbentuk (worker/admin/owner/admin-mill).`. Field non-credential `EMAIL_IN_STATE=hrd@insightwos.com` → nama file kini match isi. `auth-admin.json` lama: `TIDAK ADA (sudah dihapus)`.
+>
+> **Gate sesi (jalur terpisah, output utuh di laporan sesi):**
+> - `verify:test-logged` **exit 0** (`[run-vitest-with-log] exit : 0`), **31 file, 224 passed + 4 todo (228)**, durasi 122.84s — log `.agents/logs/verify-test-logged-20261016-082357.log`. Run via detached ke file karena run langsung diputus limit tool 30s (limit tool, bukan limit suite).
+> - `npx tsc --noEmit` **EXIT 0**.
+> - `npx eslint` 3 file tests (`accessibility.spec.ts`, `accessibility-full-sweep.spec.ts`, `admin-gated-pages-smoke.spec.ts`) **EXIT 0**; `.agents/scripts/setup-auth-state.cjs` **EXIT 1 — 14 error `no-undef`** (`__dirname`/`process`/`console`) — kelas **P2-F14-AK** pre-existing (eslint config tanpa global Node untuk file di luar `src/`+`tests/`), di-stop sesuai brief.
+>
+> **Regen JSON + 7 guard, dua putaran (lanjutan Opsi A):**
+> - **Insiden proses (terjelaskan, bukan regresi edit dokemen):** percobaan regen pertama memakai `cmd /c "... *> ..."` — cmd.exe tidak mengenali sintaks `*>`, `*` bocor menjadi argumen vitest (`filter: *`) → `No test files found` → `.vitest/test-result.json` berisi **0 test**. Run kedua kena kaskade: `doc-claims-vs-live` **FAIL** `SECURITY.md §3.10 stale — update ke unit 0/0 (dokumen=228, suite=0)` + **2 unhandled error** `Failed to start threads worker` (`supabase-browser.test.ts` + `auth-guards-270c.test.tsx`, 29/31 file jalan) — kegagalan keduanya artefak botch redirect sendiri + resource flake, NOL hubungan dengan edit `.md`.
+> - **Pemulihan:** `.vitest/test-result.json` dipulihkan dari artefak run hijau 08:24 yang asli (`.agents/logs/vitest-2026-10-16T01-24-00-396Z-exit0.json`, `numTotalTests=228, testResults=31, success=true`) lalu regen ulang penuh dengan redirection benar (`>` + `cmd /v:on` + `!ERRORLEVEL!` — pola baru sesuai **P3-F14-BF**): **31 passed (31), 224 passed + 4 todo (228), `[run-vitest-with-log] exit : 0`, `REAL_EXIT:0`, durasi 70.41s** (log `.agents/logs/verify-test-logged-20261016-091739.log`).
+> - **6 guard tree × 2 putaran SEMUA EXIT 0** (`$LASTEXITCODE`): `verify-derived-artifacts` (0 drift, 1 warning baseline), `verify-numeric-claims` (0 drift, 6 warning external-snapshot), `verify-test-count` (0 drift), `verify-test-freshness` (JSON segar 31/31), `verify-text-encoding` (0 non-UTF8 dari 560), `verify-no-local-db-client` (0 pelanggaran, 28 file).
+> - **Guard ke-7 `verify-backup-artifact`** = helper ber-argumen `<file.sql.gz>` (tanpa argumen = exit 2 usage) — bukan guard tree mandiri. Dijalankan terhadap artefak backup lokal `.agents/logs/backup_2026-09-27_06-33-30.sql.gz` → **EXIT 1: FAIL ukuran (43776 B < 51200 B min) + FAIL gzip -t (`incorrect header check`)**. Artefak lama 2026-09-27 (gitignored, pre-existing) — guard bekerja sebagaimana mestinya menandai backup rusak/terpotong; di luar scope sesi docs ini, dilaporkan apa adanya (opsi: cek pipeline backup harian / artefak lokal saja yang basi).
+>
+> **3 koreksi kecil:**
+> 1. **Format AGENTS.md §0 baris 64** — item 11 ditulis `| 11. **Sesi mode…` (pipe nyasar → render tabel rusak, tanpa blank line sebelum `## 0.5 GOLDEN RULES`) → dikoreksi jadi `11. **Sesi mode…` + blank line, konsisten item 1–10.
+> 2. **Karakter Cyrillic** — `hanyа` (а = U+0430) di `agentsLogs_2026-10.md:2237` (entri 2026-10-15) → `hanya` (Latin). Terdeteksi presisi `Select-String -Pattern 'hany\u0430'` = **tepat 1 hit** (sebelum koreksi), 0 sesudahnya.
+> 3. **`setup-auth-state.cjs:109` console.log misleading (pre-existing)** — `console.log` mencetak literal hardcoded `admin=pusat@insightwos.com` apa pun kondisinya, padahal login sesungguhnya menghasilkan state `hrd@insightwos.com` (dari `E2E_ADMIN_*` prioritas 1 di `.env.local`). **TIDAK diedit** (gitignored — tak akan ter-commit); fix dilakukan saat script dipindah ke tracked (**P2-F14-BE**).
+>
+> **2 sub-item baru di §5.8:** **P2-F14-BE** (canonical source `setup-auth-state.cjs` — audit dulu `.agents/scripts/`, jangan pindah satu file) · **P3-F14-BF** (metode capture exit code `cmd /c "... & echo EXIT_CODE:%ERRORLEVEL%"` stale — `%ERRORLEVEL%` di-expand parse-time; terbukti eslint exit 1 tertulis `EXIT_CODE:0`; ganti `$LASTEXITCODE` / `cmd /v:on` `!ERRORLEVEL!` / Node wrapper + update template laporan helper).
+>
+> **Dampak lintas-page (G7): worker → admin → dashboard → owner = TIDAK BERUBAH** — sesi ini docs-only: `AGENTS.md` §5.8 (baris BD → IN_PROGRESS + format item 11 + 2 baris baru BE/BF) + entri log ini; nol perubahan `src/`, `supabase/`, `.env.local`, `tests/`, `scripts/` runtime, RPC, route, session, menu, design system, atau DB. Artefak `auth-admin-hrd.json` = test-only (`.agents/logs/`, gitignored).
+
