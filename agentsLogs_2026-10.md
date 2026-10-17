@@ -2892,3 +2892,51 @@ Param `p_nrp` **diabaikan** utk non-admin (fungsi selalu scope ke claims → ret
 Dampak lintas-page: worker → admin → dashboard → owner — **TERDAMPAK terkendali**: 12 RPC dipakai halaman dual-mount; worker tetap bisa akses fiturnya (scope data sendiri), admin tetap semua; smoke E2E halaman worker (kpi/career/perf/forum/harvest) = kandidat verifikasi berikut bila diinginkan — tidak dijalankan sesi ini (bukan bagian gate brief).
 
 Catatan §0 item 11: RED+GREEN proof + output apply mentah tercatat di entri ini.
+## [2026-10-17] Validasi pasca-276: Baseline & Worker E2E
+
+**Mode:** eksekusi validasi (brief user — menutup 2 keterbatasan Migrasi 276 sebelum lanjut BS/BT/Fase 2 AY). Tidak ada fitur/fix baru; scope: `supabase/baseline/` (generate), `tests/e2e/` (1 spec baru), `AGENTS.md` §5.8, log ini. `src/`, `supabase/migrations/`, `.env.local`, `scripts/`, `.agents/scripts/` tidak tersentuh.
+
+### Langkah 1 — Regen baseline
+
+Perintah: `npm run db:baseline` (`generate-baseline.mjs` + `generate-baseline-data.mjs`). Output mentah:
+
+```
+BASELINE_EXIT=0
+wrote supabase/baseline/000_baseline_schema.sql
+  1085.9 KB, 6652 baris
+  tabel 209 | fungsi 539 | view 1 | sequence 94 | cron 5
+ditulis: supabase/baseline/010_baseline_config_data.sql
+  tabel referensi : 17
+  baris data      : 632
+  cap migrasi     : 201
+  ukuran          : 271.6 KB
+```
+
+Verifikasi baseline mencerminkan 276 (grep mentah): `authz_current_nrp` = **136** hit di `000_baseline_schema.sql`; 2 policy RLS baru ada (`rls_harvest_records_select` baris 15910, `rls_transport_dispatch_select` baris 16253); scoping `v_eff` (12 fungsi DEFINER) ada; cap migrasi `010` memuat INSERT `276_scope_by_nrp_and_rls.sql`. Dampak git: 2 file baseline berubah (`+439 −187`).
+
+### Langkah 2 — Smoke E2E worker LIVE (4 halaman scope-276)
+
+Spec BARU `tests/e2e/worker-gated-data-smoke.spec.ts` (opt-in LIVE, bukan mock — mock tidak akan pernah melihat error RPC). Login worker NRP002 via Home.tsx; kredensial live-verified: semua kolom kandidat `akun.txt` dicoba against `worker_passwords.password_hash` via `crypt()` (temuan: format akun.txt bervariasi per baris — NRP002 = kolom ke-5, NRP005/007 = NIK); role DIVERIFIKASI ke DB live (`role=worker` + `reset_required=false`). Asersi per halaman: heading terrender, `not.toContainText('Akses ditolak')`, nol `pageerror`, nol respons `/rest/v1/rpc/*` status ≥400 (SQLSTATE 42501/42703/42883 tampil di sini); data kosong = EmptyState = PASS (keputusan user).
+
+Dua kegagalan harness diperbaiki BUKAN di-skip: (1) consent dialog `PrivacyConsent` muncul via `useEffect` async — dengan cold Vite compile ia muncul SETELAH jendela tunggu 8s lalu meng-intercept klik submit (`subtree intercepts pointer events`) → fix: `addInitScript(localStorage wos_privacy_consent=true)` + fallback klik dialog; (2) "Password salah" — parser lama mengambil kolom setelah email (NIK), tapi hash live NRP002 cocok dengan kolom ke-5 → fix: resolver multi-kandidat + verifikasi `crypt()` ke hash live. Keduanya gagal harness login, BUKAN regresi 276.
+
+Run final — output mentah:
+
+```
+SMOKE_EXIT=0
+Running 1 test using 1 worker
+[smoke-276] login sebagai NRP002 — role=worker + reset_required=false (live)
+[smoke-276] login OK -> http://localhost:5173/worker
+[smoke-276] /worker/career (get_career_path) — DOM terender, 0 RPC error, 0 crash
+[smoke-276] /worker/kpi (get_worker_kpi) — DOM terender, 0 RPC error, 0 crash
+[smoke-276] /worker/performance-notes (get_performance_notes) — DOM terender, 0 RPC error, 0 crash
+[smoke-276] /worker/harvest (get_harvest_records (RLS)) — DOM terender, 0 RPC error, 0 crash
+  ok 1 [chromium] › tests\e2e\worker-gated-data-smoke.spec.ts:159:3 › ... (50.0s)
+1 passed (58.2s)
+```
+
+Log mentah: `.agents/logs/post276-baseline.log`, `post276-worker-smoke3.log` (run gagal 1/2: `post276-worker-smoke.log`/`2.log` — bukti perbaikan harness di atas).
+
+**Dampak lintas-page:** worker (4 halaman smoke PASS) → admin/dashboard/owner **tidak terdampak** — sesi ini tidak menyentuh `src/` maupun migrasi; baseline = artefak generate dari live yang sudah berisi 276.
+
+**STOP check:** nol — baseline EXIT 0, smoke PASS 1/1, tidak ada guard merah di sesi ini (guard dijalankan di Langkah 3). Keterbatasan jujur: smoke = 1 identitas worker (NRP002) pada 4 halaman target; halaman worker lain (forum/maintenance/dll — RPC 276 lain) tidak dicakup, kandidat ekstensi.
