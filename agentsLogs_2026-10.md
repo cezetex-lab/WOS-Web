@@ -2722,3 +2722,52 @@ Verifikasi lintas-log: `grep -c "timed out" .agents/logs/bo-green-*.log` → **0
 **G7: TIDAK BERUBAH** — test-only; 4 page (worker → admin → dashboard → owner) tidak terdampak, 0 perubahan kode produksi/RPC/route/guard DB.
 
 **Catatan §0 item 11:** sesi ini mengubah state repo (bukan audit-only) — bukti RED/GREEN di atas dijadikan bagian entri ini sebelum STOP.
+## [2026-10-17] P2-F14-BN fase 1 — triage 28 RPC runtime audit
+
+**Mode:** audit-only (tidak ada fix, tidak ada perubahan DB). **Status BN: tetap ⚠ NEW — fase 1 ✅ selesai (triage).**
+
+### Sumber & metode
+- Sumber: `.agents/logs/route-none-triage-2026-10-16.json` (`rpc_status` = 28 `UNGATED-UNKNOWN`, terverifikasi identik dgn daftar BN §5.8).
+- Katalog live (1 query read-only, log `.agents/logs/bn-catalog-probe.log`): signature, return type, `proacl` efektif, `prosecdef`, `proconfig` — **28/28 ADA di live, 0 MISSING**.
+- Konsumen: `git grep` 3 pola (`rpc('…')`, `.rpc('…')`, `fn: '…'`) di `src/` + `supabase/functions/` — **28/28 punya konsumen** (log `bn-consumers.log`).
+- Route map live (`module_definitions`, 53 baris, log `bn-route-map.log`): route per komponen konsumen — kunci klasifikasi A/B/C.
+- Argumen default (`pg_proc.proargdefaults`, log `bn-argdefaults.log`).
+
+### Statistik per bucket
+| Bucket | N | Keterangan |
+|---|---|---|
+| A INTERNAL-ADMIN | **2** | `get_succession` (`/admin/succession`), `get_shift_assignments` (`/admin/shift-schedule` + `/admin/shift-swap`) — satu-satunya konsumen admin-only |
+| B CUSTOMER-FACING | 0 | — |
+| C MIXED | **26** | semua konsumen dual-mount `/admin/*` + `/worker/*` |
+| D ACL-CLOSED | 0 | semua 28: `authenticated=X` (anon=false; 0 `proacl` NULL) |
+| E DEAD | 0 | 28/28 konsumen riil |
+
+Fakta seragam: 26/28 SECURITY DEFINER + `proconfig search_path=public,extensions`; 2 INVOKER (`get_harvest_records`, `get_transport_dispatch`, tanpa proconfig — RLS = pelindung).
+
+### Probe bucket A (RED proof — worker NRP002, transaksi ROLLBACK; log `bn-probe-a.log`)
+```
+NRP002_ROW={"nrp":"NRP002","auth_id":"55f100d8-c215-435c-942a-d2502e5119d7","nama":"Worker NRP002"}
+PROBE[get_succession(p_nrp='NRP002') worker] ok=true msg=- data_count=0 raw={"ok":true,"data":[]}
+PROBE[get_succession() tanpa argumen (pola konsumen SuccessionPlanning.tsx:10)] ERROR sqlstate=42883 msg=function get_succession() does not exist
+POST_ROLLBACK_hr_succession_rows=0 (tx dibatalkan)
+PROBE[get_shift_assignments(2026-10-17,PAGI) worker NRP002] ok=true msg=- data_count=0 raw={"ok":true,"data":[]}
+ROLLBACK_OK
+```
+2/2 `ok:true` dari worker → gate=false **terbukti runtime** (bukan lagi deteksi teks prosrc). `data_count=0` = tabel sumber kosong di live hari ini — bocor nyata begitu ada baris. Probe bucket C **DITUNDA** (STOP brief: C=26 > 5).
+
+### Temuan sampingan (di luar scope gate — masuk kerja fase berikut)
+1. **2 konsumen rusak 42883**: `SuccessionPlanning.tsx:10` memanggil `rpc('get_succession', {})` tanpa `p_nrp` padahal fungsi wajib argumen tanpa default (TERBUKTI probe di atas); `CareerPathPage.tsx:15` pola sama utk `get_career_path` (dari `proargdefaults`: `pronargs=1 has_defaults=false`).
+2. **2 RPC INVOKER** tanpa `proconfig search_path` — kelas berbeda dari 26 DEFINER lainnya; risiko = RLS tabel sumber, bukan bypass definer.
+
+### Hubungan dgn AY & peta sisa kerja BN
+- Bucket A (2 RPC) = kandidat gate **digabung migrasi AY berikutnya** — sub-item **P1-F14-BP TIDAK dibuat** (ambang N≥5, terpenuhi N=2).
+- Bucket C (26 RPC) → sub-item **P2-F14-BQ** (ambang N≥3 terpenuhi) — **BLOCKED butuh keputusan user** per RPC: gate in-body ATAU scoping by `authz_current_nrp()` ATAU accepted risk.
+- Bucket E = 0 → **P3-F14-BR tidak dibuat**.
+- **Peta sisa BN**: Fase 2 = gate bucket A (bareng AY) · Fase 3 = keputusan produk bucket C (BQ) + eksekusi migrasi gate · Fase 4 = n/a (E=0). Setelah BN+AAY+semua sub-item: route-otomatis 26 route masuk bucket **P3 BL** (P1-F14-BM).
+- JSON lengkap (28 entri × sig/acl/secdef/consumers/pages/probe): `.agents/logs/rpc-bn-triage-2026-10-17.json`.
+
+**STOP brief tercapai**: Bucket C = 26 > 5 → audit mendalam/probe massal bucket C **tidak dikerjakan di sesi ini**; dilaporkan ke user untuk keputusan pemecahan.
+
+Dampak lintas-page: worker → admin → dashboard → owner — **TIDAK BERUBAH** (audit-only; nol perubahan kode/DB; semua konfirmasi via query read-only + probe ROLLBACK).
+
+Catatan §0 item 11: sesi audit-only — hasil dicatat di log ini SEBELUM STOP; DoD tiap temuan ada di §5.8 (BN fase 1 ✅; BQ baru = NEW, DoD = keputusan user 26 baris).
