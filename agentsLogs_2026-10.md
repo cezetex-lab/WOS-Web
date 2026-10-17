@@ -2805,3 +2805,36 @@ Catatan §0 item 11: sesi audit-only — hasil dicatat di log ini SEBELUM STOP; 
 Dampak lintas-page: worker → admin → dashboard → owner — **TIDAK BERUBAH** (audit-only; nol perubahan kode/DB).
 
 Catatan §0 item 11: sesi audit-only — hasil dicatat SEBELUM STOP; DoD BQ = user approve tabel keputusan (kini menunggu review).
+## [2026-10-17] BQ finalisasi Tahap 1 — sub-item BS/BT + investigasi 4 poin kritis
+
+**Mode:** audit-only (nol fix, nol migrasi, nol perubahan DB). Migrasi 276 **BELUM disentuh** — menunggu lampu hijau user (STOP brief).
+
+### Sub-item baru di §5.8
+- **P2-F14-BS** (P2, NEW) — 4 RPC rusak terbukti runtime + `mill_boiler` hilang. DoD: fix SQL 3 fungsi 42803 (pola subquery 275/AZ) + keputusan user restore/hapus `mill_boiler`; RED 4/4 → GREEN 4/4.
+- **P2-F14-BT** (P3, NEW) — 2 konsumen rusak 42883 (`SuccessionPlanning.tsx:10`, `CareerPathPage.tsx:15`). DoD: samakan kontrak pemanggilan + verifikasi halaman render.
+
+### Investigasi 4 poin kritis
+**A. `get_harvest_records` & `get_transport_dispatch` — policy RLS (C→B).** Git grep `supabase/migrations/`:
+- `061_data_governance.sql:215-216`: policy awal `harvest_read`/`transport_read` = `USING (true)` (bahkan tanpa login).
+- `137_rls_remaining_tables.sql:276/465`: diganti jadi `harvest_re_auth`/`transport__auth` = `USING (auth.uid() IS NOT NULL)`.
+- Header 137: **"Migration 137: Fix remaining USING(true) RLS policies"** — hardening generik. Tabel dengan kolom `nrp` (mis. `daftar_baru`, `hr_capability`) mendapat versi scoped `auth.uid() IS NOT NULL AND (authz_in_scope(nrp) OR authz_has_permission('employee.view_all'))`; `harvest_records`/`transport_dispatch` TANPA kolom nrp mendapat polos `auth.uid() IS NOT NULL`.
+- **Kesimpulan: TIDAK ada bukti eksplisit keputusan produk "semua login boleh baca"** — ini default mekanis 137. Sesuai brief: **rekomendasi C→B**. Karena fungsi INVOKER, fix-nya = ubah RLS policy SELECT (`worker_nrp = authz_current_nrp() OR authz_check_admin('employee.view_all')`), bukan isi fungsi.
+- Catatan: write policy live `rls_*_write = authz_check_admin('employee.view_all')` tidak ditemukan di grep migrations (kemungkinan baseline/regenerasi) — state live tetap rujukan.
+
+**B. `get_maintenance_schedule` — kolom cost.** Dari prosrc (`bq-prosrc.log`): fungsi MENGEMBALIKAN `'cost', m.cost` DAN `'parts_used'`. **Tunggu keputusan user**: C (cost terlihat worker) / A (sembunyikan cost) / B (scope). Rekomendasi sementara tetap C (jadwal = keselamatan operasional; cost = sekunder).
+
+**C. `get_boiler_status` — mill_boiler (C→BROKEN).** Bukti ganda: `bq-source-tables.log` (information_schema — `mill_boiler` TIDAK ADA di schema manapun; 21/21 tabel sumber lain ADA) + probe runtime 42P01. Masuk **P2-F14-BS** (restore/hapus = keputusan user).
+
+**D. `get_safety_incidents` — tetap C + catatan limitasi.** "Teks deskripsi bebas berisiko bocor PII; audit ulang jika volume insiden meningkat." (tercatat di log ini + JSON keputusan).
+
+### Rekomendasi final (JSON updated)
+**A=3 · B=13 · C=9 · BROKEN=1** (dari A=3/B=11/C=12; harvest+transport→B, boiler→BROKEN). `.agents/logs/rpc-bq-decisions-2026-10-17.json` tervalidasi 26 entri.
+
+### Menunggu keputusan user (STOP)
+1. Lampu hijau eksekusi migrasi 276: **11 RPC (brief) ATAU 13 RPC** (+`get_harvest_records`/`get_transport_dispatch` via RLS policy).
+2. Keputusan `get_maintenance_schedule` (B/C/A — kolom cost).
+3. Keputusan `mill_boiler` (restore/hapus → BS).
+
+Dampak lintas-page: worker → admin → dashboard → owner — **TIDAK BERUBAH** (audit-only; nol perubahan kode/DB).
+
+Catatan §0 item 11: sesi audit-only — hasil dicatat SEBELUM STOP; DoD BS/BT baru = NEW, dieksekusi sesi terpisah.
