@@ -1,6 +1,6 @@
 // CareerPathPage.tsx — Jalur karir & promosi
 import React, { useState, useEffect, useCallback } from 'react';
-import { rpc } from '@/lib/supabase-browser';
+import { rpc, getSession } from '@/lib/supabase-browser';
 import { PageLayout, GlassCard, MetricCard, DataTable, Badge, LoadingSpinner } from '@/lib/design-system';
 import useAdminAuth from '@/hooks/useAdminAuth';
 
@@ -12,7 +12,9 @@ export default function CareerPathPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await rpc('get_career_path');
+      // BT fix (42883): get_career_path(p_nrp text) TANPA DEFAULT — wajib kirim
+      // p_nrp dari session; tanpa argumen PostgREST membalas "function does not exist".
+      const result = await rpc('get_career_path', { p_nrp: getSession()?.nrp ?? '' });
       setData(Array.isArray(result) ? result : result?.data || []);
     } catch (e) { }
     setLoading(false);
