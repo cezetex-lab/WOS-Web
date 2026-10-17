@@ -4,8 +4,8 @@
 --
 -- Sumber     : DB live (host, project ref & password sengaja TIDAK ditulis)
 -- Generator  : supabase/scripts/generate-baseline.mjs (FULL)
--- Objek      : 209 tabel, 539 fungsi, 1 view,
---               94 sequence, trigger/policy sesuai tabel
+-- Objek      : 210 tabel, 539 fungsi, 1 view,
+--               95 sequence, trigger/policy sesuai tabel
 --
 -- JANGAN disunting tangan. Regenerate dengan generator di atas.
 --
@@ -135,6 +135,7 @@ CREATE SEQUENCE IF NOT EXISTS public.master_employment_status_id_seq AS bigint S
 CREATE SEQUENCE IF NOT EXISTS public.master_job_levels_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.master_locations_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.master_positions_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
+CREATE SEQUENCE IF NOT EXISTS public.mill_boiler_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.mill_breakdowns_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.mill_maintenance_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
 CREATE SEQUENCE IF NOT EXISTS public.mill_packing_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 NO CYCLE;
@@ -1610,6 +1611,24 @@ CREATE TABLE IF NOT EXISTS public.mfa_factors (
   secret_encrypted bytea
 );
 
+CREATE TABLE IF NOT EXISTS public.mill_boiler (
+  id integer DEFAULT nextval('mill_boiler_id_seq'::regclass) NOT NULL,
+  boiler_code text NOT NULL,
+  boiler_name text NOT NULL,
+  capacity_kg_hr numeric DEFAULT 0,
+  status text DEFAULT 'OFFLINE'::text,
+  temperature_c numeric DEFAULT 0,
+  pressure_bar numeric DEFAULT 0,
+  steam_flow_kg_hr numeric DEFAULT 0,
+  fuel_type text DEFAULT 'BIOMASS'::text,
+  fuel_consumption_kg_hr numeric DEFAULT 0,
+  efficiency_pct numeric DEFAULT 0,
+  last_maintenance date,
+  next_maintenance date,
+  site_code text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS public.mill_breakdown (
   id text DEFAULT (gen_random_uuid())::text NOT NULL,
   business_unit_id text,
@@ -2682,6 +2701,9 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'master_l
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'master_positions_pkey' AND conrelid = 'public.master_positions'::regclass) THEN ALTER TABLE public.master_positions ADD CONSTRAINT master_positions_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'master_positions_position_code_key' AND conrelid = 'public.master_positions'::regclass) THEN ALTER TABLE public.master_positions ADD CONSTRAINT master_positions_position_code_key UNIQUE (position_code); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mfa_factors_pkey' AND conrelid = 'public.mfa_factors'::regclass) THEN ALTER TABLE public.mfa_factors ADD CONSTRAINT mfa_factors_pkey PRIMARY KEY (id); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mill_boiler_pkey' AND conrelid = 'public.mill_boiler'::regclass) THEN ALTER TABLE public.mill_boiler ADD CONSTRAINT mill_boiler_pkey PRIMARY KEY (id); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mill_boiler_boiler_code_key' AND conrelid = 'public.mill_boiler'::regclass) THEN ALTER TABLE public.mill_boiler ADD CONSTRAINT mill_boiler_boiler_code_key UNIQUE (boiler_code); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mill_boiler_status_check' AND conrelid = 'public.mill_boiler'::regclass) THEN ALTER TABLE public.mill_boiler ADD CONSTRAINT mill_boiler_status_check CHECK ((status = ANY (ARRAY['RUNNING'::text, 'STANDBY'::text, 'MAINTENANCE'::text, 'OFFLINE'::text]))); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mill_breakdown_pkey' AND conrelid = 'public.mill_breakdown'::regclass) THEN ALTER TABLE public.mill_breakdown ADD CONSTRAINT mill_breakdown_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mill_breakdowns_pkey' AND conrelid = 'public.mill_breakdowns'::regclass) THEN ALTER TABLE public.mill_breakdowns ADD CONSTRAINT mill_breakdowns_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mill_breakdowns_category_check' AND conrelid = 'public.mill_breakdowns'::regclass) THEN ALTER TABLE public.mill_breakdowns ADD CONSTRAINT mill_breakdowns_category_check CHECK ((category = ANY (ARRAY['MECHANICAL'::text, 'ELECTRICAL'::text, 'INSTRUMENT'::text, 'PROCESS'::text, 'SAFETY'::text]))); END IF; END $$;
@@ -3025,6 +3047,7 @@ ALTER SEQUENCE public.master_employment_status_id_seq OWNED BY public.master_emp
 ALTER SEQUENCE public.master_job_levels_id_seq OWNED BY public.master_job_levels.id;
 ALTER SEQUENCE public.master_locations_id_seq OWNED BY public.master_locations.id;
 ALTER SEQUENCE public.master_positions_id_seq OWNED BY public.master_positions.id;
+ALTER SEQUENCE public.mill_boiler_id_seq OWNED BY public.mill_boiler.id;
 ALTER SEQUENCE public.mill_breakdowns_id_seq OWNED BY public.mill_breakdowns.id;
 ALTER SEQUENCE public.mill_maintenance_id_seq OWNED BY public.mill_maintenance.id;
 ALTER SEQUENCE public.mill_packing_id_seq OWNED BY public.mill_packing.id;
@@ -8132,9 +8155,13 @@ CREATE OR REPLACE FUNCTION public.get_breakdown_log(p_limit integer DEFAULT 50)
  SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
-    SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-      jsonb_build_object(
+    SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
+    FROM (
+      SELECT jsonb_build_object(
         'id', bd.id, 'equipment', bd.equipment_code, 'equipment_name', bd.equipment_name,
         'time', bd.breakdown_time, 'resolved', bd.resolved_time,
         'severity', bd.severity, 'category', bd.category,
@@ -8142,11 +8169,11 @@ BEGIN
         'action', bd.action_taken, 'status', bd.status,
         'downtime', bd.downtime_hours, 'cost', bd.cost,
         'reported_by', bd.reported_by, 'assigned_to', bd.assigned_to
-      ) ORDER BY bd.breakdown_time DESC
-    ), '[]'::jsonb))
-    FROM mill_breakdowns bd
-    ORDER BY bd.breakdown_time DESC
-    LIMIT p_limit
+      ) AS sub
+      FROM mill_breakdowns bd
+      ORDER BY bd.breakdown_time DESC
+      LIMIT p_limit
+    ) x
   );
 END;
 $function$;
@@ -10817,19 +10844,23 @@ CREATE OR REPLACE FUNCTION public.get_packing_log(p_limit integer DEFAULT 50)
  SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
-    SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-      jsonb_build_object(
+    SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
+    FROM (
+      SELECT jsonb_build_object(
         'id', pk.id, 'date', pk.pack_date, 'time', pk.pack_time,
         'product', pk.product_type, 'quantity', pk.quantity_kg,
         'batch_id', pk.batch_id, 'destination', pk.destination,
         'truck_plate', pk.truck_plate, 'driver', pk.driver_name,
         'status', pk.status, 'qc_status', pk.qc_status
-      ) ORDER BY pk.pack_date DESC, pk.pack_time DESC
-    ), '[]'::jsonb))
-    FROM mill_packing pk
-    ORDER BY pk.pack_date DESC, pk.pack_time DESC
-    LIMIT p_limit
+      ) AS sub
+      FROM mill_packing pk
+      ORDER BY pk.pack_date DESC, pk.pack_time DESC
+      LIMIT p_limit
+    ) x
   );
 END;
 $function$;
@@ -11030,17 +11061,18 @@ CREATE OR REPLACE FUNCTION public.get_qc_results(p_limit integer DEFAULT 50)
 AS $function$
 BEGIN
   RETURN (
-    SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-      jsonb_build_object(
+    SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
+    FROM (
+      SELECT jsonb_build_object(
         'id', q.id, 'batch_id', q.batch_id, 'date', q.sample_date,
         'time', q.sample_time, 'ffa', q.ffa_pct, 'moisture', q.moisture_pct,
         'dobi', q.dobi, 'color', q.color, 'dirt', q.dirt_pct,
         'result', q.result, 'tested_by', q.tested_by, 'notes', q.notes
-      ) ORDER BY q.sample_date DESC, q.sample_time DESC
-    ), '[]'::jsonb))
-    FROM mill_qc_results q
-    ORDER BY q.sample_date DESC, q.sample_time DESC
-    LIMIT p_limit
+      ) AS sub
+      FROM mill_qc_results q
+      ORDER BY q.sample_date DESC, q.sample_time DESC
+      LIMIT p_limit
+    ) x
   );
 END;
 $function$;
@@ -15597,6 +15629,7 @@ ALTER TABLE public.master_positions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.master_positions FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.mfa_factors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mfa_factors FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.mill_boiler ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mill_breakdown ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mill_breakdown FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.mill_breakdowns ENABLE ROW LEVEL SECURITY;
@@ -16137,6 +16170,10 @@ DROP POLICY IF EXISTS mp_pub ON public.master_positions;
 CREATE POLICY mp_pub ON public.master_positions FOR SELECT TO PUBLIC USING (true);
 DROP POLICY IF EXISTS rls_mfa_factors ON public.mfa_factors;
 CREATE POLICY rls_mfa_factors ON public.mfa_factors FOR ALL TO PUBLIC USING (authz_check_admin('employee.view_all'::text));
+DROP POLICY IF EXISTS rls_mill_boiler_select ON public.mill_boiler;
+CREATE POLICY rls_mill_boiler_select ON public.mill_boiler FOR SELECT TO PUBLIC USING ((auth.uid() IS NOT NULL));
+DROP POLICY IF EXISTS rls_mill_boiler_write ON public.mill_boiler;
+CREATE POLICY rls_mill_boiler_write ON public.mill_boiler FOR ALL TO PUBLIC USING (authz_check_admin('employee.view_all'::text)) WITH CHECK (authz_check_admin('employee.view_all'::text));
 DROP POLICY IF EXISTS rls_authz_mill_breakdown ON public.mill_breakdown;
 CREATE POLICY rls_authz_mill_breakdown ON public.mill_breakdown FOR ALL TO PUBLIC USING ((authz_in_scope(authz_current_nrp()) OR authz_check_admin('employee.view_all'::text) OR (EXISTS ( SELECT 1
    FROM system_owner_identity
@@ -16486,6 +16523,7 @@ REVOKE ALL ON TABLE public.master_job_levels FROM PUBLIC, anon, authenticated, s
 REVOKE ALL ON TABLE public.master_locations FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.master_positions FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.mfa_factors FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE public.mill_boiler FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.mill_breakdown FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.mill_breakdowns FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.mill_maintenance FROM PUBLIC, anon, authenticated, service_role;
@@ -16630,6 +16668,7 @@ REVOKE ALL ON SEQUENCE public.master_employment_status_id_seq FROM PUBLIC, anon,
 REVOKE ALL ON SEQUENCE public.master_job_levels_id_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.master_locations_id_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.master_positions_id_seq FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON SEQUENCE public.mill_boiler_id_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.mill_breakdowns_id_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.mill_maintenance_id_seq FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON SEQUENCE public.mill_packing_id_seq FROM PUBLIC, anon, authenticated, service_role;
@@ -17892,6 +17931,9 @@ GRANT SELECT, UPDATE, USAGE ON TABLE public.master_positions_id_seq TO service_r
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.mfa_factors TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.mfa_factors TO postgres;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.mfa_factors TO service_role;
+GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.mill_boiler TO authenticated;
+GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.mill_boiler TO postgres;
+GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.mill_boiler TO service_role;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.mill_breakdown TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.mill_breakdown TO postgres;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.mill_breakdown TO service_role;

@@ -2940,3 +2940,87 @@ Log mentah: `.agents/logs/post276-baseline.log`, `post276-worker-smoke3.log` (ru
 **Dampak lintas-page:** worker (4 halaman smoke PASS) → admin/dashboard/owner **tidak terdampak** — sesi ini tidak menyentuh `src/` maupun migrasi; baseline = artefak generate dari live yang sudah berisi 276.
 
 **STOP check:** nol — baseline EXIT 0, smoke PASS 1/1, tidak ada guard merah di sesi ini (guard dijalankan di Langkah 3). Keterbatasan jujur: smoke = 1 identitas worker (NRP002) pada 4 halaman target; halaman worker lain (forum/maintenance/dll — RPC 276 lain) tidak dicakup, kandidat ekstensi.
+## [2026-10-17] Migrasi 277: Restore mill_boiler + Fix 4 RPC & 2 Konsumen (BS+BT)
+
+**Mode:** eksekusi (brief user — P2-F14-BS + P2-F14-BT). Scope: migrasi 277 + rollback + 2 file TSX + docs. `scripts/`, `.agents/scripts/`, `.env.local`, RPC/halaman di luar daftar tidak tersentuh. HEAD pra-sesi `e86eada`, tree bersih.
+
+### Langkah 1 — Investigasi (bukti mentah)
+
+- Skema `mill_boiler` KETEMU di `052_mill_modules.sql:70` (kolom + CHECK status + UNIQUE boiler_code) + RLS enable + policy `mill_select` — inferensi kolom TIDAK diperlukan (STOP condition tidak terpicu).
+- Pre-image 4 RPC live (`.agents/logs/m277-preimage.log`): ke-4 fungsi `plpgsql SECURITY DEFINER SET search_path='public, 'extensions'`, `authenticated EXECUTE=true`; `mill_boiler` reg=null (HILANG); registry 201/max 276.
+- md5 prosrc: boiler `8682b9f431785e5c5e474abc20340f68` (oid 298291) · breakdown `a4cb6866…` (298294) · packing `27d9b799…` (298423) · qc `71386dc1…` (298434).
+- Konsumen: 4 halaman mill DUAL-MOUNT (`/admin/mill/*` + `/worker/*`, `module_definitions`) tanpa guard lokal; BT = `SuccessionPlanning.tsx` (`rpc('get_succession', {})`) + `CareerPathPage.tsx` (`rpc('get_career_path')`), keduanya `p_nrp text` TANPA DEFAULT.
+- Pola live mill (6 tabel): `rls_mill_*_select` = `auth.uid() IS NOT NULL`, `rls_mill_*_write` = `authz_check_admin('employee.view_all')`, ACL `arwdDxtm` → dipakai persis utk `mill_boiler` (konsistensi, bukan inovasi baru).
+
+### Langkah 2 — File
+
+- `supabase/migrations/277_restore_mill_boiler_and_fix_rpcs.sql`: A) restore `mill_boiler` VERBATIM 052 (tanpa seed — GREEN `data:[]`), RLS+2 policy+GRANT idempoten; B) fix 42803 3 fungsi (ORDER BY/LIMIT → subquery pola 275, shape kunci jsonb identik pre-image); gate 274 (`admin_pusat` + owner bypass, `RAISE … 42501`) utk breakdown+packing; qc TANPA gate (bucket C). C) `get_boiler_status` TIDAK disentuh.
+  - 1 typo ditangkap sebelum apply (diperbaiki di file): `q.ff_pct` → `q.ffa_pct` (akan 42803 kalau lolos).
+- `supabase/scripts/rollback/277_rollback.sql`: pre-image byte-exact 3 fungsi (termasuk bug 42803 aslinya) + `DROP TABLE mill_boiler`.
+
+### Langkah 3 — RED proof 6/6 (`.agents/logs/m277-red.log`)
+
+```
+RED-OK get_boiler_status: SQLSTATE=42P01 :: relation "mill_boiler" does not exist
+RED-OK get_breakdown_log: SQLSTATE=42803 :: column "bd.breakdown_time" must appear in the GROUP BY clause or be used in an aggregate function
+RED-OK get_packing_log: SQLSTATE=42803 :: column "pk.pack_date" must appear in the GROUP BY clause or be used in an aggregate function
+RED-OK get_qc_results: SQLSTATE=42803 :: column "q.sample_date" must appear in the GROUP BY clause or be used in an aggregate function
+RED-OK get_succession() TANPA ARG (BT): SQLSTATE=42883 :: function public.get_succession() does not exist
+RED-OK get_career_path() TANPA ARG (BT): SQLSTATE=42883 :: function public.get_career_path() does not exist
+ROW_COUNTS: {"breakdowns":"0","packing":"0","qc":"0","boiler_hilang":true}
+POST_ROLLBACK: {"boiler_masih_hilang":true}
+```
+
+Percobaan RED pertama gagal 25P02 (artefak tx aborted — error pertama mematikan tx utuh; pelajaran AX) dan DIPERBAIKI dengan SAVEPOINT per panggilan, bukan di-skip.
+
+### Langkah 4 — Apply + GREEN
+
+Dry-run: `versi 277, checksum ee9d749d…, belum terdaftar, DRY RUN — tidak ada yang dijalankan` (EXIT 0). Apply:
+
+```
+berkas    : 277_restore_mill_boiler_and_fix_rpcs.sql
+versi     : 277
+checksum  : ee9d749ddad2aff2eee4bb9aea846e720a10352836d82c37257362242700e994
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (764ms)
+```
+
+GREEN (`m277-green.log`, tx ROLLBACK):
+
+```
+admin  get_boiler_status/get_breakdown_log/get_packing_log/get_qc_results -> {"ok":true,"data_len":0} (4/4)
+worker get_breakdown_log -> 42501 "Akses ditolak. Hanya admin_pusat."
+worker get_packing_log   -> 42501 (gate bekerja)
+worker get_qc_results (TANPA gate) -> {"ok":true,"data_len":0}   <- jujur: memang tanpa gate (BQ bucket C)
+worker get_boiler_status (TANPA gate) -> {"ok":true,"data_len":0}
+worker SELECT mill_boiler via RLS -> 0
+INVARIANTS: reg_count=202, reg_max=277, boiler_adanya=true, boiler_policies=2,
+  boiler_acl={postgres=arwdDxtm,authenticated=arwdDxtm,service_role=arwdDxtm},
+  boiler_fn_md5=8682b9f431785e5c5e474abc20340f68 (IDENTIK pre-image),
+  oid3=[298294,298423,298434] (preserved), exec3=3/3, pol_select=1, pol_write=1
+```
+
+GREEN BT konteks JWT (`m277-green-bt.log`) — panggilan konsumen sejati dengan `p_nrp`:
+
+```
+worker get_succession(NRP002):  {"ok":true,"keys":2,"data_len":0}
+worker get_career_path(NRP002): {"ok":true,"keys":9,"division":"HRD"}
+worker get_career_path(NRP001): {"ok":true,"keys":9,"division":"HRD"}   <- scoping 276 utuh (bukan KORPORAT)
+admin  get_succession(NRP002):  {"ok":true,"keys":2,"data_len":0}
+admin  get_career_path(NRP002): {"ok":true,"keys":9,"division":"HRD"}
+admin  get_career_path(NRP001): {"ok":true,"keys":9,"division":"KORPORAT"}
+```
+
+(Catatan: panggilan postgres tanpa JWT menghasilkan `ok:false` = artefak konteks, dibuktikan saat ulang dengan JWT — bukan regresi.) `npm run check:types` **EXIT 0** (2 TSX lolos).
+
+### Langkah 5 — Docs & gate
+
+- Baseline DIREGENERASI (`db:baseline` EXIT 0 — tabel 209→**210** (+mill_boiler), cap migrasi **202**, fungsi 539).
+- Registry sinkron 201→202 di ARCHITECTURE §7.4 + fact 277, CONSTANTS-INVENTORY baris 21, SECURITY §15 (202 berkas).
+- §5.8: **P2-F14-BS → ✅ CLOSED** (migrasi 277, Opsi A) · **P2-F14-BT → ✅ CLOSED** (fix konsumen, tanpa migrasi).
+- Regen JSON + 7 guard dua putaran + commit/push: lihat blok akhir entri ini.
+
+**Dampak lintas-page: worker → admin → dashboard → owner** — terutuh di 4 halaman mill dual-mount: worker `/worker/breakdown`+`/worker/packing` kini **42501** → daftar kosong (`data?.data || []`, TIDAK crash — BreakdownLog.tsx/PackingLog.tsx terverifikasi pakai pola itu); `/worker/qc`+`/worker/boiler` tetap jalan; admin `/admin/mill/*` lolos gate; dashboard/owner tidak memanggil 4 RPC ini (grep konsumen `src/` = hanya 4 halaman mill); halaman `/admin/career-path`+`/admin/succession` (BT) kini terpanggil tanpa 42883. `src/` hanya berubah 2 file TSX (sesuai scope).
+
+**Keterbatasan jujur:** (a) smoke render browser utk 2 halaman BT TIDAK dijalankan (brief membatasi GREEN frontend = `check:types`; login live admin = OTP budget) — penerimaan data sudah dibuktikan di level fungsi dalam konteks JWT; (b) `mill_boiler` sengaja TIDAK di-seed (GREEN `data:[]` sesuai brief) — halaman boiler monitor menampilkan kosong sampai ada data; (c) `get_qc_results`/`get_boiler_status` tetap tanpa gate = accepted risk BQ bucket C.
+
+**STOP check:** nol — skema ketemu (STOP-1 tak terpicu), qc tanpa gate sesuai keputusan eksplisit brief (STOP-2 tak terpicu), guard di putaran akhir.

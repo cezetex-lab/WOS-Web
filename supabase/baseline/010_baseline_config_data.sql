@@ -1832,6 +1832,11 @@ BEGIN
     VALUES ('276', '276_scope_by_nrp_and_rls.sql', '29f6cda77295e175cc4c2df5ab511413aeb0ebafbdb22b6ddf558382ad3307ad', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '277_restore_mill_boiler_and_fix_rpcs.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('277', '277_restore_mill_boiler_and_fix_rpcs.sql', 'ee9d749ddad2aff2eee4bb9aea846e720a10352836d82c37257362242700e994', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
 END $$;
 

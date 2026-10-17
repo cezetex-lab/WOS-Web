@@ -221,7 +221,7 @@ pertama yang memakai mekanisme ini.
 
 ### 6.1 5 klaim manual yang lolos scanner kanonik
 Pola noun-first yang tidak tertangkap regex awal:
-- `| Tables | 209 |`
+- `| Tables | 210 |`
 - `supabase/migrations/` `(157 berkas)` [snapshot:7ada2d0]
 - `FORENSIC-INDEX` klaim duplikat
 - dll (lihat NUMERIC-CLAIMS-INVENTORY.md baris yang tidak tangkap)

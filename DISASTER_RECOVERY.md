@@ -78,7 +78,7 @@ Kalau proyek butuh itu, itu keputusan berbayar dan di luar cakupan repo ini.
 6. Cutover: arahkan env aplikasi, redeploy Vercel.
 
 Langkah 2 memakai **baseline** (bukan `supabase/migrations/`) karena baseline
-adalah potret DB live: 209 tabel, 657 fungsi, 225 policy, 27 trigger, 5 cron job. Diverifikasi 2026-10-10.
+adalah potret DB live: 210 tabel, 657 fungsi, 227 policy, 27 trigger, 5 cron job. Diverifikasi 2026-10-17 (migrasi 277: +tabel `mill_boiler`, +2 policy RLS-nya).
 Rantai migrasi adalah histori + gerbang regresi,
 bukan jalur instalasi — lihat `supabase/baseline/README.md`.
 
