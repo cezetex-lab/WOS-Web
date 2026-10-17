@@ -3131,3 +3131,80 @@ GREEN batch 1 (pasca-278, pra-279) juga tercatat: worker 3/3 42501, admin 3/3 ok
 **STOP check:** nol — split Opsi B menyelesaikan STOP #2; karantina menyelesaikan STOP #1; guard di putaran akhir.
 
 ---
+## [2026-10-17] Smoke Test RBAC + Migrasi 280 (BU)
+
+- **Status: SELESAI.** Smoke UI matriks RBAC 4 identitas × 6 halaman **7/7 PASS** (tanpa regresi blank-screen pasca-278/279); P2-F14-BU ditutup dengan migrasi **280** (scope-by-NRP 2 RPC karantina) + **281** (fix fail-closed, temuan GREEN — lihat bawah). Keduanya DITERAPKAN + terdaftar + checksum terverifikasi; registry **206** baris, `max(version)=281`.
+- **Berkas migrasi:**
+  - `supabase/migrations/280_scope_by_nrp_quarantine_rpcs.sql` — scope-by-NRP `admin_get_facility_requests` + `get_shift_assignments` (pola 276). Checksum `a89983e3980ac28a6e69df359588c23d3aa60ba7bcb0e6650f971149f2551a16`.
+  - `supabase/migrations/281_fail_closed_quarantine_scoping.sql` — fix fail-closed. Checksum `1d02f1581ec9f3d837c221b2807ad59dc763aec50a5a89827faac8f6d54295ee`.
+  - `supabase/scripts/rollback/{280,281}_rollback.sql` — pre-image byte-exact; **2/2 per batch** diverifikasi via md5 (recon script `.agents/scripts/m280-rollback-recon.mjs` — teks prosrc disintesis lalu dicocokkan md5 thd dump live, bukan diketik ulang).
+- **Spec baru:** `tests/e2e/rbac-gate-smoke.spec.ts` (7 test — 4 identitas via storage state).
+
+### Langkah 1 — Smoke UI matriks RBAC (SEBELUM apply 280 — bukti tidak ada regresi 278/279)
+
+```
+Running 7 tests using 1 worker
+[1/7] 1 admin_pusat — /admin/budget render ... 
+...
+  7 passed (59.5s)
+SMOKE_EXIT=0
+```
+
+- 4 auth state digenerate via UI login (`.agents/scripts/m280-gen-states.cjs`, scratch): pusat/hrd/finance (OTP dev-mode, 1 OTP per identitas — limit 3/15 menit per NRP tidak tersentuh) + worker.
+- **Temuan lingkungan:** port 5173 kini diisi dev server proyek LAIN (`D:\0-SSW`, title "0-ssw") — spec menjalankan dev server insightWOS sendiri di **5174** (`TEST_BASE_URL=http://localhost:5174`). Konfigurasi Playwright `webServer.reuseExistingServer` akan me-reuse server salah itu kalau tidak hati-hati.
+- **Deviasi jujur:** brief meminta worker NRP002, tapi password NRP002 di `akun.txt` BASI (probe UI: "Password salah") → dipakai **NRP008** (`E2E_WORKER_*` resmi, role worker sama). Tidak ada data/skema yang diubah untuk ini.
+
+### Langkah 2 — Migrasi 280 + temuan FAIL-CLOSED (281)
+
+**RED (`.agents/logs/m280-red.log`)** — data sintetis dalam transaksi ROLLBACK (nol perubahan permanen):
+```
+RED worker facility: {"ok":true,"n":2,"nrps":["NRP007","NRP008"]}
+RED worker shift: {"ok":true,"n":2,"nrps":["NRP007","NRP008"]}
+RED admin facility: {"ok":true,"n":2,"nrps":["NRP007","NRP008"]}
+POST_ROLLBACK (harus 0/0): {"probe_req":"0","probe_shift":"0"}
+```
+Kebocoran terbukti: worker NRP008 MELIHAT baris NRP007 di kedua fungsi.
+
+**Apply 280** → `DITERAPKAN + terdaftar + checksum terverifikasi (933ms)`.
+
+**GREEN 280 (`.agents/logs/m280-green.log`) menemukan BUG DESAIN di kode baru sendiri:**
+```
+GREEN worker facility: {"ok":true,"n":1,"nrps":["NRP008"]}   <- scoping bekerja
+GREEN admin facility: {"ok":true,"n":2,"nrps":["NRP007","NRP008"]}
+GREEN no-JWT facility: {"ok":true,"n":2,"nrps":["NRP007","NRP008"]}   <- FAIL-OPEN!
+GREEN no-JWT shift: {"ok":true,"n":2,"nrps":["NRP007","NRP008"]}      <- FAIL-OPEN!
+```
+Root cause: `v_eff := CASE WHEN authz_check_admin(...) THEN NULL ELSE authz_current_nrp() END` + filter `(v_eff IS NULL OR nrp = v_eff)` — caller TANPA JWT claims → `authz_current_nrp()=NULL` → `v_eff=NULL` → cabang `IS NULL` melepas SEMUA baris. (Caller PostgREST nyata selalu ber-JWT, tapi desain wajib fail-closed — pola 276 memang fail-closed alami via `nrp = NULL` → 0 baris.) Pelajaran: **probe no-JWT/witness case wajib di setiap fungsi scoping baru.**
+
+**Fix 281** (bukan tambal — ganti pola jadi `v_is_admin boolean` + `v_nrp text`, filter `(v_is_admin OR nrp = v_nrp)`, gaya WHERE 276). GREEN final (`.agents/logs/m281-green.log`, EXIT 0):
+```
+GREEN worker facility: {"ok":true,"n":1,"nrps":["NRP008"]}
+GREEN worker shift: {"ok":true,"n":1,"nrps":["NRP008"]}
+GREEN worker shift DEFAULT arg (HARUS hanya NRP008): {"ok":true,"n":1,"nrps":["NRP008"]}
+GREEN admin facility: {"ok":true,"n":2,"nrps":["NRP007","NRP008"]}
+GREEN admin shift: {"ok":true,"n":2,"nrps":["NRP007","NRP008"]}
+GREEN NRP007 facility: {"ok":true,"n":1,"nrps":["NRP007"]}
+GREEN NRP007 shift: {"ok":true,"n":1,"nrps":["NRP007"]}
+GREEN no-JWT facility: {"ok":true,"n":0,"nrps":[]}
+GREEN no-JWT shift: {"ok":true,"n":0,"nrps":[]}
+ROLLBACK_PREIMAGE: 2/2 byte-identik, mismatch=0
+INVARIANTS: {"reg_count":"206","reg_max":"281",..., "acl_ok":"2","probe_rows":"0","probe_shift":"0"}
+GREEN_EXIT=0
+```
+Rollback 281 (restore versi 280) juga 2/2 byte-identik. Signature `get_shift_assignments(p_date date DEFAULT CURRENT_DATE, p_shift text DEFAULT NULL::text)` dipertahankan; ACL tetap `{postgres,authenticated,service_role}`.
+
+**Smoke UI RERUN pasca-281** (`.agents/logs/m281-rbac-smoke-rerun.log`): `6 passed + 1 flaky` (`/admin/employees` hrd lolos di retry) — EXIT 0, tidak ada regresi; halaman `/worker/facility` worker tetap terbuka (karantina scoping, bukan gate).
+
+### Langkah 3 — Docs & gate
+
+- Registry sinkron 204→**206** (max **281**) di ARCHITECTURE §7.4 (+Fact 280/281), CONSTANTS baris 21, SECURITY §15 (206 berkas).
+- §5.8: **P2-F14-BU → ✅ CLOSED** (280+281, smoke 7/7 + rerun).
+- Regen baseline + 7 guard dua putaran + commit/push: lihat blok akhir entri ini.
+
+**Dampak lintas-page: worker → admin → dashboard → owner** — worker: `/worker/facility` + `/worker/shift` tetap berfungsi tapi kini hanya menampilkan baris miliknya sendiri (scoping; sebelumnya melihat semua baris semua karyawan = kebocoran terbukti RED); admin: `/admin/facility`, `/admin/estate/facility`, `/admin/mill/shift` melihat semua baris (employee.view_all); dashboard/owner: tidak memanggil 2 RPC ini (owner lolos lewat owner bypass `authz_check_admin` bila perlu). `src/` TIDAK berubah.
+
+**Keterbatasan jujur:** (a) smoke memakai NRP008 bukan NRP002 (password basi, deviasi di atas); (b) smoke jalur lokal dev-server 5174, bukan deploy Vercel — regresi backend-only (gate DB) tidak terpengaruh, tapi urutan deploy frontend belum diuji di production URL; (c) 1 test flaky di rerun (employees hrd, retry lolos) — belum didiagnosis akar flake-nya; (d) probe scoping memakai data sintetis tx-rollback — perilaku pada data produksi nyata (volume besar) belum diuji; (e) `admin_get_facility_requests` tetap punya `LIMIT 30` no-op pola AZ (di luar scope BU).
+
+**STOP check:** nol — smoke PASS semua (tidak memicu STOP "smoke gagal"); migrasi 280/281 sukses (tidak memicu STOP "migrasi error"); temuan fail-open diperbaiki di migrasi 281 pada sesi yang sama dengan bukti RED/GREEN.
+
+---

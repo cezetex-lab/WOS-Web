@@ -1847,6 +1847,16 @@ BEGIN
     VALUES ('279', '279_gate_9_admin_rpcs.sql', 'b39188446bcc89c94099de7770df1dc0c95b1f3dc1df0f23bd48553bb2c894e4', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '280_scope_by_nrp_quarantine_rpcs.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('280', '280_scope_by_nrp_quarantine_rpcs.sql', 'a89983e3980ac28a6e69df359588c23d3aa60ba7bcb0e6650f971149f2551a16', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '281_fail_closed_quarantine_scoping.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('281', '281_fail_closed_quarantine_scoping.sql', '1d02f1581ec9f3d837c221b2807ad59dc763aec50a5a89827faac8f6d54295ee', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
 END $$;
 

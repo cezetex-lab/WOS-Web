@@ -4153,11 +4153,18 @@ CREATE OR REPLACE FUNCTION public.admin_get_facility_requests()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$
+DECLARE
+  v_is_admin boolean := authz_check_admin('employee.view_all');
+  v_nrp text := authz_current_nrp();
+BEGIN RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('id',id,'nrp',nrp,'type',type,'status',status,'note',note,'created_at',created_at)
     ORDER BY created_at DESC),'[]'::jsonb))
-  FROM hr_requests WHERE type ILIKE '%facility%' OR type ILIKE '%aset%' LIMIT 30); END;
+  FROM hr_requests
+  WHERE (type ILIKE '%facility%' OR type ILIKE '%aset%')
+    AND (v_is_admin OR nrp = v_nrp)
+  LIMIT 30); END;
 $function$;
 -- admin_get_feature_flags()
 CREATE OR REPLACE FUNCTION public.admin_get_feature_flags()
@@ -11294,6 +11301,9 @@ CREATE OR REPLACE FUNCTION public.get_shift_assignments(p_date date DEFAULT CURR
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+  v_is_admin boolean := authz_check_admin('employee.view_all');
+  v_nrp text := authz_current_nrp();
 BEGIN
   RETURN (
     SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
@@ -11307,6 +11317,7 @@ BEGIN
     FROM shift_assignments sa
     WHERE sa.shift_date = p_date
       AND (p_shift IS NULL OR sa.shift_type = p_shift)
+      AND (v_is_admin OR sa.nrp = v_nrp)
   );
 END;
 $function$;
