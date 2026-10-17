@@ -3905,7 +3905,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_asset_assignments()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', aa.id, 'asset_id', aa.asset_id, 'asset_name', a.asset_name,
       'nrp', aa.nrp, 'nama', e.nama, 'checkout_date', aa.checkout_date,
@@ -3924,7 +3926,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_assets()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', a.id, 'asset_name', a.asset_name, 'category', a.category,
       'serial_number', a.serial_number, 'location', a.location, 'status', a.status,
@@ -3968,7 +3972,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_badges()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', b.id, 'nrp', b.nrp, 'nama', e.nama,
       'badge_name', b.badge_name, 'badge_type', b.badge_type,
@@ -3986,7 +3992,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_budget()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_finance')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', ba.id, 'divisi', ba.divisi, 'year', ba.year,
       'gaji_budget', ba.gaji_budget, 'training_budget', ba.training_budget,
@@ -4107,7 +4115,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_exit_interviews()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', ei.id, 'nrp', ei.nrp, 'nama', e.nama,
       'satisfaction_score', ei.satisfaction_score, 'reason', ei.reason,
@@ -4224,67 +4234,82 @@ $function$;
 -- admin_get_kpi_trend()
 CREATE OR REPLACE FUNCTION public.admin_get_kpi_trend()
  RETURNS jsonb
- LANGUAGE sql
+ LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-  SELECT COALESCE(jsonb_agg(sub.* ORDER BY sub.periode ASC), '[]'::jsonb)
-  FROM (
-    SELECT
-      p.periode,
-      ROUND(AVG(p.kpi_score), 1) AS avg_kpi,
-      COUNT(*) AS total_employees,
-      COUNT(CASE WHEN p.kpi_score >= 80 THEN 1 END) AS high_count,
-      COUNT(CASE WHEN p.kpi_score < 60 THEN 1 END) AS low_count
-    FROM hr_performance p
-    WHERE p.periode IS NOT NULL
-    GROUP BY p.periode
-    ORDER BY p.periode DESC
-    LIMIT 12
-  ) sub;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd','admin_finance','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
+    SELECT COALESCE(jsonb_agg(sub.* ORDER BY sub.periode ASC), '[]'::jsonb)
+    FROM (
+      SELECT
+        p.periode,
+        ROUND(AVG(p.kpi_score), 1) AS avg_kpi,
+        COUNT(*) AS total_employees,
+        COUNT(CASE WHEN p.kpi_score >= 80 THEN 1 END) AS high_count,
+        COUNT(CASE WHEN p.kpi_score < 60 THEN 1 END) AS low_count
+      FROM hr_performance p
+      WHERE p.periode IS NOT NULL
+      GROUP BY p.periode
+      ORDER BY p.periode DESC
+      LIMIT 12
+    ) sub
+  );
+END;
 $function$;
 -- admin_get_leave()
 CREATE OR REPLACE FUNCTION public.admin_get_leave()
  RETURNS jsonb
- LANGUAGE sql
+ LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-  SELECT COALESCE(jsonb_agg(sub.* ORDER BY sub.nama), '[]'::jsonb)
-  FROM (
-    SELECT
-      l.nrp, e.nama, l.tahun,
-      l.annual_quota AS kuota,
-      l.annual_used AS terpakai,
-      (l.annual_quota - l.annual_used) AS sisa
-    FROM hr_leave l
-    JOIN employees_master e ON e.nrp = l.nrp
-    WHERE l.tahun = EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER
-  ) sub;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
+    SELECT COALESCE(jsonb_agg(sub.* ORDER BY sub.nama), '[]'::jsonb)
+    FROM (
+      SELECT
+        l.nrp, e.nama, l.tahun,
+        l.annual_quota AS kuota,
+        l.annual_used AS terpakai,
+        (l.annual_quota - l.annual_used) AS sisa
+      FROM hr_leave l
+      JOIN employees_master e ON e.nrp = l.nrp
+      WHERE l.tahun = EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER
+    ) sub
+  );
+END;
 $function$;
 -- admin_get_low_performers()
 CREATE OR REPLACE FUNCTION public.admin_get_low_performers()
  RETURNS jsonb
- LANGUAGE sql
+ LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-  SELECT COALESCE(jsonb_agg(sub.*), '[]'::jsonb)
-  FROM (
-    SELECT
-      p.nrp,
-      e.nama,
-      e.divisi,
-      e.business_unit,
-      e.posisi,
-      p.kpi_score,
-      p.periode
-    FROM hr_performance p
-    JOIN employees_master e ON e.nrp = p.nrp
-    WHERE e.status_kerja = 'Aktif'
-    ORDER BY p.kpi_score ASC NULLS LAST
-    LIMIT 10
-  ) sub;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd','admin_finance','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
+    SELECT COALESCE(jsonb_agg(sub.*), '[]'::jsonb)
+    FROM (
+      SELECT
+        p.nrp,
+        e.nama,
+        e.divisi,
+        e.business_unit,
+        e.posisi,
+        p.kpi_score,
+        p.periode
+      FROM hr_performance p
+      JOIN employees_master e ON e.nrp = p.nrp
+      WHERE e.status_kerja = 'Aktif'
+      ORDER BY p.kpi_score ASC NULLS LAST
+      LIMIT 10
+    ) sub
+  );
+END;
 $function$;
 -- admin_get_master_data()
 CREATE OR REPLACE FUNCTION public.admin_get_master_data()
@@ -4316,7 +4341,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_okr()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', o.id, 'nrp', o.nrp, 'nama', e.nama,
       'objective', o.objective, 'key_result', o.key_result,
@@ -4345,7 +4372,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_overtime()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_finance','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+ RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('id',id,'nrp',nrp,'date',date,'hours',hours,'reason',reason,'status',status)
     ORDER BY date DESC),'[]'::jsonb))
@@ -4439,20 +4468,25 @@ $function$;
 -- admin_get_payroll_summary(p_period text)
 CREATE OR REPLACE FUNCTION public.admin_get_payroll_summary(p_period text DEFAULT NULL::text)
  RETURNS jsonb
- LANGUAGE sql
+ LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-  SELECT jsonb_build_object(
-    'total_employees', COUNT(*),
-    'total_net', COALESCE(SUM(p.net_salary), 0),
-    'avg_salary', COALESCE(AVG(p.net_salary), 0),
-    'total_gross', COALESCE(SUM(p.base_salary + p.allowance + p.overtime_pay), 0),
-    'total_deduction', COALESCE(SUM(p.deduction), 0),
-    'total_deduction_items', COUNT(CASE WHEN p.deduction > 0 THEN 1 END)
-  )
-  FROM hr_payroll p
-  WHERE (p_period IS NULL OR p.periode = p_period);
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_finance')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
+    SELECT jsonb_build_object(
+      'total_employees', COUNT(*),
+      'total_net', COALESCE(SUM(p.net_salary), 0),
+      'avg_salary', COALESCE(AVG(p.net_salary), 0),
+      'total_gross', COALESCE(SUM(p.base_salary + p.allowance + p.overtime_pay), 0),
+      'total_deduction', COALESCE(SUM(p.deduction), 0),
+      'total_deduction_items', COUNT(CASE WHEN p.deduction > 0 THEN 1 END)
+    )
+    FROM hr_payroll p
+    WHERE (p_period IS NULL OR p.periode = p_period)
+  );
+END;
 $function$;
 -- admin_get_pending()
 CREATE OR REPLACE FUNCTION public.admin_get_pending()
@@ -4474,7 +4508,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_pending_requests()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+ RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('id',r.id,'nrp',r.nrp,'nama',e.nama,'type',r.type,'status',r.status,'note',r.note,'created_at',r.created_at)
     ORDER BY r.created_at DESC),'[]'::jsonb))
@@ -4487,7 +4523,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_referrals()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', r.id, 'referrer_nrp', r.referrer_nrp, 'referrer_name', e.nama,
       'candidate_name', r.candidate_name, 'candidate_email', r.candidate_email,
@@ -4515,7 +4553,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_settlements()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', fs.id, 'nrp', fs.nrp, 'nama', e.nama,
       'sisa_cuti_paid', fs.sisa_cuti_paid, 'thr_prorata', fs.thr_prorata,
@@ -4609,26 +4649,31 @@ $function$;
 -- admin_get_top_performers()
 CREATE OR REPLACE FUNCTION public.admin_get_top_performers()
  RETURNS jsonb
- LANGUAGE sql
+ LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-  SELECT COALESCE(jsonb_agg(sub.*), '[]'::jsonb)
-  FROM (
-    SELECT
-      p.nrp,
-      e.nama,
-      e.divisi,
-      e.business_unit,
-      e.posisi,
-      p.kpi_score,
-      p.periode
-    FROM hr_performance p
-    JOIN employees_master e ON e.nrp = p.nrp
-    WHERE e.status_kerja = 'Aktif'
-    ORDER BY p.kpi_score DESC
-    LIMIT 10
-  ) sub;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd','admin_finance','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+  RETURN (
+    SELECT COALESCE(jsonb_agg(sub.*), '[]'::jsonb)
+    FROM (
+      SELECT
+        p.nrp,
+        e.nama,
+        e.divisi,
+        e.business_unit,
+        e.posisi,
+        p.kpi_score,
+        p.periode
+      FROM hr_performance p
+      JOIN employees_master e ON e.nrp = p.nrp
+      WHERE e.status_kerja = 'Aktif'
+      ORDER BY p.kpi_score DESC
+      LIMIT 10
+    ) sub
+  );
+END;
 $function$;
 -- admin_get_vacancies()
 CREATE OR REPLACE FUNCTION public.admin_get_vacancies()
@@ -4638,6 +4683,7 @@ CREATE OR REPLACE FUNCTION public.admin_get_vacancies()
  SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
   RETURN (
     SELECT jsonb_build_object(
       'ok', true,
@@ -11380,7 +11426,9 @@ CREATE OR REPLACE FUNCTION public.get_succession(p_nrp text)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
+ RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('position',position,'candidate_nrp',candidate_nrp,'readiness',readiness)),'[]'::jsonb))
   FROM hr_succession WHERE candidate_nrp=p_nrp); END; $function$;

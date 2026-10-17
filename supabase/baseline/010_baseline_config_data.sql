@@ -1837,6 +1837,16 @@ BEGIN
     VALUES ('277', '277_restore_mill_boiler_and_fix_rpcs.sql', 'ee9d749ddad2aff2eee4bb9aea846e720a10352836d82c37257362242700e994', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '278_gate_8_admin_rpcs.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('278', '278_gate_8_admin_rpcs.sql', 'b4a96fda8869256030896a49beb31df59f72bb03b2b0893da04a92e4d0d31730', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '279_gate_9_admin_rpcs.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('279', '279_gate_9_admin_rpcs.sql', 'b39188446bcc89c94099de7770df1dc0c95b1f3dc1df0f23bd48553bb2c894e4', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
 END $$;
 

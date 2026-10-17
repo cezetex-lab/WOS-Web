@@ -3024,3 +3024,110 @@ admin  get_career_path(NRP001): {"ok":true,"keys":9,"division":"KORPORAT"}
 **Keterbatasan jujur:** (a) smoke render browser utk 2 halaman BT TIDAK dijalankan (brief membatasi GREEN frontend = `check:types`; login live admin = OTP budget) — penerimaan data sudah dibuktikan di level fungsi dalam konteks JWT; (b) `mill_boiler` sengaja TIDAK di-seed (GREEN `data:[]` sesuai brief) — halaman boiler monitor menampilkan kosong sampai ada data; (c) `get_qc_results`/`get_boiler_status` tetap tanpa gate = accepted risk BQ bucket C.
 
 **STOP check:** nol — skema ketemu (STOP-1 tak terpicu), qc tanpa gate sesuai keputusan eksplisit brief (STOP-2 tak terpicu), guard di putaran akhir.
+## [2026-10-17] Migrasi 278+279: Gate in-body 17 RPC admin (AY + BN Fase 2 + AA umbrella CLOSED)
+
+- **Status: SELESAI.** Keputusan user: **STOP #1 diterima** (2 RPC karantina → sub-item baru P2-F14-BU) + **STOP #2 Opsi B** (split 278 = 8 fungsi / 279 = 9 fungsi, keduanya <400 baris). Kedua migrasi DITERAPKAN + terdaftar + checksum terverifikasi.
+- **Berkas migrasi:**
+  - `supabase/migrations/278_gate_8_admin_rpcs.sql` (220 baris) — gate in-body 8 RPC: `admin_get_{leave,pending_requests,overtime,kpi_trend,top_performers,low_performers,assets,budget}`. Checksum `b4a96fda8869256030896a49beb31df59f72bb03b2b0893da04a92e4d0d31730`.
+  - `supabase/migrations/279_gate_9_admin_rpcs.sql` (225 baris) — gate in-body 9 RPC: `admin_get_{payroll_summary,okr,badges,vacancies,referrals,exit_interviews,settlements,asset_assignments}` + `get_succession` (BN Fase 2 bucket A). Checksum `b39188446bcc89c94099de7770df1dc0c95b1f3dc1df0f23bd48553bb2c894e4`.
+  - `supabase/scripts/rollback/{278,279}_rollback.sql` — pre-image byte-exact (sumber: `.agents/logs/m278-preimage.log`, md5 per fungsi di META).
+- **Role target per RPC** = kontrak halaman konsumen (G3 — dibaca dari `useAdminAuth` komponen + `AdminRouteGuard ROLE_ACCESS`, bukan dikarang): leave/pending = pusat+hrd+operasional · kpi_trend/top/low = +finance · okr/badges/vacancies/referrals/exit/settlements/succession = pusat+hrd · assets/asset_assignments = pusat+operasional · overtime = pusat+finance+operasional · budget/payroll = pusat+finance. Owner selalu bypass `authz_is_owner()`.
+
+### Temuan sesi (bukti penuh di respon sesi; log ringkas di sini)
+
+1. **STOP #1 — 2 RPC DIKARANTINA (tidak digate), jadi sub-item P2-F14-BU:** `admin_get_facility_requests` (konsumen `FacilityRequest.tsx` TANPA `useAdminAuth`, termount `/worker/facility` + `/worker/field`) + `get_shift_assignments` (konsumen `ShiftSchedule.tsx` TANPA guard, termount `/admin/mill/shift` + **`/worker/shift`** dengan baris `role_page_access` → halaman worker resmi). **Triage BN fase 1 "bucket A admin-only" TERBUKTI SALAH** untuk `get_shift_assignments`. 3 komponen dual-mount ber-`useAdminAuth` (Badges/Okrs/Referral) TETAP digate — guard UI sudah me-redirect worker, gate DB = lapis tambahan.
+2. **Konversi `LANGUAGE sql` → plpgsql (5 fungsi):** `admin_get_leave`, `admin_get_{top,low}_performers`, `admin_get_kpi_trend` (batch 278) + `admin_get_payroll_summary` (batch 279) — prasyarat gate `RAISE EXCEPTION`. Signature/SECDEF/VOLATILE/`SET search_path`/ACL/return SHAPE identik; `prolang` berubah (dicatat — guard atribut P2-F14-M belum terpasang).
+3. **Fix 6 rollback body:** probe GREEN run-1 menemukan 6 rollback body tidak byte-identik pre-image (`AS $function$ BEGIN` vs `AS $function$` + newline). Diagnosa via diff script, diperbaiki di akar [279_rollback.sql](supabase/scripts/rollback/279_rollback.sql), GREEN ulang **17/17 byte-identik**. Salah probe `get_shift_assignments('NRP002')` (tipe date, bukan text) juga dikoreksi ke signature asli `(p_date date, p_shift text)`.
+
+### Bukti RED (pra-apply, transaksi ROLLBACK — `.agents/logs/m278-red.log`)
+
+```
+=== BATCH 278 (3 sampel) — worker harus MASIH diterima ===
+RED-OK worker admin_get_leave: OK -> []
+RED-OK worker admin_get_pending_requests: OK -> {"ok":true,"data_len":0}
+RED-OK worker admin_get_budget: OK -> {"ok":true,"data_len":0}
+=== BATCH 279 (3 sampel) — worker harus MASIH diterima ===
+RED-OK worker admin_get_payroll_summary: OK -> {"total_net":0,"avg_salary":0,"total_gross":0,"total_deduction":0,"total_employees":0,"total_deduction_items":0}
+RED-OK worker admin_get_okr: OK -> {"ok":true,"data_len":0}
+RED-OK worker admin_get_settlements: OK -> {"ok":true,"data_len":0}
+POST_ROLLBACK (harus 202/277): {"reg_count":"202","reg_max":"277"}
+RED_EXIT=0
+```
+
+### Bukti APPLY (wrapper `apply-migration.mjs`, 1 transaksi registrasi+eksekusi)
+
+```
+berkas    : 278_gate_8_admin_rpcs.sql
+versi     : 278
+checksum  : b4a96fda8869256030896a49beb31df59f72bb03b2b0893da04a92e4d0d31730
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (689ms)
+APPLY_EXIT=0
+berkas    : 279_gate_9_admin_rpcs.sql
+versi     : 279
+checksum  : b39188446bcc89c94099de7770df1dc0c95b1f3dc1df0f23bd48553bb2c894e4
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (1022ms)
+APPLY_EXIT=0
+```
+
+### Bukti GREEN (pasca-apply akhir, `.agents/logs/m279-green2.log`, EXIT 0)
+
+```
+=== 1. WORKER NRP002 (3 sampel 279 — HARUS 42501) ===
+GREEN worker admin_get_payroll_summary: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_okr: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_settlements: SQLSTATE=42501 :: Akses ditolak.
+=== 2. ADMIN NRP100 (3 sampel 279 — HARUS ok:true) ===
+GREEN admin admin_get_payroll_summary: OK -> {"total_net":0,"avg_salary":0,"total_gross":0,"total_deduction":0,"total_employees":0,"total_deduction_items":0}
+GREEN admin admin_get_okr: OK -> {"ok":true,"data_len":0}
+GREEN admin admin_get_settlements: OK -> {"ok":true,"data_len":0}
+=== 3. WORKER SELURUH 17 (semua HARUS 42501) ===
+GREEN worker admin_get_leave: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_low_performers: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_top_performers: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_kpi_trend: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_assets: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_overtime: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_pending_requests: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_budget: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_payroll_summary: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_okr: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_badges: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_asset_assignments: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_vacancies: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_referrals: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_exit_interviews: SQLSTATE=42501 :: Akses ditolak.
+GREEN worker admin_get_settlements: SQLSTATE=42501 :: Akses ditolak.
+GREEN get_succession(p_nrp=NRP202) worker: SQLSTATE=42501 :: Akses ditolak.
+=== 4. KARANTINA (2 fungsi — worker HARUS MASIH lolos, tanpa 42501) ===
+GREEN worker admin_get_facility_requests (karantina): OK -> {"ok":true,"data_len":0}
+GREEN worker get_shift_assignments (karantina): OK -> {"ok":true,"data_len":0}
+=== 5. INVARIANTS (17 gate + karantina + registry) ===
+INVARIANTS: {
+  "reg_count": "204",
+  "reg_max": "279",
+  "gate_17": "17",
+  "acl_17": "17",
+  "attrs_17": "17",
+  "quarantine_intak": "{admin_get_facility_requests,get_shift_assignments}"
+}
+=== 6. ROLLBACK PROOF — 278_rollback + 279_rollback dalam tx, cek pre-image md5 ===
+ROLLBACK_PREIMAGE: 17/17 byte-identik, mismatch=0 (17 row)
+POST_ROLLBACK: {"cnt":"204","maxv":"279","gate_sample":"3"}
+GREEN2_EXIT=0
+```
+
+GREEN batch 1 (pasca-278, pra-279) juga tercatat: worker 3/3 42501, admin 3/3 ok, batch 279 kontrol masih lolos (pembuktian efek terisolasi per batch) — `.agents/logs/m278-green1.log`.
+
+### Docs & gate
+
+- Registry sinkron 202→**204** (max **279**) di ARCHITECTURE §7.4 (+Fact 278/279), CONSTANTS-INVENTORY baris 21, SECURITY §15 (204 berkas).
+- §5.8: **P2-F14-AY → ✅ CLOSED** (16/17 gate, sisanya karantina) · **P2-F14-BN → ⚠ PARTIAL (fase 1 ✅ + fase 2 ✅)** · **P1-F14-AA → ✅ CLOSED** (umbrella; AZ/BA/BB tetap item mandiri) · **P2-F14-BU → ⚠ NEW** (karantina, desain scope-by-NRP).
+- Regen JSON + 7 guard dua putaran + commit/push: lihat blok akhir entri ini.
+
+**Dampak lintas-page: worker → admin → dashboard → owner** — worker: 17 RPC kini 42501 (daftar kosong via pola `data?.data || []`, tidak crash; halaman worker resmi TIDAK memanggil 17 RPC ini — konsumennya semua di route `/admin/*` ber-`useAdminAuth`, kecuali 2 karantina yang sengaja dibiarkan); admin: lolos gate sesuai role target halaman; dashboard/owner: tidak memanggil 17 RPC ini (owner bypass `authz_is_owner()` bila sewaktu-waktu perlu). `src/` TIDAK berubah (nol file TSX/TS) — scope murni DB + docs.
+
+**Keterbatasan jujur:** (a) GREEN memakai 3 sampel/batch + sweep 17 penuh utk worker, tapi admin NRP100 hanya 3 sampel/batch (bukan 17/17 admin) — sisa 11 admin lolos implikasi gate identik + 0 error syntax (CREATE OR REPLACE sukses = body valid); (b) uji role admin SELAIN admin_pusat (hrd/finance/operasional per role target) tidak di-probe — hanya admin_pusat (yang selalu lolos) + worker (yang selalu ditolak); matriks role intermediate = asumsi dari `role_code IN (...)` yang terekam di prosrc; (c) P2-F14-M (guard atribut prolang) belum terpasang → konversi sql→plpgsql 5 fungsi tidak dijaga guard otomatis; (d) smoke render browser halaman terdampak TIDAK dijalankan (konsumen 17 RPC semua admin-gated, risiko rendah, tapi tidak dibuktikan di browser).
+
+**STOP check:** nol — split Opsi B menyelesaikan STOP #2; karantina menyelesaikan STOP #1; guard di putaran akhir.
+
+---
