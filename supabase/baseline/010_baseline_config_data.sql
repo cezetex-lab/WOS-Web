@@ -545,7 +545,7 @@ DO $$ BEGIN
   INSERT INTO public.role_page_access (id, role_code, page_pattern, can_access, can_action, created_at) VALUES ('48', 'admin_estate', '/admin/*', 'false', 'false', '2026-09-03 14:49:48.795518+00'::timestamptz);
 END $$;
 
--- ── role_permission_sets (28 baris) ──
+-- ── role_permission_sets (25 baris) ──
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM public.role_permission_sets LIMIT 1) THEN
     RAISE NOTICE 'role_permission_sets sudah berisi data — dilewati';
@@ -564,9 +564,6 @@ DO $$ BEGIN
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('11', 'admin_finance', 'worker_basic', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('12', 'admin_finance', 'supervisor_ext', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('13', 'admin_finance', 'finance_ops', '2026-09-04 10:00:41.03652+00'::timestamptz);
-  INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('14', 'admin_produksi', 'worker_basic', '2026-09-04 10:00:41.03652+00'::timestamptz);
-  INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('15', 'admin_produksi', 'supervisor_ext', '2026-09-04 10:00:41.03652+00'::timestamptz);
-  INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('16', 'admin_produksi', 'manager_ext', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('17', 'admin_mining', 'worker_basic', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('18', 'admin_mining', 'mining_ops', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('19', 'admin_estate', 'worker_basic', '2026-09-04 10:00:41.03652+00'::timestamptz);
@@ -581,7 +578,7 @@ DO $$ BEGIN
   INSERT INTO public.role_permission_sets (id, role_code, permission_set, created_at) VALUES ('28', 'admin_operasional', 'supervisor_ext', '2026-09-24 10:31:16.422916+00'::timestamptz);
 END $$;
 
--- ── permission_set_items (93 baris) ──
+-- ── permission_set_items (92 baris) ──
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM public.permission_set_items LIMIT 1) THEN
     RAISE NOTICE 'permission_set_items sudah berisi data — dilewati';
@@ -613,7 +610,6 @@ DO $$ BEGIN
   INSERT INTO public.permission_set_items (id, permission_set, permission_code, created_at) VALUES ('24', 'manager_ext', 'kpi.set_targets', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.permission_set_items (id, permission_set, permission_code, created_at) VALUES ('25', 'manager_ext', 'performance.review', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.permission_set_items (id, permission_set, permission_code, created_at) VALUES ('26', 'manager_ext', 'coaching.assign', '2026-09-04 10:00:41.03652+00'::timestamptz);
-  INSERT INTO public.permission_set_items (id, permission_set, permission_code, created_at) VALUES ('27', 'hrd_ops', 'employee.view_all', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.permission_set_items (id, permission_set, permission_code, created_at) VALUES ('28', 'hrd_ops', 'employee.create', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.permission_set_items (id, permission_set, permission_code, created_at) VALUES ('29', 'hrd_ops', 'employee.update', '2026-09-04 10:00:41.03652+00'::timestamptz);
   INSERT INTO public.permission_set_items (id, permission_set, permission_code, created_at) VALUES ('30', 'hrd_ops', 'employee.deactivate', '2026-09-04 10:00:41.03652+00'::timestamptz);
@@ -1694,6 +1690,146 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '248_ops07_login_attempts_abuse_guard.sql') THEN
     INSERT INTO public.schema_migrations (version, filename, checksum, description)
     VALUES ('248', '248_ops07_login_attempts_abuse_guard.sql', '221422dd55be11fa8c728e7347ec60ccbf2af3e2ff8bdef2650c28e1a3686341', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '249_p0_revoke_anon_employees_master.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('249', '249_p0_revoke_anon_employees_master.sql', '764ecebe19342e87b8a9590057c523f856ae55817f71c441d42fc9bec3b2f6e9', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '250_p0_revoke_authenticated_dml_employees_master.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('250', '250_p0_revoke_authenticated_dml_employees_master.sql', '90e1cbc7cf8d5ed827695aeca9505eeb0ad6047fd44ab9ceade63588ad2bde88', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '251_fix_audit_actor_and_trigger_consolidation.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('251', '251_fix_audit_actor_and_trigger_consolidation.sql', 'f02e939532922c4042609d00559f33de17c234fb22f99f653d6400b031879358', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '252_fix_audit_retention_and_chain_verify.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('252', '252_fix_audit_retention_and_chain_verify.sql', 'bd013206f835b1e537a39db9be3cc6ed7ee82a88b2f8adf86c2513fa3a79fabf', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '253_fix_verify_audit_chain_anon_grant.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('253', '253_fix_verify_audit_chain_anon_grant.sql', '937de433b74b8d29acb814c6e869e599ee2d4c46a6d470e7479abc0bf3e87924', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '254_fix_password_reset_channel_and_unique_email.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('254', '254_fix_password_reset_channel_and_unique_email.sql', '1a19b7cacb86e278617b2c30d590fef34399a2b2a7deddd57895845d672d0af9', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '255_fix14_backfill_level_nrp001_role.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('255', '255_fix14_backfill_level_nrp001_role.sql', '04ba81a1197bb91161954c6f9b993e750a09b8905cb251a2a61905b7c925cbb7', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '256_fix14_owner_assign_level_map.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('256', '256_fix14_owner_assign_level_map.sql', '8126bf1b15c49ad65c33a86cd5b802f3ceca504f9946721b00bc132e1f4240ed', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '257_fix14_audit_trigger_user_role_assignments.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('257', '257_fix14_audit_trigger_user_role_assignments.sql', 'eb67db0389573a2b82f90e823a7a8694b39f3f79bc58f1f2c785e913ac6948a5', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '258_fix14_authz_in_scope_team_atasan.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('258', '258_fix14_authz_in_scope_team_atasan.sql', 'c3cb8e7bf4bb61ce54e32f0c49f4467da0a38add0235f036d0625bd41fbc9ccd', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '259_fix14_remove_admin_produksi.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('259', '259_fix14_remove_admin_produksi.sql', 'b69e53c18068923a1a95dc29d45b9dbe81ed5a0b982a3b39659dda9063c1ee38', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '260_fix14_remove_admin_produksi_perm_sets.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('260', '260_fix14_remove_admin_produksi_perm_sets.sql', '1cee1e4d11e94f63442a7f880817fe0a02d084919b13b281d2ff24abae30e931', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '261_fix14_role_codes_master_table.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('261', '261_fix14_role_codes_master_table.sql', '5dda96a3100488ae795665d59556d347730c81780d8000ec5ab2fb17b1618e5d', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '262_fix14_assign_nrp001_transitional.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('262', '262_fix14_assign_nrp001_transitional.sql', '488b4477e745678cac6dc562ef5729fe098e7c7bc0b01041fc21c63b1455c03f', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '263_fix14_is_admin_or_owner_rewire.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('263', '263_fix14_is_admin_or_owner_rewire.sql', 'a9707149b0706c574ad6262a4aef5956eee6ad83e521a0b3b6f11c629f20dacb', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '264_fix14_drop_dead_check_admin_access.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('264', '264_fix14_drop_dead_check_admin_access.sql', '43eed6f50624d92a0f7d1cee4f65bc7588cd8935caea9912b4b8e6c952a817e5', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '265_fix14_get_current_user_context_hybrid.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('265', '265_fix14_get_current_user_context_hybrid.sql', 'da1bb156859f2eca89bed144178ccaf56c5ec69a6778cfe5b69a2c654856482a', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '266_fix14_by_auth_id_rewire_and_cleanup.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('266', '266_fix14_by_auth_id_rewire_and_cleanup.sql', '22c370546ad6bc9a7fecaf3cfab9b8d18852cf005cc138289b3268655d44d3a9', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '267_fix14_otp_rewire_wildcard.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('267', '267_fix14_otp_rewire_wildcard.sql', '553ed3adb898ffcdb846c70d811629e0052fd5b48e19e7083ce16a181273316b', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '268_fix14_admin_get_role_matrix_hybrid.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('268', '268_fix14_admin_get_role_matrix_hybrid.sql', 'a26327e8b268e0be77921b12378e8e928f7511fb946f0226bfe61ad313071ea4', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '269_fix14_admin_get_role_matrix_gate.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('269', '269_fix14_admin_get_role_matrix_gate.sql', '832a3419f7b001e641de6f9e7ce4432ef271db8d42c7a1daa137c1b473acf13b', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '270_fix14_get_my_permissions_rpc.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('270', '270_fix14_get_my_permissions_rpc.sql', '5f432438bbb4bf68e2680ce0b4751a572525de6be3938288c359e975d7bdca14', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '271_owner_email_transfer.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('271', '271_owner_email_transfer.sql', '0a118292b9a793e9c25d79fbfbafd4300ef494ee858652a6a39b6e2406975659', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '272_revoke_hrd_view_all.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('272', '272_revoke_hrd_view_all.sql', '6d0f5631932a75db496f895ac0f243b804021d06903f4942690729737af6d98b', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '273_f0501_admin_get_employees_real.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('273', '273_f0501_admin_get_employees_real.sql', 'cce16515a03638282bb621841afc3d7ab6f175cf122e9269e3e6c8d788f3cf58', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '274_gate_admin_get_three_rpcs.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('274', '274_gate_admin_get_three_rpcs.sql', 'e6aebfb8bea1aae1efef214b9117adf5e42c20b36492aaf49281396408b7afb1', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '275_fix_admin_get_six_broken.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('275', '275_fix_admin_get_six_broken.sql', '7e41ee63d6c1c7367d96d6fa74395f1def3cc643b97b9ea84017620077d855a3', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '276_scope_by_nrp_and_rls.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('276', '276_scope_by_nrp_and_rls.sql', '29f6cda77295e175cc4c2df5ab511413aeb0ebafbdb22b6ddf558382ad3307ad', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;

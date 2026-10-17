@@ -4,7 +4,7 @@
 --
 -- Sumber     : DB live (host, project ref & password sengaja TIDAK ditulis)
 -- Generator  : supabase/scripts/generate-baseline.mjs (FULL)
--- Objek      : 208 tabel, 540 fungsi, 1 view,
+-- Objek      : 209 tabel, 539 fungsi, 1 view,
 --               94 sequence, trigger/policy sesuai tabel
 --
 -- JANGAN disunting tangan. Regenerate dengan generator di atas.
@@ -2042,6 +2042,13 @@ CREATE TABLE IF NOT EXISTS public.reviews_360 (
   created_at timestamp with time zone DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.role_codes (
+  code text NOT NULL,
+  is_active boolean DEFAULT true NOT NULL,
+  catatan text,
+  created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS public.role_page_access (
   id integer DEFAULT nextval('role_page_access_id_seq'::regclass) NOT NULL,
   role_code text NOT NULL,
@@ -2563,6 +2570,7 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employee
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employee_documents_pkey' AND conrelid = 'public.employee_documents'::regclass) THEN ALTER TABLE public.employee_documents ADD CONSTRAINT employee_documents_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employee_mutations_pkey' AND conrelid = 'public.employee_mutations'::regclass) THEN ALTER TABLE public.employee_mutations ADD CONSTRAINT employee_mutations_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employees_core_pkey' AND conrelid = 'public.employees_core'::regclass) THEN ALTER TABLE public.employees_core ADD CONSTRAINT employees_core_pkey PRIMARY KEY (nrp); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employees_core_email_unique' AND conrelid = 'public.employees_core'::regclass) THEN ALTER TABLE public.employees_core ADD CONSTRAINT employees_core_email_unique UNIQUE (email); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employees_core_nik_format' AND conrelid = 'public.employees_core'::regclass) THEN ALTER TABLE public.employees_core ADD CONSTRAINT employees_core_nik_format CHECK (((char_length(btrim(nik)) >= 6) AND (char_length(btrim(nik)) <= 20))); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employees_core_nik_not_null' AND conrelid = 'public.employees_core'::regclass) THEN ALTER TABLE public.employees_core ADD CONSTRAINT employees_core_nik_not_null CHECK (((nik IS NOT NULL) AND (btrim(nik) <> ''::text))); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employees_extended_pkey' AND conrelid = 'public.employees_extended'::regclass) THEN ALTER TABLE public.employees_extended ADD CONSTRAINT employees_extended_pkey PRIMARY KEY (nrp); END IF; END $$;
@@ -2727,6 +2735,7 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'referral
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reimbursements_pkey' AND conrelid = 'public.reimbursements'::regclass) THEN ALTER TABLE public.reimbursements ADD CONSTRAINT reimbursements_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resignation_requests_pkey' AND conrelid = 'public.resignation_requests'::regclass) THEN ALTER TABLE public.resignation_requests ADD CONSTRAINT resignation_requests_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reviews_360_pkey' AND conrelid = 'public.reviews_360'::regclass) THEN ALTER TABLE public.reviews_360 ADD CONSTRAINT reviews_360_pkey PRIMARY KEY (id); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'role_codes_pkey' AND conrelid = 'public.role_codes'::regclass) THEN ALTER TABLE public.role_codes ADD CONSTRAINT role_codes_pkey PRIMARY KEY (code); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'role_page_access_pkey' AND conrelid = 'public.role_page_access'::regclass) THEN ALTER TABLE public.role_page_access ADD CONSTRAINT role_page_access_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'role_page_access_role_code_page_pattern_key' AND conrelid = 'public.role_page_access'::regclass) THEN ALTER TABLE public.role_page_access ADD CONSTRAINT role_page_access_role_code_page_pattern_key UNIQUE (role_code, page_pattern); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'role_permission_sets_pkey' AND conrelid = 'public.role_permission_sets'::regclass) THEN ALTER TABLE public.role_permission_sets ADD CONSTRAINT role_permission_sets_pkey PRIMARY KEY (id); END IF; END $$;
@@ -2778,7 +2787,6 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_con
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_role_assignments_pkey' AND conrelid = 'public.user_role_assignments'::regclass) THEN ALTER TABLE public.user_role_assignments ADD CONSTRAINT user_role_assignments_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_role_assignments_nrp_role_code_scope_type_scope_bu_id_key' AND conrelid = 'public.user_role_assignments'::regclass) THEN ALTER TABLE public.user_role_assignments ADD CONSTRAINT user_role_assignments_nrp_role_code_scope_type_scope_bu_id_key UNIQUE (nrp, role_code, scope_type, scope_bu_id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_roles_pkey' AND conrelid = 'public.user_roles'::regclass) THEN ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_pkey PRIMARY KEY (nrp); END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_roles_role_check' AND conrelid = 'public.user_roles'::regclass) THEN ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'worker'::text, 'admin_pusat'::text, 'admin_hrd'::text, 'admin_finance'::text, 'admin_produksi'::text, 'admin_operasional'::text, 'admin_mining'::text, 'admin_mill'::text, 'admin_estate'::text, 'manager'::text, 'supervisor'::text, 'director'::text]))); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'vacancies_pkey' AND conrelid = 'public.vacancies'::regclass) THEN ALTER TABLE public.vacancies ADD CONSTRAINT vacancies_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'validation_rules_pkey' AND conrelid = 'public.validation_rules'::regclass) THEN ALTER TABLE public.validation_rules ADD CONSTRAINT validation_rules_pkey PRIMARY KEY (id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'vendor_contracts_pkey' AND conrelid = 'public.vendor_contracts'::regclass) THEN ALTER TABLE public.vendor_contracts ADD CONSTRAINT vendor_contracts_pkey PRIMARY KEY (id); END IF; END $$;
@@ -2808,6 +2816,8 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hr_surve
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hr_voice_votes_voice_id_fkey' AND conrelid = 'public.hr_voice_votes'::regclass) THEN ALTER TABLE public.hr_voice_votes ADD CONSTRAINT hr_voice_votes_voice_id_fkey FOREIGN KEY (voice_id) REFERENCES hr_voice(id) ON DELETE CASCADE; END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reimbursements_travel_id_fkey' AND conrelid = 'public.reimbursements'::regclass) THEN ALTER TABLE public.reimbursements ADD CONSTRAINT reimbursements_travel_id_fkey FOREIGN KEY (travel_id) REFERENCES travel_requests(id); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ticket_comments_ticket_id_fkey' AND conrelid = 'public.ticket_comments'::regclass) THEN ALTER TABLE public.ticket_comments ADD CONSTRAINT ticket_comments_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ura_role_code' AND conrelid = 'public.user_role_assignments'::regclass) THEN ALTER TABLE public.user_role_assignments ADD CONSTRAINT fk_ura_role_code FOREIGN KEY (role_code) REFERENCES role_codes(code); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ur_role' AND conrelid = 'public.user_roles'::regclass) THEN ALTER TABLE public.user_roles ADD CONSTRAINT fk_ur_role FOREIGN KEY (role) REFERENCES role_codes(code); END IF; END $$;
 
 -- ── INDEXES (non-constraint) ────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_admin_roles_code ON public.admin_roles USING btree (role_code);
@@ -3214,25 +3224,30 @@ DECLARE
   v_nrp TEXT;
   v_old JSONB;
   v_new JSONB;
+  v_actor TEXT;
 BEGIN
   v_action := TG_OP || ' ' || TG_TABLE_NAME;
   v_nrp := COALESCE(NEW.nrp, OLD.nrp, 'SYSTEM');
+  -- P1-13-01: actor yang sebenarnya melakukan perubahan. authz_current_nrp()
+  -- sudah SECURITY DEFINER + STABLE dan terbukti mengembalikan NRP asli saat
+  -- dipanggil dari RPC user yang terautentikasi.
+  v_actor := COALESCE(public.authz_current_nrp(), 'SYSTEM');
 
   IF TG_OP = 'INSERT' THEN
     v_new := to_jsonb(NEW);
-    INSERT INTO audit_log (action, detail, timestamp)
-    VALUES (v_action, jsonb_build_object('nrp', v_nrp, 'table', TG_TABLE_NAME, 'data', v_new)::text, NOW());
+    INSERT INTO audit_log (actor, action, detail, timestamp)
+    VALUES (v_actor, v_action, jsonb_build_object('nrp', v_nrp, 'table', TG_TABLE_NAME, 'data', v_new)::text, NOW());
   ELSIF TG_OP = 'UPDATE' THEN
     v_old := to_jsonb(OLD);
     v_new := to_jsonb(NEW);
     IF v_old IS DISTINCT FROM v_new THEN
-      INSERT INTO audit_log (action, detail, timestamp)
-      VALUES (v_action, jsonb_build_object('nrp', v_nrp, 'table', TG_TABLE_NAME, 'old', v_old, 'new', v_new)::text, NOW());
+      INSERT INTO audit_log (actor, action, detail, timestamp)
+      VALUES (v_actor, v_action, jsonb_build_object('nrp', v_nrp, 'table', TG_TABLE_NAME, 'old', v_old, 'new', v_new)::text, NOW());
     END IF;
   ELSIF TG_OP = 'DELETE' THEN
     v_old := to_jsonb(OLD);
-    INSERT INTO audit_log (action, detail, timestamp)
-    VALUES (v_action, jsonb_build_object('nrp', v_nrp, 'table', TG_TABLE_NAME, 'data', v_old)::text, NOW());
+    INSERT INTO audit_log (actor, action, detail, timestamp)
+    VALUES (v_actor, v_action, jsonb_build_object('nrp', v_nrp, 'table', TG_TABLE_NAME, 'data', v_old)::text, NOW());
   END IF;
 
   IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
@@ -3903,7 +3918,7 @@ CREATE OR REPLACE FUNCTION public.admin_get_audit_chain()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$ BEGIN IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501'; END IF; RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('id',id,'timestamp',timestamp,'actor',actor,'action',action,'detail',detail)
     ORDER BY timestamp DESC),'[]'::jsonb))
@@ -3984,7 +3999,7 @@ CREATE OR REPLACE FUNCTION public.admin_get_divisions()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(jsonb_build_object('divisi',divisi,'headcount',hc)),'[]'::jsonb))
+BEGIN IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501'; END IF; RETURN (SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(jsonb_build_object('divisi',divisi,'headcount',hc)),'[]'::jsonb))
 FROM (SELECT divisi,COUNT(*) as hc FROM employees_master WHERE divisi IS NOT NULL GROUP BY divisi) t); END;
 $function$;
 -- admin_get_employee_stats()
@@ -4004,18 +4019,46 @@ AS $function$
       AND (tanggal_masuk + interval '2 year')::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '90 days')
   );
 $function$;
--- admin_get_employees()
-CREATE OR REPLACE FUNCTION public.admin_get_employees()
+-- admin_get_employees(p_search text)
+CREATE OR REPLACE FUNCTION public.admin_get_employees(p_search text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+  v_data JSONB;
 BEGIN
+  -- Gate fail-closed: pemegang employee.view_all = admin_pusat (+ owner bypass).
+  -- Tolak = exception 42501 → konsumen dapat error transport → [] (lihat header).
   IF NOT authz_check_admin('employee.view_all') THEN
-    RETURN jsonb_build_object('ok', FALSE, 'msg', 'Akses ditolak.');
+    RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501';
   END IF;
-  RETURN jsonb_build_object('ok', TRUE, 'msg', 'RPC executed with role check.');
+
+  SELECT COALESCE(jsonb_agg(row_to_json(t)), '[]'::JSONB) INTO v_data
+  FROM (
+    SELECT
+      em.nrp,
+      em.nik,
+      em.nama,
+      em.email,
+      em.no_hp,
+      em.divisi,
+      em.jabatan,
+      em.status_kerja_internal AS jenis,
+      CASE WHEN em.is_active THEN 'Aktif' ELSE 'Non-Aktif' END AS status,
+      em.is_active,
+      em.tanggal_masuk,
+      em.contract_end_date AS tanggal_habis
+    FROM employees_master em
+    WHERE (p_search IS NULL
+           OR em.nama ILIKE '%' || p_search || '%'
+           OR em.nrp ILIKE '%' || p_search || '%'
+           OR em.email ILIKE '%' || p_search || '%')
+    ORDER BY em.nrp
+  ) t;
+
+  RETURN v_data;
 END;
 $function$;
 -- admin_get_estate_blocks()
@@ -4060,11 +4103,14 @@ CREATE OR REPLACE FUNCTION public.admin_get_external_notifications()
  SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
     SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
       jsonb_build_object('id', e.id, 'channel', e.channel, 'event_types', e.event_types, 'active', e.active, 'last_sent_at', e.last_sent_at)
     ), '[]'::jsonb))
-    FROM external_notifications e ORDER BY e.id
+    FROM (SELECT id, channel, event_types, active, last_sent_at FROM external_notifications ORDER BY id) e
   );
 END;
 $function$;
@@ -4225,14 +4271,17 @@ CREATE OR REPLACE FUNCTION public.admin_get_master_data()
  SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
     SELECT jsonb_build_object('ok', true,
       'roles', (SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'nrp', ur.nrp, 'role', ur.role, 'tier', ur.tier, 'created_at', ur.created_at
-      ) ORDER BY ur.created_at DESC), '[]'::jsonb) FROM user_roles ur LIMIT 100),
+        'nrp', ur.nrp, 'role', ur.role, 'tier', ur.role_level
+      ) ORDER BY ur.role_level DESC, ur.nrp ASC), '[]'::jsonb) FROM user_roles ur LIMIT 100),
       'divisions', (SELECT COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
-        'divisi', o.divisi
-      )), '[]'::jsonb) FROM hr_org o WHERE o.divisi IS NOT NULL)
+        'divisi', md.division_name
+      )), '[]'::jsonb) FROM master_divisions md WHERE md.division_name IS NOT NULL)
     )
   );
 END;
@@ -4263,7 +4312,7 @@ CREATE OR REPLACE FUNCTION public.admin_get_org_structure()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
+BEGIN IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501'; END IF; RETURN (SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
   jsonb_build_object('nrp',e.nrp,'nama',e.nama,'divisi',e.divisi,'posisi',e.posisi,'atasan',o.atasan_nrp,'level',COALESCE(ur.role_level,1)) ORDER BY e.nama),'[]'::jsonb))
 FROM employees_master e LEFT JOIN hr_org o ON o.nrp=e.nrp LEFT JOIN user_roles ur ON ur.nrp=e.nrp); END;
 $function$;
@@ -4433,8 +4482,8 @@ CREATE OR REPLACE FUNCTION public.admin_get_role_matrix()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN RETURN (SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
-  jsonb_build_object('nrp',ur.nrp,'nama',e.nama,'level',ur.role_level,'scope',ur.scope_divisi,'plan',COALESCE(ur.plan,'FREE')) ORDER BY ur.role_level DESC),'[]'::jsonb))
+BEGIN IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN RETURN jsonb_build_object('ok', FALSE, 'msg', 'Akses ditolak. Hanya admin_pusat.'); END IF; RETURN (SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
+  jsonb_build_object('nrp',ur.nrp,'nama',e.nama,'level',ur.role_level,'scope',ur.scope_divisi,'plan',COALESCE(ur.plan,'FREE'),'role_code',COALESCE((SELECT a.role_code FROM user_role_assignments a WHERE a.nrp = ur.nrp ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC LIMIT 1), ur.role)) ORDER BY ur.role_level DESC),'[]'::jsonb))
 FROM user_roles ur LEFT JOIN employees_master e ON e.nrp=ur.nrp); END; $function$;
 -- admin_get_settlements()
 CREATE OR REPLACE FUNCTION public.admin_get_settlements()
@@ -4462,11 +4511,14 @@ CREATE OR REPLACE FUNCTION public.admin_get_sso_providers()
  SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
     SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
       jsonb_build_object('id', s.id, 'name', s.name, 'provider_type', s.provider_type, 'enabled', s.enabled)
     ), '[]'::jsonb))
-    FROM sso_providers s ORDER BY s.id
+    FROM (SELECT id, name, provider_type, enabled FROM sso_providers ORDER BY id) s
   );
 END;
 $function$;
@@ -4511,6 +4563,9 @@ CREATE OR REPLACE FUNCTION public.admin_get_timesheet()
  SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat', 'admin_finance', 'admin_operasional')) AND NOT authz_is_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat, admin_finance, admin_operasional.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
     SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
       jsonb_build_object(
@@ -4519,8 +4574,8 @@ BEGIN
       )
     ), '[]'::jsonb))
     FROM (
-      SELECT a.nrp, a.date, a.check_in, a.check_out, a.status,
-        ROUND(EXTRACT(EPOCH FROM (a.check_out - a.check_in)) / 3600, 1) as hours
+      SELECT a.nrp, a.date, a.jam_masuk AS check_in, a.jam_keluar AS check_out, a.status_hadir AS status,
+        ROUND(EXTRACT(EPOCH FROM (a.jam_keluar - a.jam_masuk)) / 3600, 1) as hours
       FROM hr_attendance a
       ORDER BY a.date DESC
       LIMIT 100
@@ -4589,9 +4644,12 @@ CREATE OR REPLACE FUNCTION public.admin_get_webhook_logs()
  SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
     SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-      jsonb_build_object('id', l.id, 'webhook_id', l.webhook_id, 'event', l.event, 'success', l.success, 'response_status', l.response_status, 'created_at', l.created_at)
+      jsonb_build_object('id', l.id, 'target_url', l.target_url, 'event', l.event_type, 'success', COALESCE(l.response_code BETWEEN 200 AND 299, FALSE), 'response_status', l.response_code, 'created_at', l.created_at)
       ORDER BY l.created_at DESC
     ), '[]'::jsonb))
     FROM webhook_logs l LIMIT 50
@@ -4606,11 +4664,14 @@ CREATE OR REPLACE FUNCTION public.admin_get_webhooks()
  SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
     SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
       jsonb_build_object('id', w.id, 'name', w.name, 'url', w.url, 'events', w.events, 'active', w.active, 'last_triggered_at', w.last_triggered_at)
     ), '[]'::jsonb))
-    FROM webhook_configs w ORDER BY w.id
+    FROM (SELECT id, name, url, events, active, last_triggered_at FROM webhook_configs ORDER BY id) w
   );
 END;
 $function$;
@@ -5291,8 +5352,12 @@ AS $function$
 DECLARE
   v_prev_hash TEXT;
 BEGIN
-  SELECT row_hash INTO v_prev_hash
-  FROM audit_log ORDER BY id DESC LIMIT 1;
+  -- Tanpa lock, dua INSERT bersamaan bisa membaca row_hash yang sama dan
+  -- membuat rantai bercabang (chain tidak lagi lurus). Lock ini diserialisasi
+  -- per-transaksi sehingga hanya boleh satu penulisan audit pada satu waktu.
+  PERFORM pg_advisory_xact_lock(hashtext('audit_log_hash_chain'));
+
+  SELECT row_hash INTO v_prev_hash FROM audit_log ORDER BY id DESC LIMIT 1;
 
   IF v_prev_hash IS NULL THEN
     v_prev_hash := '0';
@@ -5443,7 +5508,7 @@ BEGIN
     WHEN 'TEAM' THEN
       RETURN EXISTS (
         SELECT 1 FROM hr_org ho1
-        JOIN hr_org ho2 ON ho1.manager_nrp = ho2.manager_nrp
+        JOIN hr_org ho2 ON ho1.atasan_nrp = ho2.atasan_nrp
         WHERE ho1.nrp = v_caller AND ho2.nrp = p_target_nrp
       );
     WHEN 'DEPARTMENT' THEN
@@ -6080,90 +6145,6 @@ BEGIN
   RETURN FALSE;
 END;
 $function$;
--- check_admin_access()
-CREATE OR REPLACE FUNCTION public.check_admin_access()
- RETURNS boolean
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-DECLARE
-  v_role TEXT;
-BEGIN
-  v_role := COALESCE(
-    current_setting('request.jwt.claims', true)::json->>'role',
-    ''
-  );
-  RETURN v_role IN ('admin_pusat', 'admin_hrd', 'admin_finance', 'manager');
-END;
-$function$;
--- check_admin_access(p_path text)
-CREATE OR REPLACE FUNCTION public.check_admin_access(p_path text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
-AS $function$
-DECLARE
-  v_role TEXT;
-  v_is_owner BOOLEAN;
-  v_result JSONB;
-  v_scope_type TEXT;
-  v_scope_id TEXT;
-  v_permissions JSONB;
-BEGIN
-  -- 1. Owner bypass (identity-based)
-  SELECT check_owner_identity() INTO v_is_owner;
-  IF v_is_owner THEN
-    RETURN jsonb_build_object('ok', TRUE, 'can_access', TRUE, 'can_action', TRUE, 'reason', 'owner_bypass');
-  END IF;
-
-  -- 2. Get user role from user_roles
-  SELECT ur.role INTO v_role
-  FROM user_roles ur
-  WHERE ur.nrp = (SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1)
-  ORDER BY ur.role_level DESC LIMIT 1;
-
-  IF v_role IS NULL OR v_role = 'worker' THEN
-    RETURN jsonb_build_object('ok', TRUE, 'can_access', FALSE, 'can_action', FALSE, 'reason', 'not_admin');
-  END IF;
-
-  -- 3. Look up dynamic admin role
-  SELECT ar.scope_type, ar.scope_id, ar.permissions
-  INTO v_scope_type, v_scope_id, v_permissions
-  FROM admin_roles ar
-  WHERE ar.role_code = v_role AND ar.is_active = TRUE;
-
-  IF v_scope_type IS NULL THEN
-    RETURN jsonb_build_object('ok', TRUE, 'can_access', FALSE, 'can_action', FALSE, 'reason', 'role_not_found');
-  END IF;
-
-  -- 4. Global scope
-  IF v_scope_type = 'global' THEN
-    IF p_path IN ('/admin/modules', '/admin/system-config', '/admin/access-control') THEN
-      RETURN jsonb_build_object('ok', TRUE, 'can_access', FALSE, 'can_action', FALSE, 'reason', 'owner_only_feature');
-    END IF;
-    RETURN jsonb_build_object('ok', TRUE, 'can_access', TRUE, 'can_action', TRUE, 'reason', 'global_admin');
-  END IF;
-
-  -- 5. Function/Industry scope - check role_page_access table
-  SELECT jsonb_build_object('ok', TRUE, 'can_access', rpa.can_access, 'can_action', rpa.can_action)
-  INTO v_result
-  FROM role_page_access rpa
-  WHERE rpa.role_code = v_role AND (
-    rpa.page_pattern = p_path
-    OR (rpa.page_pattern LIKE '%/*' AND p_path LIKE REPLACE(rpa.page_pattern, '/*', '') || '%')
-  )
-  LIMIT 1;
-
-  IF v_result IS NOT NULL THEN
-    RETURN v_result;
-  END IF;
-
-  -- 6. Default: deny
-  RETURN jsonb_build_object('ok', TRUE, 'can_access', FALSE, 'can_action', FALSE, 'reason', 'no_matching_rule');
-END;
-$function$;
 -- check_api_rate_limit(p_key_hash text)
 CREATE OR REPLACE FUNCTION public.check_api_rate_limit(p_key_hash text)
  RETURNS jsonb
@@ -6623,15 +6604,19 @@ AS $function$ BEGIN
   DELETE FROM api_rate_limits WHERE window_start < NOW() - INTERVAL '2 hours';
 END; $function$;
 -- cleanup_audit_log(p_days integer)
-CREATE OR REPLACE FUNCTION public.cleanup_audit_log(p_days integer DEFAULT 90)
+CREATE OR REPLACE FUNCTION public.cleanup_audit_log(p_days integer DEFAULT 365)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-DECLARE v_deleted INT;
+DECLARE
+  v_deleted INT;
 BEGIN
-  DELETE FROM audit_log WHERE created_at < NOW() - (p_days || ' days')::INTERVAL;
+  -- BUG LAMA: kolom 'created_at' tidak pernah ada di audit_log (kolomnya
+  -- 'timestamp'), jadi fungsi ini PASTI error setiap kali dipanggil.
+  DELETE FROM audit_log
+   WHERE timestamp < NOW() - (p_days || ' days')::INTERVAL;
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
   RETURN jsonb_build_object('ok', true, 'deleted', v_deleted, 'retention_days', p_days);
 END;
@@ -6894,9 +6879,13 @@ CREATE OR REPLACE FUNCTION public.create_forum_post(p_nrp text, p_title text, p_
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-DECLARE new_id uuid;
+DECLARE
+  new_id uuid;
+  v_nrp text := authz_current_nrp();
+  v_is_admin boolean := authz_check_admin('employee.view_all');
+  v_eff text := CASE WHEN v_is_admin THEN p_nrp ELSE v_nrp END;
 BEGIN
-  INSERT INTO forum_posts (nrp, title, content, category) VALUES (p_nrp, p_title, p_content, p_category) RETURNING id INTO new_id;
+  INSERT INTO forum_posts (nrp, title, content, category) VALUES (v_eff, p_title, p_content, p_category) RETURNING id INTO new_id;
   RETURN jsonb_build_object('ok', true, 'id', new_id);
 END;
 $function$;
@@ -6909,8 +6898,11 @@ CREATE OR REPLACE FUNCTION public.create_harvest_record(p_nrp text, p_block text
 AS $function$
 DECLARE
   v_id text;
+  v_nrp text := authz_current_nrp();
+  v_is_admin boolean := authz_check_admin('employee.view_all');
+  v_eff text := CASE WHEN v_is_admin THEN p_nrp ELSE v_nrp END;
 BEGIN
-  IF p_nrp IS NULL OR p_nrp = '' THEN
+  IF v_eff IS NULL OR v_eff = '' THEN
     RETURN jsonb_build_object('ok', false, 'msg', 'NRP wajib diisi.');
   END IF;
   IF p_block IS NULL OR p_block = '' THEN
@@ -6922,7 +6914,7 @@ BEGIN
   v_id := 'HVT-' || encode(gen_random_bytes(4), 'hex');
   INSERT INTO harvest_records (id, block, harvest_date, weight_kg, ripe_pct, worker_nrp, quality)
   VALUES (v_id, p_block, CURRENT_DATE, p_weight_kg,
-          COALESCE(p_ripe_pct, 0), p_nrp, COALESCE(p_quality, 'B'));
+          COALESCE(p_ripe_pct, 0), v_eff, COALESCE(p_quality, 'B'));
   RETURN jsonb_build_object('ok', true, 'msg', 'Panen tercatat.', 'id', v_id);
 END;
 $function$;
@@ -7543,8 +7535,17 @@ BEGIN
   ELSE
     SELECT nrp INTO v_nrp FROM employees_master WHERE auth_id = v_uid LIMIT 1;
     IF v_nrp IS NOT NULL THEN
-      SELECT EXISTS (SELECT 1 FROM user_roles
-        WHERE nrp = v_nrp AND (role = 'owner' OR role LIKE 'admin%')) INTO v_is_admin;
+      -- Fix #14 §9 batch 267: admin\_% dari user_role_assignments (assignment
+      -- override); fallback user_roles HANYA bila nrp tanpa assignment sama sekali.
+      SELECT CASE
+               WHEN EXISTS (SELECT 1 FROM user_role_assignments a WHERE a.nrp = v_nrp) THEN
+                 EXISTS (SELECT 1 FROM user_role_assignments a
+                          WHERE a.nrp = v_nrp AND a.role_code LIKE 'admin\_%')
+               ELSE
+                 EXISTS (SELECT 1 FROM user_roles ur
+                          WHERE ur.nrp = v_nrp AND (ur.role = 'owner' OR ur.role LIKE 'admin\_%'))
+             END
+        INTO v_is_admin;
     END IF;
   END IF;
 
@@ -8263,14 +8264,17 @@ DECLARE
   v_skills JSONB;
   v_next_level INT;
   v_recommendations TEXT[];
+  v_nrp text := authz_current_nrp();
+  v_is_admin boolean := authz_check_admin('employee.view_all');
+  v_eff text := CASE WHEN v_is_admin THEN p_nrp ELSE v_nrp END;
 BEGIN
-  -- Get employee data
+  -- Get employee data (scoped: non-admin hanya boleh baca dirinya sendiri)
   SELECT e.nrp, e.nama, e.posisi, e.divisi, e.business_unit,
          COALESCE(ur.role_level, 1) AS current_level
   INTO v_emp
   FROM employees_master e
   LEFT JOIN user_roles ur ON ur.nrp = e.nrp
-  WHERE e.nrp = p_nrp;
+  WHERE e.nrp = v_eff;
 
   IF NOT FOUND THEN
     RETURN jsonb_build_object('ok', false, 'msg', 'Employee not found');
@@ -8282,7 +8286,7 @@ BEGIN
   ), '[]'::jsonb)
   INTO v_skills
   FROM hr_skills
-  WHERE nrp = p_nrp;
+  WHERE nrp = v_eff;
 
   -- Determine next level (max 5)
   v_next_level := LEAST(v_emp.current_level + 1, 5);
@@ -8291,7 +8295,7 @@ BEGIN
   SELECT ARRAY_AGG('Pelatihan ' || skill_name || ' (level ' || target_level || ')')
   INTO v_recommendations
   FROM hr_skills
-  WHERE nrp = p_nrp AND level < target_level
+  WHERE nrp = v_eff AND level < target_level
   LIMIT 3;
 
   RETURN jsonb_build_object(
@@ -8544,11 +8548,14 @@ CREATE OR REPLACE FUNCTION public.get_continuous_perf_team(p_nrp text)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$
+DECLARE
+  v_eff text := CASE WHEN authz_check_admin('employee.view_all') THEN p_nrp ELSE authz_current_nrp() END;
+BEGIN RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('nrp',p.nrp,'nama',e.nama,'periode',p.periode,'kpi_score',p.kpi_score)
     ORDER BY p.periode DESC),'[]'::jsonb))
-  FROM hr_performance p JOIN hr_org o ON o.nrp=p.nrp AND o.atasan_nrp=p_nrp
+  FROM hr_performance p JOIN hr_org o ON o.nrp=p.nrp AND o.atasan_nrp=v_eff
   LEFT JOIN employees_master e ON e.nrp=p.nrp
   WHERE p.periode IS NOT NULL
   LIMIT 20); END;
@@ -8645,6 +8652,7 @@ DECLARE
   v_emp RECORD;
   v_role RECORD;
   v_is_owner BOOLEAN;
+  v_assign_role TEXT;
 BEGIN
   IF v_uid IS NULL THEN RETURN NULL; END IF;
 
@@ -8669,10 +8677,19 @@ BEGIN
 
   SELECT * INTO v_role FROM user_roles WHERE nrp = v_emp.nrp LIMIT 1;
 
+  -- Fix #14 §9 batch 265: role diambil dari user_role_assignments
+  -- (sumber kebenaran baru), fallback ke user_roles.role.
+  -- role_level TETAP dari user_roles — assignment tidak punya kolom level.
+  SELECT a.role_code INTO v_assign_role
+    FROM user_role_assignments a
+   WHERE a.nrp = v_emp.nrp
+   ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC
+   LIMIT 1;
+
   RETURN jsonb_build_object(
     'nrp', v_emp.nrp,
     'nama', v_emp.nama,
-    'role', COALESCE(v_role.role, 'worker'),
+    'role', COALESCE(v_assign_role, v_role.role, 'worker'),
     'role_level', COALESCE(v_role.role_level, 1),
     'is_owner', FALSE,
     'business_unit_id', v_emp.business_unit_id,
@@ -9298,6 +9315,9 @@ CREATE OR REPLACE FUNCTION public.get_fatigue_data(p_nrp text DEFAULT NULL::text
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+  v_nrp text := authz_current_nrp();
+  v_is_admin boolean := authz_check_admin('employee.view_all');
 BEGIN
   RETURN jsonb_build_object('ok', true, 'data', COALESCE((
     SELECT jsonb_agg(sub)
@@ -9309,7 +9329,8 @@ BEGIN
         'last_check', fd.last_check
       ) as sub
       FROM fatigue_data fd
-      WHERE (p_nrp IS NULL OR fd.nrp = p_nrp)
+      WHERE (CASE WHEN v_is_admin THEN (p_nrp IS NULL OR fd.nrp = p_nrp)
+                  ELSE fd.nrp = v_nrp END)
       ORDER BY fd.fatigue_level DESC, fd.nama
     ) t
   ), '[]'::jsonb));
@@ -9856,6 +9877,8 @@ CREATE OR REPLACE FUNCTION public.get_maintenance_schedule(p_site_code text DEFA
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+  v_is_admin boolean := authz_check_admin('employee.view_all');
 BEGIN
   RETURN (SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(sub), '[]'::jsonb))
   FROM (
@@ -9864,7 +9887,9 @@ BEGIN
       'maintenance_type', m.maintenance_type, 'description', m.description,
       'scheduled_date', m.scheduled_date, 'completed_date', m.completed_date,
       'status', m.status, 'assigned_to', m.assigned_to, 'priority', m.priority,
-      'cost', m.cost, 'parts_used', m.parts_used, 'downtime_hours', m.downtime_hours,
+      'cost', CASE WHEN v_is_admin THEN m.cost ELSE NULL END,
+      'parts_used', CASE WHEN v_is_admin THEN m.parts_used ELSE NULL END,
+      'downtime_hours', m.downtime_hours,
       'site_code', m.site_code
     ) AS sub
     FROM mill_maintenance m
@@ -10426,6 +10451,32 @@ BEGIN
   );
 END;
 $function$;
+-- get_my_permissions()
+CREATE OR REPLACE FUNCTION public.get_my_permissions()
+ RETURNS text[]
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+  -- Owner bypass: SEMUA permission aktif (pola authz_is_owner dari 263/269).
+  SELECT CASE
+    WHEN public.authz_is_owner() THEN
+      (SELECT array_agg(DISTINCT permission_code ORDER BY permission_code)
+       FROM permission_set_items)
+    ELSE
+      COALESCE(
+        (SELECT array_agg(DISTINCT psi.permission_code
+                              ORDER BY psi.permission_code)
+         FROM user_role_assignments ura
+         JOIN role_permission_sets rps
+           ON rps.role_code = ura.role_code
+         JOIN permission_set_items psi
+           ON psi.permission_set = rps.permission_set
+         WHERE ura.nrp = public.authz_current_nrp()),
+        ARRAY[]::text[]
+      )
+  END;
+$function$;
 -- get_my_plan(p_nrp text)
 CREATE OR REPLACE FUNCTION public.get_my_plan(p_nrp text)
  RETURNS jsonb
@@ -10837,6 +10888,8 @@ CREATE OR REPLACE FUNCTION public.get_performance_notes(p_nrp text)
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+  v_eff text := CASE WHEN authz_check_admin('employee.view_all') THEN p_nrp ELSE authz_current_nrp() END;
 BEGIN
   RETURN (
     SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
@@ -10850,7 +10903,7 @@ BEGIN
       ) ORDER BY n.created_at DESC
     ), '[]'::jsonb))
     FROM performance_notes n
-    WHERE n.nrp = p_nrp OR n.author_nrp = p_nrp
+    WHERE n.nrp = v_eff OR n.author_nrp = v_eff
     LIMIT 50
   );
 END;
@@ -11212,6 +11265,9 @@ CREATE OR REPLACE FUNCTION public.get_simper_list(p_nrp text DEFAULT NULL::text)
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+  v_nrp text := authz_current_nrp();
+  v_is_admin boolean := authz_check_admin('employee.view_all');
 BEGIN
   RETURN jsonb_build_object('ok', true, 'data', COALESCE((
     SELECT jsonb_agg(sub)
@@ -11222,7 +11278,8 @@ BEGIN
         'valid_until', sd.valid_until, 'issued_by', sd.issued_by
       ) as sub
       FROM simper_data sd
-      WHERE (p_nrp IS NULL OR sd.nrp = p_nrp)
+      WHERE (CASE WHEN v_is_admin THEN (p_nrp IS NULL OR sd.nrp = p_nrp)
+                  ELSE sd.nrp = v_nrp END)
       ORDER BY sd.valid_until DESC
     ) t
   ), '[]'::jsonb));
@@ -11354,7 +11411,10 @@ CREATE OR REPLACE FUNCTION public.get_team_data(p_nrp text)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$
+DECLARE
+  v_eff text := CASE WHEN authz_check_admin('employee.view_all') THEN p_nrp ELSE authz_current_nrp() END;
+BEGIN RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('nrp',e.nrp,'nama',e.nama,'posisi',e.posisi,'divisi',e.divisi,
       'kpi_score',COALESCE(p.kpi_score,0),'status_kerja',e.status_kerja)
@@ -11362,7 +11422,7 @@ AS $function$ BEGIN RETURN (
   FROM hr_org o JOIN employees_master e ON e.nrp=o.nrp
   LEFT JOIN hr_performance p ON p.nrp=o.nrp AND p.periode=(
     SELECT MAX(periode) FROM hr_performance)
-  WHERE o.atasan_nrp=p_nrp); END;
+  WHERE o.atasan_nrp=v_eff); END;
 $function$;
 -- get_team_narrative(p_nrp text)
 CREATE OR REPLACE FUNCTION public.get_team_narrative(p_nrp text)
@@ -11554,7 +11614,7 @@ CREATE OR REPLACE FUNCTION public.get_user_context_by_auth_id(p_auth_id uuid)
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-DECLARE v_emp RECORD; v_role RECORD; v_bu RECORD; v_email TEXT;
+DECLARE v_emp RECORD; v_role RECORD; v_bu RECORD; v_email TEXT; v_assign_role TEXT;
 BEGIN
   SELECT email INTO v_email FROM auth.users WHERE id = p_auth_id;
   
@@ -11565,9 +11625,6 @@ BEGIN
     SELECT employee_id, nrp, nama, email, business_unit_id, role_level, divisi, posisi
     INTO v_emp FROM employees_master
     WHERE LOWER(TRIM(email)) = LOWER(TRIM(v_email)) LIMIT 1;
-    IF FOUND THEN
-      UPDATE employees_master SET auth_id = p_auth_id WHERE nrp = v_emp.nrp;
-    END IF;
   END IF;
   
   IF NOT FOUND THEN
@@ -11575,11 +11632,20 @@ BEGIN
   END IF;
 
   SELECT role, role_level INTO v_role FROM user_roles WHERE nrp = v_emp.nrp LIMIT 1;
+
+  -- Fix #14 §9 batch 266: role dari user_role_assignments (sumber kebenaran
+  -- sejak 261/262), fallback ke user_roles.role. role_level TETAP user_roles.
+  SELECT a.role_code INTO v_assign_role
+    FROM user_role_assignments a
+   WHERE a.nrp = v_emp.nrp
+   ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC
+   LIMIT 1;
+
   SELECT tier, unit_name, unit_code INTO v_bu FROM business_units WHERE id = v_emp.business_unit_id;
 
   RETURN jsonb_build_object(
     'ok', true, 'nrp', v_emp.nrp, 'nama', v_emp.nama, 'email', v_emp.email,
-    'role', COALESCE(v_role.role, 'worker'),
+    'role', COALESCE(v_assign_role, v_role.role, 'worker'),
     'role_level', GREATEST(COALESCE(v_role.role_level, 1), COALESCE(v_emp.role_level, 1)),
     'business_unit_id', v_emp.business_unit_id,
     'business_unit_name', COALESCE(v_bu.unit_name, ''),
@@ -11806,11 +11872,14 @@ CREATE OR REPLACE FUNCTION public.get_worker_kpi(p_nrp text)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$
+DECLARE
+  v_eff text := CASE WHEN authz_check_admin('employee.view_all') THEN p_nrp ELSE authz_current_nrp() END;
+BEGIN RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('periode',periode,'kpi_score',kpi_score,'feedback',feedback_json)
     ORDER BY created_at DESC),'[]'::jsonb))
-  FROM hr_performance WHERE nrp=p_nrp LIMIT 12); END;
+  FROM hr_performance WHERE nrp=v_eff LIMIT 12); END;
 $function$;
 -- get_worker_learning(p_nrp text)
 CREATE OR REPLACE FUNCTION public.get_worker_learning(p_nrp text)
@@ -12310,15 +12379,15 @@ CREATE OR REPLACE FUNCTION public.is_admin_or_owner()
  SET search_path TO 'public', 'extensions'
 AS $function$
   SELECT EXISTS (
-    SELECT 1 FROM user_roles ur
-    JOIN employees_master em ON em.nrp = ur.nrp
+    SELECT 1 FROM user_role_assignments ura
+    JOIN employees_master em ON em.nrp = ura.nrp
     WHERE em.auth_id = auth.uid()
-    AND ur.role IN ('owner', 'admin_pusat', 'admin_hrd', 'admin_finance', 'admin_produksi')
+    AND ura.role_code LIKE 'admin\_%'
   ) OR EXISTS (
     SELECT 1 FROM user_roles WHERE nrp = (
       SELECT nrp FROM employees_master WHERE auth_id = auth.uid() LIMIT 1
     ) AND role = 'owner'
-  );
+  ) OR authz_is_owner();
 $function$;
 -- list_ideas()
 CREATE OR REPLACE FUNCTION public.list_ideas()
@@ -12960,6 +13029,7 @@ CREATE OR REPLACE FUNCTION public.owner_assign_admin_user(p_nrp text, p_role_cod
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 DECLARE v_ctx JSONB := get_current_user_context(); v_exists BOOLEAN;
 BEGIN
   IF v_ctx IS NULL OR NOT check_owner_identity() THEN
@@ -12970,10 +13040,11 @@ BEGIN
     RETURN jsonb_build_object('ok', FALSE, 'msg', 'Role not found or inactive.');
   END IF;
   -- Upsert user_roles for this NRP
+  -- PERUBAHAN SATU-SATUNYA (256): pemetaan level diselaraskan ke §5d —
+  -- admin adalah fungsi, bukan tingkat; semua admin_* = level 3.
   INSERT INTO user_roles (nrp, role, role_level)
   SELECT p_nrp, p_role_code, CASE
-    WHEN p_role_code = 'admin_pusat' THEN 5
-    WHEN p_role_code IN ('admin_hrd', 'admin_finance', 'admin_operasional') THEN 4
+    WHEN p_role_code LIKE 'admin_%' THEN 3
     ELSE 3
   END
   ON CONFLICT (nrp) DO UPDATE SET role = p_role_code, role_level = EXCLUDED.role_level;
@@ -14013,8 +14084,12 @@ CREATE OR REPLACE FUNCTION public.reply_forum_post(p_post_id uuid, p_nrp text, p
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+  v_nrp text := authz_current_nrp();
+  v_is_admin boolean := authz_check_admin('employee.view_all');
+  v_eff text := CASE WHEN v_is_admin THEN p_nrp ELSE v_nrp END;
 BEGIN
-  INSERT INTO forum_replies (post_id, nrp, content) VALUES (p_post_id, p_nrp, p_content);
+  INSERT INTO forum_replies (post_id, nrp, content) VALUES (p_post_id, v_eff, p_content);
   UPDATE forum_posts SET replies_count = replies_count + 1 WHERE id = p_post_id;
   RETURN jsonb_build_object('ok', true);
 END;
@@ -14028,8 +14103,11 @@ CREATE OR REPLACE FUNCTION public.report_safety_incident(p_nrp text, p_type text
 AS $function$
 DECLARE
   v_id text;
+  v_nrp text := authz_current_nrp();
+  v_is_admin boolean := authz_check_admin('employee.view_all');
+  v_eff text := CASE WHEN v_is_admin THEN p_nrp ELSE v_nrp END;
 BEGIN
-  IF p_nrp IS NULL OR p_nrp = '' THEN
+  IF v_eff IS NULL OR v_eff = '' THEN
     RETURN jsonb_build_object('ok', false, 'msg', 'NRP wajib diisi.');
   END IF;
   IF p_desc IS NULL OR p_desc = '' THEN
@@ -14038,7 +14116,7 @@ BEGIN
   v_id := 'SAF-' || encode(gen_random_bytes(4), 'hex');
   INSERT INTO safety_incidents (id, incident_date, zone, incident_type, severity, description, reporter_nrp, status)
   VALUES (v_id, CURRENT_DATE, COALESCE(p_zone, 'UNKNOWN'), COALESCE(p_type, 'INCIDENT'),
-          COALESCE(p_severity, 'MEDIUM'), p_desc, p_nrp, 'OPEN');
+          COALESCE(p_severity, 'MEDIUM'), p_desc, v_eff, 'OPEN');
   RETURN jsonb_build_object('ok', true, 'msg', 'Laporan insiden terkirim.', 'id', v_id);
 END;
 $function$;
@@ -14844,6 +14922,7 @@ DECLARE
   v_nrp TEXT;
   v_emp RECORD;
   v_role RECORD;
+  v_assign_role TEXT;
   v_token TEXT;
   v_att RECORD;
 BEGIN
@@ -14869,8 +14948,19 @@ BEGIN
   -- Identitas yang di-OTP harus admin (anti puzzle silang OTP worker)
   SELECT * INTO v_emp FROM employees_master WHERE nrp = v_nrp;
   SELECT * INTO v_role FROM user_roles WHERE nrp = v_nrp;
+
+  -- Fix #14 §9 batch 267: role dari user_role_assignments (sumber kebenaran
+  -- sejak 261/262), fallback ke user_roles.role — pola hybrid 265/266.
+  SELECT a.role_code INTO v_assign_role
+    FROM user_role_assignments a
+   WHERE a.nrp = v_nrp
+   ORDER BY a.is_primary DESC NULLS LAST, a.role_code ASC
+   LIMIT 1;
+
   IF v_nrp <> 'OWNER001'
-     AND (v_role.role IS NULL OR (v_role.role <> 'owner' AND v_role.role NOT LIKE 'admin%')) THEN
+     AND (COALESCE(v_assign_role, v_role.role) IS NULL
+          OR (COALESCE(v_assign_role, v_role.role) <> 'owner'
+              AND COALESCE(v_assign_role, v_role.role) NOT LIKE 'admin\_%')) THEN
     UPDATE otp_attempts SET attempts = attempts + 1,
       blocked_until = CASE WHEN attempts >= 4 THEN NOW() + INTERVAL '15 minutes' ELSE blocked_until END
     WHERE nrp = v_nrp;
@@ -14891,20 +14981,20 @@ BEGIN
     'ok', TRUE,
     'token', v_token,
     'nrp', v_nrp,
-    'role', COALESCE(v_role.role, 'admin_pusat'),
+    'role', COALESCE(v_assign_role, v_role.role, 'admin_pusat'),
     'nama', COALESCE(v_emp.nama, 'Administrator')
   );
 END;
 $function$;
--- verify_audit_chain(p_start_id integer, p_end_id integer)
-CREATE OR REPLACE FUNCTION public.verify_audit_chain(p_start_id integer DEFAULT NULL::integer, p_end_id integer DEFAULT NULL::integer)
+-- verify_audit_chain(p_start_id integer, p_end_id integer, p_mode text)
+CREATE OR REPLACE FUNCTION public.verify_audit_chain(p_start_id integer DEFAULT NULL::integer, p_end_id integer DEFAULT NULL::integer, p_mode text DEFAULT 'strict'::text)
  RETURNS TABLE(issue_type text, row_id integer, detail text)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
 DECLARE
-  v_prev_row_hash TEXT := '0';
+  v_prev_row_hash TEXT;
   v_expected_hash TEXT;
   v_id INTEGER;
   v_ts TIMESTAMPTZ;
@@ -14913,6 +15003,7 @@ DECLARE
   v_detail TEXT;
   v_prev TEXT;
   v_hash TEXT;
+  v_first BOOLEAN := TRUE;
 BEGIN
   FOR v_id, v_ts, v_actor, v_action, v_detail, v_prev, v_hash IN
     SELECT al.id, al.timestamp, al.actor, al.action, al.detail, al.prev_hash, al.row_hash
@@ -14921,12 +15012,31 @@ BEGIN
       AND (p_end_id IS NULL OR al.id <= p_end_id)
     ORDER BY al.id
   LOOP
+    IF v_first THEN
+      IF p_mode = 'strict' THEN
+        -- Perilaku lama persis: genesis '0' tanpa membaca DB.
+        v_prev_row_hash := '0';
+      ELSE
+        -- chain-aware: genesis diambil dari baris pertama yang tersisa.
+        v_prev_row_hash := v_prev;
+        IF v_prev != '0' THEN
+          issue_type := 'CHAIN_TRUNCATED';
+          row_id := v_id;
+          detail := 'chain dimulai dari prev_hash=' || left(v_prev, 16) ||
+                    ' (retensi aktif — bukan manipulasi)';
+          RETURN NEXT;
+        END IF;
+      END IF;
+      v_first := FALSE;
+    END IF;
+
     IF v_prev != v_prev_row_hash THEN
       issue_type := 'BROKEN_LINK';
       row_id := v_id;
       detail := 'prev_hash mismatch at id ' || v_id;
       RETURN NEXT;
     END IF;
+
     v_expected_hash := encode(
       sha256(
         (COALESCE(v_id::TEXT, '') ||
@@ -14944,6 +15054,7 @@ BEGIN
       detail := 'row_hash mismatch at id ' || v_id;
       RETURN NEXT;
     END IF;
+
     v_prev_row_hash := v_hash;
   END LOOP;
 END;
@@ -15796,7 +15907,7 @@ CREATE POLICY select_auth ON public.fatigue_data FOR SELECT TO authenticated USI
 DROP POLICY IF EXISTS feature_fl_auth ON public.feature_flags;
 CREATE POLICY feature_fl_auth ON public.feature_flags FOR SELECT TO PUBLIC USING ((auth.uid() IS NOT NULL));
 DROP POLICY IF EXISTS rls_harvest_records_select ON public.harvest_records;
-CREATE POLICY rls_harvest_records_select ON public.harvest_records FOR SELECT TO PUBLIC USING ((auth.uid() IS NOT NULL));
+CREATE POLICY rls_harvest_records_select ON public.harvest_records FOR SELECT TO PUBLIC USING (((worker_nrp = authz_current_nrp()) OR authz_check_admin('employee.view_all'::text)));
 DROP POLICY IF EXISTS rls_harvest_records_write ON public.harvest_records;
 CREATE POLICY rls_harvest_records_write ON public.harvest_records FOR ALL TO PUBLIC USING (authz_check_admin('employee.view_all'::text)) WITH CHECK (authz_check_admin('employee.view_all'::text));
 DROP POLICY IF EXISTS all_service ON public.heavy_equipment;
@@ -16139,7 +16250,7 @@ CREATE POLICY tp_select ON public.tier_pricing FOR SELECT TO PUBLIC USING ((auth
 DROP POLICY IF EXISTS timesheets_authz ON public.timesheets;
 CREATE POLICY timesheets_authz ON public.timesheets FOR SELECT TO PUBLIC USING (((auth.uid() IS NOT NULL) AND (authz_in_scope(nrp) OR authz_has_permission('employee.view_all'::text))));
 DROP POLICY IF EXISTS rls_transport_dispatch_select ON public.transport_dispatch;
-CREATE POLICY rls_transport_dispatch_select ON public.transport_dispatch FOR SELECT TO PUBLIC USING ((auth.uid() IS NOT NULL));
+CREATE POLICY rls_transport_dispatch_select ON public.transport_dispatch FOR SELECT TO PUBLIC USING (((driver_nrp = authz_current_nrp()) OR authz_check_admin('employee.view_all'::text)));
 DROP POLICY IF EXISTS rls_transport_dispatch_write ON public.transport_dispatch;
 CREATE POLICY rls_transport_dispatch_write ON public.transport_dispatch FOR ALL TO PUBLIC USING (authz_check_admin('employee.view_all'::text)) WITH CHECK (authz_check_admin('employee.view_all'::text));
 DROP POLICY IF EXISTS ura_admin ON public.user_role_assignments;
@@ -16200,10 +16311,6 @@ DROP TRIGGER IF EXISTS trg_audit_hr_overtime ON public.hr_overtime;
 CREATE TRIGGER trg_audit_hr_overtime AFTER INSERT OR DELETE OR UPDATE ON hr_overtime FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
 DROP TRIGGER IF EXISTS trg_audit_hr_payroll ON public.hr_payroll;
 CREATE TRIGGER trg_audit_hr_payroll AFTER INSERT OR DELETE OR UPDATE ON hr_payroll FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
-DROP TRIGGER IF EXISTS trg_audit_payroll_insert ON public.hr_payroll;
-CREATE TRIGGER trg_audit_payroll_insert AFTER INSERT ON hr_payroll FOR EACH ROW EXECUTE FUNCTION _audit_payroll_change();
-DROP TRIGGER IF EXISTS trg_audit_payroll_update ON public.hr_payroll;
-CREATE TRIGGER trg_audit_payroll_update AFTER UPDATE ON hr_payroll FOR EACH ROW EXECUTE FUNCTION _audit_payroll_change();
 DROP TRIGGER IF EXISTS trg_audit_hr_performance ON public.hr_performance;
 CREATE TRIGGER trg_audit_hr_performance AFTER INSERT OR DELETE OR UPDATE ON hr_performance FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
 DROP TRIGGER IF EXISTS trg_audit_hr_requests ON public.hr_requests;
@@ -16222,8 +16329,8 @@ DROP TRIGGER IF EXISTS trg_audit_hr_voice ON public.hr_voice;
 CREATE TRIGGER trg_audit_hr_voice AFTER INSERT OR DELETE OR UPDATE ON hr_voice FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
 DROP TRIGGER IF EXISTS trg_audit_reviews_360 ON public.reviews_360;
 CREATE TRIGGER trg_audit_reviews_360 AFTER INSERT OR DELETE OR UPDATE ON reviews_360 FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
-DROP TRIGGER IF EXISTS trg_audit_role_change ON public.user_roles;
-CREATE TRIGGER trg_audit_role_change AFTER UPDATE ON user_roles FOR EACH ROW EXECUTE FUNCTION _audit_role_change();
+DROP TRIGGER IF EXISTS trg_audit_user_role_assignments ON public.user_role_assignments;
+CREATE TRIGGER trg_audit_user_role_assignments AFTER INSERT OR DELETE OR UPDATE ON user_role_assignments FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
 DROP TRIGGER IF EXISTS trg_audit_user_roles ON public.user_roles;
 CREATE TRIGGER trg_audit_user_roles AFTER INSERT OR DELETE OR UPDATE ON user_roles FOR EACH ROW EXECUTE FUNCTION _generic_audit_trigger_fixed();
 DROP TRIGGER IF EXISTS trg_prevent_duplicate_owner ON public.user_roles;
@@ -16238,6 +16345,7 @@ DROP TRIGGER IF EXISTS trg_employees_master_update ON public.employees_master;
 CREATE TRIGGER trg_employees_master_update INSTEAD OF UPDATE ON employees_master FOR EACH ROW EXECUTE FUNCTION employees_master_update_trigger();
 
 -- ── COMMENTS ────────────────────────────────────────────────────
+COMMENT ON TABLE public.role_codes IS 'Fix #14 §L2 — master daftar role_code. FK menggantikan CHECK user_roles_role_check. is_active = metadata (UI/docs), bukan gate runtime.';
 COMMENT ON TABLE public.schema_migrations IS 'Tracks all applied DB migrations (A7 versioning system)';
 
 -- ── ACL: NORMALISASI (revoke dulu, baru grant persis seperti DB live) ──
@@ -16412,6 +16520,7 @@ REVOKE ALL ON TABLE public.referrals FROM PUBLIC, anon, authenticated, service_r
 REVOKE ALL ON TABLE public.reimbursements FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.resignation_requests FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.reviews_360 FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE public.role_codes FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.role_page_access FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.role_permission_sets FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON TABLE public.safety_incidents FROM PUBLIC, anon, authenticated, service_role;
@@ -16588,7 +16697,7 @@ REVOKE ALL ON FUNCTION public.admin_get_budget() FROM PUBLIC, anon, authenticate
 REVOKE ALL ON FUNCTION public.admin_get_certifications() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.admin_get_divisions() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.admin_get_employee_stats() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.admin_get_employees() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.admin_get_employees(p_search text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.admin_get_estate_blocks() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.admin_get_exit_interviews() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.admin_get_external_notifications() FROM PUBLIC, anon, authenticated, service_role;
@@ -16675,8 +16784,6 @@ REVOKE ALL ON FUNCTION public.calculate_workforce_health() FROM PUBLIC, anon, au
 REVOKE ALL ON FUNCTION public.change_password(p_nrp text, p_old_password text, p_new_password text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.check_access_(p_nrp text, p_min_level integer, p_min_tier text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.check_action_permission(p_module text, p_action text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.check_admin_access() FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.check_admin_access(p_path text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.check_api_rate_limit(p_key_hash text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.check_contract_expiry() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.check_login_lockout(p_identifier text, p_attempt_type text) FROM PUBLIC, anon, authenticated, service_role;
@@ -16875,6 +16982,7 @@ REVOKE ALL ON FUNCTION public.get_my_documents(p_nrp text) FROM PUBLIC, anon, au
 REVOKE ALL ON FUNCTION public.get_my_letters(p_nrp text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_my_okrs(p_nrp text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_my_pending_syncs() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.get_my_permissions() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_my_plan(p_nrp text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_my_reimbursements(p_nrp text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.get_my_requests(p_nrp text) FROM PUBLIC, anon, authenticated, service_role;
@@ -17080,7 +17188,7 @@ REVOKE ALL ON FUNCTION public.validate_license(p_business_unit_id text) FROM PUB
 REVOKE ALL ON FUNCTION public.validate_session(p_token text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.verify_admin_otp(p_code text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.verify_admin_otp_core(p_code text) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.verify_audit_chain(p_start_id integer, p_end_id integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.verify_audit_chain(p_start_id integer, p_end_id integer, p_mode text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.verify_mfa(p_nrp text, p_code text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.verify_mfa_core(p_nrp text, p_code text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.verify_migration_checksum(p_filename text, p_expected_checksum text) FROM PUBLIC, anon, authenticated, service_role;
@@ -17324,8 +17432,7 @@ GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.employees_extended TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.employees_extended TO postgres;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.employees_extended TO service_role;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.employees_master TO anon;
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.employees_master TO authenticated;
+GRANT MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public.employees_master TO authenticated;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.employees_master TO postgres;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.employees_master TO service_role;
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.estate_blocks TO authenticated;
@@ -18246,9 +18353,9 @@ GRANT EXECUTE ON FUNCTION public.admin_get_divisions() TO service_role;
 GRANT EXECUTE ON FUNCTION public.admin_get_employee_stats() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_get_employee_stats() TO postgres;
 GRANT EXECUTE ON FUNCTION public.admin_get_employee_stats() TO service_role;
-GRANT EXECUTE ON FUNCTION public.admin_get_employees() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_get_employees() TO postgres;
-GRANT EXECUTE ON FUNCTION public.admin_get_employees() TO service_role;
+GRANT EXECUTE ON FUNCTION public.admin_get_employees(p_search text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_get_employees(p_search text) TO postgres;
+GRANT EXECUTE ON FUNCTION public.admin_get_employees(p_search text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.admin_get_estate_blocks() TO postgres;
 GRANT EXECUTE ON FUNCTION public.admin_get_estate_blocks() TO service_role;
 GRANT EXECUTE ON FUNCTION public.admin_get_exit_interviews() TO authenticated;
@@ -18468,10 +18575,6 @@ GRANT EXECUTE ON FUNCTION public.check_access_(p_nrp text, p_min_level integer, 
 GRANT EXECUTE ON FUNCTION public.check_access_(p_nrp text, p_min_level integer, p_min_tier text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.check_action_permission(p_module text, p_action text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.check_action_permission(p_module text, p_action text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.check_admin_access() TO postgres;
-GRANT EXECUTE ON FUNCTION public.check_admin_access() TO service_role;
-GRANT EXECUTE ON FUNCTION public.check_admin_access(p_path text) TO postgres;
-GRANT EXECUTE ON FUNCTION public.check_admin_access(p_path text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.check_api_rate_limit(p_key_hash text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.check_api_rate_limit(p_key_hash text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.check_contract_expiry() TO postgres;
@@ -18936,6 +19039,9 @@ GRANT EXECUTE ON FUNCTION public.get_my_okrs(p_nrp text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_my_okrs(p_nrp text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_my_pending_syncs() TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_my_pending_syncs() TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_my_permissions() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_permissions() TO postgres;
+GRANT EXECUTE ON FUNCTION public.get_my_permissions() TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_my_plan(p_nrp text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_my_plan(p_nrp text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_my_reimbursements(p_nrp text) TO postgres;
@@ -19184,6 +19290,7 @@ GRANT EXECUTE ON FUNCTION public.hit_rate_limit(p_identifier text, p_action text
 GRANT EXECUTE ON FUNCTION public.hit_rate_limit(p_identifier text, p_action text, p_max integer, p_window_seconds integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.hit_rate_limit(p_identifier text, p_action text, p_max integer, p_window_seconds integer) TO postgres;
 GRANT EXECUTE ON FUNCTION public.hit_rate_limit(p_identifier text, p_action text, p_max integer, p_window_seconds integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.is_admin_or_owner() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_admin_or_owner() TO postgres;
 GRANT EXECUTE ON FUNCTION public.is_admin_or_owner() TO service_role;
 GRANT EXECUTE ON FUNCTION public.list_ideas() TO authenticated;
@@ -19461,9 +19568,9 @@ GRANT EXECUTE ON FUNCTION public.verify_admin_otp(p_code text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.verify_admin_otp_core(p_code text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.verify_admin_otp_core(p_code text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.verify_admin_otp_core(p_code text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.verify_audit_chain(p_start_id integer, p_end_id integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.verify_audit_chain(p_start_id integer, p_end_id integer) TO postgres;
-GRANT EXECUTE ON FUNCTION public.verify_audit_chain(p_start_id integer, p_end_id integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.verify_audit_chain(p_start_id integer, p_end_id integer, p_mode text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_audit_chain(p_start_id integer, p_end_id integer, p_mode text) TO postgres;
+GRANT EXECUTE ON FUNCTION public.verify_audit_chain(p_start_id integer, p_end_id integer, p_mode text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.verify_mfa(p_nrp text, p_code text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.verify_mfa(p_nrp text, p_code text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.verify_mfa(p_nrp text, p_code text) TO service_role;
@@ -19536,6 +19643,15 @@ DO $$ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'cleanup-login-attempts') THEN PERFORM cron.unschedule('cleanup-login-attempts'); END IF;
   PERFORM cron.schedule('cleanup-login-attempts', '30 3 * * *', 'SELECT cleanup_login_attempts()');
+END $$;
+DO $$ BEGIN
+  -- Guard memakai keberadaan fungsi, bukan baris pg_extension: lebih tahan banting
+  -- dan tetap benar bila pg_cron dipasang dengan cara lain.
+  IF to_regprocedure('cron.schedule(text,text,text)') IS NULL THEN
+    RAISE NOTICE 'cron.schedule tidak tersedia — job cleanup-audit-log dilewati'; RETURN;
+  END IF;
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'cleanup-audit-log') THEN PERFORM cron.unschedule('cleanup-audit-log'); END IF;
+  PERFORM cron.schedule('cleanup-audit-log', '30 4 * * *', 'SELECT public.cleanup_audit_log()');
 END $$;
 
 -- Catatan: sejak SQL-08 hr_attendance tabel biasa — tidak ada partisi dinamis
