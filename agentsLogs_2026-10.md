@@ -3208,3 +3208,27 @@ Rollback 281 (restore versi 280) juga 2/2 byte-identik. Signature `get_shift_ass
 **STOP check:** nol — smoke PASS semua (tidak memicu STOP "smoke gagal"); migrasi 280/281 sukses (tidak memicu STOP "migrasi error"); temuan fail-open diperbaiki di migrasi 281 pada sesi yang sama dengan bukti RED/GREEN.
 
 ---
+### Blok akhir — gate & commit (bukti mentah)
+
+**7 guard × 2 putaran (exit code per perintah, `set -o pipefail`):**
+```
+putaran 1: artifacts=0 encoding=0 nodbclient=0 numeric=0 testcount=0 freshness=0 testlogged=0
+putaran 2: artifacts=0 encoding=0 nodbclient=0 numeric=0 testcount=0 freshness=0 testlogged=0
+```
+(vitest `verify:test-logged`: 32 files, 230 passed + 4 todo; JSON report ditulis.) **Gate pasca-`git add`** (P14-ext, file baru sudah ter-track): `artifacts=0 testcount=0 numeric=0`. `npx eslint tests/e2e/rbac-gate-smoke.spec.ts` **ESLINT_EXIT=0**; `npm run check:types` **TYPES_EXIT=0**.
+
+**Baseline regen:** `BASELINE_EXIT=0` — tabel 210 | fungsi 539 | cap migrasi **206**.
+
+**Registry live pasca-apply:** `reg_count=206`, `reg_max=281` (invariants GREEN 281).
+
+**Commit + push (1 commit, kode + docs):**
+```
+d862b7f feat(db): migrasi 280+281 — scope-by-NRP 2 RPC karantina (BU) + fix fail-closed + smoke RBAC 7/7
+  12 files changed, 475 insertions(+), 8 deletions(-)
+PUSH_EXIT=0
+ls-remote origin migrasi-vite = rev-parse HEAD = d862b7fcaffa7b2a689c36b269c12087fecbe7cf
+STATUS_EXIT=0 (working tree KOSONG)
+```
+Isi commit: 2 migrasi + 2 rollback + spec E2E + AGENTS §5.8 + ARCHITECTURE/CONSTANTS/SECURITY (registry 206/max 281, ts-total 223/58) + entri log + baseline (cap 206).
+
+---
