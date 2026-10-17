@@ -2771,3 +2771,37 @@ ROLLBACK_OK
 Dampak lintas-page: worker → admin → dashboard → owner — **TIDAK BERUBAH** (audit-only; nol perubahan kode/DB; semua konfirmasi via query read-only + probe ROLLBACK).
 
 Catatan §0 item 11: sesi audit-only — hasil dicatat di log ini SEBELUM STOP; DoD tiap temuan ada di §5.8 (BN fase 1 ✅; BQ baru = NEW, DoD = keputusan user 26 baris).
+## [2026-10-17] P2-F14-BQ — tabel keputusan 26 RPC bucket C
+
+**Mode:** audit-only (nol fix, nol migrasi, nol perubahan DB — semua probe ROLLBACK+SAVEPOINT). **Status BQ: ⚠ NEW → ⚠ DECIDED** (audit+rekomendasi selesai, menunggu review user).
+
+### Metode
+- Sumber: bucket C = 26 dari `.agents/logs/rpc-bn-triage-2026-10-17.json` (BN fase 1).
+- Isi prosrc 26/26 live → `.agents/logs/bq-prosrc.log` (456 baris utuh).
+- Kelompok domain: **mill 6 · mining 7 · estate 4 · forum 3 · performance 5 · lain 1** — tidak ada domain ≥8 → sesi lanjut (tidak dipecah).
+- Probe worker NRP002, transaksi ROLLBACK + **SAVEPOINT per probe** (percobaan pertama tanpa SAVEPOINT hancur 25P02 setelah 42P01 pertama — 30 probe pertama gugur; rerun `bq-probe-worker2.log` = bukti sah).
+- Cek RLS 2 tabel INVOKER + keberadaan 22 tabel sumber (`bq-source-tables.log`).
+
+### Statistik rekomendasi
+| Rekomendasi | N | RPC |
+|---|---|---|
+| A GATE-ADMIN | **3** | `get_breakdown_log`, `get_packing_log`, `add_performance_note` |
+| B SCOPE-BY-NRP | **11** | `get_fatigue_data`, `report_safety_incident`, `get_simper_list`, `create_harvest_record`, `create_forum_post`, `reply_forum_post`, `get_worker_kpi`, `get_continuous_perf_team`, `get_team_data`, `get_performance_notes`, `get_career_path` |
+| C ACCEPTED-RISK | **12** | `get_boiler_status`, `get_press_status`, `get_maintenance_schedule`, `get_qc_results`, `get_heavy_equipment`, `get_jsa_list`, `get_production_daily`, `get_safety_incidents`, `get_estate_blocks`, `get_harvest_records`, `get_transport_dispatch`, `get_forum_posts` |
+
+### RED proof runtime (worker NRP002, ROLLBACK; output utuh `bq-probe-worker2.log`)
+- **Cross-scope DATA NYATA**: `get_career_path('NRP001')` → `ok:true` + `division:'KORPORAT', next_level:5` — satu-satunya probe dengan baris data (employees_master berisi). `get_worker_kpi('NRP001')` + `get_performance_notes('NRP001')` → ok:true (data=[] hanya karena tabel 0 baris).
+- **Impersonasi tulis terbukti 5 fungsi**: `create_harvest_record` → `ok:true id=HVT-18a77004`; `create_forum_post` → `ok:true id=e357e449…`; `add_performance_note` → `ok:true`; `reply_forum_post` → `ok:true`; `report_safety_incident` → ditolak CHECK 23514 (`safety_incidents_type_chk`) — validasi tipe ada di tabel, tapi pelapor (p_nrp) tetap dipercaya.
+- **4 RPC RUSAK terbukti (kelas AX — di luar rencana)**: `get_boiler_status` **42P01** `mill_boiler` **HILANG dari semua schema**; `get_breakdown_log` **42803** `bd.breakdown_time must appear in GROUP BY`; `get_packing_log` **42803**; `get_qc_results` **42803** — ketiganya pola AZ (ORDER BY/LIMIT di luar agregat) yang MALAH ERROR, bukan no-op. Fix SQL = prasyarat gate.
+- **RLS INVOKER**: `harvest_records` + `transport_dispatch` punya SELECT policy **eksplisit** `auth.uid() IS NOT NULL` (semua login boleh baca) + write `authz_check_admin('employee.view_all')` → rekomendasi C (gate in-body bertentangan dgn deklarasi eksplisit).
+- `POST_ROLLBACK={"fp":"0","fr":"0","hr":"0","si":"0","pn":"0"}` — nol perubahan DB.
+
+### Peta sisa kerja BN/BQ
+1. **User review 26 baris** di `.agents/logs/rpc-bq-decisions-2026-10-17.json` → approve/reject rekomendasi.
+2. **Eksekusi** → sub-item baru setelah approve (brief: BQ umbrella, eksekusi = sub-item).
+3. **Terpisah dari gate** (kelas AX/AZ, bukan kelas gate): fix SQL 4 RPC rusak (`mill_boiler` restore/hapus + 3 subquery) — kandidat sub-item baru.
+4. Setelah semua: 26 route masuk bucket **P3 BL** (P1-F14-BM).
+
+Dampak lintas-page: worker → admin → dashboard → owner — **TIDAK BERUBAH** (audit-only; nol perubahan kode/DB).
+
+Catatan §0 item 11: sesi audit-only — hasil dicatat SEBELUM STOP; DoD BQ = user approve tabel keputusan (kini menunggu review).
