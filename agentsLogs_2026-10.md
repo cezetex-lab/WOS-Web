@@ -2838,3 +2838,57 @@ Catatan §0 item 11: sesi audit-only — hasil dicatat SEBELUM STOP; DoD BQ = us
 Dampak lintas-page: worker → admin → dashboard → owner — **TIDAK BERUBAH** (audit-only; nol perubahan kode/DB).
 
 Catatan §0 item 11: sesi audit-only — hasil dicatat SEBELUM STOP; DoD BS/BT baru = NEW, dieksekusi sesi terpisah.
+## [2026-10-17] Migrasi 276 (13 RPC Scope by NRP + RLS)
+
+**Mode:** eksekusi (lampu hijau user, brief Tahap 2 BQ). **P2-F14-BQ → ✅ CLOSED.**
+
+### Isi migrasi (`supabase/migrations/276_scope_by_nrp_and_rls.sql`)
+- **12 fungsi DEFINER scope-by-NRP** (param `p_nrp` diabaikan utk non-admin → `authz_current_nrp()`; admin lewat `authz_check_admin('employee.view_all')`): 11 rekomendasi B (`get_fatigue_data`, `get_simper_list`, `get_worker_kpi`, `get_continuous_perf_team`, `get_team_data`, `get_performance_notes`, `get_career_path` + tulis `create_harvest_record`, `report_safety_incident`, `create_forum_post`, `reply_forum_post`) + `get_maintenance_schedule` (keputusan user: `cost` + `parts_used` = `CASE WHEN admin THEN … ELSE NULL`).
+- **2 RLS SELECT policy** (tabel INVOKER — fungsi TIDAK diubah, RLS = pelindung): `harvest_records` → `worker_nrp = authz_current_nrp() OR authz_check_admin('employee.view_all')`; `transport_dispatch` → `driver_nrp = …`. Policy WRITE tidak disentuh.
+- **Preserve:** signature (termasuk DEFAULT arg), return shape `{ok,data}`, ACL, SECURITY DEFINER + search_path.
+- **Rollback:** `supabase/scripts/rollback/276_rollback.sql` (pre-image byte-exact dari `pg_get_functiondef` live + policy pra-276 `auth.uid() IS NOT NULL`).
+
+### Apply (output mentah)
+```
+berkas    : 276_scope_by_nrp_and_rls.sql
+versi     : 276
+checksum  : 29f6cda77295e175cc4c2df5ab511413aeb0ebafbdb22b6ddf558382ad3307ad
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (683ms)
+```
+Registry live: `count=201 max_version=276` (= jumlah file repo).
+
+### RED proof pre-apply (`.agents/logs/m276-red.log`, fixture tx ROLLBACK)
+```
+RED-A worker get_career_path(NRP001): {"ok":true,"division":"KORPORAT",...}   <- DATA NYATA lintas-orang
+RED-B worker get_maintenance_schedule(): rows=1 cost=1234.56 parts_used="PART-PROBE"
+RED-C worker SELECT harvest_records: ["NRP001","NRP002"]
+RED-D admin NRP100 get_maintenance_schedule(): rows=1 cost=1234.56
+POST_ROLLBACK={"hr":"0","mm":"0"}
+```
+
+### GREEN proof post-apply (`.agents/logs/m276-green.log`, 8/8)
+```
+REGISTRY count=201 max_version=276
+GREEN-1 worker get_career_path(NRP001): ok=true division=HRD    <- MILIK SENDIRI, bukan KORPORAT
+GREEN-2 worker get_career_path(NRP002): ok=true division=HRD next_level=2
+GREEN-3 worker get_maintenance_schedule(): rows=1 cost=null parts_used=null
+GREEN-4 admin NRP100 get_career_path(NRP001): ok=true division=KORPORAT next_level=5
+GREEN-5 admin NRP100 get_maintenance_schedule(): rows=1 cost=1234.56
+GREEN-6 worker SELECT harvest_records: [{"worker_nrp":"NRP002"}]
+GREEN-7 admin SELECT harvest_records: [{"worker_nrp":"NRP001"},{"worker_nrp":"NRP002"},{"worker_nrp":"NRP002"}]
+GREEN-W2 create_harvest_record(p_nrp=NRP001) sbg NRP002 -> tercatat worker_nrp=NRP002 (impersonasi dicegah)
+POST_ROLLBACK={"hr":"0","mm":"0"}
+```
+
+### Desain scoping (catatan jujur)
+Param `p_nrp` **diabaikan** utk non-admin (fungsi selalu scope ke claims → return data milik sendiri), **bukan** error 42501. Aman (tidak ada kebocoran lintas-orang — terbukti GREEN-1) + konsumen worker selalu kirim nrp sendiri jadi perilaku halaman tak berubah. Bila produk kelak ingin strict-reject utk pemanggilan lintas-nrp = iterasi terpisah.
+
+### Sinkronisasi docs
+- `ARCHITECTURE.md` §7.4: Migrations tracked **200 → 201** + Fact 276.
+- `docs/forensic/CONSTANTS-INVENTORY.md`: rantai nilai **200 → 201 (max 276)**.
+- `SECURITY.md`: **TIDAK diubah** — diverifikasi 0 hit angka registry/fungsi yang terpengaruh 276 (grep `657|Functions` = 0; §7.6 tabel posture umum tanpa baris per-migrasi baru).
+- §5.8: **P2-F14-BQ ✅ CLOSED**.
+
+Dampak lintas-page: worker → admin → dashboard → owner — **TERDAMPAK terkendali**: 12 RPC dipakai halaman dual-mount; worker tetap bisa akses fiturnya (scope data sendiri), admin tetap semua; smoke E2E halaman worker (kpi/career/perf/forum/harvest) = kandidat verifikasi berikut bila diinginkan — tidak dijalankan sesi ini (bukan bagian gate brief).
+
+Catatan §0 item 11: RED+GREEN proof + output apply mentah tercatat di entri ini.
