@@ -3593,3 +3593,103 @@ Regen baseline: `BASELINE_EXIT=0`, `cap migrasi : 209`, `tabel 210 | fungsi 539 
 RED proof guard dibekukan: `.agents/logs/m284-acl-red.log` (`RED_EXIT=1`, 10 pelanggaran) dijalankan **sebelum** migrasi 284; GREEN 0 pelanggaran sesudahnya.
 
 `§0.21` eslint: tidak berlaku (hanya `.mjs` baru — di luar scope config, sama seperti guard `.mjs` lain; tercatat di P21). `§0.22/§0.23`: tidak berlaku (tidak ada `.ts`/`.tsx` ditambah/dihapus).
+## [2026-10-18] Audit P1-TABLE-AUDIT (61 Tabel Tanpa SELECT)
+
+**Mode:** audit-only — **nol perubahan DB, nol perubahan schema/RLS/kode**. Semua probe runtime di dalam `BEGIN … ROLLBACK` (+ `SAVEPOINT` agar satu error tidak membatalkan probe).
+**Keputusan user:** audit + triage saja; jangan eksekusi migrasi 285 sebelum >5 tabel kategori A dikonfirmasi. **Hasil: kategori A = 0**, jadi ambang STOP tidak tercapai.
+
+### Angka terverifikasi (DB live)
+
+```
+tables_public            : 210
+with_select_policy       : 148
+without_select_policy    : 62
+  of which rls enabled   : 61
+rls_disabled_total       : 1
+```
+
+Catatan lama "61 dari 208" **tetap valid** — bedanya 208→210 karena tabel `mill_boiler` dipulihkan migrasi 277; 62 = 61 RLS-aktif + `role_codes` (RLS mati).
+
+### Koreksi premis lama (bukti mentah)
+
+`.agents/logs/p1-table-audit-runtime.log`:
+
+```
+=== 1. authenticated NRP100: SELECT langsung (harus 0 baris semua) ===
+  PASS business_units → 0 baris :: 0
+  PASS module_definitions → 0 baris :: 0
+  PASS business_unit_modules → 0 baris :: 0
+  PASS settings → 0 baris :: 0
+  PASS admin_roles → 0 baris :: 0
+  PASS system_owner_identity → 0 baris :: 0
+  PASS schema_migrations → 0 baris :: 0
+  PASS login_attempts → 0 baris :: 0
+  PASS branding → 0 baris :: 0
+  PASS config_categories → 0 baris :: 0
+
+=== 2. anon: SELECT langsung (harus 0 baris) ===
+  PASS anon hr_production → 0 baris :: 0
+  PASS anon hr_safety_incidents → 0 baris :: 0
+  PASS anon notifications → 0 baris :: 0
+  PASS anon schema_migrations → 0 baris :: 0
+
+=== 3. DEFINER tetap membaca (RPC aplikasi) ===
+  PASS get_enabled_modules() → >0 modul (baca business_unit_modules via DEFINER) :: 151
+  PASS admin_get_role_matrix() → >0 baris (DEFINER + gate lolos) :: 17
+```
+
+Sebabnya terukur: **61/61 ber-`FORCE ROW LEVEL SECURITY`**, tetapi
+
+```
+{ rolname: 'postgres',     rolsuper: false, rolbypassrls: true }
+{ rolname: 'service_role', rolsuper: false, rolbypassrls: true }
+{ rolname: 'authenticated',rolsuper: false, rolbypassrls: false }
+{ rolname: 'anon',         rolsuper: false, rolbypassrls: false }
+```
+
+→ FORCE RLS tidak menahan owner `postgres`; DEFINER (semua `prosecdef=true`, owner `postgres`) tetap membaca. **Klaim "0 baris untuk siapa pun termasuk admin & owner" di baris Work Queue lama keliru** dan sudah dikoreksi.
+
+### Konsumen (pemetaan literal)
+
+- `.from(` di seluruh `src/` = **4**, dan **0** di antaranya menyentuh 62 tabel → tidak ada jalur PostgREST langsung.
+- Edge: `notifications` (gas-migration), `settings` (password-reset), `push_subscriptions` (push-subscriber), `system_owner_identity` (ai-copilot) semuanya pakai `SUPABASE_SERVICE_ROLE_KEY` → bypass RLS.
+- Satu-satunya fungsi **INVOKER** yang menyentuh tabel target: `validate_session`/`delete_session`/`cleanup_expired_sessions` (`session_store`) dan `check_rate_limit` (`rate_limits`) — semuanya `prosecdef=false`, `auth_exec=false`, **0 pemanggil**.
+
+### Triage 62 tabel → `P3`/`P2` baru
+
+| Bucket | N | Isi |
+|---|---|---|
+| **A aktif-rusak** | **0** | tidak ada tabel yang benar-benar tidak terbaca oleh jalur aplikasi |
+| **B hanya-DEFINER** | 50 | dibaca/ditulis hanya lewat DEFINER owner `postgres`; jalur aplikasi utuh |
+| **C mati** | 6 | `approval_instances`, `idx_nrp`, `security_audit_log`, `system_bootstrap`, `team_budgets`, `ticket_comments` (0 baris, 0 konsumen) |
+| **D keputusan** | 4 | `push_subscriptions` (INSERT-only), `role_codes` (RLS **mati**, 13 baris, tanpa grant), `role_page_access` (48 baris, tanpa konsumen → **P3-F14-CB**), `session_store` (→ **P3-F14-CC**) |
+| **E cabang policy laten** | 2 | `system_owner_identity` (cabang `EXISTS` di 20 policy mati, tertutupi `authz_check_admin` di 18 policy; `ai_*` 0 baris + edge service_role), `admin_roles` (policy `auth_testing_override`, 0 baris) |
+
+Bukti cabang latEN mati (`p1-table-audit-runtime2.log`):
+
+```
+  PASS authz_is_owner() owner → true :: true
+  PASS admin_pusat company_config → >0 (authz_check_admin bekerja) :: 83
+  PASS owner ai_documents → 0 (cabang EXISTS system_owner_identity MATI oleh default-deny) :: 0
+  PASS owner company_config → >0? (authz_check_admin punya owner bypass) :: 83
+```
+
+### Temuan sampingan (di luar RLS) → **P2-F14-CA**
+
+```
+  FAIL sebagai postgres → ERROR 42803 (bug SQL, bukan RLS) :: "ok"     ← cabang non-owner lolos
+  PASS sebagai owner JWT → ERROR 42803 juga :: "42803 column \"ar.role_code\" must appear in the GROUP BY clause or be used in an aggregate function"
+```
+
+`owner_get_admin_roles()` merangkai `jsonb_agg(...)` lalu `ORDER BY ar.role_code` di luar agregat. Hanya cabang owner yang dieksekusi (terbukti: postgres tanpa JWT lolos). Konsumen `src/pages/OwnerDashboard.tsx:330` membungkus `Promise.all` dengan `try/catch` → tab **Access** menampilkan daftar role kosong tanpa pesan.
+
+### Artefak
+
+- `.agents/logs/audit-61-tables-2026-10-18.json` (gitignored) — triage per tabel + `runtime_proof` + `findings`.
+- `p1-table-audit-inventory.log`, `-triage.log`, `-facts.log`, `-final.log`, `-runtime.log`, `-runtime2.log`, `-finalize2.log` (gitignored).
+
+### Gate
+
+`npm run check:types` + 7 guard dua putaran: lihat blok bukti di entri berikutnya. **Dampak lintas-page: TIDAK BERUBAH** — audit-only, nol perubahan `src/`, DB, RPC, session, atau menu. Worker/admin/dashboard/owner tidak terpengaruh oleh sesi ini; temuan `owner_get_admin_roles` sudah ada sebelum sesi (bukan regresi).
+
+**Status P1-TABLE-AUDIT:** tetap ⚠ **NEW** — sisa pekerjaan adalah **keputusan produk per tabel** (buka policy SELECT / tulis `USING (false)` eksplisit / arsip), bukan perbaikan teknis massal.
