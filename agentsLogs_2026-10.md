@@ -3690,6 +3690,6 @@ Bukti cabang latEN mati (`p1-table-audit-runtime2.log`):
 
 ### Gate
 
-`npm run check:types` + 7 guard dua putaran: lihat blok bukti di entri berikutnya. **Dampak lintas-page: TIDAK BERUBAH** — audit-only, nol perubahan `src/`, DB, RPC, session, atau menu. Worker/admin/dashboard/owner tidak terpengaruh oleh sesi ini; temuan `owner_get_admin_roles` sudah ada sebelum sesi (bukan regresi).
+`npm run check:types` + **8 guard** (`test-logged`, `test-freshness`, `artifacts`, `test-count`, `numeric`, `encoding`, `no-local-db-client`, `acl-dependencies`) **dua putaran, semuanya EXIT 0**; log mentah di `.agents/logs/p1ta-*.log` (gitignored). Putaran 1 sempat memanggil nama script yang tidak ada (`verify:numeric-claims`), diulang dengan nama benar (`verify:numeric`) — bukan guard yang dilonggarkan. **Dampak lintas-page: TIDAK BERUBAH** — audit-only, nol perubahan `src/`, DB, RPC, session, atau menu. Worker/admin/dashboard/owner tidak terpengaruh oleh sesi ini; temuan `owner_get_admin_roles` sudah ada sebelum sesi (bukan regresi).
 
 **Status P1-TABLE-AUDIT:** tetap ⚠ **NEW** — sisa pekerjaan adalah **keputusan produk per tabel** (buka policy SELECT / tulis `USING (false)` eksplisit / arsip), bukan perbaikan teknis massal.
