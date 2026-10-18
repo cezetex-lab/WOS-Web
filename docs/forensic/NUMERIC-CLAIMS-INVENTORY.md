@@ -42,8 +42,8 @@
 | 4 | Tables | ARCHITECTURE.md:131, 73; FuturePlans.md:40 | 209 (210 + view) | `pg_class` relkind r/p non-partisi | `verify:artifacts` + `doc-claims` | (a); duplikat CONSTANTS-INVENTORY:19 **208 STALE** -> (b) |
 | 5 | Functions | ARCHITECTURE.md:132, 73; FuturePlans.md:41 | 657 | `pg_proc` | keduanya | (a) |
 | 6 | Overloads | ARCHITECTURE.md:132; FuturePlans.md:44 | 19 | `pg_proc HAVING count>1` | `doc-claims` | (a) |
-| 7 | Migrations tracked | ARCHITECTURE.md:133 | 195 | `schema_migrations` count | `verify:artifacts` + `doc-claims` | (a) |
-| 8 | max(version) | ARCHITECTURE §7.5 (via `verify:artifacts`) | 270 | `schema_migrations MAX(version)` | `verify:artifacts` | (a); duplikat FORENSIC-INDEX:68-69 (max 254) [snapshot:7ada2d0] -> (e) |
+| 7 | Migrations tracked | ARCHITECTURE.md:133 | 210 | `schema_migrations` count | `verify:artifacts` + `doc-claims` | (a) |
+| 8 | max(version) | ARCHITECTURE §7.5 (via `verify:artifacts`) | 285 | `schema_migrations MAX(version)` | `verify:artifacts` | (a); duplikat FORENSIC-INDEX:68-69 (max 254) [snapshot:7ada2d0] -> (e) |
 | 9 | RLS policies | ARCHITECTURE.md:134 | 225 | `pg_policies` | keduanya | (a) |
 | 10 | Tabel belum FORCE | ARCHITECTURE.md:134 | 10 | `pg_class.reloverowsec` | keduanya | (a) |
 | 11 | anon/PUBLIC grants | ARCHITECTURE.md:136 | 131 | `pg_proc.proacl` | keduanya | (a) |

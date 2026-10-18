@@ -229,6 +229,9 @@ export default function OwnerDashboard() {
   // Wave 4 â€” Access Control states
   const [adminRoles, setAdminRoles] = useState<AdminRole[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
+  // P2-F14-CA: kegagalan RPC tab Access dulu ditelan try/catch → panel kosong
+  // seolah "tidak ada data". Sekarang pesan eksplisit + log ke PostHog.
+  const [accessError, setAccessError] = useState<string | null>(null);
   const [showRoleCreator, setShowRoleCreator] = useState(false);
   const [newRole, setNewRole] = useState({ role_code: '', role_name: '', scope_type: 'global', scope_id: '', permissions: '[]' });
   const [editRoleAdmin, setEditRoleAdmin] = useState<AdminRole | null>(null);
@@ -326,11 +329,28 @@ export default function OwnerDashboard() {
   }, []);
 
   const loadAccessControl = useCallback(async () => {
-    try {
-      const [r, a] = await Promise.all([rpc('owner_get_admin_roles'), rpc('owner_get_admin_accounts')]);
-      setAdminRoles(Array.isArray(r) ? r : []);
-      setAdminAccounts(Array.isArray(a) ? a : []);
-    } catch (e: unknown) { logError('loadAccessControl', e instanceof Error ? e.message : String(e)); }
+    setAccessError(null);
+    // allSettled: satu RPC gagal tidak lagi mengosongkan panel lainnya.
+    const [rolesRes, accountsRes] = await Promise.allSettled([
+      rpc('owner_get_admin_roles'),
+      rpc('owner_get_admin_accounts'),
+    ]);
+    const failed: string[] = [];
+    if (rolesRes.status === 'fulfilled') {
+      setAdminRoles(Array.isArray(rolesRes.value) ? rolesRes.value : []);
+    } else {
+      setAdminRoles([]);
+      failed.push('daftar role admin');
+      logError('loadAccessControl.roles', rolesRes.reason instanceof Error ? rolesRes.reason.message : String(rolesRes.reason));
+    }
+    if (accountsRes.status === 'fulfilled') {
+      setAdminAccounts(Array.isArray(accountsRes.value) ? accountsRes.value : []);
+    } else {
+      setAdminAccounts([]);
+      failed.push('daftar akun admin');
+      logError('loadAccessControl.accounts', accountsRes.reason instanceof Error ? accountsRes.reason.message : String(accountsRes.reason));
+    }
+    if (failed.length) setAccessError(`Gagal memuat ${failed.join(' dan ')}. Data yang tampil mungkin tidak lengkap — coba buka ulang tab ini.`);
   }, []);
 
   useEffect(() => {
@@ -1194,6 +1214,11 @@ export default function OwnerDashboard() {
             {/* ACCESS CONTROL TAB */}
             {activeTab === 'access' && (
               <div className="space-y-6">
+                {accessError && (
+                  <div role="alert" className="bg-red-500/10 border border-red-500/40 text-red-300 text-sm rounded-lg px-4 py-3">
+                    ⚠ {accessError}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
                     <div className="flex justify-between items-center mb-4">
@@ -1213,7 +1238,7 @@ export default function OwnerDashboard() {
                           </div>
                         </div>
                       ))}
-                      {adminRoles.length === 0 && <div className="text-gray-500 text-sm text-center py-4">Tidak ada admin role</div>}
+                      {adminRoles.length === 0 && !accessError && <div className="text-gray-500 text-sm text-center py-4">Tidak ada admin role</div>}
                     </div>
                   </div>
                   <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
@@ -1232,7 +1257,7 @@ export default function OwnerDashboard() {
                             <span className="text-amber-400">{a.role_code}</span>
                           </div>
                         ))}
-                        {adminAccounts.length === 0 && <div className="text-gray-500 text-xs text-center py-2">Tidak ada admin account</div>}
+                        {adminAccounts.length === 0 && !accessError && <div className="text-gray-500 text-xs text-center py-2">Tidak ada admin account</div>}
                       </div>
                     </div>
                   </div>

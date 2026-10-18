@@ -3693,3 +3693,78 @@ Bukti cabang latEN mati (`p1-table-audit-runtime2.log`):
 `npm run check:types` + **8 guard** (`test-logged`, `test-freshness`, `artifacts`, `test-count`, `numeric`, `encoding`, `no-local-db-client`, `acl-dependencies`) **dua putaran, semuanya EXIT 0**; log mentah di `.agents/logs/p1ta-*.log` (gitignored). Putaran 1 sempat memanggil nama script yang tidak ada (`verify:numeric-claims`), diulang dengan nama benar (`verify:numeric`) — bukan guard yang dilonggarkan. **Dampak lintas-page: TIDAK BERUBAH** — audit-only, nol perubahan `src/`, DB, RPC, session, atau menu. Worker/admin/dashboard/owner tidak terpengaruh oleh sesi ini; temuan `owner_get_admin_roles` sudah ada sebelum sesi (bukan regresi).
 
 **Status P1-TABLE-AUDIT:** tetap ⚠ **NEW** — sisa pekerjaan adalah **keputusan produk per tabel** (buka policy SELECT / tulis `USING (false)` eksplisit / arsip), bukan perbaikan teknis massal.
+## [2026-10-18] Migrasi 285: Fix owner_get_admin_roles + Error Handling (CA) + Close TABLE-AUDIT
+
+**Mode:** eksekusi (migrasi + frontend). **Keputusan user:** fix 42803 tanpa mengubah logika bisnis (gate + return shape tetap), tambah error handling UI, lalu tutup P2-F14-CA dan P1-TABLE-AUDIT.
+
+### RED proof (sebelum migrasi, tx ROLLBACK)
+
+`.agents/logs/m285-red.log`:
+
+```
+PRE-IMAGE md5(prosrc) = 694785d0c4e6744725a09e5e29e588fd | length = 676
+owner JWT  : {"ok":false,"code":"42803","msg":"column \"ar.role_code\" must appear in the GROUP BY clause or be used in an aggregate function","where":"PL/pgSQL function owner_get_admin_roles() line 7 at RETURN"}
+postgres   : {"ok":true,"type":"array","n":0}
+```
+
+Akar: `RETURN (SELECT COALESCE(jsonb_agg(jsonb_build_object(...)), '[]') FROM admin_roles ar ORDER BY ar.role_code)` — `ORDER BY` di luar agregat memaksa semua kolom masuk GROUP BY. Hanya cabang owner yang dieksekusi (postgres tanpa JWT lolos ke cabang `RETURN '[]'`), sehingga bug tak pernah terlihat oleh test.
+
+Frontend (sebelum): `loadAccessControl` memakai `Promise.all` di dalam `try/catch` yang hanya memanggil `logError` → tab Access menampilkan "Tidak ada admin role" tanpa pesan apa pun.
+
+### Fix
+
+- `supabase/migrations/285_fix_owner_get_admin_roles.sql` — `ORDER BY ar.role_code` dipindah **ke dalam** `jsonb_agg(... ORDER BY ar.role_code)`. Gate `get_current_user_context()` + `check_owner_identity()`, signature, return shape 11 key, SECURITY DEFINER, VOLATILE, `SET search_path` **tidak berubah**.
+- `supabase/scripts/rollback/285_rollback.sql` — pre-image apa adanya.
+- `src/pages/OwnerDashboard.tsx` — `Promise.allSettled` (satu RPC gagal tidak mengosongkan panel lain), state `accessError`, alert `role="alert"` di tab Access, `logError` per RPC; teks "Tidak ada admin role/account" tidak lagi muncul saat error.
+
+### Dry-run & apply
+
+```
+  PASS rollback → md5 prosrc = pre-image :: "694785d0c4e6744725a09e5e29e588fd"
+  PASS owner JWT → array 7 role :: 7
+  PASS shape 11 key dipertahankan
+  PASS urutan role_code ascending :: ["admin_estate","admin_finance","admin_hrd","admin_mill","admin_mining","admin_operasional","admin_pusat"]
+  PASS tanpa JWT → [] (gate tetap)
+RESULT: 6 PASS / 0 FAIL
+```
+
+```
+berkas    : 285_fix_owner_get_admin_roles.sql
+versi     : 285
+checksum  : 9dbbbf636f02880b2f2af7de78b88b4d265bb9c0384d25506a03a3a337876bd4
+status    : DITERAPKAN + terdaftar + checksum terverifikasi (1033ms)
+```
+
+### GREEN proof pasca-apply (`.agents/logs/m285-green.log`)
+
+```
+  PASS registry 210 baris, max(version)=285
+  PASS prosrc berubah dari pre-image (676 B / 694785d0) :: md5 9d8aae1d…, 672 B
+  PASS SECURITY DEFINER dipertahankan
+  PASS VOLATILE (v) dipertahankan
+  PASS search_path dipertahankan
+  PASS ACL authenticated+service_role, tanpa anon
+  PASS tidak error :: "ok"
+  PASS array 7 role :: 7
+  PASS urutan role_code ascending
+  PASS 11 key per baris
+  PASS admin_pusat (bukan owner) → []
+  PASS worker → []
+  PASS tanpa JWT → []
+RESULT: 13 PASS / 0 FAIL
+```
+
+Catatan: satu FAIL sementara pada run pertama adalah bug probe sendiri (`max(version)` bertipe string dibanding angka), diperbaiki di probe — bukan guard yang dilonggarkan. **oid pre-image tidak terekam**; 285 memakai `CREATE OR REPLACE` tanpa `DROP`, jadi oid dipertahankan secara konstruksi (oid kini **298539**).
+
+### Frontend & baseline
+
+- `npm run check:types` EXIT 0; `npx eslint src/pages/OwnerDashboard.tsx` EXIT 0.
+- `npm run db:baseline` EXIT 0 (cap migrasi **210**, 275,0 KB) → baseline ikut memuat definisi baru.
+- Jalur error UI **belum diuji di browser** (tidak ada otomasi login owner di sesi ini) — diverifikasi lewat tipe + lint + inspeksi kode.
+
+### Status Work Queue
+
+- **P2-F14-CA → ✅ CLOSED** (migrasi 285 + GREEN 13/13 + rollback byte-identik + frontend tidak lagi senyap).
+- **P1-TABLE-AUDIT → ✅ CLOSED** (keputusan user: A=0 → tutup; audit lengkap di entri `## [2026-10-18] Audit P1-TABLE-AUDIT`). Sisa bucket D/E tetap sebagai item mandiri **P3-F14-CB** dan **P3-F14-CC**.
+
+**Dampak lintas-page: TIDAK BERUBAH** untuk worker/admin/dashboard — hanya cabang owner `owner_get_admin_roles()` + komponen `OwnerDashboard` yang tersentuh; worker/admin/dashboard tidak memanggil RPC ini (`grep` konsumen = 1: `OwnerDashboard.tsx:330`), gate non-owner tetap `[]` (terbukti admin_pusat & worker), dan shape 11 key tidak berubah sehingga konsumen owner tidak perlu penyesuaian.

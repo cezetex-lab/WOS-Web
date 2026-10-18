@@ -1872,6 +1872,11 @@ BEGIN
     VALUES ('284', '284_grant_and_scope_9_rpcs.sql', 'a9d23b15bb96942062d9ada057b61e2b9880c33d73ada71edeaeca68d1f2412c', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '285_fix_owner_get_admin_roles.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('285', '285_fix_owner_get_admin_roles.sql', '9dbbbf636f02880b2f2af7de78b88b4d265bb9c0384d25506a03a3a337876bd4', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
 END $$;
 

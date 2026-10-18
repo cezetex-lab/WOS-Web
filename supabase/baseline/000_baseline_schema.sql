@@ -13728,9 +13728,8 @@ BEGIN
       'is_active', ar.is_active,
       'created_at', ar.created_at,
       'created_by', ar.created_by
-    )), '[]'::JSONB)
+    ) ORDER BY ar.role_code), '[]'::JSONB)
     FROM admin_roles ar
-    ORDER BY ar.role_code
   );
 END;
 $function$;
