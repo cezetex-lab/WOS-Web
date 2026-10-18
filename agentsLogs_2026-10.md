@@ -3274,3 +3274,27 @@ Isi commit: 2 migrasi + 2 rollback + spec E2E + AGENTS §5.8 + ARCHITECTURE/CONS
 - **Registry live pasca-apply:** `reg_count=207`, `reg_max=282` (invariant GREEN 282).
 - **Dampak lintas-page (G7): worker → admin → dashboard → owner** — **admin terdampak positif**: 19 halaman `admin_get_*` kini terbatas LIMIT-nya (audit_chain 614→50 utk admin); **worker/dashboard/owner**: TIDAK berubah — 13 gate tetap 42501, facility scoping BU utuh, 7 fungsi tak disentuh, 47 no-op non-admin tak tersentuh (BV). Smoke UI tidak diulang (perubahan DB-only tanpa perubahan kontrak shape — keys `["ok","data"]` identik; verifikasi via probe runtime 19 fungsi di 4 identitas DB, bukan browser).
 - **Keterbatasan jujur:** (1) `admin_get_surveys` tetap error utk admin sampai BW dikerjakan (pre-existing — SurveyPage branch admin sudah error sebelum 282); (2) RED hanya membuktikan 1 fungsi dgn volume > LIMIT (master_data/webhook_logs < LIMIT saat ini — sisa no-op terbukti struktural via analyzer); (3) 47 no-op non-admin masih OPEN (BV); (4) probe = data live hari ini, bukan volume produksi penuh.
+### Blok akhir — bukti guard (2026-10-18, commit `572aa92`)
+
+Regen baseline dulu (`npm run db:baseline`, log `.agents/logs/m282-baseline.log`):
+`cap migrasi : 207` · `tabel 210 | fungsi 539 | view 1 | sequence 95 | cron 5` · `BASELINE_EXIT=0`.
+
+Guard **dua putaran** (round 1 `.agents/logs/m282-guards-r1.log`, round 2 `m282-guards-r2.log`), semua exit 0:
+
+| Guard | Putaran 1 | Putaran 2 |
+|---|---|---|
+| `check:types` | — (tidak ada `.ts`/`.tsx` diubah) | `EXIT_types=0` |
+| `verify:test-logged` | `EXIT_logged=0` — `Test Files 32 passed (32)` / `Tests 230 passed | 4 todo (234)` | `EXIT_logged=0` — `Test Files 32 passed (32)` |
+| `verify:test-freshness` | `EXIT_fresh=0` — `0 stale, 0 warning` | `EXIT_fresh=0` — `0 stale, 0 warning` |
+| `verify:artifacts` | `EXIT_artifacts=0` — `0 drift, 1 warning` (WARN `baseline commit 2026-10-17T19:33:39+07:00; regenerasi = Fix #9` — informasional, bukan drift) | `EXIT_artifacts=0` — `0 drift, 1 warning` (sama) |
+| `verify:test-count` | `EXIT_testcount=0` — `0 drift, 0 warning` | `EXIT_testcount=0` — `0 drift, 0 warning` |
+| `verify:numeric` | `EXIT_numeric=0` — `0 drift, 6 warning, 44 klaim dicek` (semua WARN kategori `external-snapshot`/`[snapshot:…]`, bukan drift) | `EXIT_numeric=0` — `0 drift, 6 warning, 44 klaim` |
+| `verify:encoding` | `EXIT_encoding=0` — `0 file non-UTF8 · 579 file teks dicek` | `EXIT_encoding=0` — `0 file non-UTF8 · 579 file` |
+| `verify:no-local-db-client` | `EXIT_nolocal=0` — `0 pelanggaran (28 file dicek)` | `EXIT_nolocal=0` — `0 pelanggaran (28 file)` |
+
+Guard **pasca-commit** (`572aa92`, tree bersih): `verify:artifacts` `0 drift, 1 warning` EXIT 0 · `verify:encoding` `0 file non-UTF8 · 581 file teks dicek` EXIT 0 · `verify:test-count` OK EXIT 0.
+
+`§0.22/§0.23` (ts-total / src breakdown): **tidak dijalankan** — batch ini tidak menambah/menghapus berkas `.ts`/`.tsx` (hanya `.sql` + `.md` + baseline `.sql`).
+`§0.21` (eslint file-spesifik): **tidak berlaku** — tidak ada berkas `.ts`/`.tsx` diubah.
+
+Dampak lintas-page: worker → admin → dashboard → owner — `admin_get_*` adalah RPC sisi admin/dashboard; worker tidak memanggil satu pun (gate 274/275/278/279 tetap menolak 13/13 dengan 42501 pasca-282). Dashboard/Owner membaca agregat yang sama; output makin kecil (≤ LIMIT) dan **tetap JSON array/objek dengan key sama** → tidak ada perubahan kontrak konsumen. Tidak ada berkas `src/` yang disentuh, jadi tidak ada regresi tipe/UI.
