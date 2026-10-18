@@ -3905,19 +3905,26 @@ CREATE OR REPLACE FUNCTION public.admin_get_asset_assignments()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
   RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-    jsonb_build_object('id', aa.id, 'asset_id', aa.asset_id, 'asset_name', a.asset_name,
-      'nrp', aa.nrp, 'nama', e.nama, 'checkout_date', aa.checkout_date,
+    jsonb_build_object('id', aa.id, 'asset_id', aa.asset_id, 'asset_name', aa.asset_name,
+      'nrp', aa.nrp, 'nama', aa.nama, 'checkout_date', aa.checkout_date,
       'checkin_date', aa.checkin_date, 'condition_out', aa.condition_out, 'condition_in', aa.condition_in)
     ORDER BY aa.checkout_date DESC), '[]'::jsonb))
-  FROM asset_assignments aa
-  LEFT JOIN assets a ON a.id = aa.asset_id
-  LEFT JOIN employees_master e ON e.nrp = aa.nrp
-  LIMIT 50);
+  FROM (
+    SELECT aa.id, aa.asset_id, a.asset_name, aa.nrp, e.nama, aa.checkout_date,
+           aa.checkin_date, aa.condition_out, aa.condition_in
+    FROM asset_assignments aa
+    LEFT JOIN assets a ON a.id = aa.asset_id
+    LEFT JOIN employees_master e ON e.nrp = aa.nrp
+    ORDER BY aa.checkout_date DESC
+    LIMIT 50
+  ) aa);
 END;
+
 $function$;
 -- admin_get_assets()
 CREATE OR REPLACE FUNCTION public.admin_get_assets()
@@ -3926,18 +3933,25 @@ CREATE OR REPLACE FUNCTION public.admin_get_assets()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
   RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', a.id, 'asset_name', a.asset_name, 'category', a.category,
       'serial_number', a.serial_number, 'location', a.location, 'status', a.status,
-      'assigned_to', a.assigned_to, 'assigned_name', e.nama, 'purchase_date', a.purchase_date)
+      'assigned_to', a.assigned_to, 'assigned_name', a.nama, 'purchase_date', a.purchase_date)
     ORDER BY a.created_at DESC), '[]'::jsonb))
-  FROM assets a
-  LEFT JOIN employees_master e ON e.nrp = a.assigned_to
-  LIMIT 50);
+  FROM (
+    SELECT a.id, a.asset_name, a.category, a.serial_number, a.location, a.status,
+           a.assigned_to, e.nama, a.purchase_date, a.created_at
+    FROM assets a
+    LEFT JOIN employees_master e ON e.nrp = a.assigned_to
+    ORDER BY a.created_at DESC
+    LIMIT 50
+  ) a);
 END;
+
 $function$;
 -- admin_get_audit_chain()
 CREATE OR REPLACE FUNCTION public.admin_get_audit_chain()
@@ -3945,11 +3959,18 @@ CREATE OR REPLACE FUNCTION public.admin_get_audit_chain()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501'; END IF; RETURN (
+AS $function$
+ BEGIN IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501'; END IF; RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
-    jsonb_build_object('id',id,'timestamp',timestamp,'actor',actor,'action',action,'detail',detail)
-    ORDER BY timestamp DESC),'[]'::jsonb))
-  FROM audit_log LIMIT 50); END;
+    jsonb_build_object('id',sub.id,'timestamp',sub.timestamp,'actor',sub.actor,'action',sub.action,'detail',sub.detail)
+    ORDER BY sub.timestamp DESC),'[]'::jsonb))
+  FROM (
+    SELECT id, timestamp, actor, action, detail
+    FROM audit_log
+    ORDER BY timestamp DESC
+    LIMIT 50
+  ) sub); END;
+
 $function$;
 -- admin_get_audit_log()
 CREATE OR REPLACE FUNCTION public.admin_get_audit_log()
@@ -3972,18 +3993,24 @@ CREATE OR REPLACE FUNCTION public.admin_get_badges()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
   RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-    jsonb_build_object('id', b.id, 'nrp', b.nrp, 'nama', e.nama,
+    jsonb_build_object('id', b.id, 'nrp', b.nrp, 'nama', b.nama,
       'badge_name', b.badge_name, 'badge_type', b.badge_type,
       'points', b.points, 'awarded_date', b.awarded_date)
     ORDER BY b.awarded_date DESC), '[]'::jsonb))
-  FROM badges b
-  LEFT JOIN employees_master e ON e.nrp = b.nrp
-  LIMIT 50);
+  FROM (
+    SELECT b.id, b.nrp, e.nama, b.badge_name, b.badge_type, b.points, b.awarded_date
+    FROM badges b
+    LEFT JOIN employees_master e ON e.nrp = b.nrp
+    ORDER BY b.awarded_date DESC
+    LIMIT 50
+  ) b);
 END;
+
 $function$;
 -- admin_get_budget()
 CREATE OR REPLACE FUNCTION public.admin_get_budget()
@@ -3992,6 +4019,7 @@ CREATE OR REPLACE FUNCTION public.admin_get_budget()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_finance')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
   RETURN (
@@ -4001,9 +4029,15 @@ BEGIN
       'operational_budget', ba.operational_budget, 'actual_gaji', ba.actual_gaji,
       'actual_training', ba.actual_training)
     ORDER BY ba.year DESC, ba.divisi), '[]'::jsonb))
-  FROM budget_allocation ba
-  LIMIT 30);
+  FROM (
+    SELECT ba.id, ba.divisi, ba.year, ba.gaji_budget, ba.training_budget,
+           ba.operational_budget, ba.actual_gaji, ba.actual_training
+    FROM budget_allocation ba
+    ORDER BY ba.year DESC, ba.divisi
+    LIMIT 30
+  ) ba);
 END;
+
 $function$;
 -- admin_get_certifications()
 CREATE OR REPLACE FUNCTION public.admin_get_certifications()
@@ -4012,16 +4046,22 @@ CREATE OR REPLACE FUNCTION public.admin_get_certifications()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-    jsonb_build_object('id', c.id, 'nrp', c.nrp, 'nama', e.nama,
+    jsonb_build_object('id', c.id, 'nrp', c.nrp, 'nama', c.nama,
       'cert_name', c.cert_name, 'issuer', c.issuer,
       'issue_date', c.issue_date, 'expiry_date', c.expiry_date, 'status', c.status)
     ORDER BY c.expiry_date), '[]'::jsonb))
-  FROM certifications c
-  LEFT JOIN employees_master e ON e.nrp = c.nrp
-  LIMIT 50);
+  FROM (
+    SELECT c.id, c.nrp, e.nama, c.cert_name, c.issuer, c.issue_date, c.expiry_date, c.status
+    FROM certifications c
+    LEFT JOIN employees_master e ON e.nrp = c.nrp
+    ORDER BY c.expiry_date
+    LIMIT 50
+  ) c);
 END;
+
 $function$;
 -- admin_get_divisions()
 CREATE OR REPLACE FUNCTION public.admin_get_divisions()
@@ -4099,14 +4139,20 @@ CREATE OR REPLACE FUNCTION public.admin_get_estate_blocks()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', eb.id, 'block_name', eb.block_name, 'area_hectare', eb.area_hectare,
       'terrain', eb.terrain, 'division', eb.division, 'status', eb.status)
     ORDER BY eb.block_name), '[]'::jsonb))
-  FROM estate_blocks eb
-  LIMIT 50);
+  FROM (
+    SELECT eb.id, eb.block_name, eb.area_hectare, eb.terrain, eb.division, eb.status
+    FROM estate_blocks eb
+    ORDER BY eb.block_name
+    LIMIT 50
+  ) eb);
 END;
+
 $function$;
 -- admin_get_exit_interviews()
 CREATE OR REPLACE FUNCTION public.admin_get_exit_interviews()
@@ -4115,18 +4161,24 @@ CREATE OR REPLACE FUNCTION public.admin_get_exit_interviews()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
   RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-    jsonb_build_object('id', ei.id, 'nrp', ei.nrp, 'nama', e.nama,
+    jsonb_build_object('id', ei.id, 'nrp', ei.nrp, 'nama', ei.nama,
       'satisfaction_score', ei.satisfaction_score, 'reason', ei.reason,
       'feedback', ei.feedback, 'created_at', ei.created_at)
     ORDER BY ei.created_at DESC), '[]'::jsonb))
-  FROM exit_interviews ei
-  LEFT JOIN employees_master e ON e.nrp = ei.nrp
-  LIMIT 30);
+  FROM (
+    SELECT ei.id, ei.nrp, e.nama, ei.satisfaction_score, ei.reason, ei.feedback, ei.created_at
+    FROM exit_interviews ei
+    LEFT JOIN employees_master e ON e.nrp = ei.nrp
+    ORDER BY ei.created_at DESC
+    LIMIT 30
+  ) ei);
 END;
+
 $function$;
 -- admin_get_external_notifications()
 CREATE OR REPLACE FUNCTION public.admin_get_external_notifications()
@@ -4159,12 +4211,17 @@ DECLARE
   v_nrp text := authz_current_nrp();
 BEGIN RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
-    jsonb_build_object('id',id,'nrp',nrp,'type',type,'status',status,'note',note,'created_at',created_at)
-    ORDER BY created_at DESC),'[]'::jsonb))
-  FROM hr_requests
-  WHERE (type ILIKE '%facility%' OR type ILIKE '%aset%')
-    AND (v_is_admin OR nrp = v_nrp)
-  LIMIT 30); END;
+    jsonb_build_object('id',sub.id,'nrp',sub.nrp,'type',sub.type,'status',sub.status,'note',sub.note,'created_at',sub.created_at)
+    ORDER BY sub.created_at DESC),'[]'::jsonb))
+  FROM (
+    SELECT id, nrp, type, status, note, created_at
+    FROM hr_requests
+    WHERE (type ILIKE '%facility%' OR type ILIKE '%aset%')
+      AND (v_is_admin OR nrp = v_nrp)
+    ORDER BY created_at DESC
+    LIMIT 30
+  ) sub); END;
+
 $function$;
 -- admin_get_feature_flags()
 CREATE OR REPLACE FUNCTION public.admin_get_feature_flags()
@@ -4187,15 +4244,21 @@ CREATE OR REPLACE FUNCTION public.admin_get_headcount_plan()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', hp.id, 'divisi', hp.divisi, 'year', hp.year,
       'quarter', hp.quarter, 'planned_hc', hp.planned_hc, 'actual_hc', hp.actual_hc,
       'notes', hp.notes)
     ORDER BY hp.year DESC, hp.quarter), '[]'::jsonb))
-  FROM headcount_plans hp
-  LIMIT 30);
+  FROM (
+    SELECT hp.id, hp.divisi, hp.year, hp.quarter, hp.planned_hc, hp.actual_hc, hp.notes
+    FROM headcount_plans hp
+    ORDER BY hp.year DESC, hp.quarter
+    LIMIT 30
+  ) hp);
 END;
+
 $function$;
 -- admin_get_kpi_by_division()
 CREATE OR REPLACE FUNCTION public.admin_get_kpi_by_division()
@@ -4325,6 +4388,7 @@ CREATE OR REPLACE FUNCTION public.admin_get_master_data()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN
     RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501';
@@ -4333,13 +4397,20 @@ BEGIN
     SELECT jsonb_build_object('ok', true,
       'roles', (SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'nrp', ur.nrp, 'role', ur.role, 'tier', ur.role_level
-      ) ORDER BY ur.role_level DESC, ur.nrp ASC), '[]'::jsonb) FROM user_roles ur LIMIT 100),
+      ) ORDER BY ur.role_level DESC, ur.nrp ASC), '[]'::jsonb)
+      FROM (
+        SELECT nrp, role, role_level
+        FROM user_roles
+        ORDER BY role_level DESC, nrp ASC
+        LIMIT 100
+      ) ur),
       'divisions', (SELECT COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
         'divisi', md.division_name
       )), '[]'::jsonb) FROM master_divisions md WHERE md.division_name IS NOT NULL)
     )
   );
 END;
+
 $function$;
 -- admin_get_okr()
 CREATE OR REPLACE FUNCTION public.admin_get_okr()
@@ -4348,19 +4419,26 @@ CREATE OR REPLACE FUNCTION public.admin_get_okr()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
   RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-    jsonb_build_object('id', o.id, 'nrp', o.nrp, 'nama', e.nama,
+    jsonb_build_object('id', o.id, 'nrp', o.nrp, 'nama', o.nama,
       'objective', o.objective, 'key_result', o.key_result,
       'target_value', o.target_value, 'current_value', o.current_value,
       'status', o.status, 'periode', o.periode)
     ORDER BY o.periode DESC, o.nrp), '[]'::jsonb))
-  FROM hr_okrs o   -- ✅ FIXED: was 'okrs'
-  LEFT JOIN employees_master e ON e.nrp = o.nrp
-  LIMIT 50);
+  FROM (
+    SELECT o.id, o.nrp, e.nama, o.objective, o.key_result, o.target_value,
+           o.current_value, o.status, o.periode
+    FROM hr_okrs o   -- ✅ FIXED: was 'okrs'
+    LEFT JOIN employees_master e ON e.nrp = o.nrp
+    ORDER BY o.periode DESC, o.nrp
+    LIMIT 50
+  ) o);
 END;
+
 $function$;
 -- admin_get_org_structure()
 CREATE OR REPLACE FUNCTION public.admin_get_org_structure()
@@ -4379,13 +4457,20 @@ CREATE OR REPLACE FUNCTION public.admin_get_overtime()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN
+AS $function$
+ BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_finance','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
  RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
-    jsonb_build_object('id',id,'nrp',nrp,'date',date,'hours',hours,'reason',reason,'status',status)
-    ORDER BY date DESC),'[]'::jsonb))
-  FROM hr_overtime LIMIT 50); END;
+    jsonb_build_object('id',sub.id,'nrp',sub.nrp,'date',sub.date,'hours',sub.hours,'reason',sub.reason,'status',sub.status)
+    ORDER BY sub.date DESC),'[]'::jsonb))
+  FROM (
+    SELECT id, nrp, date, hours, reason, status
+    FROM hr_overtime
+    ORDER BY date DESC
+    LIMIT 50
+  ) sub); END;
+
 $function$;
 -- admin_get_payroll(p_period text)
 CREATE OR REPLACE FUNCTION public.admin_get_payroll(p_period text DEFAULT NULL::text)
@@ -4515,13 +4600,20 @@ CREATE OR REPLACE FUNCTION public.admin_get_pending_requests()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN
+AS $function$
+ BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd','admin_operasional')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
  RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
-    jsonb_build_object('id',r.id,'nrp',r.nrp,'nama',e.nama,'type',r.type,'status',r.status,'note',r.note,'created_at',r.created_at)
+    jsonb_build_object('id',r.id,'nrp',r.nrp,'nama',r.nama,'type',r.type,'status',r.status,'note',r.note,'created_at',r.created_at)
     ORDER BY r.created_at DESC),'[]'::jsonb))
-  FROM hr_requests r LEFT JOIN employees_master e ON e.nrp=r.nrp WHERE r.status='Pending' LIMIT 50); END;
+  FROM (
+    SELECT r.id, r.nrp, e.nama, r.type, r.status, r.note, r.created_at
+    FROM hr_requests r LEFT JOIN employees_master e ON e.nrp=r.nrp WHERE r.status='Pending'
+    ORDER BY r.created_at DESC
+    LIMIT 50
+  ) r); END;
+
 $function$;
 -- admin_get_referrals()
 CREATE OR REPLACE FUNCTION public.admin_get_referrals()
@@ -4530,18 +4622,25 @@ CREATE OR REPLACE FUNCTION public.admin_get_referrals()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
   RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-    jsonb_build_object('id', r.id, 'referrer_nrp', r.referrer_nrp, 'referrer_name', e.nama,
+    jsonb_build_object('id', r.id, 'referrer_nrp', r.referrer_nrp, 'referrer_name', r.nama,
       'candidate_name', r.candidate_name, 'candidate_email', r.candidate_email,
       'position', r.position, 'status', r.status, 'bonus_paid', r.bonus_paid)
     ORDER BY r.created_at DESC), '[]'::jsonb))
-  FROM referrals r
-  LEFT JOIN employees_master e ON e.nrp = r.referrer_nrp
-  LIMIT 30);
+  FROM (
+    SELECT r.id, r.referrer_nrp, e.nama, r.candidate_name, r.candidate_email,
+           r.position, r.status, r.bonus_paid, r.created_at
+    FROM referrals r
+    LEFT JOIN employees_master e ON e.nrp = r.referrer_nrp
+    ORDER BY r.created_at DESC
+    LIMIT 30
+  ) r);
 END;
+
 $function$;
 -- admin_get_role_matrix()
 CREATE OR REPLACE FUNCTION public.admin_get_role_matrix()
@@ -4560,18 +4659,25 @@ CREATE OR REPLACE FUNCTION public.admin_get_settlements()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code IN ('admin_pusat','admin_hrd')) AND NOT authz_is_owner() THEN RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501'; END IF;
   RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-    jsonb_build_object('id', fs.id, 'nrp', fs.nrp, 'nama', e.nama,
+    jsonb_build_object('id', fs.id, 'nrp', fs.nrp, 'nama', fs.nama,
       'sisa_cuti_paid', fs.sisa_cuti_paid, 'thr_prorata', fs.thr_prorata,
       'pesangon', fs.pesangon, 'total_settlement', fs.total_settlement, 'status', fs.status)
     ORDER BY fs.created_at DESC), '[]'::jsonb))
-  FROM final_settlements fs
-  LEFT JOIN employees_master e ON e.nrp = fs.nrp
-  LIMIT 30);
+  FROM (
+    SELECT fs.id, fs.nrp, e.nama, fs.sisa_cuti_paid, fs.thr_prorata, fs.pesangon,
+           fs.total_settlement, fs.status, fs.created_at
+    FROM final_settlements fs
+    LEFT JOIN employees_master e ON e.nrp = fs.nrp
+    ORDER BY fs.created_at DESC
+    LIMIT 30
+  ) fs);
 END;
+
 $function$;
 -- admin_get_sso_providers()
 CREATE OR REPLACE FUNCTION public.admin_get_sso_providers()
@@ -4613,6 +4719,7 @@ CREATE OR REPLACE FUNCTION public.admin_get_surveys()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', s.id, 'title', s.title, 'description', s.description,
@@ -4621,9 +4728,14 @@ BEGIN RETURN (
       'avg_score', (SELECT ROUND(AVG(sr.score), 1) FROM survey_responses sr WHERE sr.survey_id = s.id),
       'created_at', s.created_at)
     ORDER BY s.created_at DESC), '[]'::jsonb))
-  FROM hr_surveys s   -- ✅ FIXED: was 'surveys'
-  LIMIT 30);
+  FROM (
+    SELECT s.id, s.title, s.description, s.survey_type, s.status, s.target_audience, s.created_at
+    FROM hr_surveys s   -- ✅ FIXED: was 'surveys'
+    ORDER BY s.created_at DESC
+    LIMIT 30
+  ) s);
 END;
+
 $function$;
 -- admin_get_timesheet()
 CREATE OR REPLACE FUNCTION public.admin_get_timesheet()
@@ -4719,6 +4831,7 @@ CREATE OR REPLACE FUNCTION public.admin_get_webhook_logs()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM user_role_assignments WHERE nrp = authz_current_nrp() AND role_code = 'admin_pusat') AND NOT authz_is_owner() THEN
     RAISE EXCEPTION 'Akses ditolak. Hanya admin_pusat.' USING ERRCODE = '42501';
@@ -4728,9 +4841,15 @@ BEGIN
       jsonb_build_object('id', l.id, 'target_url', l.target_url, 'event', l.event_type, 'success', COALESCE(l.response_code BETWEEN 200 AND 299, FALSE), 'response_status', l.response_code, 'created_at', l.created_at)
       ORDER BY l.created_at DESC
     ), '[]'::jsonb))
-    FROM webhook_logs l LIMIT 50
+    FROM (
+      SELECT l.id, l.target_url, l.event_type, l.response_code, l.created_at
+      FROM webhook_logs l
+      ORDER BY l.created_at DESC
+      LIMIT 50
+    ) l
   );
 END;
+
 $function$;
 -- admin_get_webhooks()
 CREATE OR REPLACE FUNCTION public.admin_get_webhooks()
@@ -4758,15 +4877,22 @@ CREATE OR REPLACE FUNCTION public.admin_get_whistleblower()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+
 BEGIN RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', w.id, 'category', w.category, 'description', w.description,
       'status', w.status, 'investigator_nrp', w.investigator_nrp,
       'resolution_notes', w.resolution_notes, 'created_at', w.created_at)
     ORDER BY w.created_at DESC), '[]'::jsonb))
-  FROM whistleblowers w
-  LIMIT 30);
+  FROM (
+    SELECT w.id, w.category, w.description, w.status, w.investigator_nrp,
+           w.resolution_notes, w.created_at
+    FROM whistleblowers w
+    ORDER BY w.created_at DESC
+    LIMIT 30
+  ) w);
 END;
+
 $function$;
 -- admin_logout()
 CREATE OR REPLACE FUNCTION public.admin_logout()

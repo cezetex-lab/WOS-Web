@@ -3232,3 +3232,45 @@ STATUS_EXIT=0 (working tree KOSONG)
 Isi commit: 2 migrasi + 2 rollback + spec E2E + AGENTS §5.8 + ARCHITECTURE/CONSTANTS/SECURITY (registry 206/max 281, ts-total 223/58) + entri log + baseline (cap 206).
 
 ---
+## [2026-10-18] Migrasi 282: Fix LIMIT No-Op 19 admin_get_* (AZ)
+
+- **Item:** P2-F14-AZ → ✅ CLOSED (scope 19 `admin_get_*`; 7 fungsi sudah benar → tabel "BUKAN masalah" AGENTS.md; 47 no-op non-admin → **P3-F14-BV** baru (deferred, keputusan user); temuan baru **P2-F14-BW** = `admin_get_surveys` rusak pre-existing).
+- **Langkah 1 — Identifikasi + RED:**
+  - Kandidat live (`m282-count-admin.cjs`): fungsi `public` `jsonb_agg`+`LIMIT` = **97**; `admin_get_*` dengan LIMIT = **26 persis** (cocok angka audit AA), `admin_get_*` jsonb_agg+LIMIT = 25.
+  - Analisa blok (`m282-analyze.mjs`, `.agents/logs/m282-analyze.log`): **66 no-op / 31 sudah benar**. Dari 26 `admin_get_*`: **19 no-op** + 7 sudah benar (kpi_trend/low_performers/top_performers/timesheet = sudah subquery; payroll/role_matrix/kpi_overview = LIMIT scalar subquery yang benar — diverifikasi manual ke prosrc `m282-19-prosrc.txt`).
+  - **RED** (`m282-red.log`, tx ROLLBACK, impersonasi NRP100):
+    ```
+    {"fn":"admin_get_audit_chain","limit_written":50,"rows_returned":614,"noop":true,"sample_shape":["ok","data"]}
+    {"fn":"admin_get_master_data","limit_written":100,"rows_returned":65,"noop":false,"sample_shape":["ok","roles","divisions"]}
+    {"fn":"admin_get_webhook_logs","limit_written":50,"rows_returned":0,"noop":false,"sample_shape":["ok","data"]}
+    {"audit_log_rows":614}
+    RED_EXIT=0
+    ```
+    `audit_chain` 614 > 50 = merah nyata (volume naik dari 593 di audit AA). Dua sampel lain belum merah karena volume < LIMIT (struktural tetap no-op).
+- **STOP #1 brief terpicu** ("fungsi di daftar 26 yang sudah benar") → keputusan user via ask_questions: **scope 19 saja** (blast radius terkontrol), 7 fungsi → "BUKAN masalah", 47 lain → **P3-F14-BV**.
+- **Langkah 2 — Migrasi + rollback:**
+  - `282_fix_limit_noop_19_admin_rpcs.sql` (19 `CREATE OR REPLACE`): teknik subquery **expose kolom dgn alias sama** (`FROM (SELECT … ORDER BY … LIMIT n) <alias_lama>`) → body luar (jsonb_build_object + gate authz + ORDER BY jsonb_agg) **byte-identik** dengan pre-image; WHERE scope 280/281 `admin_get_facility_requests` ikut ke dalam subquery (fail-closed tetap). Semua fungsi plpgsql/SECDEF/`SET search_path TO 'public','extensions'`; 4 fungsi tanpa grant `authenticated` (certifications/estate_blocks/headcount_plan/whistleblower) ACL-nya tidak disentuh.
+  - Dry-run hijau (`checksum 7d3cc5ec941e61d283ed3ccf528e9d28c132125b0d82a52c81f28cce7b655cda`, belum terdaftar) → **Apply: `DITERAPKAN + terdaftar + checksum terverifikasi (932ms)`**.
+  - Rollback `282_rollback.sql` **dibuat dari pre-image JSON** (`m282-gen-rollback.mjs`, guard: 19 baris / prosrc muncul 1× / boundary exact). **Bug generator v1 terbukti**: `AS $function$\n` + prosrc menambah 1 byte `\n` di awal body (prosrc `audit_chain` diawali spasi) → **rollback proof run-1: 0/19** byte-identik. Fix: body = prosrc PERSIS tanpa newline injeksi → rerun **19/19 byte-identik** (m282-green.log bagian 4). Pelajaran sama seperti recon 280: jangan transkrip manual, generate dari dump + guard byte.
+- **Langkah 3 — GREEN** (`m282-green.log`, **EXIT 0**, semua probe tx ROLLBACK):
+  ```
+  --- BAGIAN 1: admin NRP100, data <= LIMIT ---
+  ... audit_chain {"limit":50,"rows":50,...,"verdict":"PASS"} (dari 614)
+  ... master_data {"limit":100,"rows":65,...,"verdict":"PASS"}; 18 PASS
+  ... admin_get_surveys {"verdict":"PREEXISTING_BROKEN (42703, pra-282)","msg":"column s.description does not exist"}
+  --- BAGIAN 2: worker NRP002 — 13 fungsi digate harus 42501 --- 13/13 PASS
+  --- BAGIAN 2b: facility_requests worker = scoped (BU contract) --- PASS
+  {"reg_count":207,"reg_max":282}
+  {"oid_preserved":"19/19","attrs_preserved":"19/19","acl_preserved":"19/19","prosrc_changed":"19/19"}
+  {"rollback_preimage_byte_identik":"19/19","mismatch":0}
+  {"GREEN_ADMIN":"18/19","PREEXISTING_BROKEN":1,"GREEN_GATE":"13/13","fail":0,"gfail":0}
+  GREEN_EXIT=0
+  ```
+  - **`admin_get_surveys` 42703 = PRE-EXISTING, bukan regresi 282** — pola pre-image (langsung `FROM hr_surveys s … s.description`) direproduksi dalam tx ROLLBACK dan **juga 42703** (`m282-survey-diag.cjs`); `hr_surveys` kolom live = `id,title,questions,status,created_at,updated_at,created_by,updated_by`. Konsumen `SurveyPage.tsx:67` (branch admin) → item baru **P2-F14-BW**.
+  - 5 fungsi `permission denied` saat probe sebagai `authenticated` = **pre-existing ACL** (tanpa grant — bagian P1-POST-HARDENING-AUDIT); diverifikasi sebagai postgres → LIMIT tetap terbukti. ACL preserved 19/19 (bukan perubahan 282).
+  - Analyzer blok post-apply (`m282-analyze-post.log`): **NOOP_COUNT=0, ALREADY_OK_COUNT=19**.
+  - 3 kegagalan probe run awal = **ekspektasi probe salah, diperbaiki bukan di-skip**: (a) GATED list awal memuat 3 fungsi yang tak pernah digate (headcount_plan/whistleblower/surveys — bukan daftar 274/275/278/279), (b) regex no-op sederhana false-positive pada gate `FROM user_role_assignments WHERE …` → diganti analyzer blok, (c) survey di-diagnosa ke akar sebelum klaim.
+- **Langkah 4 — Docs:** AGENTS.md §5.8: AZ ✅ CLOSED (bukti lengkap) + **P3-F14-BV** (47 no-op non-admin, deferred) + **P2-F14-BW** (`admin_get_surveys` rusak) + baris "BUKAN masalah" utk 7 fungsi; registry sinkron 206→**207** / max 281→**282** di ARCHITECTURE §7.4 (+Fact 282), CONSTANTS baris 21, SECURITY §15 (207 berkas); ts-total TIDAK berubah (tidak ada `.ts`/`.tsx` baru — P22/P23 tidak terpicu).
+- **Registry live pasca-apply:** `reg_count=207`, `reg_max=282` (invariant GREEN 282).
+- **Dampak lintas-page (G7): worker → admin → dashboard → owner** — **admin terdampak positif**: 19 halaman `admin_get_*` kini terbatas LIMIT-nya (audit_chain 614→50 utk admin); **worker/dashboard/owner**: TIDAK berubah — 13 gate tetap 42501, facility scoping BU utuh, 7 fungsi tak disentuh, 47 no-op non-admin tak tersentuh (BV). Smoke UI tidak diulang (perubahan DB-only tanpa perubahan kontrak shape — keys `["ok","data"]` identik; verifikasi via probe runtime 19 fungsi di 4 identitas DB, bukan browser).
+- **Keterbatasan jujur:** (1) `admin_get_surveys` tetap error utk admin sampai BW dikerjakan (pre-existing — SurveyPage branch admin sudah error sebelum 282); (2) RED hanya membuktikan 1 fungsi dgn volume > LIMIT (master_data/webhook_logs < LIMIT saat ini — sisa no-op terbukti struktural via analyzer); (3) 47 no-op non-admin masih OPEN (BV); (4) probe = data live hari ini, bukan volume produksi penuh.

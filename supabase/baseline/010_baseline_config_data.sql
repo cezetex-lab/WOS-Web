@@ -1857,6 +1857,11 @@ BEGIN
     VALUES ('281', '281_fail_closed_quarantine_scoping.sql', '1d02f1581ec9f3d837c221b2807ad59dc763aec50a5a89827faac8f6d54295ee', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '282_fix_limit_noop_19_admin_rpcs.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('282', '282_fix_limit_noop_19_admin_rpcs.sql', '7d3cc5ec941e61d283ed3ccf528e9d28c132125b0d82a52c81f28cce7b655cda', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
 END $$;
 
