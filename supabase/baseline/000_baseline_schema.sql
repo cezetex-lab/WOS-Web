@@ -4719,23 +4719,25 @@ CREATE OR REPLACE FUNCTION public.admin_get_surveys()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-
-BEGIN RETURN (
+BEGIN
+  IF NOT is_admin_or_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501';
+  END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
-    jsonb_build_object('id', s.id, 'title', s.title, 'description', s.description,
-      'survey_type', s.survey_type, 'status', s.status, 'target_audience', s.target_audience,
-      'response_count', (SELECT COUNT(*) FROM survey_responses sr WHERE sr.survey_id = s.id),
-      'avg_score', (SELECT ROUND(AVG(sr.score), 1) FROM survey_responses sr WHERE sr.survey_id = s.id),
+    jsonb_build_object('id', s.id, 'title', s.title, 'questions', s.questions,
+      'status', s.status,
+      'response_count', (SELECT COUNT(*) FROM hr_survey_responses sr WHERE sr.survey_id = s.id),
+      'avg_score', (SELECT ROUND(AVG(sr.score), 1) FROM hr_survey_responses sr WHERE sr.survey_id = s.id),
       'created_at', s.created_at)
     ORDER BY s.created_at DESC), '[]'::jsonb))
   FROM (
-    SELECT s.id, s.title, s.description, s.survey_type, s.status, s.target_audience, s.created_at
-    FROM hr_surveys s   -- ✅ FIXED: was 'surveys'
+    SELECT s.id, s.title, s.questions, s.status, s.created_at
+    FROM hr_surveys s
     ORDER BY s.created_at DESC
     LIMIT 30
   ) s);
 END;
-
 $function$;
 -- admin_get_timesheet()
 CREATE OR REPLACE FUNCTION public.admin_get_timesheet()
@@ -18652,6 +18654,7 @@ GRANT EXECUTE ON FUNCTION public.admin_get_sso_providers() TO postgres;
 GRANT EXECUTE ON FUNCTION public.admin_get_sso_providers() TO service_role;
 GRANT EXECUTE ON FUNCTION public.admin_get_summary() TO postgres;
 GRANT EXECUTE ON FUNCTION public.admin_get_summary() TO service_role;
+GRANT EXECUTE ON FUNCTION public.admin_get_surveys() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_get_surveys() TO postgres;
 GRANT EXECUTE ON FUNCTION public.admin_get_surveys() TO service_role;
 GRANT EXECUTE ON FUNCTION public.admin_get_timesheet() TO authenticated;

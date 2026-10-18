@@ -3298,3 +3298,103 @@ Guard **pasca-commit** (`572aa92`, tree bersih): `verify:artifacts` `0 drift, 1 
 `§0.21` (eslint file-spesifik): **tidak berlaku** — tidak ada berkas `.ts`/`.tsx` diubah.
 
 Dampak lintas-page: worker → admin → dashboard → owner — `admin_get_*` adalah RPC sisi admin/dashboard; worker tidak memanggil satu pun (gate 274/275/278/279 tetap menolak 13/13 dengan 42501 pasca-282). Dashboard/Owner membaca agregat yang sama; output makin kecil (≤ LIMIT) dan **tetap JSON array/objek dengan key sama** → tidak ada perubahan kontrak konsumen. Tidak ada berkas `src/` yang disentuh, jadi tidak ada regresi tipe/UI.
+## [2026-10-18] Migrasi 283: Fix admin_get_surveys (BW)
+
+**Mode:** eksekusi cepat (1 RPC rusak) · **Scope:** `supabase/migrations/283_fix_admin_get_surveys.sql` + `supabase/scripts/rollback/283_rollback.sql` + docs · **`src/` TIDAK disentuh.**
+
+### Akar masalah — ternyata 4 bug, bukan 1
+
+| # | Bug | Bukti mentah |
+|---|---|---|
+| 1 | 3 kolom mati: `s.description`, `s.survey_type`, `s.target_audience` tidak ada di `hr_surveys` | `information_schema.columns` → `hr_surveys`: `id,title,questions,status,created_at,updated_at,created_by,updated_by` (`.agents/logs/m283-probe.log`) |
+| 2 | `response_count`/`avg_score` membaca tabel **lain** (`survey_responses`, `survey_id` text) padahal `submit_survey`/`get_survey_results` memakai `hr_survey_responses` (`survey_id` integer) → angka selalu 0 walau tidak error | `prosrc` `submit_survey` = `INSERT INTO hr_survey_responses(...)`; `get_survey_results` = `FROM hr_survey_responses WHERE survey_id=p_survey_id` |
+| 3 | Tanpa gate authz in-body | `prosrc` pra-283: langsung `BEGIN RETURN (...)` tanpa cek role |
+| 4 | `authenticated` **tidak punya EXECUTE** — ACL pre-image hanya `postgres` + `service_role` | `has_function_privilege('authenticated',…,'EXECUTE')` = **false**; ACL `postgres=X/postgres,service_role=X/postgres` (`m283-preimage.log`) |
+
+**Konsekuensi:** memperbaiki kolom saja TIDAK menghidupkan halaman — jalur app tetap `42501 permission denied`.
+
+### RED (pre-apply, `.agents/logs/m283-red.log`)
+
+```
+=== BAGIAN 1: RED — jalur nyata aplikasi (authenticated, NRP100) ===
+  result: {"out":null,"err":{"code":"42501","msg":"permission denied for function admin_get_surveys"}}
+=== BAGIAN 2: RED — SQL sebagai postgres (kolom hilang) ===
+  result: {"out":null,"err":{"code":"42703","msg":"column s.description does not exist"}}
+=== RINGKASAN: 7 PASS / 5 FAIL / RED_EXIT=1 ===
+```
+(5 FAIL = assertion GREEN yang memang belum terpenuhi; 7 PASS = invariant: service_role tetap, anon tutup, oid 298143.)
+
+### Fix (migrasi 283)
+
+- Kolom nyata: `id, title, questions, status, created_at`; `questions` **ditambah** (aditif — `SurveyPage` memakainya); key mati dibuang (fungsi belum pernah mengembalikan data, jadi tak ada konsumen yang bisa bergantung padanya).
+- `response_count`/`avg_score` → **`hr_survey_responses`**.
+- `LIMIT 30` **tetap di dalam subquery** (pola 282, supaya membatasi baris data).
+- Gate `is_admin_or_owner()` = paritas `isAdminRole` (`admin_`* atau `admin`) + owner bypass. **BUKAN** `authz_check_admin('employee.view_all')` — 272 mencabut permission itu dari HRD sedangkan halaman ini tidak membatasi HRD.
+- `GRANT EXECUTE … TO authenticated` (service_role dipertahankan, anon tetap tutup).
+
+Apply: `DITERAPKAN + terdaftar + checksum terverifikasi (711ms)`, checksum `64e720e6…`.
+
+### GREEN (`.agents/logs/m283-green.log`, **EXIT 0**)
+
+```
+MODE: GREEN (sesudah 283)
+  out: {"ok":true,"data":[{"id":9001,"title":"Sintetis Alpha","status":"active","avg_score":9,
+       "questions":[{"q":"A?"},{"q":"B?"}],"created_at":"...","response_count":2},
+       {"id":9002,"title":"Sintetis Beta","status":"closed","avg_score":5,
+       "questions":[{"q":"C?"}],"created_at":"...","response_count":1}]}
+  PASS admin ok:true / data array / panjang = 2 / urut created_at DESC / key set persis
+  PASS questions 2 item / response_count 2 & 1 / avg_score 9 & 5 / tanpa key mati
+  NRP101 (admin_hrd): {"out":{"ok":true,"data":[]},"err":null}   PASS
+  NRP002 (worker):    {"out":null,"err":{"code":"42501","msg":"Akses ditolak."}}  PASS
+  OWNER:              {"out":{"ok":true,"data":[]},"err":null}   PASS
+  tanpa JWT:          {"out":null,"err":{"code":"42501","msg":"Akses ditolak."}}  PASS
+  meta: {"oid":298143,"auth_exec":true,"svc_exec":true,"anon_exec":false}
+=== RINGKASAN: 22 PASS / 0 FAIL ===
+```
+
+Data sintetis (2 survei + 3 respons) dimasukkan **di dalam transaksi yang di-ROLLBACK** dengan `session_replication_role = replica` — **nol perubahan data DB**.
+
+RED-mode dijalankan ulang pasca-apply (`m283-red-postapply.log`): `20 PASS / 2 FAIL` — tepat 2 assertion RED lama gagal (`ok:true`, `no error`), membuktikan state lama benar-benar hilang.
+
+### Rollback proof (`.agents/logs/m283-rollback-proof.log`, ALL PASS)
+
+```
+meta: {"oid":298143,"md5":"3d655a3dd7179f35b3b72c772faa590b","auth_exec":false,
+       "acl":"postgres=X/postgres,service_role=X/postgres"}
+PASS prosrc md5 kembali ke pre-image / ACL authenticated kembali false /
+     service_role tetap ada / oid preserved
+PASS apply ulang menghasilkan prosrc sama (708ba77d…) / state akhir tidak berubah
+```
+
+### Temuan baru (jadi item, bukan catatan)
+
+- **P2-F14-BX** — `trg_audit_hr_surveys` → `_generic_audit_trigger_fixed()` memakai `COALESCE(NEW.nrp, OLD.nrp, 'SYSTEM')`; plpgsql me-resolve field per tipe record → **setiap INSERT/UPDATE/DELETE 42703** pada tabel tanpa kolom `nrp`. Terdampak **4 tabel**: `hr_surveys`, `hr_tasks`, `reviews_360`, `audit_log`. Efek: **0 fungsi** yang `INSERT INTO hr_surveys` → survei tidak bisa dibuat sama sekali.
+- **P3-F14-BY** — dua sistem respons survei paralel (`hr_survey_responses` vs `survey_responses`), jalur B (`submit_survey_response`/`get_enps_score`) **0 pemanggil di `src/`** → butuh keputusan user (hapus / jadikan kanonik).
+
+### Dampak lintas-page: worker → admin → dashboard → owner
+
+- **Worker**: tidak memakai `admin_get_surveys` (`isAdminRole` false → `get_active_surveys`); gate baru menolak worker dengan 42501 (dibuktikan NRP002). Tidak terdampak.
+- **Admin**: halaman `/…/surveys` branch admin kini `ok:true` (sebelumnya error total) dan menerima `questions` yang dipakai UI. Ini satu-satunya perubahan perilaku yang diinginkan.
+- **Dashboard/Owner**: tidak memanggil RPC ini; gate `is_admin_or_owner()` memberi owner bypass (dibuktikan). Tidak terdampak.
+- Tidak ada berkas `src/` diubah → tidak ada perubahan tipe/UI, tidak perlu deploy Vercel.
+### Blok akhir — bukti guard
+
+Regen baseline: percobaan 1 **GAGAL** (`BASELINE_EXIT=1`, `Error: Connection terminated unexpectedly` — koneksi DB putus, log `.agents/logs/m283-baseline.log`); diulang → `BASELINE_EXIT=0`, `cap migrasi : 208`, `tabel 210 | fungsi 539 | view 1 | sequence 95 | cron 5`. Guard dijalankan **ulang** setelah baseline sukses (baseline ikut berubah → hasil sebelum regen tidak sah).
+
+Guard **dua putaran** (`m283-guards-r1.log`, `m283-guards-r2.log`), semua exit 0:
+
+| Guard | Putaran 1 | Putaran 2 |
+|---|---|---|
+| `check:types` | — (tidak ada `.ts`/`.tsx` diubah) | `EXIT_types=0` |
+| `verify:test-logged` | `EXIT_logged=0` — `Test Files 32 passed (32)` | `EXIT_logged=0` — `Test Files 32 passed (32)` |
+| `verify:test-freshness` | `EXIT_fresh=0` — `0 stale, 0 warning` | `EXIT_fresh=0` — `0 stale, 0 warning` |
+| `verify:artifacts` | `EXIT_artifacts=0` — `0 drift, 1 warning` | `EXIT_artifacts=0` — `0 drift, 1 warning` |
+| `verify:test-count` | `EXIT_testcount=0` — `0 drift, 0 warning` | `EXIT_testcount=0` — `0 drift, 0 warning` |
+| `verify:numeric` | `EXIT_numeric=0` — `0 drift, 6 warning, 44 klaim` | `EXIT_numeric=0` — `0 drift, 6 warning, 44 klaim` |
+| `verify:encoding` | `EXIT_encoding=0` — `0 file non-UTF8 · 581 file` | `EXIT_encoding=0` — `0 file non-UTF8 · 581 file` |
+| `verify:no-local-db-client` | `EXIT_nolocal=0` — `0 pelanggaran (28 file)` | `EXIT_nolocal=0` — `0 pelanggaran (28 file)` |
+
+WARN yang tersisa = kategori informasional yang memang diizinkan guard: artifacts `WARN baseline commit <ts>; regenerasi = Fix #9` (bukan drift) dan numeric 6 WARN `external-snapshot`/`[snapshot:…]`; jumlah WARN **sama persis dengan run 282** (tidak ada WARN baru dari 283).
+
+`§0.21` (eslint file-spesifik): **tidak berlaku** — tidak ada berkas `.ts`/`.tsx` diubah.
+`§0.22/§0.23` (ts-total / src breakdown): **tidak berlaku** — tidak ada berkas `.ts`/`.tsx` ditambah/dihapus; migration/baseline ber-ekstensi `.sql`.

@@ -1862,6 +1862,11 @@ BEGIN
     VALUES ('282', '282_fix_limit_noop_19_admin_rpcs.sql', '7d3cc5ec941e61d283ed3ccf528e9d28c132125b0d82a52c81f28cce7b655cda', 'baseline install (schema dari DB live)');
     v_n := v_n + 1;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE filename = '283_fix_admin_get_surveys.sql') THEN
+    INSERT INTO public.schema_migrations (version, filename, checksum, description)
+    VALUES ('283', '283_fix_admin_get_surveys.sql', '64e720e6afcab27893e18b2b31c7bd2cfb4debf61cbe7eed5c02661a00e6ea6b', 'baseline install (schema dari DB live)');
+    v_n := v_n + 1;
+  END IF;
   RAISE NOTICE 'schema_migrations: % baris baru dicap', v_n;
 END $$;
 
