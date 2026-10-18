@@ -90,6 +90,16 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run verify:numeric
 
+      - name: Verify ACL dependencies (P1-POST-HARDENING)
+        # Guard P1-POST-HARDENING-AUDIT (Tahap 1): fungsi yang dirujuk policy RLS,
+        # `src/` (RPC), atau `supabase/functions/` WAJIB punya EXECUTE untuk role
+        # pemanggilnya. Dibangun SEBELUM perbaikan dan terbukti MERAH 10 pelanggaran
+        # (9 RPC 42501 di produksi), lalu hijau setelah migrasi 284.
+        # Exit 2 = tidak bisa verifikasi (DATABASE_URL absen / katalog kosong).
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run verify:acl-dependencies
+
       - name: Verify text encoding
         # P2-F14-AJ: berkas teks yang bukan UTF-8 valid (byte CP1252 0x97) dirusak
         # DIAM-DIAM oleh editor lossy -> U+FFFD (sudah 3x: .gitignore, .env.example,

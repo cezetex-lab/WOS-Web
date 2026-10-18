@@ -4139,8 +4139,11 @@ CREATE OR REPLACE FUNCTION public.admin_get_estate_blocks()
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-
-BEGIN RETURN (
+BEGIN
+  IF NOT is_admin_or_owner() THEN
+    RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501';
+  END IF;
+  RETURN (
   SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
     jsonb_build_object('id', eb.id, 'block_name', eb.block_name, 'area_hectare', eb.area_hectare,
       'terrain', eb.terrain, 'division', eb.division, 'status', eb.status)
@@ -4152,7 +4155,6 @@ BEGIN RETURN (
     LIMIT 50
   ) eb);
 END;
-
 $function$;
 -- admin_get_exit_interviews()
 CREATE OR REPLACE FUNCTION public.admin_get_exit_interviews()
@@ -7074,8 +7076,18 @@ CREATE OR REPLACE FUNCTION public.create_facility_request(p_nrp text, p_type tex
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-BEGIN INSERT INTO facility_requests(id,nrp,facility_type,description,priority) VALUES(encode(gen_random_bytes(8),'hex'),p_nrp,p_type,p_desc,COALESCE(p_priority,'NORMAL'));
-RETURN jsonb_build_object('ok',true,'msg','Pengajuan fasilitas dikirim.'); END; $function$;
+DECLARE
+  v_eff text := COALESCE(
+    CASE WHEN is_admin_or_owner() THEN NULLIF(TRIM(p_nrp), '') ELSE authz_current_nrp() END,
+    authz_current_nrp());
+BEGIN
+  IF v_eff IS NULL THEN
+    RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501';
+  END IF;
+  INSERT INTO facility_requests(id,nrp,facility_type,description,priority)
+  VALUES(encode(gen_random_bytes(8),'hex'),v_eff,p_type,p_desc,COALESCE(p_priority,'NORMAL'));
+  RETURN jsonb_build_object('ok',true,'msg','Pengajuan fasilitas dikirim.'); END;
+$function$;
 -- create_forum_post(p_nrp text, p_title text, p_content text, p_category text)
 CREATE OR REPLACE FUNCTION public.create_forum_post(p_nrp text, p_title text, p_content text, p_category text DEFAULT 'Umum'::text)
  RETURNS jsonb
@@ -9492,16 +9504,23 @@ CREATE OR REPLACE FUNCTION public.get_exit_clearance(p_nrp text)
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+  v_is_admin boolean := is_admin_or_owner();
+  v_eff text := CASE WHEN is_admin_or_owner() THEN NULLIF(TRIM(p_nrp), '') ELSE authz_current_nrp() END;
 BEGIN
+  IF NOT v_is_admin AND v_eff IS NULL THEN
+    RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
     SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
       jsonb_build_object(
-        'id', ec.id, 'nrp', ec.nrp, 'step', ec.step, 'status', ec.status,
-        'completed_at', ec.completed_at, 'notes', ec.notes
+        'id', ec.id, 'nrp', ec.nrp,
+        'resign_date', ec.resign_date, 'last_work_date', ec.last_work_date,
+        'status', ec.clearance_status, 'created_at', ec.created_at
       ) ORDER BY ec.id
     ), '[]'::jsonb))
     FROM hr_exit_clearance ec
-    WHERE ec.nrp = p_nrp
+    WHERE (v_is_admin AND v_eff IS NULL) OR ec.nrp = v_eff
     LIMIT 20
   );
 END;
@@ -10893,7 +10912,13 @@ CREATE OR REPLACE FUNCTION public.get_overtime_data(p_nrp text DEFAULT NULL::tex
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+  v_is_admin boolean := is_admin_or_owner();
+  v_eff text := CASE WHEN is_admin_or_owner() THEN NULLIF(TRIM(p_nrp), '') ELSE authz_current_nrp() END;
 BEGIN
+  IF NOT v_is_admin AND v_eff IS NULL THEN
+    RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501';
+  END IF;
   RETURN (
     SELECT jsonb_build_object('ok', true, 'data', COALESCE(jsonb_agg(
       jsonb_build_object(
@@ -10902,8 +10927,8 @@ BEGIN
       ) ORDER BY r.created_at DESC
     ), '[]'::jsonb))
     FROM hr_requests r
-    WHERE r.type ILIKE '%overtime%' OR r.type ILIKE '%lembur%'
-    AND (p_nrp IS NULL OR r.nrp = p_nrp)
+    WHERE (r.type ILIKE '%overtime%' OR r.type ILIKE '%lembur%')
+      AND ((v_is_admin AND v_eff IS NULL) OR r.nrp = v_eff)
     LIMIT 50
   );
 END;
@@ -10914,10 +10939,22 @@ CREATE OR REPLACE FUNCTION public.get_overtime_data(p_nrp text, p_from date, p_t
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$
+DECLARE
+  v_is_admin boolean := is_admin_or_owner();
+  v_eff text := CASE WHEN is_admin_or_owner() THEN NULLIF(TRIM(p_nrp), '') ELSE authz_current_nrp() END;
+BEGIN
+  IF NOT v_is_admin AND v_eff IS NULL THEN
+    RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501';
+  END IF;
+  RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('nrp',nrp,'date',date,'hours',hours,'reason',reason,'status',status) ORDER BY date DESC),'[]'::jsonb))
-  FROM hr_overtime WHERE (p_nrp IS NULL OR nrp=p_nrp) AND (p_from IS NULL OR date>=p_from) AND (p_to IS NULL OR date<=p_to) LIMIT 30); END;
+  FROM hr_overtime
+  WHERE ((v_is_admin AND v_eff IS NULL) OR nrp = v_eff)
+    AND (p_from IS NULL OR date >= p_from)
+    AND (p_to IS NULL OR date <= p_to)
+  LIMIT 30); END;
 $function$;
 -- get_owner_email()
 CREATE OR REPLACE FUNCTION public.get_owner_email()
@@ -12056,22 +12093,26 @@ CREATE OR REPLACE FUNCTION public.get_worker_engagement(p_nrp text)
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-DECLARE v_caller TEXT; v_is_owner BOOLEAN; v RECORD;
+DECLARE
+  v_is_admin BOOLEAN := is_admin_or_owner();
+  v_eff TEXT := CASE WHEN is_admin_or_owner() THEN NULLIF(TRIM(p_nrp), '') ELSE authz_current_nrp() END;
+  v RECORD;
 BEGIN
-  IF p_nrp IS NULL OR LENGTH(p_nrp) < 3 OR LENGTH(p_nrp) > 20 THEN
+  IF NOT v_is_admin AND v_eff IS NULL THEN
+    RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501';
+  END IF;
+  IF v_eff IS NOT NULL AND (LENGTH(v_eff) < 3 OR LENGTH(v_eff) > 20) THEN
     RETURN jsonb_build_object('ok', false, 'msg', 'Format NRP tidak valid');
   END IF;
-  v_caller := authz_current_nrp();
-  SELECT EXISTS (SELECT 1 FROM system_owner_identity WHERE auth_id = auth.uid() AND is_active = TRUE) INTO v_is_owner;
-  IF NOT v_is_owner AND p_nrp != v_caller AND NOT authz_in_scope(p_nrp) THEN
-    RETURN jsonb_build_object('ok', false, 'msg', 'Akses ditolak');
-  END IF;
-  SELECT * INTO v FROM hr_engagement WHERE nrp = p_nrp ORDER BY created_at DESC LIMIT 1;
+  SELECT * INTO v FROM hr_engagement WHERE nrp = v_eff ORDER BY created_at DESC LIMIT 1;
   IF NOT FOUND THEN RETURN jsonb_build_object('ok', true, 'score', 0, 'category', 'N/A'); END IF;
   RETURN jsonb_build_object('ok', true, 'score', COALESCE(v.score, 0),
     'category', CASE WHEN v.score>=80 THEN 'Highly Engaged' WHEN v.score>=60 THEN 'Engaged' ELSE 'Needs Attention' END,
     'period', v.period);
 EXCEPTION WHEN OTHERS THEN
+  -- Jangan menelan penolakan authz: RAISE 42501 di atas WAJIB sampai ke caller
+  -- (fail-closed terlihat), hanya error lain yang dijadikan pesan generik.
+  IF SQLSTATE = '42501' THEN RAISE; END IF;
   RETURN jsonb_build_object('ok', false, 'msg', 'Terjadi kesalahan sistem');
 END;
 $function$;
@@ -12465,11 +12506,21 @@ CREATE OR REPLACE FUNCTION public.get_worker_tasks(p_nrp text)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
-AS $function$ BEGIN RETURN (
+AS $function$
+DECLARE
+  v_is_admin boolean := is_admin_or_owner();
+  v_eff text := CASE WHEN is_admin_or_owner() THEN NULLIF(TRIM(p_nrp), '') ELSE authz_current_nrp() END;
+BEGIN
+  IF NOT v_is_admin AND v_eff IS NULL THEN
+    RAISE EXCEPTION 'Akses ditolak.' USING ERRCODE = '42501';
+  END IF;
+  RETURN (
   SELECT jsonb_build_object('ok',true,'data',COALESCE(jsonb_agg(
     jsonb_build_object('id',id,'title',title,'status',status,'due_date',due_date)
     ORDER BY due_date),'[]'::jsonb))
-  FROM hr_tasks WHERE assignee_nrp=p_nrp LIMIT 20); END;
+  FROM hr_tasks
+  WHERE (v_is_admin AND v_eff IS NULL) OR assignee_nrp = v_eff
+  LIMIT 20); END;
 $function$;
 -- get_workforce_health_score()
 CREATE OR REPLACE FUNCTION public.get_workforce_health_score()
@@ -18585,6 +18636,7 @@ GRANT EXECUTE ON FUNCTION public.admin_get_employee_stats() TO service_role;
 GRANT EXECUTE ON FUNCTION public.admin_get_employees(p_search text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_get_employees(p_search text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.admin_get_employees(p_search text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.admin_get_estate_blocks() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_get_estate_blocks() TO postgres;
 GRANT EXECUTE ON FUNCTION public.admin_get_estate_blocks() TO service_role;
 GRANT EXECUTE ON FUNCTION public.admin_get_exit_interviews() TO authenticated;
@@ -18832,6 +18884,8 @@ GRANT EXECUTE ON FUNCTION public.check_rate_limit(p_identifier text, p_action te
 GRANT EXECUTE ON FUNCTION public.check_rate_limit(p_identifier text, p_action text, p_max_count integer, p_window_minutes integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.check_rate_limit(p_identifier text, p_endpoint text, p_max_requests integer) TO postgres;
 GRANT EXECUTE ON FUNCTION public.check_rate_limit(p_identifier text, p_endpoint text, p_max_requests integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.check_registration_status(p_query text) TO anon;
+GRANT EXECUTE ON FUNCTION public.check_registration_status(p_query text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.check_registration_status(p_query text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.check_registration_status(p_query text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.checkin_asset(p_asset_id text, p_condition text) TO authenticated;
@@ -18873,6 +18927,7 @@ GRANT EXECUTE ON FUNCTION public.complete_onboarding_task(p_task_id integer) TO 
 GRANT EXECUTE ON FUNCTION public.complete_onboarding_task(p_task_id integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.create_exit_interview(p_nrp text, p_score integer, p_reason text, p_feedback text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.create_exit_interview(p_nrp text, p_score integer, p_reason text, p_feedback text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.create_facility_request(p_nrp text, p_type text, p_desc text, p_priority text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_facility_request(p_nrp text, p_type text, p_desc text, p_priority text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.create_facility_request(p_nrp text, p_type text, p_desc text, p_priority text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.create_forum_post(p_nrp text, p_title text, p_content text, p_category text) TO authenticated;
@@ -18964,6 +19019,7 @@ GRANT EXECUTE ON FUNCTION public.get_action_center() TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_active_sessions() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_active_sessions() TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_active_sessions() TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_active_surveys() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_active_surveys() TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_active_surveys() TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_active_system_announcements() TO postgres;
@@ -19134,6 +19190,7 @@ GRANT EXECUTE ON FUNCTION public.get_executive_brief() TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_executive_summary() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_executive_summary() TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_executive_summary() TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_exit_clearance(p_nrp text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_exit_clearance(p_nrp text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_exit_clearance(p_nrp text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_exit_interviews(p_nrp text) TO postgres;
@@ -19306,8 +19363,10 @@ GRANT EXECUTE ON FUNCTION public.get_onboarding_tasks(p_nrp text) TO service_rol
 GRANT EXECUTE ON FUNCTION public.get_organization_health() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_organization_health() TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_organization_health() TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_overtime_data(p_nrp text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_overtime_data(p_nrp text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_overtime_data(p_nrp text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_overtime_data(p_nrp text, p_from date, p_to date) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_overtime_data(p_nrp text, p_from date, p_to date) TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_overtime_data(p_nrp text, p_from date, p_to date) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_owner_email() TO postgres;
@@ -19459,6 +19518,7 @@ GRANT EXECUTE ON FUNCTION public.get_worker_career(p_nrp text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_worker_certifications(p_nrp text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_worker_certifications(p_nrp text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_worker_certifications(p_nrp text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_worker_engagement(p_nrp text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_worker_engagement(p_nrp text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_worker_engagement(p_nrp text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_worker_exit(p_nrp text) TO postgres;
@@ -19504,6 +19564,7 @@ GRANT EXECUTE ON FUNCTION public.get_worker_skills(p_nrp text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_worker_status(p_nrp text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_worker_status(p_nrp text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_worker_status(p_nrp text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_worker_tasks(p_nrp text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_worker_tasks(p_nrp text) TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_worker_tasks(p_nrp text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_workforce_health_score() TO postgres;

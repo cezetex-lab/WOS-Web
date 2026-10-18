@@ -3498,3 +3498,98 @@ Guard **dua putaran** (`p1audit-guards-r1.log`, `p1audit-guards-r2.log`), semua 
 | `verify:no-local-db-client` | `EXIT_nolocal=0` — `0 pelanggaran (28 file)` | `EXIT_nolocal=0` — `0 pelanggaran (28 file)` |
 
 `§0.21/§0.22/§0.23`: **tidak berlaku** — nol berkas `.ts`/`.tsx` diubah/ditambah. Tidak ada regen baseline (tidak ada perubahan schema/fungsi). JSON audit (`audit-46-noexec-2026-10-18.json`) dihasilkan ulang oleh `p1-posthardening-triage.cjs` dan bersifat gitignored.
+## [2026-10-18] Guard ACL + Migrasi 284 (Fix 9 Functions)
+
+**Mode:** eksekusi (guard → migrasi → docs). **Keputusan user:** Q1 grant bertarget + scope-by-NRP (bukan grant polos), Q2 jangan DROP 234 fungsi (`P3-F14-BZ`), Q3 guard ACL dibuat **sebelum** migrasi (§0.19).
+
+### Langkah 1 — guard ACL (RED proof)
+
+`scripts/verify-acl-dependencies.mjs` + `package.json` `verify:acl-dependencies` + step CI ber-`DATABASE_URL`. Aturan: `src/` → `authenticated`, `PRE_AUTH_RPCS` → `anon`+`authenticated`, `supabase/functions/` → `service_role`, policy RLS → `authenticated`; trigger & cron hanya INFO (dieksekusi mesin/pemilik job). Exit 2 bila `DATABASE_URL` absen / katalog kosong (tidak boleh hijau palsu).
+
+```
+=== PELANGGARAN: 10 ===
+  VIOLATION [src→authenticated] get_overtime_data — EXECUTE authenticated=false untuk semua 2 overload
+  VIOLATION [src→authenticated] admin_get_estate_blocks — ... 1 overload
+  VIOLATION [src→authenticated] get_worker_engagement — ... 1 overload
+  VIOLATION [src→authenticated] get_exit_clearance — ... 1 overload
+  VIOLATION [src→authenticated] get_worker_tasks — ... 1 overload
+  VIOLATION [src→authenticated] get_active_surveys — ... 1 overload
+  VIOLATION [src→authenticated] create_facility_request — ... 1 overload
+  VIOLATION [src→authenticated] check_registration_status — ... 1 overload
+  VIOLATION [pre-auth→anon] check_registration_status — EXECUTE anon=false
+  VIOLATION [pre-auth→authenticated] check_registration_status — EXECUTE authenticated=false
+RED_EXIT=1
+```
+(10 baris = 8 nama; `get_overtime_data` 2 overload + 2 aturan pra-login untuk fungsi yang sama.)
+
+### Langkah 2 — migrasi 284 (GREEN)
+
+`284_grant_and_scope_9_rpcs.sql`: `DITERAPKAN + terdaftar + checksum terverifikasi (924ms)` · checksum `a9d23b15…`.
+
+- Grant `authenticated` 8 nama (9 signature); **`anon` hanya `check_registration_status`**.
+- Scope-by-NRP (pola 276/281): `v_eff = CASE WHEN is_admin_or_owner() THEN NULLIF(TRIM(p_nrp),'') ELSE authz_current_nrp() END`; tanpa JWT & bukan admin → **RAISE 42501**.
+- `admin_get_estate_blocks` → gate `is_admin_or_owner()`.
+
+**Tiga bug tambahan ditemukan SAAT menyiapkan probe** (grant tanpa fix = GREEN palsu):
+
+1. `get_exit_clearance` merujuk `ec.step`/`ec.status`/`ec.completed_at`/`ec.notes` yang **tidak ada** di `hr_exit_clearance` (kolom live: `id,nrp,resign_date,last_work_date,clearance_status,created_at`) → **42703 untuk semua caller**. Diganti kolom nyata; key `status` dipertahankan (dipakai label generik DetailPageFactory).
+2. `get_overtime_data(p_nrp)` punya bug presedensi: `WHERE type ILIKE '%overtime%' OR type ILIKE '%lembur%' AND (p_nrp IS NULL OR ...)` = `A OR (B AND C)` → filter NRP hilang saat `p_nrp` NULL. Dikurung.
+3. `get_worker_engagement` membungkus seluruh body dengan `EXCEPTION WHEN OTHERS` sehingga RAISE 42501 baru **tertelan** menjadi `{ok:false,msg:'Terjadi kesalahan sistem'}`. Ditambah `IF SQLSTATE='42501' THEN RAISE; END IF;`.
+
+**GREEN 21/21 EXIT 0** (`m284-green.log`):
+
+```
+PASS worker minta NRP003 tapi hanya dapat miliknya (tasks)
+PASS admin boleh membaca NRP003
+PASS get_exit_clearance: tidak 42703 lagi / worker hanya barisnya / key nyata
+PASS get_overtime_data 1-arg & 3-arg: worker hanya NRP002
+PASS 1-arg admin tanpa p_nrp = semua (precedence bug hilang)
+PASS create_facility_request: nrp tersimpan = pemanggil (NRP002), bukan NRP003
+PASS get_active_surveys worker ok:true + data
+PASS anon check_registration_status found=true APPROVED
+PASS admin_get_estate_blocks: worker 42501 / admin ok:true
+PASS tanpa JWT 42501 (tasks, exit_clearance, overtime, engagement)
+PASS ACL: authenticated=true semua; anon hanya check_registration_status
+=== RINGKASAN: 21 PASS / 0 FAIL ===
+```
+
+Guard ACL pasca-284: **0 pelanggaran** (exit 0).
+
+**Rollback** (`m284-rollback-proof.log`, ALL PASS): 9/9 prosrc md5 kembali byte-identik ke pre-image + ACL `authenticated`/`anon` kembali `false`; re-apply 284 idempoten; state pasca ROLLBACK tidak berubah; oid preserved (298118/298217/298235/298274/298345/298418/298419/298478/298496).
+
+### Dampak dokumentasi yang ditangkap guard
+
+Grant `anon` menaikkan **anon/PUBLIC grants 130 → 131**. Guard `verify:artifacts` + `tests/unit/doc-claims-vs-live.test.ts` **MERAH** pada run pertama (`DRIFT anon grants dok=130 live=131`) — bukan bug 284, memang dokumen tertinggal. Diperbaiki di ARCHITECTURE §7.4 (131 + alasan), CONSTANTS-INVENTORY, NUMERIC-CLAIMS-INVENTORY.
+
+### Docs
+
+- §5.8: **P1-POST-HARDENING-AUDIT → ✅ CLOSED** (Tahap 1–3: guard + audit 287 + fix 9); **P3-F14-BZ** ditambahkan untuk 234 dead code (deferred by decision, dilarang DROP massal).
+- Registry **209** = jumlah file repo, `max(version)=284`, `Functions` tetap 657; baseline diregenerasi (`cap migrasi: 209`).
+
+### Dampak lintas-page: worker → admin → dashboard → owner
+
+- **Worker**: halaman Survei (`get_active_surveys`), Tasks (`get_worker_tasks`), Exit/Clearance (`get_exit_clearance`), Lembur (`get_overtime_data`), Facility Request (`create_facility_request`) kini berfungsi; semuanya **di-scope ke NRP pemanggil** (uji: worker minta NRP003 tetap dapat data NRP002). `create_facility_request` tidak bisa lagi menulis atas nama orang lain.
+- **Admin**: `admin_get_estate_blocks` kini bergate (worker 42501, admin ok); `get_overtime_data()` tanpa argumen mengembalikan semua baris (bug presedensi hilang) — halaman admin DetailPageFactory tidak berubah bentuk data.
+- **Dashboard**: tidak memakai RPC ini; tidak terdampak.
+- **Owner**: bypass `is_admin_or_owner()` tetap (gate estate blocks & scope). Tidak ada berkas `src/` diubah → tidak perlu deploy frontend.
+### Blok akhir — bukti guard (8 guard, dua putaran)
+
+Regen baseline: `BASELINE_EXIT=0`, `cap migrasi : 209`, `tabel 210 | fungsi 539 | view 1 | sequence 95 | cron 5`.
+
+**Run pertama round 1 MERAH** (bukan diabaikan): `verify:test-logged` 1 gagal (`doc-claims-vs-live`), `verify:artifacts` `DRIFT anon grants dok=130 live=131`, `verify:test-count` 1 drift, `verify:numeric` 2 drift. Akar tunggal: grant `anon` di 284 menaikkan anon grants 130 → 131 sementara dokumen masih 130. Dokumen diperbaiki (ARCHITECTURE §7.4 + CONSTANTS + NUMERIC-CLAIMS) lalu kedua putaran dijalankan ulang dari awal.
+
+| Guard | Putaran 1 | Putaran 2 |
+|---|---|---|
+| `check:types` | — (tidak ada `.ts`/`.tsx` diubah) | `EXIT_types=0` |
+| `verify:test-logged` | `EXIT_logged=0` — `Test Files 32 passed (32)` | `EXIT_logged=0` — `Test Files 32 passed (32)` |
+| `verify:test-freshness` | `EXIT_fresh=0` — `0 stale, 0 warning` | `EXIT_fresh=0` — `0 stale, 0 warning` |
+| `verify:artifacts` | `EXIT_artifacts=0` — `0 drift, 1 warning` (WARN baseline informasional) | `EXIT_artifacts=0` — `0 drift, 1 warning` |
+| `verify:test-count` | `EXIT_testcount=0` — `0 drift, 0 warning` | `EXIT_testcount=0` — `0 drift, 0 warning` |
+| `verify:numeric` | `EXIT_numeric=0` — `0 drift, 6 warning, 44 klaim` | `EXIT_numeric=0` — `0 drift, 6 warning, 44 klaim` |
+| **`verify:acl-dependencies` (BARU)** | `EXIT_acl=0` — `0 pelanggaran` | `EXIT_acl=0` — `0 pelanggaran` |
+| `verify:encoding` | `EXIT_encoding=0` — `0 file non-UTF8 · 583 file` | `EXIT_encoding=0` — `0 file non-UTF8 · 583 file` |
+| `verify:no-local-db-client` | `EXIT_nolocal=0` — `0 pelanggaran (28 file)` | `EXIT_nolocal=0` — `0 pelanggaran (28 file)` |
+
+RED proof guard dibekukan: `.agents/logs/m284-acl-red.log` (`RED_EXIT=1`, 10 pelanggaran) dijalankan **sebelum** migrasi 284; GREEN 0 pelanggaran sesudahnya.
+
+`§0.21` eslint: tidak berlaku (hanya `.mjs` baru — di luar scope config, sama seperti guard `.mjs` lain; tercatat di P21). `§0.22/§0.23`: tidak berlaku (tidak ada `.ts`/`.tsx` ditambah/dihapus).

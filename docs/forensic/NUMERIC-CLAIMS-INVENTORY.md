@@ -46,7 +46,7 @@
 | 8 | max(version) | ARCHITECTURE §7.5 (via `verify:artifacts`) | 270 | `schema_migrations MAX(version)` | `verify:artifacts` | (a); duplikat FORENSIC-INDEX:68-69 (max 254) [snapshot:7ada2d0] -> (e) |
 | 9 | RLS policies | ARCHITECTURE.md:134 | 225 | `pg_policies` | keduanya | (a) |
 | 10 | Tabel belum FORCE | ARCHITECTURE.md:134 | 10 | `pg_class.reloverowsec` | keduanya | (a) |
-| 11 | anon/PUBLIC grants | ARCHITECTURE.md:136 | 130 | `pg_proc.proacl` | keduanya | (a) |
+| 11 | anon/PUBLIC grants | ARCHITECTURE.md:136 | 131 | `pg_proc.proacl` | keduanya | (a) |
 | 12 | pg_cron jobs | ARCHITECTURE.md:137 | 5 | `cron.job` | keduanya | (a) |
 | 13 | SECDEF search_path violations | ARCHITECTURE.md:135 | 0 | `pg_proc.proconfig` | `doc-claims` | (a); duplikat FuturePlans.md:42 TANPA guard -> (b) |
 | 14 | Audit chain rows | ARCHITECTURE.md:138 | 526 (counter bertumbuh) | `count(*) audit_log` | `doc-claims` mode `>=` | (a); FuturePlans.md:45 "44 rows" -> (e) |

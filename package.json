@@ -35,7 +35,8 @@
     "verify:encoding": "node scripts/verify-text-encoding.mjs",
     "verify:test-freshness": "node scripts/verify-test-freshness.mjs",
     "verify:test-logged": "node scripts/run-vitest-with-log.mjs",
-    "verify:no-local-db-client": "node scripts/verify-no-local-db-client.mjs"
+    "verify:no-local-db-client": "node scripts/verify-no-local-db-client.mjs",
+    "verify:acl-dependencies": "node scripts/verify-acl-dependencies.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
