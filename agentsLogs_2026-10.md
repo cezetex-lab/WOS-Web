@@ -3398,3 +3398,103 @@ WARN yang tersisa = kategori informasional yang memang diizinkan guard: artifact
 
 `§0.21` (eslint file-spesifik): **tidak berlaku** — tidak ada berkas `.ts`/`.tsx` diubah.
 `§0.22/§0.23` (ts-total / src breakdown): **tidak berlaku** — tidak ada berkas `.ts`/`.tsx` ditambah/dihapus; migration/baseline ber-ekstensi `.sql`.
+## [2026-10-18] Audit P1-POST-HARDENING (46 Fungsi Tanpa EXECUTE)
+
+**Mode:** audit-only · **Tidak ada perubahan DB/kode.** Artefak: `.agents/logs/audit-46-noexec-2026-10-18.json` (gitignored) + `p1-posthardening-{audit,triage,refs,runtime}.log`.
+
+### Angka yang berubah: 46 → 287
+
+```
+TOTAL tanpa EXECUTE authenticated: 287
+  di antaranya anon BOLEH EXECUTE: 0 []
+  service_role boleh: 287 / 287
+  DEFAULT ACL (belum pernah di-revoke eksplisit): 0
+  SECURITY DEFINER: 277
+```
+
+Sumber angka 46 (2026-10-03) **bukan** jumlah total fungsi tanpa grant, melainkan subset yang **dirujuk policy RLS**. Hari ini subset itu = **0**:
+
+```
+TOTAL tanpa EXECUTE authenticated : 287
+DIRUJUK policy RLS               : 0
+DIRUJUK trigger                  : 2
+DIRUJUK cron                     : 3
+DIRUJUK view/attrdef             : 0
+DIPANGGIL fungsi DB lain         : 22
+TANPA RUJUKAN APA PUN            : 260
+```
+
+→ kelas bug "policy RLS tertulis tapi 42501 untuk semua user" (kasus `is_admin_or_owner` yang ditutup 263) **sudah tuntas**; sisa 287 adalah kelas lain (fungsi tanpa konsumen / internal).
+
+### Triage konsumen (287)
+
+| Kategori | Jumlah | Dasar |
+|---|---|---|
+| **A — NEEDS-GRANT** | **9** (8 nama; `get_overtime_data` 2 overload) | nama fungsi dipakai di berkas `src/` yang memanggil RPC |
+| B — INTENTIONAL-INTERNAL | 44 | 6 trigger/event-trigger, 11 dipakai `supabase/functions/` (service_role), 3 cron, 22 dipanggil fungsi DB lain, 2 helper prefix `_` |
+| C — DEAD-CODE | 234 | 0 konsumen di `src/`, `supabase/functions/`, `cron.job`, view/attrdef, maupun body fungsi lain |
+
+**A (9):**
+
+| Fungsi | Konsumen |
+|---|---|
+| `check_registration_status(p_query text)` | `src/pages/Home.tsx:926` — **dipanggil sebelum sesi → butuh `anon`** |
+| `create_facility_request(p_nrp,p_type,p_desc,p_priority)` | `src/features/industry/estate/FacilityRequest.tsx:50` |
+| `get_active_surveys()` | `src/features/core/engagement/SurveyPage.tsx:67` (dipilih dinamis via `isAdminRole`) |
+| `get_overtime_data(p_nrp text)` **dan** `(p_nrp, p_from, p_to)` | `src/components/shared/DetailPageFactory.tsx:46` |
+| `get_worker_tasks(p_nrp text)` | `DetailPageFactory.tsx:86` |
+| `get_worker_engagement(p_nrp text)` | `DetailPageFactory.tsx:59` |
+| `get_exit_clearance(p_nrp text)` | `DetailPageFactory.tsx:62,64` |
+| `admin_get_estate_blocks()` | `DetailPageFactory.tsx:57` (ada `fallbackTable` → error tertutupi) |
+
+**Bukti runtime RED** (`p1-posthardening-runtime.log`, tx ROLLBACK, identity nyata):
+
+```
+=== authenticated (NRP002) ===
+DENIED 42501  admin_get_estate_blocks()
+DENIED 42501  check_registration_status(p_query text)
+DENIED 42501  create_facility_request(p_nrp text, ...)
+DENIED 42501  get_active_surveys()
+DENIED 42501  get_exit_clearance(p_nrp text)
+DENIED 42501  get_overtime_data(p_nrp text)
+DENIED 42501  get_overtime_data(p_nrp text, p_from date, p_to date)
+DENIED 42501  get_worker_engagement(p_nrp text)
+DENIED 42501  get_worker_tasks(p_nrp text)
+=== authenticated (NRP100, admin) ===  (9/9 juga DENIED 42501)
+=== anon === {"ok":false,"code":"42501","msg":"permission denied for function check_registration_status"}
+RINGKASAN: 9/9 kategori A DENIED 42501 untuk authenticated
+```
+
+Artinya yang benar-benar rusak hari ini (bukan teori): **halaman survei worker** (`get_active_surveys`), **Form Facility Request** (`create_facility_request`), **halaman detail lembur/tugas/engagement/exit** (`DetailPageFactory` — sebagian tertutupi `fallbackTable`), dan **cek status registrasi di halaman login** (butuh `anon`).
+
+### STOP — kenapa tidak langsung dibuat migrasi GRANT
+
+Dua kondisi STOP brief terpenuhi:
+
+1. **NEEDS-GRANT = 9 > 5** → membuat `GRANT EXECUTE` untuk 9 fungsi menyentuh kontrak authz 4 page (worker/admin/dashboard/owner) dan harus diputuskan user lebih dulu. Yang perlu diputuskan:
+   - `check_registration_status` → `anon` (pra-login) atau `authenticated` saja?
+   - `get_worker_*` / `get_overtime_data` → grant ke `authenticated` (semua user login) atau dibatasi gate in-body per-NRP (pola 276) mengingat parameternya `p_nrp` bebas?
+   - `admin_get_estate_blocks` → grant atau hapus konsumen `DetailPageFactory`?
+2. **`src/lib/route-permissions.ts` TIDAK ADA** (`ls` → `No such file or directory`) — peta route→permission dari sesi lalu tidak pernah dibuat, jadi pencocokan konsumen memakai scan literal `src/` + `supabase/functions/` + `cron.job` + `pg_proc.prosrc` (bukan permission halaman).
+
+**C (234) juga belum boleh di-DROP** — butuh keputusan user (banyak yang berpotensi dipakai edge/cron masa depan atau fitur yang belum dirilis). Daftar lengkap ada di `audit-46-noexec-2026-10-18.json`.
+
+### Dampak lintas-page: worker → admin → dashboard → owner — **TIDAK BERUBAH (audit-only)**
+
+Tidak ada berkas `src/`, migrasi, atau ACL yang diubah; DB read-only (semua probe di transaksi `ROLLBACK`). Perubahan yang tercatat hanya dokumentasi (`AGENTS.md` §5.8 + entri log ini).
+### Blok akhir — bukti guard (audit-only, tanpa perubahan DB/kode)
+
+Guard **dua putaran** (`p1audit-guards-r1.log`, `p1audit-guards-r2.log`), semua exit 0:
+
+| Guard | Putaran 1 | Putaran 2 |
+|---|---|---|
+| `check:types` | — (tidak ada `.ts`/`.tsx` diubah) | `EXIT_types=0` |
+| `verify:test-logged` | `EXIT_logged=0` — `Test Files 32 passed (32)` | `EXIT_logged=0` — `Test Files 32 passed (32)` |
+| `verify:test-freshness` | `EXIT_fresh=0` — `0 stale, 0 warning` | `EXIT_fresh=0` — `0 stale, 0 warning` |
+| `verify:artifacts` | `EXIT_artifacts=0` — `0 drift, 1 warning` (WARN baseline informasional) | `EXIT_artifacts=0` — `0 drift, 1 warning` |
+| `verify:test-count` | `EXIT_testcount=0` — `0 drift, 0 warning` | `EXIT_testcount=0` — `0 drift, 0 warning` |
+| `verify:numeric` | `EXIT_numeric=0` — `0 drift, 6 warning, 44 klaim` | `EXIT_numeric=0` — `0 drift, 6 warning, 44 klaim` |
+| `verify:encoding` | `EXIT_encoding=0` — `0 file non-UTF8 · 583 file` | `EXIT_encoding=0` — `0 file non-UTF8 · 583 file` |
+| `verify:no-local-db-client` | `EXIT_nolocal=0` — `0 pelanggaran (28 file)` | `EXIT_nolocal=0` — `0 pelanggaran (28 file)` |
+
+`§0.21/§0.22/§0.23`: **tidak berlaku** — nol berkas `.ts`/`.tsx` diubah/ditambah. Tidak ada regen baseline (tidak ada perubahan schema/fungsi). JSON audit (`audit-46-noexec-2026-10-18.json`) dihasilkan ulang oleh `p1-posthardening-triage.cjs` dan bersifat gitignored.
